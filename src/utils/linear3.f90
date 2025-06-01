@@ -55,7 +55,6 @@
     ! #######################################################################
     subroutine TRIDSS(nmax, len, a, b, c, f)
         use TLab_Constants, only: wp, wi
-        use TLab_OpenMP
 
         implicit none
 
@@ -130,7 +129,6 @@
     ! #######################################################################
     subroutine TRIDSS_ADD(nmax, len, a, b, c, f, g, h, d)
         use TLab_Constants, only: wp, wi
-        use TLab_OpenMP
 
         implicit none
 
@@ -271,7 +269,6 @@
     ! #######################################################################
     subroutine TRIDPSS(nmax, len, a, b, c, d, e, f, wrk)
         use TLab_Constants, only: wp, wi
-        use TLab_OpenMP
 
         implicit none
 
@@ -373,7 +370,6 @@
     ! #######################################################################
     subroutine TRIDPSS_ADD(nmax, len, a, b, c, d, e, f, g, h, wrk)
         use TLab_Constants, only: wp, wi
-        use TLab_OpenMP
 
         implicit none
 

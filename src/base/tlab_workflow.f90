@@ -32,8 +32,6 @@ contains
     ! ###################################################################
     ! ###################################################################
     subroutine TLab_Start()
-        use TLab_OpenMP
-
         character*10 clock(2)
 
         !#####################################################################
@@ -67,19 +65,6 @@ contains
 
         line = 'Git-branch '//GITBRANCH
         call TLab_Write_ASCII(lfile, line)
-
-        !#####################################################################
-        ! Inititalize OpenMP mode
-#ifdef USE_OPENMP
-        TLab_OMP_numThreads = omp_get_max_threads()
-        write (line, *) TLab_OMP_numThreads
-        line = 'Number of OMP threads '//trim(adjustl(line))
-        call TLab_Write_ASCII(lfile, line)
-
-#else
-        TLab_OMP_numThreads = 1
-
-#endif
 
         return
     end subroutine TLab_Start

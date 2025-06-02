@@ -84,7 +84,7 @@ add_subdirectory(base)
 
 # produce libraries
 add_subdirectory(utils)
-add_subdirectory(fdm)
+add_subdirectory(finitedifferences)
 add_subdirectory(thermodynamics)
 # add_subdirectory(ibm)
 # add_subdirectory(filters)

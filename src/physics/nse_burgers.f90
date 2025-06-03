@@ -129,16 +129,6 @@ contains
         end do
 
         ! ###################################################################
-        ! Initialize dealiasing
-        ! do ig = 1, 3
-        !     if (Dealiasing(ig)%type /= DNS_FILTER_NONE) call OPR_FILTER_INITIALIZE(g(ig), Dealiasing(ig))
-        ! end do
-
-        ! if (any(Dealiasing(:)%type /= DNS_FILTER_NONE)) then
-        !     call TLab_Allocate_Real(__FILE__, wrkdea, [isize_field, 2], 'wrk-dealiasing')
-        ! end if
-
-        ! ###################################################################
         ! Initialize anelastic density correction
         if (nse_eqns == DNS_EQNS_ANELASTIC) then
             call TLab_Write_ASCII(lfile, 'Initialize anelastic density correction in burgers operator.')
@@ -159,7 +149,7 @@ contains
 #endif
             allocate (rho_anelastic(1)%values(nlines))
             do j = 1, nlines
-                ip = mod(offset + j - 1, y%size) + 1
+                ip = (offset + j - 1)/jmax + 1
                 rho_anelastic(1)%values(j) = ribackground(ip)
             end do
 
@@ -192,6 +182,16 @@ contains
             end do
 
         end if
+
+        ! ###################################################################
+        ! Initialize dealiasing
+        ! do ig = 1, 3
+        !     if (Dealiasing(ig)%type /= DNS_FILTER_NONE) call OPR_FILTER_INITIALIZE(g(ig), Dealiasing(ig))
+        ! end do
+
+        ! if (any(Dealiasing(:)%type /= DNS_FILTER_NONE)) then
+        !     call TLab_Allocate_Real(__FILE__, wrkdea, [isize_field, 2], 'wrk-dealiasing')
+        ! end if
 
         ! ###################################################################
         ! Setting procedure pointers
@@ -453,29 +453,12 @@ contains
 
         ! -------------------------------------------------------------------
         integer(wi) ij
-        ! real(wp), pointer :: uf(:, :) !, dsf(:, :)
 
         ! ###################################################################
         ! dsdx: 1st derivative; result: 2nd derivative including diffusivity
         call FDM_Der1_Solve(nlines, BCS_NONE, g%der1, g%der1%lu, s, dsdx, wrk2d)
         call FDM_Der2_Solve(nlines, g%der2, lu2d, s, result, dsdx, wrk2d)
 
-        ! ###################################################################
-        ! Operation; diffusivity included in 2.-order derivativelu2_p
-        ! ###################################################################
-        ! if (dealiasing%type /= DNS_FILTER_NONE) then
-        !     uf(1:nlines, 1:g%size) => wrkdea(1:nlines*g%size, 1)
-        !     dsf(1:nlines, 1:g%size) => wrkdea(1:nlines*g%size, 2)
-        !     call OPR_FILTER_1D(nlines, dealiasing, u, uf)
-        !     call OPR_FILTER_1D(nlines, dealiasing, dsdx, dsf)
-
-        !     result(:, :) = result(:, :) - uf(:, :)*dsf(:, :)
-
-        !     nullify (uf, dsf)
-
-        ! else
-        ! result(:, :) = result(:, :) - u(:, :)*dsdx(:, :)
-        ! end if
         if (rhoi%active) then
             do ij = 1, g%size
                 result(:, ij) = result(:, ij)*rhoi%values(:) - u(:, ij)*dsdx(:, ij)

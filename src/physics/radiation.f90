@@ -75,7 +75,7 @@ contains
     !########################################################################
     !########################################################################
     subroutine Radiation_Initialize(inifile)
-        use TLab_Memory, only: imax, jmax, isize_field
+        use TLab_Memory, only: imax, jmax, kmax
         character(len=*), intent(in) :: inifile
 
         ! -------------------------------------------------------------------
@@ -189,8 +189,8 @@ contains
         select case (infraredProps%type)
         case (TYPE_IR_BAND)
             inb_tmp_rad = 1                                         ! Additional memory space
-            call TLab_Allocate_Real(__FILE__, tmp_rad, [isize_field, inb_tmp_rad], 'tmp-rad')
-            p_source(1:isize_field) => tmp_rad(1:isize_field, 1)
+            call TLab_Allocate_Real(__FILE__, tmp_rad, [imax*jmax*kmax, inb_tmp_rad], 'tmp-rad')
+            p_source(1:imax*jmax*kmax) => tmp_rad(1:imax*jmax*kmax, 1)
         end select
 
         return

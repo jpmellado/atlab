@@ -14,15 +14,30 @@ if ( ${BUILD_TYPE} STREQUAL "PARALLEL" ) # compiler for parallel build
   add_definitions(-DUSE_MPI)
   set(CMAKE_BUILD_TYPE RELEASE)
 
+elseif ( ${BUILD_TYPE} STREQUAL "GPU" ) # compiler for GPU build
+  set(ENV{FC} nvfortran)
+  set(CMAKE_Fortran_COMPILER nvfortran)
+  set(USER_Fortran_FLAGS          " -cpp -g -O2 -Mnofma " ) #DEBUG
+  #set(USER_Fortran_FLAGS          " -Mpreprocess -Minfo=accel -O0 -acc -Kieee -g " ) #DEBUG
+  #set(USER_Fortran_FLAGS          " -Mpreprocess -Minfo=accel -O3 -acc -Kieee " ) #BASIC - Note: -Mcpp does not work... and dont use -mp (OpenMP)
+  #set(USER_Fortran_FLAGS          " -Mpreprocess -Mnostack_arrays -Mvect=simd -tp=haswell -Mprefetch -O3 -Kieee " ) #-Munroll=?? -Mipa=fast,inline " ) #TEST-OPT
+
+  add_definitions(-DNO_ASSUMED_RANKS)
+  ##add_definitions(-D_DEBUG)
+  set(CMAKE_BUILD_TYPE RELEASE)
+
 else() # compiler for serial build
   set(ENV{FC} ifort)
-  set(CMAKE_Fortran_COMPILER gfortran)
+  set(CMAKE_Fortran_COMPILER ifort)
 
   if    ( ${BUILD_TYPE} STREQUAL "BIG" )
-   set(USER_Fortran_FLAGS_RELEASE  " -march=skylake-avx512 -axcommon-avx512,SSE4.2 -qopt-prefetch -O3 -ipo" )
+   set(USER_Fortran_FLAGS_RELEASE  " -march=core-avx2 -mtune=core-avx2 -qopt-prefetch -O3 -ipo" )
+   #set(USER_Fortran_FLAGS_RELEASE  " -march=skylake-avx512 -axcommon-avx512,SSE4.2 -qopt-prefetch -O3 -ipo" )
    set(CMAKE_BUILD_TYPE RELEASE)
 
   elseif( ${BUILD_TYPE} STREQUAL "LITTLE" )
+   set(USER_Fortran_FLAGS_RELEASE  " -march=core-avx2 -mtune=core-avx2 -qopt-prefetch -O3 -ipo" )
+   set(CMAKE_BUILD_TYPE RELEASE)
 
   else()
     set(USER_Fortran_FLAGS_DEBUG    " -g -traceback -debug all ")
@@ -40,7 +55,12 @@ set(INCLUDE_DIRS ${FFTW_INCLUDE_DIR})
 set(LIBS ${FFTW_LIB})
 
 add_definitions(-DUSE_NETCDF)
-set(NC_INCLUDE_DIR     "/sw/spack-levante/netcdf-fortran-4.5.3-pvmcx6/include")
-set(NC_LIB             "-L/sw/spack-levante/netcdf-fortran-4.5.3-pvmcx6/lib -lnetcdff -Wl,-rpath,/sw/spack-levante/netcdf-fortran-4.5.3-pvmcx6/lib")
+if ( ${BUILD_TYPE} STREQUAL "GPU" ) # compiler for GPU build
+  set(NC_INCLUDE_DIR     "/sw/spack-levante/netcdf-fortran-4.6.1-m5p7yn/include")
+  set(NC_LIB             "-L/sw/spack-levante/netcdf-fortran-4.6.1-m5p7yn/lib -lnetcdff -Wl,-rpath,/sw/spack-levante/netcdf-fortran-4.6.1-m5p7yn/lib")
+else()
+  set(NC_INCLUDE_DIR     "/sw/spack-levante/netcdf-fortran-4.5.3-pvmcx6/include")
+  set(NC_LIB             "-L/sw/spack-levante/netcdf-fortran-4.5.3-pvmcx6/lib -lnetcdff -Wl,-rpath,/sw/spack-levante/netcdf-fortran-4.5.3-pvmcx6/lib")
+endif()
 set(INCLUDE_DIRS ${INCLUDE_DIRS} ${NC_INCLUDE_DIR})
 set(LIBS ${LIBS} ${NC_LIB})

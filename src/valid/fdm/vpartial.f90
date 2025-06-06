@@ -43,6 +43,7 @@ program VPARTIAL
 
     x%size = kmax
     x%scale = 1.0_wp
+    x%periodic = .true.
     allocate (x%nodes(kmax))
 
     isize_field = imax*jmax*kmax
@@ -74,21 +75,23 @@ program VPARTIAL
     read (*, *) test_type
 
 !  ###################################################################
-    if (g%periodic) then
+    if (x%periodic) then
         do i = 1, kmax
-            x%nodes(i) = real(i - 1, wp)/real(kmax, wp)*g%scale
+            x%nodes(i) = real(i - 1, wp)/real(kmax, wp)*x%scale
         end do
+        g%uniform = .true.
     else
-        ! do i = 1, kmax
-        !     x%nodes(i) = real(i - 1, wp)/real(kmax - 1, wp)*g%scale
-        ! end do
-        open (21, file='y.dat')
         do i = 1, kmax
-            read (21, *) x%nodes(i)
+            x%nodes(i) = real(i - 1, wp)/real(kmax - 1, wp)*x%scale
         end do
-        close (21)
+        ! open (21, file='y.dat')
+        ! do i = 1, kmax
+        !     read (21, *) x%nodes(i)
+        ! end do
+        ! close (21)
     end if
 
+    g%periodic = x%periodic
     g%der1%mode_fdm = FDM_COM6_JACOBIAN     ! default
     g%der2%mode_fdm = g%der1%mode_fdm
     call FDM_CreatePlan(x, g)
@@ -101,15 +104,17 @@ program VPARTIAL
     wk = 1.0_wp
 
     do i = 1, kmax
-        ! ! single-mode
-        ! u(:, i) = 1.0_wp + sin(2.0_wp*pi_wp/g%scale*wk*g%nodes(i)) ! + pi_wp/4.0_wp)
-        ! du1_a(:, i) = (2.0_wp*pi_wp/g%scale*wk) &
-        !               *cos(2.0_wp*pi_wp/g%scale*wk*g%nodes(i))! + pi_wp/4.0_wp)
+        ! single-mode
+        u(:, i) = 1.0_wp + sin(2.0_wp*pi_wp/g%scale*wk*g%nodes(i)) ! + pi_wp/4.0_wp)
+        du1_a(:, i) = (2.0_wp*pi_wp/g%scale*wk) &
+                      *cos(2.0_wp*pi_wp/g%scale*wk*g%nodes(i))! + pi_wp/4.0_wp)
+        du2_a(:, i) =-(2.0_wp*pi_wp/g%scale*wk)**2.0_wp &
+                      *sin(2.0_wp*pi_wp/g%scale*wk*g%nodes(i))! + pi_wp/4.0_wp)
         ! ! Gaussian
-        u(:, i) = exp(-(g%nodes(i) - x_0*g%scale)**2/(2.0_wp*(g%scale/wk)**2))
-        du1_a(:, i) = -(g%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*u(:, i)
-        du2_a(:, i) = -(g%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*du1_a(:, i) &
-                      - 1.0_wp/(g%scale/wk)**2*u(:, i)
+        ! u(:, i) = exp(-(g%nodes(i) - x_0*g%scale)**2/(2.0_wp*(g%scale/wk)**2))
+        ! du1_a(:, i) = -(g%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*u(:, i)
+        ! du2_a(:, i) = -(g%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*du1_a(:, i) &
+        !               - 1.0_wp/(g%scale/wk)**2*u(:, i)
         ! ! exponential
         ! u(:, i) = exp(-g%nodes(i)*wk)
         ! du1_a(:, i) = -wk*u(:, i)
@@ -232,7 +237,7 @@ program VPARTIAL
                 case (3)
                     call TRIDFS(nsize, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3))
                 case (5)
-                    call PENTADFS2(nsize, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3), g%der1%lu(nmin:nmax, 4), g%der1%lu(nmin:nmax, 5))
+    call PENTADFS2(nsize, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3), g%der1%lu(nmin:nmax, 4), g%der1%lu(nmin:nmax, 5))
                 end select
 
                 du1_n(:, 1) = u(:, 1)           ! boundary condition
@@ -245,7 +250,7 @@ program VPARTIAL
                     call MatMul_5d_antisym(g%der1%rhs(:, 1:5), u, du1_n, &
                                            ibc, rhs_b=rhsr_b(:, 1:), bcs_b=wrk2d(:, 1), rhs_t=rhsr_t(1:, :), bcs_t=wrk2d(:, 2))
                 case (7)
-                    call MatMul_7d_antisym(g%der1%rhs(:, 1:7), u, du1_n,&
+                    call MatMul_7d_antisym(g%der1%rhs(:, 1:7), u, du1_n, &
                                            ibc, rhs_b=rhsr_b(:, 1:), bcs_b=wrk2d(:, 1), rhs_t=rhsr_t(1:, :), bcs_t=wrk2d(:, 2))
                 end select
 
@@ -324,7 +329,7 @@ program VPARTIAL
                 case (3)
                     call TRIDFS(nsize, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3))
                 case (5)
-                    call PENTADFS2(nsize, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3), g%der1%lu(nmin:nmax, 4), g%der1%lu(nmin:nmax, 5))
+    call PENTADFS2(nsize, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3), g%der1%lu(nmin:nmax, 4), g%der1%lu(nmin:nmax, 5))
                 end select
 
                 select case (g%der1%nb_diag(2))

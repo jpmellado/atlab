@@ -516,6 +516,13 @@ program VISUALS
                 txc(1:isize_field, 1) = txc(1:isize_field, 1)/froude
                 call Write_Visuals(plot_file, txc(:, 1:1))
 
+                plot_file = 'GradientRi'//time_str(1:MaskSize)
+                call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, g(3), txc(:, 1), txc(:, 2))
+                call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, g(3), q(:, 1), txc(:, 3))
+                call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, g(3), q(:, 2), txc(:, 4))
+                txc(1:isize_field, 2) = abs(txc(1:isize_field, 2))/(txc(1:isize_field, 3)**2.0 + txc(1:isize_field, 4)**2.0 + small_wp)
+                call Write_Visuals(plot_file, txc(:, 2:2))
+
                 plot_file = 'Fwb'//time_str(1:MaskSize)     ! buoyancy flux along Oy
                 txc(1:isize_field, 2) = txc(1:isize_field, 1)*q(1:isize_field, 3)
                 call Write_Visuals(plot_file, txc(:, 2:2))
@@ -527,13 +534,6 @@ program VISUALS
                 plot_file = 'Cwb'//time_str(1:MaskSize)     ! Covariance between b and w
                 txc(1:isize_field, 2) = q(1:isize_field, 3); call FI_FLUCTUATION_INPLACE(imax, jmax, kmax, txc(:, 2))
                 txc(1:isize_field, 2) = txc(1:isize_field, 1)*txc(1:isize_field, 2)
-                call Write_Visuals(plot_file, txc(:, 2:2))
-
-                plot_file = 'GradientRi'//time_str(1:MaskSize)
-                call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, g(3), txc(:, 1), txc(:, 2))
-                call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, g(3), q(:, 1), txc(:, 3))
-                call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, g(3), q(:, 2), txc(:, 4))
-                txc(1:isize_field, 2) = abs(txc(1:isize_field, 2))/(txc(1:isize_field, 3)**2.0 + txc(1:isize_field, 4)**2.0 + small_wp)
                 call Write_Visuals(plot_file, txc(:, 2:2))
 
                 ! ###################################################################

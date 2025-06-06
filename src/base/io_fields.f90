@@ -542,8 +542,9 @@ contains
 
         ! Check
         if (nx /= nx_loc .or. ny /= ny_loc .or. nz /= nz_loc) then
-            call TLab_Write_ASCII(efile, 'IO_READ_HEADER. Grid size mismatch.')
-            call TLab_Stop(DNS_ERROR_DIMGRID)
+            call TLab_Write_ASCII(wfile, 'IO_READ_HEADER. Grid size mismatch.')
+            ! call TLab_Write_ASCII(efile, 'IO_READ_HEADER. Grid size mismatch.')
+            ! call TLab_Stop(DNS_ERROR_DIMGRID)
         end if
 
         if (nt /= nt_loc) then

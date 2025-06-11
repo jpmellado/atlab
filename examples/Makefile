@@ -19,7 +19,8 @@ PRJS=\
      Case61 \
      Case62 \
      Case63 \
-     Case64
+     Case64 \
+     Case65
 #     Case28 \
 
 FILES=avg* grid* flow* scal* tlab.log tlab.err tlab.war tlab.ini.bak dns.out part* traj* main.* field.* figure1.pdf

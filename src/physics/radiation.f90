@@ -17,55 +17,43 @@ module Radiation
     implicit none
     private
 
-    type, public :: radterm_dt
-        sequence
-        integer type
-        ! integer scalar(MAX_VARS)                ! fields defining this term
-        logical active(MAX_VARS), lpadding(3)   ! fields affected by this term
-        real(wp) parameters(MAX_PARS)
-        real(wp) auxiliar(MAX_PARS)
-        real(wp) vector(3)
-    end type radterm_dt
-
-    integer, parameter :: ncomps_max = 10                ! maximum number of radiatively active components
-    integer, parameter :: nbands_max = 10                ! maximum number of spectral bands
-    ! type infrared_dt
-    !     sequence
-    !     integer type
-    !     logical active(MAX_VARS), lpadding(3)               ! evolution equations affected by this term
-    !     integer ncomps                                      ! number of radiatively active components
-    !     integer nbands                                      ! number of spectral bands
-    !     real(wp) :: kappa(ncomps_max, nbands_max)           ! mass absorption coefficients for each radiatively active component
-    !     real(wp) beta(3, nbands_max)                        ! polynomial coefficients for band emission functions; assuming second-order polynomial
-    !     real(wp) bcs_t(3, nbands_max)                       ! downward fluxes at the top of the domain
-    !     real(wp) bcs_b(3, nbands_max)                       ! upward fluxes at the bottom of the domain
-    !     real(wp) :: epsilon_b                               ! surface emissivity at ymin
-    ! end type infrared_dt
-
-    type(radterm_dt), public, protected :: infraredProps               ! Radiation parameters
-    ! type(radterm_dt), public, protected :: visibleProps                ! Radiation parameters
-
     public :: Radiation_Initialize
     public :: Radiation_Infrared_Z
 
-    integer, parameter, public :: TYPE_RAD_NONE = 0
-    integer, parameter :: TYPE_IR_GRAY_LIQUID = 1
-    integer, parameter :: TYPE_IR_GRAY = 2
-    integer, parameter :: TYPE_IR_BAND = 3
-    integer, parameter :: TYPE_BULK1DLOCAL = 10         ! backwards compatibility, to be removed
-
-    real(wp), parameter :: sigma = 5.67037442e-8_wp     ! Stefan-Boltzmann constant, W /m^2 /K^4
-    real(wp) :: mu                                      ! mean direction parameter
+    ! -------------------------------------------------------------------
+    integer, parameter :: ncomps_max = 10               ! maximum number of radiatively active components
+    integer, parameter :: nbands_max = 10               ! maximum number of spectral bands
+    type :: infrared_dt
+        sequence
+        integer type
+        logical active(MAX_VARS), lpadding(3)           ! evolution equations affected by this term
+        integer ncomps                                  ! number of radiatively active components
+        integer nbands                                  ! number of spectral bands
+        real(wp) :: kappa(ncomps_max, nbands_max)       ! mass absorption coefficients for each radiatively active component
+        real(wp) beta(3, nbands_max)                    ! polynomial coefficients for band emission functions; assuming second-order polynomial
+        real(wp) bcs_t(nbands_max)                      ! boundary conditions at the top, typically downward fluxes
+        real(wp) bcs_b(nbands_max)                      ! boundary conditions at the bottom, upward fluxes or emissivity
+    end type infrared_dt
     ! to be moved into derived type
     real(wp) :: epsilon                                 ! surface emissivity at ymin
     integer :: ncomps                                   ! number of radiatively active components
     integer :: nbands                                   ! number of spectral bands
     real(wp) beta(3, nbands_max)                        ! polynomial coefficients for band emission functions; assuming second-order polynomial
     real(wp) kappa(ncomps_max, nbands_max)              ! mass absorption coefficients for each radiatively active component in each band
+
+    type(infrared_dt), public, protected :: infraredProps    ! Radiation parameters
+    ! type(visible_dt), public, protected :: visibleProps    ! Radiation parameters
+
+    integer, parameter, public :: TYPE_RAD_NONE = 0
+    integer, parameter :: TYPE_IR_GRAY_LIQUID = 1
+    integer, parameter :: TYPE_IR_GRAY = 2
+    integer, parameter :: TYPE_IR_BAND = 3
+
+    real(wp), parameter :: sigma = 5.67037442e-8_wp     ! Stefan-Boltzmann constant, W /m^2 /K^4
+    real(wp) :: mu                                      ! mean direction parameter
     !
     real(wp), allocatable, target :: bcs_ht(:)          ! flux boundary condition at the top of the domain
     real(wp), allocatable, target :: bcs_hb(:)          ! flux boundary condition at the bottom of the domain
-    ! real(wp), allocatable, target :: t_ht(:)            ! temperature at the top of the domain
     real(wp), allocatable, target :: tmp_rad(:, :)      ! 3D temporary arrays for radiation routine
 
     real(wp), pointer :: p_tau(:, :) => null()
@@ -95,10 +83,10 @@ contains
         call TLab_Write_ASCII(bakfile, '#')
         call TLab_Write_ASCII(bakfile, '#['//trim(adjustl(block))//']')
         call TLab_Write_ASCII(bakfile, '#Type=<value>')
-        call TLab_Write_ASCII(bakfile, '#Scalar=<value>')
         call TLab_Write_ASCII(bakfile, '#AbsorptionComponent#=<values>')
-        call TLab_Write_ASCII(bakfile, '#BoundaryConditions=<values>')
-        call TLab_Write_ASCII(bakfile, '#BetaCoefficient=<values>')
+        call TLab_Write_ASCII(bakfile, '#BoundaryConditionsKmax=<values>')
+        call TLab_Write_ASCII(bakfile, '#BoundaryConditionsKmin=<values>')
+        call TLab_Write_ASCII(bakfile, '#BetaCoefficient#=<values>')
 
         call ScanFile_Char(bakfile, inifile, block, 'Type', 'None', sRes)
         if (trim(adjustl(sRes)) == 'none') then; infraredProps%type = TYPE_RAD_NONE
@@ -112,12 +100,22 @@ contains
 
         infraredProps%active = .false.
         if (infraredProps%type /= TYPE_RAD_NONE) then
-            infraredProps%auxiliar(:) = 0.0_wp
-            call ScanFile_Char(bakfile, inifile, block, 'BoundaryConditions', '1.0, 1.0', sRes)
+            infraredProps%bcs_t(:) = 0.0_wp
+            call ScanFile_Char(bakfile, inifile, block, 'BoundaryConditionsKmax', '1.0', sRes)
             idummy = MAX_PARS
-            call LIST_REAL(sRes, idummy, infraredProps%auxiliar)
-            epsilon = infraredProps%auxiliar(idummy)        ! last value is surface emissivity at ymin
-            nbands = idummy - 1
+            call LIST_REAL(sRes, idummy, infraredProps%bcs_t)
+            nbands = idummy
+
+            infraredProps%bcs_b(:) = 0.0_wp
+            call ScanFile_Char(bakfile, inifile, block, 'BoundaryConditionsKmin', '1.0', sRes)
+            idummy = MAX_PARS
+            call LIST_REAL(sRes, idummy, infraredProps%bcs_b)
+            if (idummy == 1) then
+                epsilon = infraredProps%bcs_b(idummy)
+            else if (idummy /= nbands) then
+                call TLab_Write_ASCII(efile, __FILE__//'. Error in '//trim(adjustl(block))//'.AbsorptionComponent.')
+                call TLab_Stop(DNS_ERROR_OPTION)
+            end if
 
             kappa(:, :) = 0.0_wp
             do ncomps = 1, ncomps_max
@@ -146,7 +144,7 @@ contains
                 if (trim(adjustl(sRes)) /= 'void') then
                     idummy = nbands_max
                     call LIST_REAL(sRes, idummy, dummy)
-                    if (idummy /= nbands - 1) then
+                    if (idummy /= nbands - 1) then                      ! The coefficients need to add to 1, that is why we only read nbands -1
                         call TLab_Write_ASCII(efile, __FILE__//'. Error in '//trim(adjustl(block))//'.BetaCoefficient.')
                         call TLab_Stop(DNS_ERROR_OPTION)
                     end if
@@ -199,7 +197,7 @@ contains
     !########################################################################
     !########################################################################
     subroutine Radiation_Infrared_Z(localProps, nx, ny, nz, fdmi, s, source, b, tmp1, tmp2, flux_down, flux_up)
-        type(radterm_dt), intent(in) :: localProps
+        type(infrared_dt), intent(in) :: localProps
         integer(wi), intent(in) :: nx, ny, nz
         type(fdm_integral_dt), intent(in) :: fdmi(2)
         real(wp), intent(in) :: s(nx*ny*nz, *)
@@ -224,8 +222,8 @@ contains
             end if
 
             ! solve radiative transfer equation
-            bcs_ht = localProps%auxiliar(1)                         ! downward flux at domain top
-            bcs_hb = localProps%auxiliar(2)                         ! upward flux at domain bottom
+            bcs_ht = localProps%bcs_t(1)                         ! downward flux at domain top
+            bcs_hb = localProps%bcs_b(1)                         ! upward flux at domain bottom
             if (present(flux_up)) then
                 call IR_RTE1_OnlyLiquid(localProps, nx*ny, nz, fdmi, source, flux_down, flux_up)
             else
@@ -246,7 +244,7 @@ contains
             end if
 
             ! solve radiative transfer equation
-            bcs_ht = localProps%auxiliar(1)                     ! downward flux at domain top
+            bcs_ht = localProps%bcs_t(1)                     ! downward flux at domain top
             if (present(flux_up)) then
                 call IR_RTE1_Global(localProps, nx*ny, nz, fdmi, source, b, flux_down, flux_up)
             else
@@ -278,7 +276,7 @@ contains
                 end if
 
                 ! solve radiative transfer equation
-                bcs_ht(1:nx*ny) = localProps%auxiliar(iband)! downward flux at domain top
+                bcs_ht(1:nx*ny) = localProps%bcs_t(iband)! downward flux at domain top
                 call IR_RTE1_Global(localProps, nx*ny, nz, fdmi, p_source, b, tmp1, tmp2)
                 ! call IR_RTE1_Local()
                 ! call IR_RTE1_Incremental()
@@ -307,7 +305,7 @@ contains
     ! Solve radiative transfer equation along 1 direction
     !########################################################################
     subroutine IR_RTE1_OnlyLiquid(localProps, nlines, ny, fdmi, a_source, flux_down, flux_up)
-        type(radterm_dt), intent(in) :: localProps
+        type(infrared_dt), intent(in) :: localProps
         integer(wi), intent(in) :: nlines, ny
         type(fdm_integral_dt), intent(in) :: fdmi(2)
         real(wp), intent(inout) :: a_source(nlines, ny)      ! input as bulk absorption coefficent, output as source
@@ -328,7 +326,7 @@ contains
         !  p_tau = dexp(p_tau)         seg-fault; need ulimit -u unlimited
 
         ! Calculate heating rate
-        if (abs(localProps%auxiliar(2)) > 0.0_wp) then
+        if (abs(localProps%bcs_b(1)) > 0.0_wp) then
             do j = ny, 1, -1
                 a_source(:, j) = a_source(:, j)*(p_tau(:, j)*bcs_ht(1:nlines) &                     ! downward flux
                                                  + p_tau(:, 1)/p_tau(:, j)*bcs_hb(1:nlines))        ! upward flux
@@ -354,7 +352,7 @@ contains
     !########################################################################
     !########################################################################
     subroutine IR_RTE1_Incremental(localProps, nlines, ny, fdmi, a_source, b, flux_down, flux_up)
-        type(radterm_dt), intent(in) :: localProps
+        type(infrared_dt), intent(in) :: localProps
         integer(wi), intent(in) :: nlines, ny
         type(fdm_integral_dt), intent(in) :: fdmi(2)
         real(wp), intent(inout) :: a_source(nlines, ny)         ! input as bulk absorption coefficent, output as source
@@ -451,7 +449,7 @@ contains
     !########################################################################
     !########################################################################
     subroutine IR_RTE1_Local(localProps, nlines, ny, fdmi, a_source, b, flux_down, tmp2, flux_up)
-        type(radterm_dt), intent(in) :: localProps
+        type(infrared_dt), intent(in) :: localProps
         integer(wi), intent(in) :: nlines, ny
         type(fdm_integral_dt), intent(in) :: fdmi(2)
         real(wp), intent(inout) :: a_source(nlines, ny)         ! input as bulk absorption coefficent, output as source
@@ -565,7 +563,7 @@ contains
     !########################################################################
     !########################################################################
     subroutine IR_RTE1_Global(localProps, nlines, ny, fdmi, a_source, b, flux_down, flux_up)
-        type(radterm_dt), intent(in) :: localProps
+        type(infrared_dt), intent(in) :: localProps
         integer(wi), intent(in) :: nlines, ny
         type(fdm_integral_dt), intent(in) :: fdmi(2)
         real(wp), intent(inout) :: a_source(nlines, ny)     ! input as bulk absorption coefficent, output as source

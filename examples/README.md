@@ -74,7 +74,8 @@ This is a summary of the workflow. The details of each tool and the correspondin
 * Case61. Airwater equilibrium anelastic formulation of stratocumulus-topped boundary layer.
 * Case62. Same as Case61, but adding subsidence and sedimentation.  
 * Case63. Same as Case62, but with dimensions.  
-* Case64. Same as Case63, but with different radiation model.  
+* Case64. Same as Case63, but with gray radiation model.  
+* Case65. Same as Case63, but with band radiation model.  
 
 
 <!-- make checkrl/checkdb runs the check.sh bash-script inside each directory -->

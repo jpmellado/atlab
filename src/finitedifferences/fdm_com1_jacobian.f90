@@ -9,10 +9,10 @@
 !# biased at the boundary according to the form
 !#
 !# f'_1 + a_1 f'_2 + a_2 f'_3
-!#   = b_1 f_1 + b_2 f_2 + b_3 f_3 + b_4 f_4
+!#   = b_1 f_1 + b_2 f_2 (+ b_3 f_3 + b_4 f_4)
 !#
 !# a_1 f'_1 + f'_2 + a_2 f'_3 =
-!#   = b_1 f_1 + b_2 f_2 + b_3 f_3 + b_4 f_4
+!#   = b_1 f_1 + b_2 f_2 + b_3 f_3 (+ b_4 f_4)
 !#
 !# a_1 f'_2 + f'_3 + a_2 f'_4 =
 !#   = b_1 f_1 + b_2 f_2 + b_3 f_3 + b_4 f_4 + b_5 f_5 + b_6 f_6
@@ -45,8 +45,8 @@ contains
         logical, intent(in), optional :: periodic
 
         ! -------------------------------------------------------------------
-        real(wp) coef_bc1(6)
-        ! integer(wi) n
+        ! real(wp) coef_bc1(6)
+        real(wp) :: coef_bc1(2 + 2 + 1) = 0.0_wp    ! 2 lhs, 2 +1 rhs (1 additional point to the 3-diagonal rhs)
 
         ! #######################################################################
         nb_diag = [3, 3]
@@ -58,7 +58,7 @@ contains
         end if
 
         ! #######################################################################
-        ! Interior points according to Eq. 2.1.6 (b=0 with \alpha=1/4), 4th order approximation
+        ! Interior points according to Eq. 2.1.6 (b=0 with lpha=1/4), 4th order approximation
         coef(1:2) = [0.25_wp, 0.0_wp]                                   ! a_1, a_2
         coef(3:5) = [0.75_wp, 0.0_wp, 0.0_wp]                           ! b_1, b_2, b_3
 
@@ -66,10 +66,10 @@ contains
             call Create_System_1der(dx, lhs, rhs, coef)
 
         else    ! biased at the boundaries
-            ! 3rd order, Eq. 4.1.3 with \alpha=2
-            ! Eq. 31 in Carpenter et al, JCP, 108:272-295, 1993, who study the effect of boundary points on stability
+            ! 3rd order, Eq. 4.1.3 with lpha=2
+            ! Eq. 27 in Carpenter et al, JCP, 108:272-295, 1993, who study the effect of boundary points on stability
             coef_bc1(1:2) = [2.0_wp, 0.0_wp]                            ! a_1, a_2
-            coef_bc1(3:6) = [-2.5_wp, 2.0_wp, 0.5_wp, 0.0_wp]           ! b_1, b_2, b_3, b_4
+            coef_bc1(3:5) = [-2.5_wp, 2.0_wp, 0.5_wp]                   ! b_1, b_2, b_3, b_4
 
             call Create_System_1der(dx, lhs, rhs, coef, coef_bc1)
 
@@ -93,8 +93,11 @@ contains
         logical, intent(in), optional :: periodic
 
         ! -------------------------------------------------------------------
-        real(wp) coef_bc1(6), coef_bc2(6)
+        ! real(wp) coef_bc1(6), coef_bc2(6)
+        real(wp) :: coef_bc1(2 + 3 + 1) = 0.0_wp    ! 2 lhs, 3 +1 rhs (1 additional point to the 5-diagonal rhs)
+        real(wp) :: coef_bc2(2 + 4) = 0.0_wp        ! 2 lhs, 4 rhs
 
+        ! #######################################################################
         nb_diag = [3, 5]
 
         if (present(periodic)) then
@@ -104,7 +107,7 @@ contains
         end if
 
         ! #######################################################################
-        ! Interior points according to Eq. 2.1.7 (\alpha=1/3), 6th order approximation
+        ! Interior points according to Eq. 2.1.7 (alpha=1/3), 6th order approximation
         coef(1:2) = [1.0_wp/3.0_wp, 0.0_wp]                                     ! a_1, a_2
         coef(3:5) = [7.0_wp/9.0_wp, 1.0_wp/36.0_wp, 0.0_wp]                     ! b_1, b_2, b_3
 
@@ -112,7 +115,7 @@ contains
             call Create_System_1der(dx, lhs, rhs, coef)
 
         else    ! biased at the boundaries
-            ! 3rd order, Eq. 4.1.3 in Lele, with \alpha=2
+            ! 3rd order, Eq. 4.1.3 in Lele, with alpha=2
             ! Eq. 31 in Carpenter et al, JCP, 108:272-295, 1993, who study the effect of boundary points on stability
             coef_bc1(1:2) = [2.0_wp, 0.0_wp]                                    ! a_1, a_2
             coef_bc1(3:6) = [-2.5_wp, 2.0_wp, 0.5_wp, 0.0_wp]                   ! b_1, b_2, b_3, b_4
@@ -120,7 +123,7 @@ contains
             ! 5th order in Carpenter et al, JCP, 108:272-295, 1993, Eq. 95, who study the effect of boundary points on stability
             coef_bc2(1:2) = [1.0_wp/6.0_wp, 0.5_wp]                             ! a_1, a_2
             coef_bc2(3:6) = [-5.0_wp/9.0_wp, -0.5_wp, 1.0_wp, 1.0_wp/18.0_wp]   ! b_1, b_2, b_3, b_4
-            ! 4th order, Eq. 2.1.6 with \alpha=1/4.
+            ! 4th order, Eq. 2.1.6 with alpha=1/4.
             ! coef_bc2(1:2) = [0.25_wp, 0.25_wp]                                ! a_1, a_2
             ! coef_bc2(3:6) = [-0.75_wp, 0.0_wp, 0.75_wp, 0.0_wp]               ! b_1, b_2, b_3, b_4
 
@@ -143,7 +146,10 @@ contains
         logical, intent(in), optional :: periodic
 
         ! -------------------------------------------------------------------
-        real(wp) coef_bc1(6), coef_bc2(6), coef_bc3(8)
+        ! real(wp) coef_bc1(6), coef_bc2(6), coef_bc3(8)
+        real(wp) :: coef_bc1(2 + 4 + 1) = 0.0_wp    ! 2 lhs, 4 +1 rhs (1 additional point to the 7-diagonal rhs)
+        real(wp) :: coef_bc2(2 + 5) = 0.0_wp        ! 2 lhs, 5 rhs
+        real(wp) :: coef_bc3(2 + 6) = 0.0_wp        ! 2 lhs, 6 rhs
 
         nb_diag = [5, 7]
 
@@ -171,20 +177,31 @@ contains
             call Create_System_1der(dx, lhs, rhs, coef)
 
         else    ! biased at the boundaries
-            ! 3rd order, Eq. 4.1.3 in Lele, with \alpha=2
+            ! 3rd order, Eq. 4.1.3 in Lele, with alpha=2
             ! Eq. 31 in Carpenter et al, JCP, 108:272-295, 1993, who study the effect of boundary points on stability
-            coef_bc1(1:2) = [2.0_wp, 0.0_wp]                  ! a_1, a_2
-            coef_bc1(3:6) = [-2.5_wp, 2.0_wp, 0.5_wp, 0.0_wp] ! b_1, b_2, b_3, b_4
+            coef_bc1(1:2) = [2.0_wp, 0.0_wp]                            ! a_1, a_2
+            coef_bc1(3:7) = [-2.5_wp, 2.0_wp, 0.5_wp, 0.0_wp, 0.0_wp]   ! b_1, b_2, b_3, b_4, b_5
 
             ! 5th order in Carpenter et al, JCP, 108:272-295, 1993, Eq. 95, who study the effect of boundary points on stability
-            coef_bc2(1:2) = [1.0_wp/6.0_wp, 0.5_wp]                           ! a_1, a_2
-            coef_bc2(3:6) = [-5.0_wp/9.0_wp, -0.5_wp, 1.0_wp, 1.0_wp/18.0_wp] ! b_1, b_2, b_3, b_4
+            coef_bc2(1:2) = [1.0_wp/6.0_wp, 0.5_wp]                                     ! a_1, a_2
+            coef_bc2(3:7) = [-5.0_wp/9.0_wp, -0.5_wp, 1.0_wp, 1.0_wp/18.0_wp, 0.0_wp]   ! b_1, b_2, b_3, b_4
 
-            ! 6th order centered, Eq. 2.1.7, 6th order approximation with \alpha=1/3
+            ! 6th order centered, Eq. 2.1.7, 6th order approximation with alpha=1/3
             coef_bc3(1:2) = [1.0_wp/3.0_wp, 1.0_wp/3.0_wp]                                                   ! a_1, a_2
             coef_bc3(3:8) = [-1.0_wp/36.0_wp, -7.0_wp/9.0_wp, 0.0_wp, 7.0_wp/9.0_wp, 1.0_wp/36.0_wp, 0.0_wp] ! b_1, b_2, b_3, b_4, b_5, b_6
 
             call Create_System_1der(dx, lhs, rhs, coef, coef_bc1, coef_bc2, coef_bc3)
+            ! write (*, *) rhs(1, 1:7)
+            ! write (*, *) rhs(2, 1:7)
+            ! write (*, *) rhs(3, 1:7)
+            ! write (*, *) rhs(4, 1:7)
+            ! write (*, *) rhs(5, 1:7)
+            ! print *, '--'
+            ! write (*, *) rhs(nx - 4, 1:7)
+            ! write (*, *) rhs(nx - 3, 1:7)
+            ! write (*, *) rhs(nx - 2, 1:7)
+            ! write (*, *) rhs(nx - 1, 1:7)
+            ! write (*, *) rhs(nx, 1:7)
 
         end if
 
@@ -197,9 +214,9 @@ contains
         real(wp), intent(out) :: lhs(:, :)   ! LHS diagonals
         real(wp), intent(out) :: rhs(:, :)   ! RHS diagonals
         real(wp), intent(in) :: coef_int(5)             ! a_1, a_2b_1, b_2, b_3
-        real(wp), intent(in), optional :: coef_bc1(6)   ! a_1, a_2, b_1, b_2, b_3, b_4
-        real(wp), intent(in), optional :: coef_bc2(6)   ! a_1, a_2, b_1, b_2, b_3, b_4
-        real(wp), intent(in), optional :: coef_bc3(8)   ! a_1, a_2, b_1, b_2, b_3, b_4, b_5, b_6
+        real(wp), intent(in), optional :: coef_bc1(:)   ! a_1, a_2, b_1, b_2, b_3, b_4
+        real(wp), intent(in), optional :: coef_bc2(:)   ! a_1, a_2, b_1, b_2, b_3, b_4
+        real(wp), intent(in), optional :: coef_bc3(:)   ! a_1, a_2, b_1, b_2, b_3, b_4, b_5, b_6
 
         ! -------------------------------------------------------------------
         integer(wi) n, nx, idl, idr, ic, icmax
@@ -236,7 +253,7 @@ contains
             icmax = min(idr, 4)                                     ! max of 4 point stencil
             rhs(n, idr:idr + icmax - 1) = coef_bc1(3:3 + icmax - 1) ! rhs center and off-diagonals
             rhs(n, 1) = coef_bc1(3 + icmax)                         ! extended rhs stencil
-
+            ! print *, icmax, coef_bc1(3 + icmax)
             n = nx                                                  ! symmetry property to define values at end
             lhs(n, :) = lhs(1, size(lhs, 2):1:-1)
             rhs(n, :) = -rhs(1, size(rhs, 2):1:-1)

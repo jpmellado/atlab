@@ -46,8 +46,10 @@ contains
         logical, intent(in), optional :: periodic
 
         ! -------------------------------------------------------------------
-        real(wp) coef_bc1(6)
+        ! real(wp) coef_bc1(6)
+        real(wp) :: coef_bc1(2 + 3 + 1) = 0.0_wp    ! 2 lhs, 3 +1 rhs (1 additional point to the 5-diagonal rhs)
 
+        ! #######################################################################
         nb_diag = [3, 5]
 
         if (present(periodic)) then
@@ -87,8 +89,11 @@ contains
         logical, intent(in), optional :: periodic
 
         ! -------------------------------------------------------------------
-        real(wp) coef_bc1(6), coef_bc2(6)
+        ! real(wp) coef_bc1(6), coef_bc2(6)
+        real(wp) :: coef_bc1(2 + 3 + 1) = 0.0_wp    ! 2 lhs, 3 +1 rhs (1 additional point to the 5-diagonal rhs)
+        real(wp) :: coef_bc2(2 + 4) = 0.0_wp        ! 2 lhs, 4 rhs
 
+        ! #######################################################################
         nb_diag = [3, 5]
 
         if (present(periodic)) then
@@ -132,8 +137,13 @@ contains
         logical, intent(in), optional :: periodic
 
         ! -------------------------------------------------------------------
-        real(wp) coef_bc1(6), coef_bc2(6), coef_bc3(8), kc
+        ! real(wp) coef_bc1(6), coef_bc2(6), coef_bc3(8)
+        real(wp) kc
+        real(wp) :: coef_bc1(2 + 4 + 1) = 0.0_wp    ! 2 lhs, 4 +1 rhs (1 additional point to the 7-diagonal rhs)
+        real(wp) :: coef_bc2(2 + 5) = 0.0_wp        ! 2 lhs, 5 rhs
+        real(wp) :: coef_bc3(2 + 6) = 0.0_wp        ! 2 lhs, 6 rhs
 
+        ! #######################################################################
         nb_diag = [3, 7]
 
         if (present(periodic)) then
@@ -157,12 +167,12 @@ contains
 
         else    ! biased at the boundaries
             ! 3rd order, Eq. 4.3.1
-            coef_bc1(1:2) = [11.0_wp, 0.0_wp]                       ! a_1, a_2
-            coef_bc1(3:6) = [13.0_wp, -27.0_wp, 15.0_wp, -1.0_wp]   ! b_1, b_2, b_3, b_4
+            coef_bc1(1:2) = [11.0_wp, 0.0_wp]                               ! a_1, a_2
+            coef_bc1(3:7) = [13.0_wp, -27.0_wp, 15.0_wp, -1.0_wp, 0.0_wp]   ! b_1, b_2, b_3, b_4
 
             ! 4th order, Eq. 2.2.6 (alpha=1/10).
-            coef_bc2(1:2) = [0.1_wp, 0.1_wp]                        ! a_1, a_2
-            coef_bc2(3:6) = [1.2_wp, -2.4_wp, 1.2_wp, 0.0_wp]       ! b_1, b_2, b_3, b_4
+            coef_bc2(1:2) = [0.1_wp, 0.1_wp]                                ! a_1, a_2
+            coef_bc2(3:7) = [1.2_wp, -2.4_wp, 1.2_wp, 0.0_wp, 0.0_wp]       ! b_1, b_2, b_3, b_4
 
             ! 6th order, Eq. 2.2.7, 6th order approximation
             coef_bc3(1:2) = [2.0_wp/11.0_wp, 2.0_wp/11.0_wp]                ! a_1, a_2
@@ -182,9 +192,9 @@ contains
         real(wp), intent(out) :: rhs(:, :)      ! RHS diagonals
         real(wp), intent(out) :: rhs_d1(:, :)   ! RHS diagonals that multiply 1. derivative
         real(wp), intent(in) :: coef_int(5)             ! a_1, a_2b_1, b_2, b_3
-        real(wp), intent(in), optional :: coef_bc1(6)   ! a_1, a_2, b_1, b_2, b_3, b_4
-        real(wp), intent(in), optional :: coef_bc2(6)   ! a_1, a_2, b_1, b_2, b_3, b_4
-        real(wp), intent(in), optional :: coef_bc3(8)   ! a_1, a_2, b_1, b_2, b_3, b_4, b_5, b_6
+        real(wp), intent(in), optional :: coef_bc1(:)   ! a_1, a_2, b_1, b_2, b_3, b_4
+        real(wp), intent(in), optional :: coef_bc2(:)   ! a_1, a_2, b_1, b_2, b_3, b_4
+        real(wp), intent(in), optional :: coef_bc3(:)   ! a_1, a_2, b_1, b_2, b_3, b_4, b_5, b_6
 
         ! -------------------------------------------------------------------
         integer(wi) n, nx, idl, idr, ic, icmax

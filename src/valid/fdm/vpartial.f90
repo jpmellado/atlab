@@ -79,7 +79,7 @@ program VPARTIAL
         do i = 1, kmax
             x%nodes(i) = real(i - 1, wp)/real(kmax, wp)*x%scale
         end do
-        g%uniform = .true.
+        ! g%uniform = .true.
     else
         do i = 1, kmax
             x%nodes(i) = real(i - 1, wp)/real(kmax - 1, wp)*x%scale

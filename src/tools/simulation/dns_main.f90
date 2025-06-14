@@ -90,7 +90,6 @@ program DNS
 
     ! call PLANES_INITIALIZE()
 
-
     ! call OPR_Filter_Initialize_Parameters(ifile)
     ! do ig = 1, 3
     !     call OPR_FILTER_INITIALIZE(g(ig), FilterDomain(ig))
@@ -148,7 +147,6 @@ program DNS
     ! Initialize time marching scheme
     ! ###################################################################
     call TMarch_Initialize(ifile)
-    call TMarch_Courant()
 
     ! ###################################################################
     ! Check-pointing: Initialize logfiles, write header & first line
@@ -173,15 +171,16 @@ program DNS
         !     call DNS_FILTER()
         ! end if
 
-        if (flag_viscosity) then                ! Change viscosity if necessary
-            visc = visc + visc_rate*dtime
-            if (rtime > visc_time) then
-                visc = visc_stop                ! Fix new value without any roundoff
-                flag_viscosity = .false.
-            end if
-        end if
+        ! This should also affect initialization of time marching...
+        ! if (flag_viscosity) then                ! Change viscosity if necessary
+        !     visc = visc + visc_rate*dtime
+        !     if (rtime > visc_time) then
+        !         visc = visc_stop                ! Fix new value without any roundoff
+        !         flag_viscosity = .false.
+        !     end if
+        ! end if
 
-        call TMarch_Courant()
+        if (use_variable_timestep) call TMarch_Courant()
 
         ! -------------------------------------------------------------------
         ! The rest: Logging, postprocessing and check-pointing
@@ -189,6 +188,7 @@ program DNS
         call DNS_BOUNDS_CONTROL()
         call DNS_OBS_CONTROL()
         if (mod(itime - nitera_first, nitera_log) == 0 .or. int(logs_data(1)) /= 0) then
+            if (.not. use_variable_timestep) call TMarch_Courant()
             call DNS_LOGS()
             if (dns_obs_log /= OBS_TYPE_NONE) then
                 call DNS_OBS()

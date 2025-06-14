@@ -37,16 +37,12 @@ module TimeMarching
     public :: TMarch_RungeKutta
     public :: TMarch_Courant
 
-    real(wp), public :: dtime                   ! time step
-    real(wp), public :: dte                     ! time step of each substep
-    logical, public :: remove_divergence        ! Remove residual divergence every time step
+    real(wp), public :: dtime                       ! time step
+    real(wp), public :: dte                         ! time step of each substep
+    logical, public :: remove_divergence            ! Remove residual divergence every time step
+    logical, public :: use_variable_timestep = .true.
 
     ! -------------------------------------------------------------------
-    ! integer :: imode_rhs                        ! Type of implementation of the RHS of evolution equations
-    ! integer, parameter :: EQNS_RHS_SPLIT = 18
-    ! integer, parameter :: EQNS_RHS_COMBINED = 19
-    ! integer, parameter :: EQNS_RHS_NONBLOCKING = 20
-
     ! type :: tmarch_dt
     !     sequence
     !     integer type
@@ -63,10 +59,10 @@ module TimeMarching
     integer, parameter :: RKM_IMP3_SOURCE = 6
     integer, parameter :: RKM_IMP3_DIFFSOURCE = 7
 
-    integer(wi) :: rkm_endstep          ! number of substeps
-    integer(wi) :: rkm_substep          ! substep counter
+    integer(wi) :: rkm_endstep                  ! number of substeps
+    integer(wi) :: rkm_substep                  ! substep counter
 
-    real(wp) :: cfla, cfld, cflr        ! CFL numbers
+    real(wp) :: cfla, cfld, cflr                ! CFL numbers
     real(wp) etime                              ! time at each substep
 
     real(wp) kdt(5), kco(4), ktime(5)           ! explicit scheme coefficients
@@ -107,10 +103,11 @@ contains
         call TLab_Write_ASCII(bakfile, '#')
         call TLab_Write_ASCII(bakfile, '#['//trim(adjustl(block))//']')
         call TLab_Write_ASCII(bakfile, '#Scheme=<RungeKuttaExplicit3/RungeKuttaExplicit4/RungeKuttaDiffusion3>')
-        call TLab_Write_ASCII(bakfile, '#TimeStep=<value (used if CFL is negative)>')
+        call TLab_Write_ASCII(bakfile, '#TimeStep=<value>')
         call TLab_Write_ASCII(bakfile, '#MaxCFL=<value>')
-        call TLab_Write_ASCII(bakfile, '#TimeDiffusiveCFL=<value>')
-        call TLab_Write_ASCII(bakfile, '#TimeReactiveCFL=<value>')
+        call TLab_Write_ASCII(bakfile, '#MaxDiffusiveCFL=<value>')
+        call TLab_Write_ASCII(bakfile, '#MaxReactiveCFL=<value>')
+        call TLab_Write_ASCII(bakfile, '#RemoveDivergence=<none/remove>')
 
         call ScanFile_Char(bakfile, inifile, block, 'Scheme', 'dummy', sRes)
         if (trim(adjustl(sRes)) == 'rungekuttaexplicit3') then; rkm_mode = RKM_EXP3; lstr = '0.6'; 
@@ -125,36 +122,44 @@ contains
         ! Default cfla value set in lstr while reading Scheme
         call ScanFile_Real(bakfile, inifile, block, 'MaxCFL', trim(adjustl(lstr)), cfla)
         write (lstr, *) 0.25_wp*cfla ! Default value for diffusive CFL
-        call ScanFile_Real(bakfile, inifile, block, 'TimeDiffusiveCFL', trim(adjustl(lstr)), cfld)
+        call ScanFile_Real(bakfile, inifile, block, 'MaxDiffusiveCFL', trim(adjustl(lstr)), cfld)
         write (lstr, *) 0.5_wp*cfla ! Default value for reactive CFL
-        call ScanFile_Real(bakfile, inifile, block, 'TimeReactiveCFL', trim(adjustl(lstr)), cflr)
-        call ScanFile_Real(bakfile, inifile, block, 'TimeStep', '0.05', dtime)
+        call ScanFile_Real(bakfile, inifile, block, 'MaxReactiveCFL', trim(adjustl(lstr)), cflr)
 
-        ! ! -------------------------------------------------------------------
-        ! ! Implicit RKM part
-        ! ! -------------------------------------------------------------------
-        ! if (rkm_mode == RKM_IMP3_DIFFUSION) then
-        !     do is = 1, inb_scal
-        !         if (BcsScalJmin%type(is) == DNS_BCS_NEUMANN .or. &
-        !             BcsScalJmax%type(is) == DNS_BCS_NEUMANN) then
-        !             write (sRes, *) is; sRes = trim(adjustl(eStr))//'Scalar'//trim(adjustl(sRes))//'. Finite flux BC not implemented for SEMI-IMPLICITE DIFFUSION'
-        !             call TLab_Write_ASCII(wfile, trim(adjustl(sRes)))
-        !             write (sRes, *) is; sRes = trim(adjustl(eStr))//'Scalar'//trim(adjustl(sRes))//'. Setting fluxes at boundary to zero'
-        !             call TLab_Write_ASCII(wfile, trim(adjustl(sRes)))
-        !         end if
-        !     end do
+        call ScanFile_Char(bakfile, inifile, block, 'TimeStep', 'void', sRes)
+        if (trim(adjustl(sRes)) /= 'void') then
+            use_variable_timestep = .false.
+            read (sRes, *) dtime
 
-        ! end if
+            call ScanFile_Char(bakfile, inifile, block, 'MaxCFL', 'void', sRes)
+            if (trim(adjustl(sRes)) /= 'void') then
+                call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Cannot impose both time step and max CFL.')
+                call TLab_Stop(DNS_ERROR_OPTION)
+            end if
 
-        ! -------------------------------------------------------------------
-        call TLab_Write_ASCII(bakfile, '#RemoveDivergence=<none/remove>')
+        end if
 
-        call ScanFile_Char(bakfile, inifile, block, 'TermDivergence', 'yes', sRes)
+        call ScanFile_Char(bakfile, inifile, block, 'RemoveDivergence', 'yes', sRes)
         if (trim(adjustl(sRes)) == 'no') then; remove_divergence = .false.
         else if (trim(adjustl(sRes)) == 'yes') then; remove_divergence = .true.
         else
             call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Wrong RemoveDivergence option.')
             call TLab_Stop(DNS_ERROR_OPTION)
+        end if
+
+        ! -------------------------------------------------------------------
+        ! Consistency check
+        if (rkm_mode == RKM_IMP3_DIFFUSION) then
+            do is = 1, inb_scal
+                if (BcsScalKmin%type(is) == DNS_BCS_NEUMANN .or. &
+                    BcsScalKmax%type(is) == DNS_BCS_NEUMANN) then
+                    write (sRes, *) is; sRes = trim(adjustl(eStr))//'Scalar'//trim(adjustl(sRes))//'. Finite flux BC not implemented for SEMI-IMPLICITE DIFFUSION'
+                    call TLab_Write_ASCII(wfile, trim(adjustl(sRes)))
+                    write (sRes, *) is; sRes = trim(adjustl(eStr))//'Scalar'//trim(adjustl(sRes))//'. Setting fluxes at boundary to zero'
+                    call TLab_Write_ASCII(wfile, trim(adjustl(sRes)))
+                end if
+            end do
+
         end if
 
         ! ###################################################################
@@ -260,6 +265,8 @@ contains
                 end do
             end do
         end do
+
+        call TMarch_Courant()
 
         return
     end subroutine TMarch_Initialize
@@ -385,12 +392,9 @@ contains
 
     !########################################################################
     !#
-    !# Determine the variable time step is a positive cfl is given
-    !# If negative cfl is prescribed, then constant dtime and this routine
+    !# Determine the variable time step.
+    !# For constant time step, this routine
     !# calculates CFL and diffustion numbers for log files
-    !#
-    !# The reacting case should be reviewed in the new formulation in terms
-    !# of energy.
     !#
     !# The diffusion number is fixed in terms of the CFL, which is the input.
     !# This depends on the scheme used. From Lele (1992), page 32, we have that, if
@@ -410,18 +414,14 @@ contains
     !# maximum diffusion number is 2.9/1.989^2, about 0.73.
     !# For the (5)4RK from CarpenterKennedy1994 it is 4.639/1.989^2 = 1.17
     !#
-    !# In incompressible mode the arrays rho, p and vis are not used
-    !#
     !########################################################################
     subroutine TMarch_Courant()
         use DNS_Control, only: logs_data, logs_dtime
-        ! use Thermodynamics, only: gamma0, itransport, EQNS_TRANS_POWERLAW
-        use TLab_Pointers_3D, only: u, v, w, p_wrk3d !, p, rho, vis
+        use TLab_Pointers_3D, only: u, v, w, p_wrk3d
 
         ! -------------------------------------------------------------------
         integer(wi) ipmax, j_glo
-        real(wp) dt_loc
-        real(wp) pmax(3), dtc, dtd, dtr
+        real(wp) pmax(3), dtc, dtd
 #ifdef USE_MPI
         real(wp) pmax_aux(3)
 #endif
@@ -435,9 +435,8 @@ contains
         jdsp = 0
 #endif
 
-        dtc = big_wp   ! So that the minimum non-zero determines dt at the end
+        dtc = big_wp    ! So that the minimum non-zero determines dt at the end
         dtd = big_wp
-        dtr = big_wp
 
         ipmax = 0       ! Initialize counter of time constraints
 
@@ -499,19 +498,16 @@ contains
         pmax(1:ipmax) = pmax_aux(1:ipmax)
 #endif
 
-        if (pmax(1) > 0.0_wp) dtc = cfla/pmax(1) ! Set time step for the given CFL number
-        if (pmax(2) > 0.0_wp) dtd = cfld/pmax(2) ! Set time step for the given diffusion number
+        if (use_variable_timestep) then
+            if (pmax(1) > 0.0_wp) dtc = cfla/pmax(1) ! Set time step for the given CFL number
+            if (pmax(2) > 0.0_wp) dtd = cfld/pmax(2) ! Set time step for the given diffusion number
 
-        ! -------------------------------------------------------------------
-        if (cfla > 0.0_wp) then
-            if (rkm_mode == RKM_EXP3 .or. rkm_mode == RKM_EXP4) then
-                dt_loc = min(dtc, dtd)
-            else
-                dt_loc = dtc
-            end if
-            dt_loc = min(dt_loc, dtr)
+            dtime = min(dtc, big_wp)
+            select case (rkm_mode)
+            case (RKM_EXP3, RKM_EXP4)       ! Explicit diffusion
+                dtime = min(dtd, dtime)
 
-            dtime = dt_loc
+            end select
 
         end if
 

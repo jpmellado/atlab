@@ -171,14 +171,13 @@ program DNS
         !     call DNS_FILTER()
         ! end if
 
-        ! This should also affect initialization of time marching...
-        ! if (flag_viscosity) then                ! Change viscosity if necessary
-        !     visc = visc + visc_rate*dtime
-        !     if (rtime > visc_time) then
-        !         visc = visc_stop                ! Fix new value without any roundoff
-        !         flag_viscosity = .false.
-        !     end if
-        ! end if
+        if (flag_viscosity) then                ! Change viscosity if necessary
+            visc = visc + visc_rate*dtime
+            if (rtime > visc_time) then
+                visc = visc_stop                ! Fix new value without any roundoff
+                flag_viscosity = .false.
+            end if
+        end if
 
         if (use_variable_timestep) call TMarch_Courant()
 

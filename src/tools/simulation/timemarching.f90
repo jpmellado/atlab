@@ -230,7 +230,6 @@ contains
         schmidtfactor = max(schmidtfactor, dummy)
         dummy = 1.0_wp/minval(schmidt(1:inb_scal))
         schmidtfactor = max(schmidtfactor, dummy)
-        schmidtfactor = schmidtfactor*visc
 
         ! ###################################################################
         do ig = 1, 3
@@ -486,7 +485,7 @@ contains
         ! -------------------------------------------------------------------
         select case (nse_eqns)
         case (DNS_EQNS_BOUSSINESQ, DNS_EQNS_ANELASTIC)
-            pmax(2) = schmidtfactor*dx2i
+            pmax(2) = schmidtfactor*visc*dx2i
 
         end select
 

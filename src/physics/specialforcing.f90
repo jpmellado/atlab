@@ -22,7 +22,7 @@ module SpecialForcing
 
     public :: SpecialForcing_Initialize
     public :: SpecialForcing_Source
-    ! public :: Forcing_Sinusoidal, Forcing_Sinusoidal_NoSlip ! tbd
+    public :: SpecialForcing_Sinusoidal, SpecialForcing_Sinusoidal_NoSlip   ! Taylor-Green vortex
 
     integer, parameter :: TYPE_NONE = 0
     integer, parameter :: TYPE_HOMOGENEOUS = 1
@@ -217,27 +217,29 @@ contains
     end subroutine SpecialForcing_Source
 
     !########################################################################
-    ! Sinusoidal forcing
+    ! Sinusoidal forcing; Taylor-Green vortex
     !########################################################################
-    subroutine Forcing_Sinusoidal(nx, ny, nz, time, visc, u, v, h_u, h_v)
+    subroutine SpecialForcing_Sinusoidal(nx, ny, nz, time, visc, u, v, h_u, h_v)
         integer(wi) nx, ny, nz
         real(wp) time, visc
-        real(wp), dimension(:) :: u, v, h_u, h_v
+        real(wp), dimension(nx, ny, nz) :: u, v, h_u, h_v
 
         ! -----------------------------------------------------------------------
         real(wp) omega, sigma, amplitude
-        !  integer(wi) i,j
+        integer(wi) i, k
 
         !########################################################################
         omega = 2.0_wp*pi_wp
         sigma = 2.0_wp*omega*omega*visc
 
-        !  amplitude =-( 1.0_wp + (sigma/omega)**2 )*omega
-        !  amplitude = amplitude*sin(omega*time)
-        !  DO j = 1,jmax; DO i = 1,imax
-        !     u(i,j,1) = SIN(x(i)*omega)*COS(z%nodes(j)*omega)
-        !     v(i,j,1) =-COS(x(i)*omega)*SIN(z%nodes(j)*omega)
-        !  ENDDO; ENDDO
+        amplitude = -(1.0_wp + (sigma/omega)**2)*omega
+        amplitude = amplitude*sin(omega*time)
+        do k = 1, nz
+            do i = 1, nx
+                u(i, :, k) = sin(x%nodes(i)*omega)*cos(z%nodes(k)*omega)
+                v(i, :, k) = -cos(x%nodes(i)*omega)*sin(z%nodes(k)*omega)
+            end do
+        end do
 
         amplitude = sin(omega*time)
 
@@ -245,12 +247,12 @@ contains
         h_v = h_v + amplitude*v
 
         return
-    end subroutine Forcing_Sinusoidal
+    end subroutine SpecialForcing_Sinusoidal
 
     !########################################################################
     ! Velocity field with no-slip
     !########################################################################
-    subroutine Forcing_Sinusoidal_NoSlip(nx, ny, nz, time, visc, g, h1, h2, tmp1, tmp2, tmp3, tmp4)
+    subroutine SpecialForcing_Sinusoidal_NoSlip(nx, ny, nz, time, visc, g, h1, h2, tmp1, tmp2, tmp3, tmp4)
         use FDM, only: fdm_dt
         use OPR_Partial, only: OPR_Partial_X, OPR_Partial_Z, OPR_P1, OPR_P2_P1
 
@@ -313,6 +315,6 @@ contains
         h2 = h2 + tmp3
 
         return
-    end subroutine Forcing_Sinusoidal_NoSlip
+    end subroutine SpecialForcing_Sinusoidal_NoSlip
 
 end module SpecialForcing

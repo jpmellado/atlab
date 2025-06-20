@@ -89,7 +89,6 @@ contains
         ! ###################################################################
         ! Calculate pressure
         if (any([DNS_EQNS_BOUSSINESQ, DNS_EQNS_ANELASTIC] == nse_eqns)) then
-            ! call NSE_Pressure_Incompressible(q, s, txc(1, 3), txc(1, 1), txc(1, 2), txc(1, 4))
             call NSE_Pressure_Incompressible(q, s, txc(:, 3), txc(:, 4), txc(:, 1), txc(:, 2))
         end if
 

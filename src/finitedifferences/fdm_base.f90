@@ -22,7 +22,7 @@ module FDM_Base
     public coef_e1n2_biased  ! coefficients for the biased, 2. order approximation to 1. order derivative
     public coef_e1n3_biased  ! coefficients for the biased, 3. order approximation to 1. order derivative
 
-    public FDM_Bcs_Neumann      ! Initialize arrays to impose Neumann Bcs
+    public FDM_BCS_Neumann      ! Initialize arrays to impose Neumann Bcs
     public FDM_Bcs_Reduce
 
 contains
@@ -191,7 +191,7 @@ contains
 
 ! #######################################################################
 ! #######################################################################
-    subroutine FDM_Bcs_Neumann(ibc, lhs, rhs, rhs_b, rhs_t)
+    subroutine FDM_BCS_Neumann(ibc, lhs, rhs, rhs_b, rhs_t)
         integer, intent(in) :: ibc
         real(wp), intent(inout) :: lhs(:, :)
         real(wp), intent(in) :: rhs(:, :)
@@ -297,7 +297,7 @@ contains
         end if
 
         return
-    end subroutine FDM_Bcs_Neumann
+    end subroutine FDM_BCS_Neumann
 
 ! #######################################################################
 ! #######################################################################

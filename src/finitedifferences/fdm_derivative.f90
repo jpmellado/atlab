@@ -100,7 +100,7 @@ contains
 
                 g%lu(:, ip + 1:ip + g%nb_diag(1)) = g%lhs(:, 1:g%nb_diag(1))
 
-                call FDM_Bcs_Neumann(bcs_cases(ib), g%lu(:, ip + 1:ip + g%nb_diag(1)), g%rhs(:, 1:g%nb_diag(2)), g%rhs_b, g%rhs_t)
+                call FDM_BCS_Neumann(bcs_cases(ib), g%lu(:, ip + 1:ip + g%nb_diag(1)), g%rhs(:, 1:g%nb_diag(2)), g%rhs_b, g%rhs_t)
 
                 nmin = 1; nmax = g%size
                 if (any([BCS_ND, BCS_NN] == bcs_cases(ib))) nmin = nmin + 1

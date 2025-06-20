@@ -323,7 +323,7 @@ program VPARTIAL
                 idl = g%der1%nb_diag(1)/2 + 1
                 idr = g%der1%nb_diag(2)/2 + 1
 
-                call FDM_Bcs_Neumann(ibc, g%der1%lu(:, 1:g%der1%nb_diag(1)), g%der1%rhs(:, 1:g%der1%nb_diag(2)), g%der1%rhs_b, g%der1%rhs_t)
+                call FDM_BCS_Neumann(ibc, g%der1%lu(:, 1:g%der1%nb_diag(1)), g%der1%rhs(:, 1:g%der1%nb_diag(2)), g%der1%rhs_b, g%der1%rhs_t)
 
                 select case (g%der1%nb_diag(1))
                 case (3)

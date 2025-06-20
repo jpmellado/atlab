@@ -281,7 +281,7 @@ contains
 
                 ! Locating the points where the maximum dilatation occurs
                 wrk3d = -txc(:, 1)
-                loc_max(1:imax, 1:jmax, 1:kmax) => wrk3d(1:imax*jmax*kmax)
+                loc_max(1:imax, 1:kmax, 1:kmax) => wrk3d(1:imax*jmax*kmax)
 
                 dummy = maxval(wrk3d)
                 if (abs(dummy) > bound_d%max) then
@@ -323,10 +323,10 @@ contains
     subroutine DNS_OBS_CONTROL()
         use TLab_Memory, only: imax, jmax, kmax, inb_scal
         use TLab_WorkFlow, only: scal_on
-        use FDM, only: g
+        use TLab_Grid, only: z
         use FI_VORTICITY_EQN, only: FI_VORTICITY
         use TLab_Arrays
-        use Averages
+        use Averages, only: AVG_IK_V
         use Integration, only: Int_Simpson
 
         integer(wi) :: ip, is
@@ -349,26 +349,26 @@ contains
             ! ubulk, wbulk
             call AVG_IK_V(imax, jmax, kmax, q(1, 1), wrk1d(:, 1), wrk1d(:, 2))
             call AVG_IK_V(imax, jmax, kmax, q(1, 3), wrk1d(:, 3), wrk1d(:, 4))
-            ubulk = (1.0_wp/g(2)%nodes(g(2)%size))*Int_Simpson(wrk1d(1:jmax, 1), g(2)%nodes(1:jmax))
-            wbulk = (1.0_wp/g(2)%nodes(g(2)%size))*Int_Simpson(wrk1d(1:jmax, 3), g(2)%nodes(1:jmax))
+            ubulk = (1.0_wp/z%scale)*Int_Simpson(wrk1d(1:kmax, 1), z%nodes(1:kmax))
+            wbulk = (1.0_wp/z%scale)*Int_Simpson(wrk1d(1:kmax, 3), z%nodes(1:kmax))
 
             ! dudy(1), dwdy(1) approximation
-            uy1 = wrk1d(2, 1)/g(2)%nodes(2)
-            wy1 = wrk1d(2, 3)/g(2)%nodes(2)
+            uy1 = wrk1d(2, 1)/z%nodes(2)
+            wy1 = wrk1d(2, 3)/z%nodes(2)
 
             ! turning angles (in degrees)
             alpha_1 = ATAN2D(wy1, uy1)
-            alpha_ny = ATAN2D(wrk1d(g(2)%size, 3), wrk1d(g(2)%size, 1))
+            alpha_ny = ATAN2D(wrk1d(kmax, 3), wrk1d(kmax, 1))
 
             ! integrated entstrophy
             call FI_VORTICITY(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), txc(1, 1), txc(1, 2), txc(1, 3))
             call AVG_IK_V(imax, jmax, kmax, txc(1, 1), wrk1d(:, 1), wrk1d(:, 2))
-            int_ent = (1.0_wp/g(2)%nodes(g(2)%size))*Int_Simpson(wrk1d(1:jmax, 1), g(2)%nodes(1:jmax))
+            int_ent = (1.0_wp/z%scale)*Int_Simpson(wrk1d(1:kmax, 1), z%nodes(1:kmax))
 
             if (scal_on) then
                 do is = 1, inb_scal
                     call AVG_IK_V(imax, jmax, kmax, s(1, is), wrk1d(:, 1), wrk1d(:, 2))
-                    obs_data(ip + is) = (wrk1d(2, 1) - wrk1d(1, 1))/g(2)%nodes(2)
+                    obs_data(ip + is) = (wrk1d(2, 1) - wrk1d(1, 1))/z%nodes(2)
                 end do
             end if
 

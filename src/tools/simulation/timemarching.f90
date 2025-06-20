@@ -27,7 +27,7 @@ module TimeMarching
     use NavierStokes, only: nse_advection, EQNS_CONVECTIVE, EQNS_DIVERGENCE, EQNS_SKEWSYMMETRIC
     use NavierStokes, only: visc, schmidt, prandtl
     use DNS_Arrays
-    use BOUNDARY_BCS
+    use BoundaryConditions
     use Buffer
 
     implicit none
@@ -151,8 +151,8 @@ contains
         ! Consistency check
         if (rkm_mode == RKM_IMP3_DIFFUSION) then
             do is = 1, inb_scal
-                if (BcsScalKmin%type(is) == DNS_BCS_NEUMANN .or. &
-                    BcsScalKmax%type(is) == DNS_BCS_NEUMANN) then
+                if (BcsScalKmin%type(is) == DNS_BCS_Neumann .or. &
+                    BcsScalKmax%type(is) == DNS_BCS_Neumann) then
                     write (sRes, *) is; sRes = trim(adjustl(eStr))//'Scalar'//trim(adjustl(sRes))//'. Finite flux BC not implemented for SEMI-IMPLICITE DIFFUSION'
                     call TLab_Write_ASCII(wfile, trim(adjustl(sRes)))
                     write (sRes, *) is; sRes = trim(adjustl(eStr))//'Scalar'//trim(adjustl(sRes))//'. Setting fluxes at boundary to zero'
@@ -603,8 +603,8 @@ contains
     !         use Thermodynamics, only: CRATIO_INV
     !         use DNS_Arrays
     !         use BOUNDARY_BUFFER
-    !         use BOUNDARY_BCS, only: BcsDrift
-    !         use BOUNDARY_BCS_COMPRESSIBLE
+    !         use BoundaryConditions, only: BcsDrift
+    !         use BCS_COMPRESSIBLE
 
     !         ! -------------------------------------------------------------------
     !         real(wp) rho_ratio, dt_rho_ratio, prefactor, M2_max
@@ -693,13 +693,13 @@ contains
     !         end if
 
     !         if (.not. y%periodic) then
-    !             call BOUNDARY_BCS_Y(isize_field, M2_max, rho, u, v, w, p, GAMMA_LOC(1), s, &
+    !             call BCS_Y(isize_field, M2_max, rho, u, v, w, p, GAMMA_LOC(1), s, &
     !                                 hq(1, 5), hq(1, 1), hq(1, 2), hq(1, 3), hq(1, 4), hs, &
     !                                 txc(1, 1), txc(1, 2), txc(1, 3), txc(1, 4), txc(1, 5), AUX_LOC(:))
     !         end if
 
     !         if (.not. x%periodic) then
-    !             call BOUNDARY_BCS_X(isize_field, M2_max, etime, rho, u, v, w, p, GAMMA_LOC(1), s, &
+    !             call BCS_X(isize_field, M2_max, etime, rho, u, v, w, p, GAMMA_LOC(1), s, &
     !                                 hq(1, 5), hq(1, 1), hq(1, 2), hq(1, 3), hq(1, 4), hs, txc, AUX_LOC(:))
     !         end if
 

@@ -20,7 +20,7 @@ subroutine NSE_Anelastic()
     use TimeMarching, only: dte, remove_divergence
     use Thermo_Anelastic, only: rbackground, ribackground, Thermo_Anelastic_Weight_InPlace
     use Thermo_Anelastic, only: Thermo_Anelastic_Weight_OutPlace, Thermo_Anelastic_Weight_Subtract
-    use BOUNDARY_BCS
+    use BoundaryConditions
     use OPR_Partial
     use NSE_Burgers
     use OPR_Elliptic
@@ -129,10 +129,10 @@ subroutine NSE_Anelastic()
 
     do iq = 1, inb_flow
         ibc = 0
-        if (BcsFlowKmin%type(iq) == DNS_BCS_NEUMANN) ibc = ibc + 1
-        if (BcsFlowKmax%type(iq) == DNS_BCS_NEUMANN) ibc = ibc + 2
+        if (BcsFlowKmin%type(iq) == DNS_BCS_Neumann) ibc = ibc + 1
+        if (BcsFlowKmax%type(iq) == DNS_BCS_Neumann) ibc = ibc + 2
         if (ibc > 0) then
-            call BOUNDARY_BCS_NEUMANN_Z(ibc, imax, jmax, kmax, g(3), hq(:, iq), &
+            call BCS_Neumann_Z(ibc, imax, jmax, kmax, g(3), hq(:, iq), &
                                         BcsFlowKmin%ref(:, :, iq), BcsFlowKmax%ref(:, :, iq), tmp1)
         end if
 
@@ -143,16 +143,16 @@ subroutine NSE_Anelastic()
 
     do is = 1, inb_scal
         ibc = 0
-        if (BcsScalKmin%type(is) == DNS_BCS_NEUMANN) ibc = ibc + 1
-        if (BcsScalKmax%type(is) == DNS_BCS_NEUMANN) ibc = ibc + 2
+        if (BcsScalKmin%type(is) == DNS_BCS_Neumann) ibc = ibc + 1
+        if (BcsScalKmax%type(is) == DNS_BCS_Neumann) ibc = ibc + 2
         if (ibc > 0) then
-            call BOUNDARY_BCS_NEUMANN_Z(ibc, imax, jmax, kmax, g(3), hs(:, is), &
+            call BCS_Neumann_Z(ibc, imax, jmax, kmax, g(3), hs(:, is), &
                                         BcsScalKmin%ref(:, :, is), BcsScalKmax%ref(:, :, is), tmp1)
         end if
 
         if (BcsScalJmin%type(is) /= DNS_SFC_STATIC .or. &
             BcsScalKmax%type(is) /= DNS_SFC_STATIC) then
-            call BOUNDARY_BCS_SURFACE_Z(is, s, hs, tmp1, tmp2)
+            call BCS_SURFACE_Z(is, s, hs, tmp1, tmp2)
         end if
 
         p_hs(:, :, 1, is) = BcsScalKmin%ref(:, :, is)

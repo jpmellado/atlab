@@ -5,6 +5,7 @@ module BoundaryConditions
     use TLab_Constants, only: BCS_DD, BCS_DN, BCS_ND, BCS_NN, BCS_NONE, BCS_MIN, BCS_MAX, BCS_BOTH, MAX_VARS
     use TLab_Constants, only: efile
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
+    use FDM, only: g
     implicit none
     private
 
@@ -43,7 +44,6 @@ contains
 ! ###################################################################
     subroutine BCS_Initialize(inifile)
         use TLab_Memory, only: imax, jmax, kmax, inb_flow_array, inb_scal_array, inb_scal
-        use FDM, only: g
         use NavierStokes
 
         character*(*) inifile
@@ -167,15 +167,12 @@ contains
     !########################################################################
     !# Calculate the boundary values of a field s.t. the normal derivative is zero
     !# Routine format extracted from OPR_Partial_Y
-    subroutine BCS_Neumann_Z(ibc, nx, ny, nz, g, u, bcs_hb, bcs_ht, tmp1)
-        use FDM, only: fdm_dt
-
+    subroutine BCS_Neumann_Z(ibc, nx, ny, nz, u, bcs_hb, bcs_ht, tmp1)
         integer(wi), intent(in) :: ibc     ! BCs at jmin/jmax: 1, for Neumann/-
         !                                                   2, for -      /Neumann
         !                                                   3, for Neumann/Neumann
         integer(wi) nx, ny, nz
-        type(fdm_dt), intent(in) :: g
-        real(wp), intent(in) :: u(nx*ny, nz)         ! they are transposed below
+        real(wp), intent(in) :: u(nx*ny, nz)            ! they are transposed below
         real(wp), intent(inout) :: tmp1(nx*ny, nz)      ! they are transposed below
         real(wp), intent(out) :: bcs_hb(nx*ny), bcs_ht(nx*ny)
 
@@ -183,7 +180,7 @@ contains
         integer(wi) ip, idl, ic
 
         ! ###################################################################
-        if (g%size == 1) then ! Set to zero in 2D case
+        if (g(3)%size == 1) then ! Set to zero in 2D case
             bcs_hb = 0.0_wp; bcs_ht = 0.0_wp
             return
         end if
@@ -191,7 +188,7 @@ contains
         ! ###################################################################
         ip = ibc*5
 
-        nmin = 1; nmax = g%size
+        nmin = 1; nmax = g(3)%size
         if (any([BCS_ND, BCS_NN] == ibc)) then
             tmp1(:, 1) = 0.0_wp      ! homogeneous bcs
             nmin = nmin + 1
@@ -204,26 +201,26 @@ contains
 
         ! -------------------------------------------------------------------
         ! Calculate RHS in system of equations A u' = B u
-        call g%der1%matmul(g%der1%rhs, u, tmp1, ibc, g%der1%rhs_b, g%der1%rhs_t, bcs_hb, bcs_ht)
+        call g(3)%der1%matmul(g(3)%der1%rhs, u, tmp1, ibc, g(3)%der1%rhs_b, g(3)%der1%rhs_t, bcs_hb, bcs_ht)
 
         ! -------------------------------------------------------------------
         ! Solve for u' in system of equations A u' = B u
-        select case (g%der1%nb_diag(1))
+        select case (g(3)%der1%nb_diag(1))
         case (3)
-            call TRIDSS(nsize, nx*ny, g%der1%lu(nmin:nmax, ip + 1), g%der1%lu(nmin:nmax, ip + 2), g%der1%lu(nmin:nmax, ip + 3), tmp1(:, nmin:nmax))
+            call TRIDSS(nsize, nx*ny, g(3)%der1%lu(nmin:nmax, ip + 1), g(3)%der1%lu(nmin:nmax, ip + 2), g(3)%der1%lu(nmin:nmax, ip + 3), tmp1(:, nmin:nmax))
         case (5)
-                call PENTADSS2(nsize, nx*ny, g%der1%lu(nmin:nmax, ip + 1), g%der1%lu(nmin:nmax, ip + 2), g%der1%lu(nmin:nmax, ip + 3), g%der1%lu(nmin:nmax, ip + 4), g%der1%lu(nmin:nmax, ip + 5), tmp1(:, nmin:nmax))
+                call PENTADSS2(nsize, nx*ny, g(3)%der1%lu(nmin:nmax, ip + 1), g(3)%der1%lu(nmin:nmax, ip + 2), g(3)%der1%lu(nmin:nmax, ip + 3), g(3)%der1%lu(nmin:nmax, ip + 4), g(3)%der1%lu(nmin:nmax, ip + 5), tmp1(:, nmin:nmax))
         end select
 
-        idl = g%der1%nb_diag(1)/2 + 1
+        idl = g(3)%der1%nb_diag(1)/2 + 1
         if (any([BCS_ND, BCS_NN] == ibc)) then
             do ic = 1, idl - 1
-                bcs_hb(:) = bcs_hb(:) + g%der1%lu(1, ip + idl + ic)*tmp1(:, 1 + ic)
+                bcs_hb(:) = bcs_hb(:) + g(3)%der1%lu(1, ip + idl + ic)*tmp1(:, 1 + ic)
             end do
         end if
         if (any([BCS_DN, BCS_NN] == ibc)) then
             do ic = 1, idl - 1
-                bcs_ht(:) = bcs_ht(:) + g%der1%lu(nz, ip + idl - ic)*tmp1(:, nz - ic)
+                bcs_ht(:) = bcs_ht(:) + g(3)%der1%lu(nz, ip + idl - ic)*tmp1(:, nz - ic)
             end do
         end if
 

@@ -15,7 +15,6 @@ subroutine NSE_Boussinesq()
     use TLab_Memory, only: imax, jmax, kmax, inb_flow, inb_scal
     use TLab_Arrays, only: s
     use TLab_Pointers, only: u, v, w, tmp1, tmp2, tmp3, tmp4, tmp5, tmp6, tmp7, tmp8
-    use FDM, only: g
     use DNS_Arrays
     use TimeMarching, only: dte, remove_divergence
     use BoundaryConditions
@@ -126,7 +125,7 @@ subroutine NSE_Boussinesq()
         if (BcsFlowKmin%type(iq) == DNS_BCS_Neumann) ibc = ibc + 1
         if (BcsFlowKmax%type(iq) == DNS_BCS_Neumann) ibc = ibc + 2
         if (ibc > 0) then
-            call BCS_Neumann_Z(ibc, imax, jmax, kmax, g(3), hq(:, iq), &
+            call BCS_Neumann_Z(ibc, imax, jmax, kmax, hq(:, iq), &
                                         BcsFlowKmin%ref(:, :, iq), BcsFlowKmax%ref(:, :, iq), tmp1)
         end if
 
@@ -140,7 +139,7 @@ subroutine NSE_Boussinesq()
         if (BcsScalKmin%type(is) == DNS_BCS_Neumann) ibc = ibc + 1
         if (BcsScalKmax%type(is) == DNS_BCS_Neumann) ibc = ibc + 2
         if (ibc > 0) then
-            call BCS_Neumann_Z(ibc, imax, jmax, kmax, g(3), hs(:, is), &
+            call BCS_Neumann_Z(ibc, imax, jmax, kmax, hs(:, is), &
                                         BcsScalKmin%ref(:, :, is), BcsScalKmax%ref(:, :, is), tmp1)
         end if
 

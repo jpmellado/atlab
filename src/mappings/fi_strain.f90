@@ -5,7 +5,6 @@
 !########################################################################
 module FI_STRAIN_EQN
     use TLab_Constants, only: wp, wi
-    use FDM, only: g
     use OPR_Partial
     implicit none
     private
@@ -29,24 +28,24 @@ contains
 ! ###################################################################
         ! Off diagonal terms; result1 used as auxiliar array
 ! Uy, Vx
-        call OPR_Partial_X(OPR_P1, nx, ny, nz, g(1), v, tmp1)
-        call OPR_Partial_Y(OPR_P1, nx, ny, nz, g(2), u, tmp4)
+        call OPR_Partial_X(OPR_P1, nx, ny, nz, v, tmp1)
+        call OPR_Partial_Y(OPR_P1, nx, ny, nz, u, tmp4)
         tmp4 = 0.5_wp*(tmp4 + tmp1)
 
 ! Uz, Wx
-        call OPR_Partial_X(OPR_P1, nx, ny, nz, g(1), w, tmp1)
-        call OPR_Partial_Z(OPR_P1, nx, ny, nz, g(3), u, tmp5)
+        call OPR_Partial_X(OPR_P1, nx, ny, nz, w, tmp1)
+        call OPR_Partial_Z(OPR_P1, nx, ny, nz, u, tmp5)
         tmp5 = 0.5_wp*(tmp5 + tmp1)
 
 ! Vz, Wy
-        call OPR_Partial_Y(OPR_P1, nx, ny, nz, g(2), w, tmp1)
-        call OPR_Partial_Z(OPR_P1, nx, ny, nz, g(3), v, tmp6)
+        call OPR_Partial_Y(OPR_P1, nx, ny, nz, w, tmp1)
+        call OPR_Partial_Z(OPR_P1, nx, ny, nz, v, tmp6)
         tmp6 = 0.5_wp*(tmp6 + tmp1)
 
 ! diagonal terms
-        call OPR_Partial_X(OPR_P1, nx, ny, nz, g(1), u, tmp1)
-        call OPR_Partial_Y(OPR_P1, nx, ny, nz, g(2), v, tmp2)
-        call OPR_Partial_Z(OPR_P1, nx, ny, nz, g(3), w, tmp3)
+        call OPR_Partial_X(OPR_P1, nx, ny, nz, u, tmp1)
+        call OPR_Partial_Y(OPR_P1, nx, ny, nz, v, tmp2)
+        call OPR_Partial_Z(OPR_P1, nx, ny, nz, w, tmp3)
 
         return
     end subroutine FI_STRAIN_TENSOR
@@ -62,26 +61,26 @@ contains
 
 ! ###################################################################
 ! Ux, Vy, Wz
-        call OPR_Partial_X(OPR_P1, nx, ny, nz, g(1), u, tmp1)
-        call OPR_Partial_Y(OPR_P1, nx, ny, nz, g(2), v, tmp2)
+        call OPR_Partial_X(OPR_P1, nx, ny, nz, u, tmp1)
+        call OPR_Partial_Y(OPR_P1, nx, ny, nz, v, tmp2)
         result = tmp1*tmp1 + tmp2*tmp2
 
-        call OPR_Partial_Z(OPR_P1, nx, ny, nz, g(3), w, tmp2)
+        call OPR_Partial_Z(OPR_P1, nx, ny, nz, w, tmp2)
         result = result + tmp2*tmp2
 
 ! Uy, Vx
-        call OPR_Partial_X(OPR_P1, nx, ny, nz, g(1), v, tmp1)
-        call OPR_Partial_Y(OPR_P1, nx, ny, nz, g(2), u, tmp2)
+        call OPR_Partial_X(OPR_P1, nx, ny, nz, v, tmp1)
+        call OPR_Partial_Y(OPR_P1, nx, ny, nz, u, tmp2)
         result = result + 0.5_wp*(tmp1 + tmp2)*(tmp1 + tmp2)
 
 ! Uz, Wx
-        call OPR_Partial_X(OPR_P1, nx, ny, nz, g(1), w, tmp1)
-        call OPR_Partial_Z(OPR_P1, nx, ny, nz, g(3), u, tmp2)
+        call OPR_Partial_X(OPR_P1, nx, ny, nz, w, tmp1)
+        call OPR_Partial_Z(OPR_P1, nx, ny, nz, u, tmp2)
         result = result + 0.5_wp*(tmp1 + tmp2)*(tmp1 + tmp2)
 
 ! Vz, Wy
-        call OPR_Partial_Y(OPR_P1, nx, ny, nz, g(2), w, tmp1)
-        call OPR_Partial_Z(OPR_P1, nx, ny, nz, g(3), v, tmp2)
+        call OPR_Partial_Y(OPR_P1, nx, ny, nz, w, tmp1)
+        call OPR_Partial_Z(OPR_P1, nx, ny, nz, v, tmp2)
         result = result + 0.5_wp*(tmp1 + tmp2)*(tmp1 + tmp2)
 
         return
@@ -117,18 +116,18 @@ contains
 ! ###################################################################
 ! Pure strain term
 ! ###################################################################
-        call OPR_Partial_X(OPR_P1, nx, ny, nz, g(1), v, tmp1)
-        call OPR_Partial_Y(OPR_P1, nx, ny, nz, g(2), u, tmp2)
+        call OPR_Partial_X(OPR_P1, nx, ny, nz, v, tmp1)
+        call OPR_Partial_Y(OPR_P1, nx, ny, nz, u, tmp2)
         s_12 = 0.5_wp*(tmp1 + tmp2)
 
 ! Uz, Wx
-        call OPR_Partial_X(OPR_P1, nx, ny, nz, g(1), w, tmp1)
-        call OPR_Partial_Z(OPR_P1, nx, ny, nz, g(3), u, tmp2)
+        call OPR_Partial_X(OPR_P1, nx, ny, nz, w, tmp1)
+        call OPR_Partial_Z(OPR_P1, nx, ny, nz, u, tmp2)
         s_13 = 0.5_wp*(tmp1 + tmp2)
 
 ! Vz, Wy
-        call OPR_Partial_Y(OPR_P1, nx, ny, nz, g(2), w, tmp1)
-        call OPR_Partial_Z(OPR_P1, nx, ny, nz, g(3), v, tmp2)
+        call OPR_Partial_Y(OPR_P1, nx, ny, nz, w, tmp1)
+        call OPR_Partial_Z(OPR_P1, nx, ny, nz, v, tmp2)
         s_23 = 0.5_wp*(tmp1 + tmp2)
 
 ! -------------------------------------------------------------------
@@ -136,13 +135,13 @@ contains
 ! -------------------------------------------------------------------
         result = result + 2.0_wp*s_12*s_13*s_23
 
-        call OPR_Partial_X(OPR_P1, nx, ny, nz, g(1), u, tmp1)
+        call OPR_Partial_X(OPR_P1, nx, ny, nz, u, tmp1)
         result = result + tmp1*(tmp1*tmp1 + 3.0_wp*(s_12*s_12 + s_13*s_13))
 
-        call OPR_Partial_Y(OPR_P1, nx, ny, nz, g(2), v, tmp1)
+        call OPR_Partial_Y(OPR_P1, nx, ny, nz, v, tmp1)
         result = result + tmp1*(tmp1*tmp1 + 3.0_wp*(s_12*s_12 + s_23*s_23))
 
-        call OPR_Partial_Z(OPR_P1, nx, ny, nz, g(3), w, tmp1)
+        call OPR_Partial_Z(OPR_P1, nx, ny, nz, w, tmp1)
         result = result + tmp1*(tmp1*tmp1 + 3.0_wp*(s_13*s_13 + s_23*s_23))
 
 ! right sign
@@ -166,71 +165,71 @@ contains
 ! -------------------------------------------------------------------
 ! S_11 = U,x
 ! -------------------------------------------------------------------
-        call OPR_Partial_X(OPR_P1, nx, ny, nz, g(1), u, strain)
+        call OPR_Partial_X(OPR_P1, nx, ny, nz, u, strain)
 
-        call OPR_Partial_Z(OPR_P2, nx, ny, nz, g(3), strain, tmp3, tmp4)
-        call OPR_Partial_Y(OPR_P2, nx, ny, nz, g(2), strain, tmp2, tmp4)
-        call OPR_Partial_X(OPR_P2, nx, ny, nz, g(1), strain, tmp1, tmp4)
+        call OPR_Partial_Z(OPR_P2, nx, ny, nz, strain, tmp3, tmp4)
+        call OPR_Partial_Y(OPR_P2, nx, ny, nz, strain, tmp2, tmp4)
+        call OPR_Partial_X(OPR_P2, nx, ny, nz, strain, tmp1, tmp4)
 
         result = strain*(tmp1 + tmp2 + tmp3)
 
 ! -------------------------------------------------------------------
 ! S_22 = V,y
 ! -------------------------------------------------------------------
-        call OPR_Partial_Y(OPR_P1, nx, ny, nz, g(2), v, strain)
+        call OPR_Partial_Y(OPR_P1, nx, ny, nz, v, strain)
 
-        call OPR_Partial_Z(OPR_P2, nx, ny, nz, g(3), strain, tmp3, tmp4)
-        call OPR_Partial_Y(OPR_P2, nx, ny, nz, g(2), strain, tmp2, tmp4)
-        call OPR_Partial_X(OPR_P2, nx, ny, nz, g(1), strain, tmp1, tmp4)
+        call OPR_Partial_Z(OPR_P2, nx, ny, nz, strain, tmp3, tmp4)
+        call OPR_Partial_Y(OPR_P2, nx, ny, nz, strain, tmp2, tmp4)
+        call OPR_Partial_X(OPR_P2, nx, ny, nz, strain, tmp1, tmp4)
 
         result = result + strain*(tmp1 + tmp2 + tmp3)
 
 ! -------------------------------------------------------------------
 ! S_33 = W,z
 ! -------------------------------------------------------------------
-        call OPR_Partial_Z(OPR_P1, nx, ny, nz, g(3), w, strain)
+        call OPR_Partial_Z(OPR_P1, nx, ny, nz, w, strain)
 
-        call OPR_Partial_Z(OPR_P2, nx, ny, nz, g(3), strain, tmp3, tmp4)
-        call OPR_Partial_Y(OPR_P2, nx, ny, nz, g(2), strain, tmp2, tmp4)
-        call OPR_Partial_X(OPR_P2, nx, ny, nz, g(1), strain, tmp1, tmp4)
+        call OPR_Partial_Z(OPR_P2, nx, ny, nz, strain, tmp3, tmp4)
+        call OPR_Partial_Y(OPR_P2, nx, ny, nz, strain, tmp2, tmp4)
+        call OPR_Partial_X(OPR_P2, nx, ny, nz, strain, tmp1, tmp4)
 
         result = result + strain*(tmp1 + tmp2 + tmp3)
 ! -------------------------------------------------------------------
 ! S_12 = (V,x + U,y)/2
 ! -------------------------------------------------------------------
-        call OPR_Partial_X(OPR_P1, nx, ny, nz, g(1), v, tmp1)
-        call OPR_Partial_Y(OPR_P1, nx, ny, nz, g(2), u, tmp2)
+        call OPR_Partial_X(OPR_P1, nx, ny, nz, v, tmp1)
+        call OPR_Partial_Y(OPR_P1, nx, ny, nz, u, tmp2)
         strain = tmp1 + tmp2
 
-        call OPR_Partial_Z(OPR_P2, nx, ny, nz, g(3), strain, tmp3, tmp4)
-        call OPR_Partial_Y(OPR_P2, nx, ny, nz, g(2), strain, tmp2, tmp4)
-        call OPR_Partial_X(OPR_P2, nx, ny, nz, g(1), strain, tmp1, tmp4)
+        call OPR_Partial_Z(OPR_P2, nx, ny, nz, strain, tmp3, tmp4)
+        call OPR_Partial_Y(OPR_P2, nx, ny, nz, strain, tmp2, tmp4)
+        call OPR_Partial_X(OPR_P2, nx, ny, nz, strain, tmp1, tmp4)
 
         result = result + 0.5_wp*strain*(tmp1 + tmp2 + tmp3)
 
 ! -------------------------------------------------------------------
 ! S_13 = (U,z + W,x)/2
 ! -------------------------------------------------------------------
-        call OPR_Partial_Z(OPR_P1, nx, ny, nz, g(3), u, tmp1)
-        call OPR_Partial_X(OPR_P1, nx, ny, nz, g(1), w, tmp2)
+        call OPR_Partial_Z(OPR_P1, nx, ny, nz, u, tmp1)
+        call OPR_Partial_X(OPR_P1, nx, ny, nz, w, tmp2)
         strain = tmp1 + tmp2
 
-        call OPR_Partial_Z(OPR_P2, nx, ny, nz, g(3), strain, tmp3, tmp4)
-        call OPR_Partial_Y(OPR_P2, nx, ny, nz, g(2), strain, tmp2, tmp4)
-        call OPR_Partial_X(OPR_P2, nx, ny, nz, g(1), strain, tmp1, tmp4)
+        call OPR_Partial_Z(OPR_P2, nx, ny, nz, strain, tmp3, tmp4)
+        call OPR_Partial_Y(OPR_P2, nx, ny, nz, strain, tmp2, tmp4)
+        call OPR_Partial_X(OPR_P2, nx, ny, nz, strain, tmp1, tmp4)
 
         result = result + 0.5_wp*strain*(tmp1 + tmp2 + tmp3)
 
 ! -------------------------------------------------------------------
 ! S_23 = (W,y + V,z)/2
 ! -------------------------------------------------------------------
-        call OPR_Partial_Y(OPR_P1, nx, ny, nz, g(2), w, tmp1)
-        call OPR_Partial_Z(OPR_P1, nx, ny, nz, g(3), v, tmp2)
+        call OPR_Partial_Y(OPR_P1, nx, ny, nz, w, tmp1)
+        call OPR_Partial_Z(OPR_P1, nx, ny, nz, v, tmp2)
         strain = tmp1 + tmp2
 
-        call OPR_Partial_Z(OPR_P2, nx, ny, nz, g(3), strain, tmp3, tmp4)
-        call OPR_Partial_Y(OPR_P2, nx, ny, nz, g(2), strain, tmp2, tmp4)
-        call OPR_Partial_X(OPR_P2, nx, ny, nz, g(1), strain, tmp1, tmp4)
+        call OPR_Partial_Z(OPR_P2, nx, ny, nz, strain, tmp3, tmp4)
+        call OPR_Partial_Y(OPR_P2, nx, ny, nz, strain, tmp2, tmp4)
+        call OPR_Partial_X(OPR_P2, nx, ny, nz, strain, tmp1, tmp4)
 
         result = result + 0.5_wp*strain*(tmp1 + tmp2 + tmp3)
 
@@ -250,40 +249,40 @@ contains
 ! -------------------------------------------------------------------
 ! diagonal terms
 ! -------------------------------------------------------------------
-        call OPR_Partial_X(OPR_P1, nx, ny, nz, g(1), u, tmp1)
-        call OPR_Partial_X(OPR_P2, nx, ny, nz, g(1), p, tmp2, tmp4)
+        call OPR_Partial_X(OPR_P1, nx, ny, nz, u, tmp1)
+        call OPR_Partial_X(OPR_P2, nx, ny, nz, p, tmp2, tmp4)
         result = tmp1*tmp2
 
-        call OPR_Partial_Y(OPR_P1, nx, ny, nz, g(2), v, tmp1)
-        call OPR_Partial_Y(OPR_P2, nx, ny, nz, g(2), p, tmp2, tmp4)
+        call OPR_Partial_Y(OPR_P1, nx, ny, nz, v, tmp1)
+        call OPR_Partial_Y(OPR_P2, nx, ny, nz, p, tmp2, tmp4)
         result = result + tmp1*tmp2
 
-        call OPR_Partial_Z(OPR_P1, nx, ny, nz, g(3), w, tmp1)
-        call OPR_Partial_Z(OPR_P2, nx, ny, nz, g(3), p, tmp2, tmp4)
+        call OPR_Partial_Z(OPR_P1, nx, ny, nz, w, tmp1)
+        call OPR_Partial_Z(OPR_P2, nx, ny, nz, p, tmp2, tmp4)
         result = result + tmp1*tmp2
 
 ! -------------------------------------------------------------------
 ! off-diagonal terms
 ! -------------------------------------------------------------------
 ! 2 s_12 p,xy
-        call OPR_Partial_X(OPR_P1, nx, ny, nz, g(1), p, tmp2)
-        call OPR_Partial_Y(OPR_P1, nx, ny, nz, g(2), tmp2, tmp1)
-        call OPR_Partial_X(OPR_P1, nx, ny, nz, g(1), v, tmp2)
-        call OPR_Partial_Y(OPR_P1, nx, ny, nz, g(2), u, tmp3)
+        call OPR_Partial_X(OPR_P1, nx, ny, nz, p, tmp2)
+        call OPR_Partial_Y(OPR_P1, nx, ny, nz, tmp2, tmp1)
+        call OPR_Partial_X(OPR_P1, nx, ny, nz, v, tmp2)
+        call OPR_Partial_Y(OPR_P1, nx, ny, nz, u, tmp3)
         result = result + tmp1*(tmp2 + tmp3)
 
 ! 2 s_13 p,xz
-        call OPR_Partial_X(OPR_P1, nx, ny, nz, g(1), p, tmp2)
-        call OPR_Partial_Z(OPR_P1, nx, ny, nz, g(3), tmp2, tmp1)
-        call OPR_Partial_X(OPR_P1, nx, ny, nz, g(1), w, tmp2)
-        call OPR_Partial_Z(OPR_P1, nx, ny, nz, g(3), u, tmp3)
+        call OPR_Partial_X(OPR_P1, nx, ny, nz, p, tmp2)
+        call OPR_Partial_Z(OPR_P1, nx, ny, nz, tmp2, tmp1)
+        call OPR_Partial_X(OPR_P1, nx, ny, nz, w, tmp2)
+        call OPR_Partial_Z(OPR_P1, nx, ny, nz, u, tmp3)
         result = result + tmp1*(tmp2 + tmp3)
 
 ! 2 s_23 p,yz
-        call OPR_Partial_Y(OPR_P1, nx, ny, nz, g(2), p, tmp2)
-        call OPR_Partial_Z(OPR_P1, nx, ny, nz, g(3), tmp2, tmp1)
-        call OPR_Partial_Y(OPR_P1, nx, ny, nz, g(2), w, tmp2)
-        call OPR_Partial_Z(OPR_P1, nx, ny, nz, g(3), v, tmp3)
+        call OPR_Partial_Y(OPR_P1, nx, ny, nz, p, tmp2)
+        call OPR_Partial_Z(OPR_P1, nx, ny, nz, tmp2, tmp1)
+        call OPR_Partial_Y(OPR_P1, nx, ny, nz, w, tmp2)
+        call OPR_Partial_Z(OPR_P1, nx, ny, nz, v, tmp3)
         result = result + tmp1*(tmp2 + tmp3)
 
 ! right sign
@@ -307,32 +306,32 @@ contains
         
         ! ###################################################################
         ! Compute normals
-        call OPR_Partial_X(OPR_P1, nx, ny, nz, g(1), a, normal1)
-        call OPR_Partial_Y(OPR_P1, nx, ny, nz, g(2), a, normal2)
-        call OPR_Partial_Z(OPR_P1, nx, ny, nz, g(3), a, normal3)
+        call OPR_Partial_X(OPR_P1, nx, ny, nz, a, normal1)
+        call OPR_Partial_Y(OPR_P1, nx, ny, nz, a, normal2)
+        call OPR_Partial_Z(OPR_P1, nx, ny, nz, a, normal3)
 
         ! Compute gradient terms with u
-        call OPR_Partial_X(OPR_P1, nx, ny, nz, g(1), u, tmp1)
+        call OPR_Partial_X(OPR_P1, nx, ny, nz, u, tmp1)
         strain1 = normal1*tmp1*normal1
-        call OPR_Partial_Y(OPR_P1, nx, ny, nz, g(2), u, tmp1)
+        call OPR_Partial_Y(OPR_P1, nx, ny, nz, u, tmp1)
         strain1 = strain1 + normal2*tmp1*normal1
-        call OPR_Partial_Z(OPR_P1, nx, ny, nz, g(3), u, tmp1)
+        call OPR_Partial_Z(OPR_P1, nx, ny, nz, u, tmp1)
         strain1 = strain1 + normal3*tmp1*normal1
 
         ! Compute gradient terms with v
-        call OPR_Partial_X(OPR_P1, nx, ny, nz, g(1), v, tmp1)
+        call OPR_Partial_X(OPR_P1, nx, ny, nz, v, tmp1)
         strain1 = strain1 + normal1*tmp1*normal2
-        call OPR_Partial_Y(OPR_P1, nx, ny, nz, g(2), v, tmp1)
+        call OPR_Partial_Y(OPR_P1, nx, ny, nz, v, tmp1)
         strain1 = strain1 + normal2*tmp1*normal2
-        call OPR_Partial_Z(OPR_P1, nx, ny, nz, g(3), v, tmp1)
+        call OPR_Partial_Z(OPR_P1, nx, ny, nz, v, tmp1)
         strain1 = strain1 + normal3*tmp1*normal2
 
         ! Compute gradient terms with 3
-        call OPR_Partial_X(OPR_P1, nx, ny, nz, g(1), w, tmp1)
+        call OPR_Partial_X(OPR_P1, nx, ny, nz, w, tmp1)
         strain1 = strain1 + normal1*tmp1*normal3
-        call OPR_Partial_Y(OPR_P1, nx, ny, nz, g(2), w, tmp1)
+        call OPR_Partial_Y(OPR_P1, nx, ny, nz, w, tmp1)
         strain1 = strain1 + normal2*tmp1*normal3
-        call OPR_Partial_Z(OPR_P1, nx, ny, nz, g(3), w, tmp1)
+        call OPR_Partial_Z(OPR_P1, nx, ny, nz, w, tmp1)
         strain1 = strain1 + normal3*tmp1*normal3
 
         ! norm of the gradient of a

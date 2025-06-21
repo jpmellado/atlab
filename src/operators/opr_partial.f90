@@ -6,7 +6,7 @@ module OPR_Partial
     use TLabMPI_VARS, only: ims_npro_i, ims_npro_j
     use TLabMPI_Transpose
 #endif
-    use FDM, only: fdm_dt
+    use FDM, only: g
     use FDM_Derivative, only: FDM_Der1_Solve, FDM_Der2_Solve
     implicit none
     private
@@ -23,12 +23,10 @@ module OPR_Partial
     ! -----------------------------------------------------------------------
     procedure(OPR_Partial_interface) :: OPR_Partial_dt
     abstract interface
-        subroutine OPR_Partial_interface(type, nx, ny, nz, g, u, result, tmp1, ibc)
+        subroutine OPR_Partial_interface(type, nx, ny, nz, u, result, tmp1, ibc)
             use TLab_Constants, only: wi, wp
-            use FDM, only: fdm_dt
             integer(wi), intent(in) :: type                         ! OPR_P1, OPR_P2, OPR_P2_P1
             integer(wi), intent(in) :: nx, ny, nz
-            type(fdm_dt), intent(in) :: g
             real(wp), intent(in) :: u(nx*ny*nz)
             real(wp), intent(out) :: result(nx*ny*nz)
             real(wp), intent(inout), optional :: tmp1(nx*ny*nz)     ! 1. order derivative in 2. order calculation
@@ -69,10 +67,9 @@ contains
 
     ! ###################################################################
     ! ###################################################################
-    subroutine OPR_Partial_X_Serial(type, nx, ny, nz, g, u, result, tmp1, ibc)
+    subroutine OPR_Partial_X_Serial(type, nx, ny, nz, u, result, tmp1, ibc)
         integer(wi), intent(in) :: type                         ! OPR_P1, OPR_P2, OPR_P2_P1
         integer(wi), intent(in) :: nx, ny, nz
-        type(fdm_dt), intent(in) :: g
         real(wp), intent(in) :: u(nx*ny*nz)
         real(wp), intent(out) :: result(nx*ny*nz)
         real(wp), intent(inout), optional :: tmp1(nx*ny*nz)     ! 1. order derivative in 2. order calculation
@@ -82,7 +79,7 @@ contains
         integer ibc_loc
 
         ! ###################################################################
-        if (g%size == 1) then ! Set to zero in 2D case
+        if (g(1)%size == 1) then ! Set to zero in 2D case
             result = 0.0_wp
             if (present(tmp1)) tmp1 = 0.0_wp
             return
@@ -90,9 +87,9 @@ contains
 
         ! Transposition: make x-direction the last one
 #ifdef USE_ESSL
-        call DGETMO(u, g%size, g%size, ny*nz, result, ny*nz)
+        call DGETMO(u, g(1)%size, g(1)%size, ny*nz, result, ny*nz)
 #else
-        call TLab_Transpose(u, g%size, ny*nz, g%size, result, ny*nz)
+        call TLab_Transpose(u, g(1)%size, ny*nz, g(1)%size, result, ny*nz)
 #endif
 
         if (present(ibc)) then
@@ -103,32 +100,32 @@ contains
 
         select case (type)
         case (OPR_P2)
-            if (g%der2%need_1der) call FDM_Der1_Solve(ny*nz, ibc_loc, g%der1, g%der1%lu, result, tmp1, wrk2d)
-            call FDM_Der2_Solve(ny*nz, g%der2, g%der2%lu, result, wrk3d, tmp1, wrk2d)
+            if (g(1)%der2%need_1der) call FDM_Der1_Solve(ny*nz, ibc_loc, g(1)%der1, g(1)%der1%lu, result, tmp1, wrk2d)
+            call FDM_Der2_Solve(ny*nz, g(1)%der2, g(1)%der2%lu, result, wrk3d, tmp1, wrk2d)
 
         case (OPR_P2_P1)
-            call FDM_Der1_Solve(ny*nz, ibc_loc, g%der1, g%der1%lu, result, wrk3d, wrk2d)
-            call FDM_Der2_Solve(ny*nz, g%der2, g%der2%lu, result, tmp1, wrk3d, wrk2d)
+            call FDM_Der1_Solve(ny*nz, ibc_loc, g(1)%der1, g(1)%der1%lu, result, wrk3d, wrk2d)
+            call FDM_Der2_Solve(ny*nz, g(1)%der2, g(1)%der2%lu, result, tmp1, wrk3d, wrk2d)
 
         case (OPR_P1)
-            call FDM_Der1_Solve(ny*nz, ibc_loc, g%der1, g%der1%lu, result, wrk3d, wrk2d)
+            call FDM_Der1_Solve(ny*nz, ibc_loc, g(1)%der1, g(1)%der1%lu, result, wrk3d, wrk2d)
 
         end select
 
         ! Put arrays back in the order in which they came in
 #ifdef USE_ESSL
         if (type == OPR_P2_P1) then
-            call DGETMO(tmp1, ny*nz, ny*nz, g%size, result, g%size)
-            call DGETMO(wrk3d, ny*nz, ny*nz, g%size, tmp1, g%size)
+            call DGETMO(tmp1, ny*nz, ny*nz, g(1)%size, result, g(1)%size)
+            call DGETMO(wrk3d, ny*nz, ny*nz, g(1)%size, tmp1, g(1)%size)
         else
-            call DGETMO(wrk3d, ny*nz, ny*nz, g%size, result, g%size)
+            call DGETMO(wrk3d, ny*nz, ny*nz, g(1)%size, result, g(1)%size)
         end if
 #else
         if (type == OPR_P2_P1) then
-            call TLab_Transpose(tmp1, ny*nz, g%size, ny*nz, result, g%size)
-            call TLab_Transpose(wrk3d, ny*nz, g%size, ny*nz, tmp1, g%size)
+            call TLab_Transpose(tmp1, ny*nz, g(1)%size, ny*nz, result, g(1)%size)
+            call TLab_Transpose(wrk3d, ny*nz, g(1)%size, ny*nz, tmp1, g(1)%size)
         else
-            call TLab_Transpose(wrk3d, ny*nz, g%size, ny*nz, result, g%size)
+            call TLab_Transpose(wrk3d, ny*nz, g(1)%size, ny*nz, result, g(1)%size)
         end if
 #endif
 
@@ -138,10 +135,9 @@ contains
     ! ###################################################################
     ! ###################################################################
 #ifdef USE_MPI
-    subroutine OPR_Partial_X_Parallel(type, nx, ny, nz, g, u, result, tmp1, ibc)
+    subroutine OPR_Partial_X_Parallel(type, nx, ny, nz, u, result, tmp1, ibc)
         integer(wi), intent(in) :: type                         ! OPR_P1, OPR_P2, OPR_P2_P1
         integer(wi), intent(in) :: nx, ny, nz
-        type(fdm_dt), intent(in) :: g
         real(wp), intent(in) :: u(nx*ny*nz)
         real(wp), intent(out) :: result(nx*ny*nz)
         real(wp), intent(inout), optional :: tmp1(nx*ny*nz)     ! 1. order derivative in 2. order calculation
@@ -152,7 +148,7 @@ contains
         integer ibc_loc
 
         ! ###################################################################
-        if (g%size == 1) then ! Set to zero in 2D case
+        if (g(1)%size == 1) then ! Set to zero in 2D case
             result = 0.0_wp
             if (present(tmp1)) tmp1 = 0.0_wp
             return
@@ -163,9 +159,9 @@ contains
         ! Transposition: make x-direction the last one
         call TLabMPI_Trp_ExecI_Forward(u, result, tmpi_plan_dx)
 #ifdef USE_ESSL
-        call DGETMO(result, g%size, g%size, nlines, wrk3d, nlines)
+        call DGETMO(result, g(1)%size, g(1)%size, nlines, wrk3d, nlines)
 #else
-        call TLab_Transpose(result, g%size, nlines, g%size, wrk3d, nlines)
+        call TLab_Transpose(result, g(1)%size, nlines, g(1)%size, wrk3d, nlines)
 #endif
 
         if (present(ibc)) then
@@ -176,37 +172,37 @@ contains
 
         select case (type)
         case (OPR_P2)
-            if (g%der2%need_1der) call FDM_Der1_Solve(nlines, ibc_loc, g%der1, g%der1%lu, wrk3d, tmp1, wrk2d)
-            call FDM_Der2_Solve(nlines, g%der2, g%der2%lu, wrk3d, result, tmp1, wrk2d)
+            if (g(1)%der2%need_1der) call FDM_Der1_Solve(nlines, ibc_loc, g(1)%der1, g(1)%der1%lu, wrk3d, tmp1, wrk2d)
+            call FDM_Der2_Solve(nlines, g(1)%der2, g(1)%der2%lu, wrk3d, result, tmp1, wrk2d)
 
         case (OPR_P2_P1)
-            call FDM_Der1_Solve(nlines, ibc_loc, g%der1, g%der1%lu, wrk3d, tmp1, wrk2d)
-            call FDM_Der2_Solve(nlines, g%der2, g%der2%lu, wrk3d, result, tmp1, wrk2d)
+            call FDM_Der1_Solve(nlines, ibc_loc, g(1)%der1, g(1)%der1%lu, wrk3d, tmp1, wrk2d)
+            call FDM_Der2_Solve(nlines, g(1)%der2, g(1)%der2%lu, wrk3d, result, tmp1, wrk2d)
 
         case (OPR_P1)
-            call FDM_Der1_Solve(nlines, ibc_loc, g%der1, g%der1%lu, wrk3d, result, wrk2d)
+            call FDM_Der1_Solve(nlines, ibc_loc, g(1)%der1, g(1)%der1%lu, wrk3d, result, wrk2d)
 
         end select
 
         ! Put arrays back in the order in which they came in
 #ifdef USE_ESSL
         if (type == OPR_P2_P1) then
-            call DGETMO(tmp1, nlines, nlines, g%size, wrk3d, g%size)
-            call DGETMO(result, nlines, nlines, g%size, tmp1, g%size)
+            call DGETMO(tmp1, nlines, nlines, g(1)%size, wrk3d, g(1)%size)
+            call DGETMO(result, nlines, nlines, g(1)%size, tmp1, g(1)%size)
             call TLabMPI_Trp_ExecI_Backward(tmp1, result, tmpi_plan_dx)
             call TLabMPI_Trp_ExecI_Backward(wrk3d, tmp1, tmpi_plan_dx)
         else
-            call DGETMO(result, nlines, nlines, g%size, wrk3d, g%size)
+            call DGETMO(result, nlines, nlines, g(1)%size, wrk3d, g(1)%size)
             call TLabMPI_Trp_ExecI_Backward(wrk3d, result, tmpi_plan_dx)
         end if
 #else
         if (type == OPR_P2_P1) then
-            call TLab_Transpose(tmp1, nlines, g%size, nlines, wrk3d, g%size)
-            call TLab_Transpose(result, nlines, g%size, nlines, tmp1, g%size)
+            call TLab_Transpose(tmp1, nlines, g(1)%size, nlines, wrk3d, g(1)%size)
+            call TLab_Transpose(result, nlines, g(1)%size, nlines, tmp1, g(1)%size)
             call TLabMPI_Trp_ExecI_Backward(tmp1, result, tmpi_plan_dx)
             call TLabMPI_Trp_ExecI_Backward(wrk3d, tmp1, tmpi_plan_dx)
         else
-            call TLab_Transpose(result, nlines, g%size, nlines, wrk3d, g%size)
+            call TLab_Transpose(result, nlines, g(1)%size, nlines, wrk3d, g(1)%size)
             call TLabMPI_Trp_ExecI_Backward(wrk3d, result, tmpi_plan_dx)
         end if
 #endif
@@ -217,10 +213,9 @@ contains
 
     !########################################################################
     !########################################################################
-    subroutine OPR_Partial_Y_Serial(type, nx, ny, nz, g, u, result, tmp1, ibc)
+    subroutine OPR_Partial_Y_Serial(type, nx, ny, nz, u, result, tmp1, ibc)
         integer(wi), intent(in) :: type                         ! OPR_P1, OPR_P2, OPR_P2_P1
         integer(wi), intent(in) :: nx, ny, nz
-        type(fdm_dt), intent(in) :: g
         real(wp), intent(in) :: u(nx*ny*nz)
         real(wp), intent(out) :: result(nx*ny*nz)
         real(wp), intent(inout), optional :: tmp1(nx*ny*nz)     ! 1. order derivative in 2. order calculation
@@ -231,7 +226,7 @@ contains
         integer ibc_loc
 
         ! ###################################################################
-        if (g%size == 1) then ! Set to zero in 2D case
+        if (g(2)%size == 1) then ! Set to zero in 2D case
             result = 0.0_wp
             if (present(tmp1)) tmp1 = 0.0_wp
             return
@@ -253,15 +248,15 @@ contains
 
         select case (type)
         case (OPR_P2)
-            if (g%der2%need_1der) call FDM_Der1_Solve(nlines, ibc_loc, g%der1, g%der1%lu, result, tmp1, wrk2d)
-            call FDM_Der2_Solve(nlines, g%der2, g%der2%lu, result, wrk3d, tmp1, wrk2d)
+            if (g(2)%der2%need_1der) call FDM_Der1_Solve(nlines, ibc_loc, g(2)%der1, g(2)%der1%lu, result, tmp1, wrk2d)
+            call FDM_Der2_Solve(nlines, g(2)%der2, g(2)%der2%lu, result, wrk3d, tmp1, wrk2d)
 
         case (OPR_P2_P1)
-            call FDM_Der1_Solve(nlines, ibc_loc, g%der1, g%der1%lu, result, wrk3d, wrk2d)
-            call FDM_Der2_Solve(nlines, g%der2, g%der2%lu, result, tmp1, wrk3d, wrk2d)
+            call FDM_Der1_Solve(nlines, ibc_loc, g(2)%der1, g(2)%der1%lu, result, wrk3d, wrk2d)
+            call FDM_Der2_Solve(nlines, g(2)%der2, g(2)%der2%lu, result, tmp1, wrk3d, wrk2d)
 
         case (OPR_P1)
-            call FDM_Der1_Solve(nlines, ibc_loc, g%der1, g%der1%lu, result, wrk3d, wrk2d)
+            call FDM_Der1_Solve(nlines, ibc_loc, g(2)%der1, g(2)%der1%lu, result, wrk3d, wrk2d)
 
         end select
 
@@ -289,10 +284,9 @@ contains
     !########################################################################
     !########################################################################
 #ifdef USE_MPI
-    subroutine OPR_Partial_Y_Parallel(type, nx, ny, nz, g, u, result, tmp1, ibc)
+    subroutine OPR_Partial_Y_Parallel(type, nx, ny, nz, u, result, tmp1, ibc)
         integer(wi), intent(in) :: type                         ! OPR_P1, OPR_P2, OPR_P2_P1
         integer(wi), intent(in) :: nx, ny, nz
-        type(fdm_dt), intent(in) :: g
         real(wp), intent(in) :: u(nx*ny*nz)
         real(wp), intent(out) :: result(nx*ny*nz)
         real(wp), intent(inout), optional :: tmp1(nx*ny*nz)     ! 1. order derivative in 2. order calculation
@@ -303,7 +297,7 @@ contains
         integer ibc_loc
 
         ! ###################################################################
-        if (g%size == 1) then ! Set to zero in 2D case
+        if (g(2)%size == 1) then ! Set to zero in 2D case
             result = 0.0_wp
             if (present(tmp1)) tmp1 = 0.0_wp
             return
@@ -326,15 +320,15 @@ contains
 
         select case (type)
         case (OPR_P2)
-            if (g%der2%need_1der) call FDM_Der1_Solve(nlines, ibc_loc, g%der1, g%der1%lu, wrk3d, tmp1, wrk2d)
-            call FDM_Der2_Solve(nlines, g%der2, g%der2%lu, wrk3d, result, tmp1, wrk2d)
+            if (g(2)%der2%need_1der) call FDM_Der1_Solve(nlines, ibc_loc, g(2)%der1, g(2)%der1%lu, wrk3d, tmp1, wrk2d)
+            call FDM_Der2_Solve(nlines, g(2)%der2, g(2)%der2%lu, wrk3d, result, tmp1, wrk2d)
 
         case (OPR_P2_P1)
-            call FDM_Der1_Solve(nlines, ibc_loc, g%der1, g%der1%lu, wrk3d, tmp1, wrk2d)
-            call FDM_Der2_Solve(nlines, g%der2, g%der2%lu, wrk3d, result, tmp1, wrk2d)
+            call FDM_Der1_Solve(nlines, ibc_loc, g(2)%der1, g(2)%der1%lu, wrk3d, tmp1, wrk2d)
+            call FDM_Der2_Solve(nlines, g(2)%der2, g(2)%der2%lu, wrk3d, result, tmp1, wrk2d)
 
         case (OPR_P1)
-            call FDM_Der1_Solve(nlines, ibc_loc, g%der1, g%der1%lu, wrk3d, result, wrk2d)
+            call FDM_Der1_Solve(nlines, ibc_loc, g(2)%der1, g(2)%der1%lu, wrk3d, result, wrk2d)
 
         end select
 
@@ -368,10 +362,9 @@ contains
 
     !########################################################################
     !########################################################################
-    subroutine OPR_Partial_Z(type, nx, ny, nz, g, u, result, tmp1, ibc)
+    subroutine OPR_Partial_Z(type, nx, ny, nz, u, result, tmp1, ibc)
         integer(wi), intent(in) :: type                         ! OPR_P1, OPR_P2, OPR_P2_P1
         integer(wi), intent(in) :: nx, ny, nz
-        type(fdm_dt), intent(in) :: g
         real(wp), intent(in) :: u(nx*ny*nz)
         real(wp), intent(out) :: result(nx*ny*nz)
         real(wp), intent(inout), optional :: tmp1(nx*ny*nz)     ! 1. order derivative in 2. order calculation
@@ -381,7 +374,7 @@ contains
         integer ibc_loc
 
         ! ###################################################################
-        if (g%size == 1) then
+        if (g(3)%size == 1) then
             result = 0.0_wp
             if (present(tmp1)) tmp1 = 0.0_wp
             return
@@ -395,15 +388,15 @@ contains
 
         select case (type)
         case (OPR_P2)
-            if (g%der2%need_1der) call FDM_Der1_Solve(nx*ny, ibc_loc, g%der1, g%der1%lu, u, wrk3d, wrk2d)
-            call FDM_Der2_Solve(nx*ny, g%der2, g%der2%lu, u, result, wrk3d, wrk2d)
+            if (g(3)%der2%need_1der) call FDM_Der1_Solve(nx*ny, ibc_loc, g(3)%der1, g(3)%der1%lu, u, wrk3d, wrk2d)
+            call FDM_Der2_Solve(nx*ny, g(3)%der2, g(3)%der2%lu, u, result, wrk3d, wrk2d)
 
         case (OPR_P2_P1)
-            call FDM_Der1_Solve(nx*ny, ibc_loc, g%der1, g%der1%lu, u, tmp1, wrk2d)
-            call FDM_Der2_Solve(nx*ny, g%der2, g%der2%lu, u, result, tmp1, wrk2d)
+            call FDM_Der1_Solve(nx*ny, ibc_loc, g(3)%der1, g(3)%der1%lu, u, tmp1, wrk2d)
+            call FDM_Der2_Solve(nx*ny, g(3)%der2, g(3)%der2%lu, u, result, tmp1, wrk2d)
 
         case (OPR_P1)
-            call FDM_Der1_Solve(nx*ny, ibc_loc, g%der1, g%der1%lu, u, result, wrk2d)
+            call FDM_Der1_Solve(nx*ny, ibc_loc, g(3)%der1, g(3)%der1%lu, u, result, wrk2d)
 
         end select
 

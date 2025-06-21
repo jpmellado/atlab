@@ -16,7 +16,7 @@ program AVERAGES
 #endif
     use IO_Fields
     use TLab_Grid
-    use FDM, only: g, FDM_Initialize
+    use FDM, only: FDM_Initialize
     use NavierStokes
     use Thermodynamics, only: Thermo_Initialize
     use TLab_Background, only: TLab_Initialize_Background
@@ -264,35 +264,35 @@ program AVERAGES
 
             ifield = ifield + 1; vars(ifield)%field => txc(:, 1); vars(ifield)%tag = 'Uz'
             ifield = ifield + 1; vars(ifield)%field => txc(:, 2); vars(ifield)%tag = 'Uzz'
-            call OPR_Partial_Z(OPR_P2_P1, imax, jmax, kmax, g(3), q(1, 1), txc(1, 2), txc(1, 1))
+            call OPR_Partial_Z(OPR_P2_P1, imax, jmax, kmax, q(1, 1), txc(1, 2), txc(1, 1))
             ifield = ifield + 1; vars(ifield)%field => txc(:, 3); vars(ifield)%tag = 'Vz'
             ifield = ifield + 1; vars(ifield)%field => txc(:, 4); vars(ifield)%tag = 'Vzz'
-            call OPR_Partial_Z(OPR_P2_P1, imax, jmax, kmax, g(3), q(1, 2), txc(1, 4), txc(1, 3))
+            call OPR_Partial_Z(OPR_P2_P1, imax, jmax, kmax, q(1, 2), txc(1, 4), txc(1, 3))
 
             ifield = ifield + 1; vars(ifield)%field => txc(:, 5); vars(ifield)%tag = 'WU)z'
             txc(1:isize_field, 6) = q(1:isize_field, 3)*q(1:isize_field, 1)
-            call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, g(3), txc(1, 6), txc(1, 5))
+            call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, txc(1, 6), txc(1, 5))
 
             ifield = ifield + 1; vars(ifield)%field => txc(:, 6); vars(ifield)%tag = 'WUz'
             txc(1:isize_field, 6) = q(1:isize_field, 3)*txc(1:isize_field, 1)
             ifield = ifield + 1; vars(ifield)%field => txc(:, 7); vars(ifield)%tag = 'UUx'
-            call OPR_Partial_X(OPR_P1, imax, jmax, kmax, g(1), q(1, 1), txc(1, 7))
+            call OPR_Partial_X(OPR_P1, imax, jmax, kmax, q(1, 1), txc(1, 7))
             txc(1:isize_field, 7) = q(1:isize_field, 1)*txc(1:isize_field, 7)
             ifield = ifield + 1; vars(ifield)%field => txc(:, 8); vars(ifield)%tag = 'VUy'
-            call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, g(2), q(1, 1), txc(1, 8))
+            call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, q(1, 1), txc(1, 8))
             txc(1:isize_field, 8) = q(1:isize_field, 2)*txc(1:isize_field, 8)
 
             ifield = ifield + 1; vars(ifield)%field => txc(:, 9); vars(ifield)%tag = 'WV)z'
             txc(1:isize_field, 10) = q(1:isize_field, 2)*q(1:isize_field, 3)
-            call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, g(3), txc(1, 10), txc(1, 9))
+            call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, txc(1, 10), txc(1, 9))
 
             ifield = ifield + 1; vars(ifield)%field => txc(:, 10); vars(ifield)%tag = 'WVz'
             txc(1:isize_field, 10) = q(1:isize_field, 3)*txc(1:isize_field, 3)
             ifield = ifield + 1; vars(ifield)%field => txc(:, 11); vars(ifield)%tag = 'UVx'
-            call OPR_Partial_X(OPR_P1, imax, jmax, kmax, g(1), q(1, 2), txc(1, 11))
+            call OPR_Partial_X(OPR_P1, imax, jmax, kmax, q(1, 2), txc(1, 11))
             txc(1:isize_field, 11) = q(1:isize_field, 1)*txc(1:isize_field, 11)
             ifield = ifield + 1; vars(ifield)%field => txc(:, 12); vars(ifield)%tag = 'VVy'
-            call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, g(2), q(1, 2), txc(1, 12))
+            call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, q(1, 2), txc(1, 12))
             txc(1:isize_field, 12) = q(1:isize_field, 3)*txc(1:isize_field, 12)
 
             ! ###################################################################
@@ -346,10 +346,10 @@ program AVERAGES
                 end select
                 s(1:isize_field, 1) = wrk3d(1:isize_field)*gravityProps%vector(2)
 
-                call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, g(2), s, txc(1, 4))
+                call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, s, txc(1, 4))
                 txc(:, 4) = -txc(:, 4)
                 txc(:, 5) = 0.0_wp
-                call OPR_Partial_X(OPR_P1, imax, jmax, kmax, g(1), s, txc(1, 6))
+                call OPR_Partial_X(OPR_P1, imax, jmax, kmax, s, txc(1, 6))
 
             else
                 call FI_VORTICITY_BAROCLINIC(imax, jmax, kmax, q(1, 5), q(1, 6), txc(1, 4), txc(1, 3), txc(1, 7))
@@ -466,9 +466,9 @@ program AVERAGES
             call TLab_Write_ASCII(lfile, 'Computing '//trim(adjustl(fname))//'...')
             ifield = 0
 
-            call OPR_Partial_X(OPR_P1, imax, jmax, kmax, g(1), s, txc(1, 1))
-            call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, g(2), s, txc(1, 2))
-            call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, g(3), s, txc(1, 3))
+            call OPR_Partial_X(OPR_P1, imax, jmax, kmax, s, txc(1, 1))
+            call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, s, txc(1, 2))
+            call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, s, txc(1, 3))
             do ij = 1, isize_field                       ! Angles; s array is overwritten to save space
                 dummy = txc(ij, 3)/sqrt(txc(ij, 1)*txc(ij, 1) + txc(ij, 2)*txc(ij, 2) + txc(ij, 3)*txc(ij, 3))
                 txc(ij, 4) = asin(dummy)                  ! with Oz
@@ -523,9 +523,9 @@ program AVERAGES
             ifield = ifield + 1; vars(ifield)%field => v; vars(ifield)%tag = 'cos(w,lambda2)'
             ifield = ifield + 1; vars(ifield)%field => w; vars(ifield)%tag = 'cos(w,lambda3)'
 
-            call OPR_Partial_X(OPR_P1, imax, jmax, kmax, g(1), s, txc(1, 7))
-            call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, g(2), s, txc(1, 8))
-            call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, g(3), s, txc(1, 9))
+            call OPR_Partial_X(OPR_P1, imax, jmax, kmax, s, txc(1, 7))
+            call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, s, txc(1, 8))
+            call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, s, txc(1, 9))
             do ij = 1, isize_field                                             ! local direction cosines of scalar gradient vector
                 dummy = sqrt(txc(ij, 7)*txc(ij, 7) + txc(ij, 8)*txc(ij, 8) + txc(ij, 9)*txc(ij, 9))
                 cos1 = (txc(ij, 7)*txc(ij, 1) + txc(ij, 8)*txc(ij, 2) + txc(ij, 9)*txc(ij, 3))/dummy
@@ -549,9 +549,9 @@ program AVERAGES
             call TLab_Write_ASCII(lfile, 'Computing '//trim(adjustl(fname))//'...')
             ifield = 0
 
-            call OPR_Partial_X(OPR_P1, imax, jmax, kmax, g(1), u, txc(1, 1))
-            call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, g(2), v, txc(1, 2))
-            call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, g(3), w, txc(1, 3))
+            call OPR_Partial_X(OPR_P1, imax, jmax, kmax, u, txc(1, 1))
+            call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, v, txc(1, 2))
+            call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, w, txc(1, 3))
 
             ifield = ifield + 1; vars(ifield)%field => txc(:, 1); vars(ifield)%tag = 'dudx'
             ifield = ifield + 1; vars(ifield)%field => txc(:, 2); vars(ifield)%tag = 'dvdy'
@@ -566,22 +566,22 @@ program AVERAGES
             call TLab_Write_ASCII(lfile, 'Computing '//trim(adjustl(fname))//'...')
             ifield = 0
 
-            call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, g(3), u, txc(:, 1))
-            call OPR_Partial_X(OPR_P1, imax, jmax, kmax, g(1), v, txc(:, 2))
+            call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, u, txc(:, 1))
+            call OPR_Partial_X(OPR_P1, imax, jmax, kmax, v, txc(:, 2))
             txc(:, 1) = (txc(:, 1) + txc(:, 2))*visc
             ifield = ifield + 1; vars(ifield)%field => txc(:, 1); vars(ifield)%tag = 'tauzx'
 
-            call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, g(3), w, txc(:, 2))
+            call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, w, txc(:, 2))
             txc(:, 2) = txc(:, 2)*2.0_wp*visc
             ifield = ifield + 1; vars(ifield)%field => txc(:, 2); vars(ifield)%tag = 'tauzz'
 
-            call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, g(2), w, txc(:, 3))
-            call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, g(3), v, txc(:, 4))
+            call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, w, txc(:, 3))
+            call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, v, txc(:, 4))
             txc(:, 3) = (txc(:, 3) + txc(:, 4))*visc
             ifield = ifield + 1; vars(ifield)%field => txc(:, 3); vars(ifield)%tag = 'tauzy'
 
             do is = 1, inb_scal_array
-                call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, g(3), s(:, is), txc(:, 3 + is))
+                call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, s(:, is), txc(:, 3 + is))
                 txc(:, 3 + is) = txc(:, 3 + is)*visc/schmidt(inb_scal)
                 ifield = ifield + 1; vars(ifield)%field => txc(:, 3 + is); write (vars(ifield)%tag, *) is; vars(ifield)%tag = 'tauz'//trim(adjustl(vars(ifield)%tag))
             end do
@@ -661,13 +661,13 @@ program AVERAGES
             txc(1:isize_field, 6) = txc(1:isize_field, 1)*txc(1:isize_field, 1) &
                                     + txc(1:isize_field, 2)*txc(1:isize_field, 2) &
                                     + txc(1:isize_field, 3)*txc(1:isize_field, 3) ! Enstrophy
-            call OPR_Partial_X(OPR_P1, imax, jmax, kmax, g(1), s(1, 1), txc(1, 4))
+            call OPR_Partial_X(OPR_P1, imax, jmax, kmax, s(1, 1), txc(1, 4))
             txc(1:isize_field, 1) = txc(1:isize_field, 1)*txc(1:isize_field, 4)
             txc(1:isize_field, 5) = txc(1:isize_field, 4)*txc(1:isize_field, 4) ! norm grad b
-            call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, g(2), s(1, 1), txc(1, 4))
+            call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, s(1, 1), txc(1, 4))
             txc(1:isize_field, 1) = txc(1:isize_field, 1) + txc(1:isize_field, 2)*txc(1:isize_field, 4)
             txc(1:isize_field, 5) = txc(1:isize_field, 5) + txc(1:isize_field, 4)*txc(1:isize_field, 4) ! norm grad b
-            call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, g(3), s(1, 1), txc(1, 4))
+            call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, s(1, 1), txc(1, 4))
             txc(1:isize_field, 1) = txc(1:isize_field, 1) + txc(1:isize_field, 3)*txc(1:isize_field, 4)
             txc(1:isize_field, 5) = txc(1:isize_field, 5) + txc(1:isize_field, 4)*txc(1:isize_field, 4) ! norm grad b
 
@@ -686,7 +686,7 @@ program AVERAGES
                 call TLab_Stop(DNS_ERROR_WRKSIZE)
             end if
 
-            if (kmax_aux*opt_block /= g(2)%size) then
+            if (kmax_aux*opt_block /= z%size) then
                 do is = 1, ifield
                     call REDUCE_BLOCK_INPLACE(imax, jmax, kmax, 1, 1, 1, imax, kmax_aux*opt_block, kmax, vars(is)%field)
                 end do

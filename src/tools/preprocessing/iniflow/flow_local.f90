@@ -14,7 +14,6 @@ module FLOW_LOCAL
 #endif
     use IO_Fields
     use TLab_Grid, only: x, y, z
-    use FDM, only: g
     use Averages, only: AVG1V2D
     use Profiles, only: profiles_dt, Profiles_ReadBlock, Profiles_Calculate
     use Profiles, only: PROFILE_NONE, PROFILE_GAUSSIAN, PROFILE_GAUSSIAN_ANTISYM, PROFILE_GAUSSIAN_SYM, PROFILE_GAUSSIAN_SURFACE, PROFILE_PARABOLIC_SURFACE
@@ -283,16 +282,16 @@ contains
             ibc_loc = 0
             if (any([BCS_DD, BCS_DN] == ibc_pert)) ibc_loc = ibc_loc + 1 ! no-slip at ymin
             if (any([BCS_DD, BCS_ND] == ibc_pert)) ibc_loc = ibc_loc + 2 ! no-slip at ymax
-            call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, g(2), az, u)
-            call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, g(3), ay, tmp4, ibc=ibc_loc)
+            call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, az, u)
+            call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, ay, tmp4, ibc=ibc_loc)
             u = u - tmp4
             if (y%size > 1) then
-                call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, g(3), ax, v, ibc=ibc_loc)
-                call OPR_Partial_X(OPR_P1, imax, jmax, kmax, g(1), az, tmp4)
+                call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, ax, v, ibc=ibc_loc)
+                call OPR_Partial_X(OPR_P1, imax, jmax, kmax, az, tmp4)
             end if
             v = v - tmp4
-            call OPR_Partial_X(OPR_P1, imax, jmax, kmax, g(1), ay, w)
-            call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, g(2), ax, tmp4)
+            call OPR_Partial_X(OPR_P1, imax, jmax, kmax, ay, w)
+            call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, ax, tmp4)
             w = w - tmp4
 
         case (PERT_BROADBAND_VORTICITY)                 ! Vorticity given, solve lap(u) = - rot(vort), vort = rot(u)
@@ -360,7 +359,7 @@ contains
         do k = 1, kmax                                              ! Wall-normal velocity
             profs(k, 1) = Profiles_Calculate(IniK, zn(k))
         end do
-        call OPR_Partial_Z(OPR_P1, 1, 1, kmax, g(3), profs(:, 1), profs(:, 2))
+        call OPR_Partial_Z(OPR_P1, 1, 1, kmax, profs(:, 1), profs(:, 2))
         profs(:, 2) = -profs(:, 2)                                  ! Negative of the derivative of f, wall-parallel velocity
 
         select case (IniK%type)
@@ -422,191 +421,5 @@ contains
 
         return
     end subroutine FLOW_NORMALIZE
-
-!     ! ###################################################################
-!     !# Perturbation of the thermodynamic fields by a displacement of the reference center plane.
-!     !# Array s enters with the scalar total field, including fluctuations.
-!     !# Only used in compressible formulation
-!     !# Together discrete and broadband in one procedure
-!     !########################################################################
-!     subroutine DENSITY_FLUCTUATION(s, p, rho, T, h)
-!         use Thermodynamics, only: imixture, MIXT_TYPE_AIRWATER
-
-!         real(wp), dimension(imax, jmax, kmax) :: T, h, rho, p
-!         real(wp), dimension(imax, jmax, kmax, *) :: s
-
-!         ! -------------------------------------------------------------------
-!         real(wp) dummy
-!         real(wp) xcenter, amplify, params(0)
-!         type(profiles_dt) :: prof_loc
-
-!         ! ###################################################################
-
-! #ifdef USE_MPI
-!         idsp = ims_offset_i; jdsp = ims_offset_j
-! #else
-!         idsp = 0; jdsp = 0
-! #endif
-
-!         ! ###################################################################
-!         ! Center plane displacement
-!         ! ###################################################################
-! #define yn(j) y%nodes(j)
-! #define xn(i) x%nodes(i)
-! #define zn(k) z%nodes(k)
-! #define disp(i,k) p_wrk2d(i,k,1)
-
-!         disp(:, :) = 0.0_wp
-
-!         select case (flag_t)
-!         case (PERT_BROADBAND)
-!             call IO_Read_Fields('scal.rand', imax, 1, kmax, itime, 1, 1, disp(:, :), params)
-!             dummy = AVG1V2D(imax, 1, kmax, 1, 1, disp(:, :))     ! remove mean
-!             disp(:, :) = disp(:, :) - dummy
-
-!         case (PERT_DISCRETE)
-!             wx_1 = 2.0_wp*pi_wp/x%scale ! Fundamental wavelengths
-!             wy_1 = 2.0_wp*pi_wp/y%scale
-
-!             do im = 1, fp%size
-!                 wx = real(fp%modex(im), wp)*wx_1
-!                 wy = real(fp%modey(im), wp)*wy_1
-
-!                 do k = 1, kmax
-!                     disp(:, k) = disp(:, k) + fp%amplitude(im)*cos(wx*xn(idsp + 1:idsp + imax) + fp%phasex(im)) &
-!                                  *cos(wy*yn(jdsp + k) + fp%phasey(im))
-!                 end do
-
-!             end do
-
-!         end select
-
-!         ! -------------------------------------------------------------------
-!         ! Modulation
-!         ! -------------------------------------------------------------------
-!         if (fp%type == PROFILE_GAUSSIAN .and. fp%parameters(1) > 0.0_wp) then
-!             do k = 1, kmax
-!                 do i = 1, imax
-!                     xcenter = xn(i) - x%scale*0.5_wp - xn(1)
-!                     amplify = exp(-0.5_wp*(xcenter/fp%parameters(1))**2)
-!                     disp(i, k) = disp(i, k)*amplify
-!                 end do
-!             end do
-!         end if
-
-!         ! ###################################################################
-!         ! Perturbation in the thermodynamic fields
-!         ! ###################################################################
-!         if (tbg%type /= PROFILE_NONE) then
-!             prof_loc = tbg
-!             do k = 1, kmax
-!                 do i = 1, imax
-!                     prof_loc%ymean = tbg%ymean + disp(i, k)
-!                     prof_loc%delta = tbg%delta + (tbg%uslope - tbg%lslope)*disp(i, k)*y%scale
-!                     prof_loc%mean = tbg%mean + 0.5_wp*(tbg%uslope + tbg%lslope)*disp(i, k)*y%scale
-!                     do j = 1, jmax
-!                         T(i, j, k) = Profiles_Calculate(prof_loc, yn(j))
-!                     end do
-!                 end do
-!             end do
-
-!             if (imixture == MIXT_TYPE_AIRWATER) then
-!                 call THERMO_AIRWATER_PT(imax*jmax*kmax, s, p, T)
-!             end if
-
-!             call THERMO_THERMAL_DENSITY(imax*jmax*kmax, s, p, T, rho)
-
-!         end if
-
-!         if (hbg%type /= PROFILE_NONE) then
-!             prof_loc = hbg
-!             do k = 1, kmax
-!                 do i = 1, imax
-!                     prof_loc%ymean = hbg%ymean + disp(i, k)
-!                     prof_loc%delta = hbg%delta + (hbg%uslope - hbg%lslope)*disp(i, k)*y%scale
-!                     prof_loc%mean = hbg%mean + 0.5_wp*(hbg%uslope + hbg%lslope)*disp(i, k)*y%scale
-!                     do j = 1, jmax
-!                         h(i, j, k) = Profiles_Calculate(prof_loc, yn(j))
-!                     end do
-!                 end do
-!             end do
-
-!             if (imixture == MIXT_TYPE_AIRWATER) then
-!                 call THERMO_AIRWATER_PH_RE(imax*jmax*kmax, s, p, h, T)
-!             end if
-
-!             call THERMO_THERMAL_DENSITY(imax*jmax*kmax, s, p, T, rho)
-
-!         end if
-
-! #undef xn
-! #undef yn
-! #undef zn
-! #undef disp
-
-!         return
-!     end subroutine DENSITY_FLUCTUATION
-
-!     ! ###################################################################
-!     !# solve Poisson equation for p', nabla^2 p' = d/dx_i d/dx_j (rho_0 u_i u_j),
-!     !# assuming p/rho^\gamma0 constant(Homentropic conditions)
-!     ! ###################################################################
-!     subroutine PRESSURE_FLUCTUATION(u, v, w, rho, p, pprime, txc1, txc2, txc3, txc4)
-!         use Thermodynamics, only: gamma0
-
-!         real(wp), dimension(imax, jmax, kmax), intent(in) :: u, v, w
-!         real(wp), dimension(imax, jmax, kmax), intent(inout) :: rho, p, pprime
-!         real(wp), dimension(imax, jmax, kmax), intent(inout) :: txc1, txc2, txc3, txc4
-
-!         ! -------------------------------------------------------------------
-!         integer(wi) bcs(2, 2)
-
-!         real(wp), allocatable :: bcs_hb(:), bcs_ht(:)
-
-!         ! ###################################################################
-!         ! Calculate RHS d/dx_i d/dx_j (u_i u_j), stored in txc4
-
-!         ! terms with u
-!         txc1 = rho*u*u; txc2 = rho*u*v; txc3 = rho*u*w
-!         call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, bcs, g(3), txc3, txc4)
-!         call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, bcs, g(2), txc2, txc3)
-!         call OPR_Partial_X(OPR_P1, imax, jmax, kmax, bcs, g(1), txc1, txc2)
-!         txc2 = 2.0_wp*(txc4 + txc3) + txc2
-
-!         call OPR_Partial_X(OPR_P1, imax, jmax, kmax, bcs, g(1), txc2, txc4)
-
-!         ! terms with v
-!         txc1 = rho*v*v; txc2 = rho*v*w
-!         call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, bcs, g(3), txc2, txc3)
-!         call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, bcs, g(2), txc1, txc2)
-!         txc2 = txc2 + 2.0_wp*txc3
-
-!         call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, bcs, g(2), txc2, txc1)
-!         txc4 = txc4 + txc1
-
-!         ! terms with w
-!         txc1 = rho*w*w
-!         call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, bcs, g(3), txc1, txc2)
-
-!         call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, bcs, g(3), txc2, txc1)
-!         txc4 = txc4 + txc1
-
-!         ! Solve Poisson equation; pprime contains fluctuating p' (BCs are equal to zero!)
-!         if (g(1)%periodic .and. g(3)%periodic) then ! Doubly periodic in xOz
-!             pprime = -txc4          ! change of forcing term sign
-
-!             allocate (bcs_hb(imax*kmax), bcs_ht(imax*kmax))
-!             bcs_hb = 0.0_wp; bcs_ht = 0.0_wp
-!             call OPR_Poisson(imax, jmax, kmax, 0, pprime, txc1, txc2, bcs_hb, bcs_ht)
-!         else                                      ! General treatment
-!             ! Undevelop
-!         end if
-
-!         ! An amplification factor norm_ini_p is allowed as in previous versions
-!         rho = (norm_ini_p*pprime/p/gamma0 + 1.0_wp)*rho  ! isentropic relation p'/p = \gamma \rho'/rho
-!         p = norm_ini_p*pprime + p
-
-!         return
-!     end subroutine PRESSURE_FLUCTUATION
 
 end module FLOW_LOCAL

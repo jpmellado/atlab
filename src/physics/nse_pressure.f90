@@ -6,7 +6,6 @@ module NSE_Pressure
     use TLab_Constants, only: wp, wi, BCS_NN
     use TLab_Memory, only: imax, jmax, kmax, isize_field, isize_txc_field
     use TLab_Memory, only: inb_flow_array, inb_flow, inb_scal_array
-    use FDM, only: g
     use OPR_Partial
     use OPR_Elliptic
     use NavierStokes
@@ -77,9 +76,9 @@ contains
             call Thermo_Anelastic_Weight_InPlace(imax, jmax, kmax, rbackground, hq(:, 2))
             call Thermo_Anelastic_Weight_InPlace(imax, jmax, kmax, rbackground, hq(:, 3))
         end if
-        call OPR_Partial_X(OPR_P1, imax, jmax, kmax, g(1), hq(:, 1), p)
-        call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, g(2), hq(:, 2), tmp1)
-        call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, g(3), hq(:, 3), tmp2)
+        call OPR_Partial_X(OPR_P1, imax, jmax, kmax, hq(:, 1), p)
+        call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, hq(:, 2), tmp1)
+        call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, hq(:, 3), tmp2)
         p(:) = p(:) + tmp1(:) + tmp2(:)
 
         ! Neumman BCs in d/dz(p) s.t. v=0 (no-penetration)

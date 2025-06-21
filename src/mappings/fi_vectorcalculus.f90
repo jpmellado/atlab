@@ -1,6 +1,5 @@
 module FI_VECTORCALCULUS
     use TLab_Constants, only: wp, wi, BCS_NN
-    use FDM, only: g
     use OPR_Partial
     implicit none
     private
@@ -24,18 +23,18 @@ contains
 ! ###################################################################
 
 ! v,x-u,y
-        call OPR_Partial_X(OPR_P1, nx, ny, nz, g(1), v, wz)
-        call OPR_Partial_Y(OPR_P1, nx, ny, nz, g(2), u, tmp)
+        call OPR_Partial_X(OPR_P1, nx, ny, nz, v, wz)
+        call OPR_Partial_Y(OPR_P1, nx, ny, nz, u, tmp)
         wz = wz - tmp
 
 ! u,z-w,x
-        call OPR_Partial_Z(OPR_P1, nx, ny, nz, g(3), u, wy)
-        call OPR_Partial_X(OPR_P1, nx, ny, nz, g(1), w, tmp)
+        call OPR_Partial_Z(OPR_P1, nx, ny, nz, u, wy)
+        call OPR_Partial_X(OPR_P1, nx, ny, nz, w, tmp)
         wy = wy - tmp
 
 ! w,y-v,z
-        call OPR_Partial_Y(OPR_P1, nx, ny, nz, g(2), w, wx)
-        call OPR_Partial_Z(OPR_P1, nx, ny, nz, g(3), v, tmp)
+        call OPR_Partial_Y(OPR_P1, nx, ny, nz, w, wx)
+        call OPR_Partial_Z(OPR_P1, nx, ny, nz, v, tmp)
         wx = wx - tmp
 
         tmp = wx*wx + wy*wy + wz*wz
@@ -78,11 +77,11 @@ contains
 ! -------------------------------------------------------------------
 ! Eliminate solenoidal part of u by adding grad(phi)
 ! -------------------------------------------------------------------
-        call OPR_Partial_X(OPR_P1, nx, ny, nz, g(1), tmp1, tmp2)
+        call OPR_Partial_X(OPR_P1, nx, ny, nz, tmp1, tmp2)
         u = u + tmp2
-        call OPR_Partial_Y(OPR_P1, nx, ny, nz, g(2), tmp1, tmp2)
+        call OPR_Partial_Y(OPR_P1, nx, ny, nz, tmp1, tmp2)
         v = v + tmp2
-        call OPR_Partial_Z(OPR_P1, nx, ny, nz, g(3), tmp1, tmp2)
+        call OPR_Partial_Z(OPR_P1, nx, ny, nz, tmp1, tmp2)
         w = w + tmp2
 
         return
@@ -100,11 +99,11 @@ contains
         ! -------------------------------------------------------------------
 
         ! ###################################################################
-        call OPR_Partial_X(OPR_P1, nx, ny, nz, g(1), u, result)
-        call OPR_Partial_Y(OPR_P1, nx, ny, nz, g(2), v, tmp1)
+        call OPR_Partial_X(OPR_P1, nx, ny, nz, u, result)
+        call OPR_Partial_Y(OPR_P1, nx, ny, nz, v, tmp1)
 
         result = result + tmp1
-        call OPR_Partial_Z(OPR_P1, nx, ny, nz, g(3), w, tmp1)
+        call OPR_Partial_Z(OPR_P1, nx, ny, nz, w, tmp1)
 
         result = -(result + tmp1)
 
@@ -131,7 +130,7 @@ contains
     !     call OPR_Partial_Z(OPR_P0_INT_VP, nx, ny, nz, g(3), tmp1, result)
     !     ! dvdy
     !     call OPR_Partial_X(OPR_P0_INT_VP, nx, ny, nz, g(1), v, tmp1)
-    !     call OPR_Partial_Y(OPR_P1, nx, ny, nz, g(2), tmp1, tmp2)
+    !     call OPR_Partial_Y(OPR_P1, nx, ny, nz, tmp1, tmp2)
     !     call OPR_Partial_Z(OPR_P0_INT_VP, nx, ny, nz, g(3), tmp2, tmp1)
     !     result = result + tmp1
     !     ! dwdz
@@ -162,27 +161,27 @@ contains
         ! -------------------------------------------------------------------
         ! diagonal terms
         ! -------------------------------------------------------------------
-        call OPR_Partial_X(OPR_P1, nx, ny, nz, g(1), u, tmp1)
-        call OPR_Partial_Y(OPR_P1, nx, ny, nz, g(2), v, tmp2)
-        call OPR_Partial_Z(OPR_P1, nx, ny, nz, g(3), w, tmp3)
+        call OPR_Partial_X(OPR_P1, nx, ny, nz, u, tmp1)
+        call OPR_Partial_Y(OPR_P1, nx, ny, nz, v, tmp2)
+        call OPR_Partial_Z(OPR_P1, nx, ny, nz, w, tmp3)
         result = tmp1*tmp2 + tmp2*tmp3 + tmp3*tmp1
 
         ! -------------------------------------------------------------------
         ! off-diagonal terms
         ! -------------------------------------------------------------------
         ! UyVx
-        call OPR_Partial_X(OPR_P1, nx, ny, nz, g(1), v, tmp1)
-        call OPR_Partial_Y(OPR_P1, nx, ny, nz, g(2), u, tmp2)
+        call OPR_Partial_X(OPR_P1, nx, ny, nz, v, tmp1)
+        call OPR_Partial_Y(OPR_P1, nx, ny, nz, u, tmp2)
         result = result - tmp1*tmp2
 
         ! UzWx
-        call OPR_Partial_X(OPR_P1, nx, ny, nz, g(1), w, tmp1)
-        call OPR_Partial_Z(OPR_P1, nx, ny, nz, g(3), u, tmp2)
+        call OPR_Partial_X(OPR_P1, nx, ny, nz, w, tmp1)
+        call OPR_Partial_Z(OPR_P1, nx, ny, nz, u, tmp2)
         result = result - tmp1*tmp2
 
         ! WyVz
-        call OPR_Partial_Y(OPR_P1, nx, ny, nz, g(2), w, tmp1)
-        call OPR_Partial_Z(OPR_P1, nx, ny, nz, g(3), v, tmp2)
+        call OPR_Partial_Y(OPR_P1, nx, ny, nz, w, tmp1)
+        call OPR_Partial_Z(OPR_P1, nx, ny, nz, v, tmp2)
         result = result - tmp1*tmp2
 
         return
@@ -203,27 +202,27 @@ contains
         ! ###################################################################
         ! Term u,x (v,y w,z-w,y v,z)
         ! ###################################################################
-        call OPR_Partial_Z(OPR_P1, nx, ny, nz, g(3), w, tmp1)
-        call OPR_Partial_Y(OPR_P1, nx, ny, nz, g(2), w, tmp2)
-        call OPR_Partial_Y(OPR_P1, nx, ny, nz, g(2), v, tmp3)
-        call OPR_Partial_Z(OPR_P1, nx, ny, nz, g(3), v, tmp4)
-        call OPR_Partial_X(OPR_P1, nx, ny, nz, g(1), u, tmp5)
+        call OPR_Partial_Z(OPR_P1, nx, ny, nz, w, tmp1)
+        call OPR_Partial_Y(OPR_P1, nx, ny, nz, w, tmp2)
+        call OPR_Partial_Y(OPR_P1, nx, ny, nz, v, tmp3)
+        call OPR_Partial_Z(OPR_P1, nx, ny, nz, v, tmp4)
+        call OPR_Partial_X(OPR_P1, nx, ny, nz, u, tmp5)
         result = tmp5*(tmp1*tmp3 - tmp2*tmp4)
 
         ! ###################################################################
         ! Term v,x (u,z w,y-w,z u,y)
         ! ###################################################################
-        call OPR_Partial_Z(OPR_P1, nx, ny, nz, g(3), u, tmp3)
-        call OPR_Partial_Y(OPR_P1, nx, ny, nz, g(2), u, tmp4)
-        call OPR_Partial_X(OPR_P1, nx, ny, nz, g(1), v, tmp5)
+        call OPR_Partial_Z(OPR_P1, nx, ny, nz, u, tmp3)
+        call OPR_Partial_Y(OPR_P1, nx, ny, nz, u, tmp4)
+        call OPR_Partial_X(OPR_P1, nx, ny, nz, v, tmp5)
         result = result + tmp5*(tmp2*tmp3 - tmp1*tmp4)
 
         ! ###################################################################
         ! Term v,x (u,z w,y-w,z u,y)
         ! ###################################################################
-        call OPR_Partial_Z(OPR_P1, nx, ny, nz, g(3), v, tmp1)
-        call OPR_Partial_Y(OPR_P1, nx, ny, nz, g(2), v, tmp2)
-        call OPR_Partial_X(OPR_P1, nx, ny, nz, g(1), w, tmp5)
+        call OPR_Partial_Z(OPR_P1, nx, ny, nz, v, tmp1)
+        call OPR_Partial_Y(OPR_P1, nx, ny, nz, v, tmp2)
+        call OPR_Partial_X(OPR_P1, nx, ny, nz, w, tmp5)
         result = result + tmp5*(tmp1*tmp4 - tmp2*tmp3)
 
         result = -result ! set the right sign
@@ -245,20 +244,20 @@ contains
         integer(wi) ij
 
         ! ###################################################################
-        call OPR_Partial_X(OPR_P1, nx, ny, nz, g(1), a, tmp1)
-        call OPR_Partial_X(OPR_P1, nx, ny, nz, g(1), b, tmp2)
+        call OPR_Partial_X(OPR_P1, nx, ny, nz, a, tmp1)
+        call OPR_Partial_X(OPR_P1, nx, ny, nz, b, tmp2)
         result = tmp1*tmp2
         tmp3 = tmp1*tmp1
         tmp4 = tmp2*tmp2
 
-        call OPR_Partial_Y(OPR_P1, nx, ny, nz, g(2), a, tmp1)
-        call OPR_Partial_Y(OPR_P1, nx, ny, nz, g(2), b, tmp2)
+        call OPR_Partial_Y(OPR_P1, nx, ny, nz, a, tmp1)
+        call OPR_Partial_Y(OPR_P1, nx, ny, nz, b, tmp2)
         result = result + tmp1*tmp2
         tmp3 = tmp3 + tmp1*tmp1
         tmp4 = tmp4 + tmp2*tmp2
 
-        call OPR_Partial_Z(OPR_P1, nx, ny, nz, g(3), a, tmp1)
-        call OPR_Partial_Z(OPR_P1, nx, ny, nz, g(3), b, tmp2)
+        call OPR_Partial_Z(OPR_P1, nx, ny, nz, a, tmp1)
+        call OPR_Partial_Z(OPR_P1, nx, ny, nz, b, tmp2)
         result = result + tmp1*tmp2
         tmp3 = tmp3 + tmp1*tmp1
         tmp4 = tmp4 + tmp2*tmp2
@@ -290,33 +289,33 @@ contains
         ! -------------------------------------------------------------------
         ! |grad(s)|
         ! -------------------------------------------------------------------
-        call OPR_Partial_X(OPR_P1, nx, ny, nz, g(1), s, tmp1)
-        call OPR_Partial_Y(OPR_P1, nx, ny, nz, g(2), s, tmp2)
-        call OPR_Partial_Z(OPR_P1, nx, ny, nz, g(3), s, tmp3)
+        call OPR_Partial_X(OPR_P1, nx, ny, nz, s, tmp1)
+        call OPR_Partial_Y(OPR_P1, nx, ny, nz, s, tmp2)
+        call OPR_Partial_Z(OPR_P1, nx, ny, nz, s, tmp3)
         tmp4 = sqrt(tmp1*tmp1 + tmp2*tmp2 + tmp3*tmp3)
 
         ! -------------------------------------------------------------------
         ! first derivative terms
         ! -------------------------------------------------------------------
-        call OPR_Partial_X(OPR_P1, nx, ny, nz, g(1), tmp4, result)
+        call OPR_Partial_X(OPR_P1, nx, ny, nz, tmp4, result)
         result = result*tmp1
         ! tmp1 is now free
 
-        call OPR_Partial_Y(OPR_P1, nx, ny, nz, g(2), tmp4, tmp1)
+        call OPR_Partial_Y(OPR_P1, nx, ny, nz, tmp4, tmp1)
         result = result + tmp1*tmp2
         ! tmp2 is now free
 
-        call OPR_Partial_Z(OPR_P1, nx, ny, nz, g(3), tmp4, tmp2)
+        call OPR_Partial_Z(OPR_P1, nx, ny, nz, tmp4, tmp2)
         result = (result + tmp2*tmp3)/tmp4
         ! tmp3 is now free
 
         ! -------------------------------------------------------------------
         ! second derivative terms and final calculations
         ! -------------------------------------------------------------------
-        call OPR_Partial_Z(OPR_P2, nx, ny, nz, g(3), s, tmp1, tmp3)
-        call OPR_Partial_Y(OPR_P2, nx, ny, nz, g(2), s, tmp2, tmp3)
+        call OPR_Partial_Z(OPR_P2, nx, ny, nz, s, tmp1, tmp3)
+        call OPR_Partial_Y(OPR_P2, nx, ny, nz, s, tmp2, tmp3)
         result = result - (tmp1 + tmp2)
-        call OPR_Partial_X(OPR_P2, nx, ny, nz, g(1), s, tmp1, tmp3)
+        call OPR_Partial_X(OPR_P2, nx, ny, nz, s, tmp1, tmp3)
         tmp1 = result - tmp1
         result = tmp1/tmp4
 

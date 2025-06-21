@@ -101,9 +101,9 @@ subroutine NSE_Anelastic()
 
     end if
 
-    call OPR_Partial_X(OPR_P1, imax, jmax, kmax, g(1), tmp2, tmp1)
-    call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, g(2), tmp3, tmp2)
-    call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, g(3), tmp4, tmp3)
+    call OPR_Partial_X(OPR_P1, imax, jmax, kmax, tmp2, tmp1)
+    call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, tmp3, tmp2)
+    call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, tmp4, tmp3)
     tmp1(:) = tmp1(:) + tmp2(:) + tmp3(:) ! forcing term in tmp1
 
     ! Neumman BCs in d/dy(p) s.t. v=0 (no-penetration)
@@ -114,9 +114,9 @@ subroutine NSE_Anelastic()
     call OPR_Poisson(imax, jmax, kmax, BCS_NN, tmp1, tmp2, tmp3, BcsFlowKmin%ref(:, :, 3), BcsFlowKmax%ref(:, :, 3))
 
     ! Add pressure gradient
-    call OPR_Partial_X(OPR_P1, imax, jmax, kmax, g(1), tmp1, tmp2)
-    call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, g(2), tmp1, tmp3)
-    call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, g(3), tmp1, tmp4)
+    call OPR_Partial_X(OPR_P1, imax, jmax, kmax, tmp1, tmp2)
+    call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, tmp1, tmp3)
+    call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, tmp1, tmp4)
     call Thermo_Anelastic_Weight_Subtract(imax, jmax, kmax, ribackground, tmp2, hq(:, 1))
     call Thermo_Anelastic_Weight_Subtract(imax, jmax, kmax, ribackground, tmp3, hq(:, 2))
     call Thermo_Anelastic_Weight_Subtract(imax, jmax, kmax, ribackground, tmp4, hq(:, 3))

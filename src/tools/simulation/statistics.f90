@@ -62,7 +62,6 @@ contains
     !########################################################################
     subroutine Statistics_Compute()
         ! use TLab_Pointers, only: pointers_dt
-        ! use FDM, only: g
         use TLab_Memory, only: inb_scal_array, isize_field
         use NavierStokes, only: nse_eqns, DNS_EQNS_ANELASTIC, DNS_EQNS_BOUSSINESQ
         use TLab_WorkFlow, only: scal_on

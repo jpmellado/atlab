@@ -4,7 +4,6 @@
 module TLab_Sources
     use TLab_Constants, only: wp, wi, small_wp
     use TLab_Memory, only: imax, jmax, kmax, isize_field, inb_scal, inb_scal_array
-    use FDM, only: g
     use FDM, only: fdm_Int0
     use NavierStokes, only: nse_eqns, DNS_EQNS_BOUSSINESQ, DNS_EQNS_ANELASTIC
     use Thermo_Anelastic, only: ribackground, Thermo_Anelastic_Buoyancy, Thermo_Anelastic_Weight_Add
@@ -98,7 +97,7 @@ contains
             ! -----------------------------------------------------------------------
             ! Microphysics
             if (sedimentationProps%active(is)) then
-                call Microphysics_Sedimentation(sedimentationProps, imax, jmax, kmax, is, g(3), s, tmp1, tmp2)
+                call Microphysics_Sedimentation_Z(sedimentationProps, imax, jmax, kmax, is, s, tmp1, tmp2)
 
                 if (nse_eqns == DNS_EQNS_ANELASTIC) then
                     call Thermo_Anelastic_Weight_Add(imax, jmax, kmax, ribackground, tmp1, hs(:, is))

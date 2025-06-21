@@ -242,7 +242,6 @@ contains
         use TLab_Memory, only: imax, jmax, kmax
         use TLab_Memory, only: isize_field
         use NavierStokes, only: visc, schmidt
-        use FDM, only: g
         use Averages, only: AVG1V2D
         use OPR_Partial
 
@@ -262,7 +261,7 @@ contains
         nxy = imax*jmax
 
         ! vertical derivative of scalar for flux at the boundaries
-        call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, g(2), s(:, is), tmp1)
+        call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, s(:, is), tmp1)
 
         ! ------------------------------------------------------------
         ! Bottom Boundary

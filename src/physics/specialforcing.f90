@@ -284,17 +284,17 @@ contains
         tmp2 = tmp2*cos(2.0_wp*pi_wp*time)
 
         ! Diffusion and convection terms in Ox momentum eqn
-        call OPR_Partial_Z(OPR_P2_P1, nx, ny, nz, g(3), tmp1, tmp4, tmp3)
+        call OPR_Partial_Z(OPR_P2_P1, nx, ny, nz, tmp1, tmp4, tmp3)
         h1 = h1 - visc*(tmp4) + (tmp3*tmp2)
 
-        call OPR_Partial_X(OPR_P2_P1, nx, ny, nz, g(1), tmp1, tmp4, tmp3)
+        call OPR_Partial_X(OPR_P2_p1, nx, ny, nz, tmp1, tmp4, tmp3)
         h1 = h1 - visc*(tmp4) + (tmp3*tmp1)
 
         ! Diffusion and convection terms in Oy momentum eqn
-        call OPR_Partial_Z(OPR_P2_P1, nx, ny, nz, g(3), tmp2, tmp4, tmp3)
+        call OPR_Partial_Z(OPR_P2_P1, nx, ny, nz, tmp2, tmp4, tmp3)
         h2 = h2 - visc*(tmp4) + (tmp3*tmp2)
 
-        call OPR_Partial_X(OPR_P2_P1, nx, ny, nz, g(1), tmp2, tmp4, tmp3)
+        call OPR_Partial_X(OPR_P2_p1, nx, ny, nz, tmp2, tmp4, tmp3)
         h2 = h2 - visc*(tmp4) + (tmp3*tmp1)
 
         ! #######################################################################
@@ -308,8 +308,8 @@ contains
         end do
 
         ! Pressure gradient
-        call OPR_Partial_X(OPR_P1, nx, ny, nz, g(1), tmp1, tmp2)
-        call OPR_Partial_Z(OPR_P1, nx, ny, nz, g(3), tmp1, tmp3)
+        call OPR_Partial_X(OPR_P1, nx, ny, nz, tmp1, tmp2)
+        call OPR_Partial_Z(OPR_P1, nx, ny, nz, tmp1, tmp3)
 
         h1 = h1 + tmp2
         h2 = h2 + tmp3

@@ -12,7 +12,7 @@ program VPARTIAL3D
     use TLabMPI_PROCS, only: TLabMPI_Initialize
     use TLabMPI_Transpose, only: TLabMPI_Trp_Initialize
 #endif
-    use FDM, only: g, fdm_dt, FDM_Initialize, FDM_CreatePlan
+    use FDM, only: FDM_Initialize, FDM_CreatePlan
     use FDM_Derivative, only: FDM_COM4_DIRECT, FDM_COM6_JACOBIAN
     use NavierStokes, only: NavierStokes_Initialize_Parameters
     use TLab_Grid
@@ -21,7 +21,6 @@ program VPARTIAL3D
 
     implicit none
 
-    type(fdm_dt) :: g_loc
     real(wp), dimension(:, :), allocatable :: bcs_hb, bcs_ht
     real(wp), dimension(:, :, :), pointer :: a, b, c, d, e, f
     real(wp), dimension(:, :, :), pointer :: u, du1_a, du2_a, du1_n, du2_n
@@ -65,8 +64,7 @@ program VPARTIAL3D
 
     bcs = 0
 
-    type_of_problem = 1     ! 1. order derivative
-    ! type_of_problem = 2     ! 2. order derivative
+    type_of_problem = 1     ! 1. and 2. order derivative
 
     ! ###################################################################
     ! Define the function and analytic derivatives
@@ -130,34 +128,12 @@ program VPARTIAL3D
     ! ###################################################################
     select case (type_of_problem)
     case (1)
-        call OPR_Partial_X(OPR_P2_P1, imax, jmax, kmax, g(1), u, du2_n, du1_n)
-        ! call OPR_Partial_Y(OPR_P2_P1, imax, jmax, kmax, g(2), u, du2_n, du1_n)
-        ! call OPR_Partial_Z(OPR_P2_P1, imax, jmax, kmax, g(3), u, du2_n, du1_n)
+        call OPR_Partial_X(OPR_P2_P1, imax, jmax, kmax,  u, du2_n, du1_n)
+        ! call OPR_Partial_Y(OPR_P2_P1, imax, jmax, kmax,  u, du2_n, du1_n)
+        ! call OPR_Partial_Z(OPR_P2_P1, imax, jmax, kmax, u, du2_n, du1_n)
 
         call check(du1_a, du1_n, txc(:, 1))
-
         call check(du2_a, du2_n, txc(:, 1))
-
-        ! ###################################################################
-    case (2)
-        g_loc%der1%mode_fdm = FDM_COM6_JACOBIAN
-        call FDM_CreatePlan(z, g_loc)
-        ! call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, g(2), f, c)
-        ! call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, g(2), c, a)
-        call OPR_Partial_Y(OPR_P2_P1, imax, jmax, kmax, g_loc, f, a, c)
-        call IO_Write_Fields('field.out1', imax, jmax, kmax, itime, 1, a)
-
-        g_loc%der1%mode_fdm = FDM_COM4_DIRECT
-        call FDM_CreatePlan(z, g_loc)
-        ! call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, g(2), f, d)
-        ! call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, g(2), d, b)
-        call OPR_Partial_Y(OPR_P2_P1, imax, jmax, kmax, g_loc, f, b, d)
-        call IO_Write_Fields('field.out2', imax, jmax, kmax, itime, 1, b)
-
-        ! -------------------------------------------------------------------
-        call check(a, b, txc(:, 1), 'field.dif')
-
-        call check(c, d, txc(:, 1))
 
     end select
 

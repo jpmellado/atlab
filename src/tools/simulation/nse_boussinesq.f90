@@ -88,14 +88,14 @@ subroutine NSE_Boussinesq()
         tmp3(:) = hq(:, 2) + v(:)*dummy
         tmp4(:) = hq(:, 3) + w(:)*dummy
 
-        call OPR_Partial_X(OPR_P1, imax, jmax, kmax, g(1), tmp2, tmp1)
-        call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, g(2), tmp3, tmp2)
-        call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, g(3), tmp4, tmp3)
+        call OPR_Partial_X(OPR_P1, imax, jmax, kmax, tmp2, tmp1)
+        call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, tmp3, tmp2)
+        call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, tmp4, tmp3)
 
     else
-        call OPR_Partial_X(OPR_P1, imax, jmax, kmax, g(1), hq(:, 1), tmp1)
-        call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, g(2), hq(:, 2), tmp2)
-        call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, g(3), hq(:, 3), tmp3)
+        call OPR_Partial_X(OPR_P1, imax, jmax, kmax, hq(:, 1), tmp1)
+        call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, hq(:, 2), tmp2)
+        call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, hq(:, 3), tmp3)
 
     end if
     tmp1(:) = tmp1(:) + tmp2(:) + tmp3(:) ! forcing term in tmp1
@@ -108,9 +108,9 @@ subroutine NSE_Boussinesq()
     call OPR_Poisson(imax, jmax, kmax, BCS_NN, tmp1, tmp2, tmp3, BcsFlowKmin%ref(:, :, 3), BcsFlowKmax%ref(:, :, 3))
 
     ! Add pressure gradient
-    call OPR_Partial_X(OPR_P1, imax, jmax, kmax, g(1), tmp1, tmp2)
-    call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, g(2), tmp1, tmp3)
-    call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, g(3), tmp1, tmp4)
+    call OPR_Partial_X(OPR_P1, imax, jmax, kmax, tmp1, tmp2)
+    call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, tmp1, tmp3)
+    call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, tmp1, tmp4)
     hq(:, 1) = hq(:, 1) - tmp2(:)
     hq(:, 2) = hq(:, 2) - tmp3(:)
     hq(:, 3) = hq(:, 3) - tmp4(:)

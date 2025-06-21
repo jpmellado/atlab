@@ -83,7 +83,6 @@ contains
     subroutine LargeScaleForcing_Subsidence(locProps, nx, ny, nz, a, source)
         use OPR_Partial, only: OPR_Partial_Z, OPR_P1
         use Averages, only: AVG1V2D_V
-        use FDM, only: g
 
         type(term_dt), intent(in) :: locProps
         integer(wi), intent(in) :: nx, ny, nz
@@ -96,7 +95,7 @@ contains
         !########################################################################
         select case (locProps%type)
         case (TYPE_SUB_CONSTANT)
-            call OPR_Partial_Z(OPR_P1, nx, ny, nz, g(3), a, source)
+            call OPR_Partial_Z(OPR_P1, nx, ny, nz, a, source)
 
             do k = 1, nz
                 source(:, :, k) = source(:, :, k)*wbackground(k)

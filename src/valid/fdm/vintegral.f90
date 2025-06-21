@@ -7,7 +7,7 @@ program VINTEGRAL
     use TLab_Arrays, only: wrk1d, wrk2d, txc
     use TLab_Grid, only: grid_dt
     use FDM, only: fdm_dt, FDM_CreatePlan
-    use FDM_Derivative, only: FDM_COM4_JACOBIAN, FDM_COM6_JACOBIAN, FDM_COM6_JACOBIAN_PENTA, FDM_COM4_DIRECT, FDM_COM6_DIRECT
+    use FDM_Derivative
     use FDM_Integral
     use OPR_Partial
     use OPR_ODES
@@ -31,7 +31,7 @@ program VINTEGRAL
 
     ! ###################################################################
     ! Initialize
-    imax = 1
+    imax = 2
     jmax = 3
     kmax = 256
     len = imax*jmax
@@ -72,17 +72,17 @@ program VINTEGRAL
     ! ###################################################################
     if (g%periodic) then
         do i = 1, kmax
-            x%nodes(i) = real(i - 1, wp)/real(kmax, wp)*g%scale
+            x%nodes(i) = real(i - 1, wp)/real(kmax, wp)*x%scale
         end do
     else
-        ! do i = 1, kmax
-        !     x%nodes(i) = real(i - 1, wp)/real(kmax - 1, wp)*g%scale
-        ! end do
-        open (21, file='y.dat')
         do i = 1, kmax
-            read (21, *) x%nodes(i)
+            x%nodes(i) = real(i - 1, wp)/real(kmax - 1, wp)*x%scale
         end do
-        close (21)
+        ! open (21, file='y.dat')
+        ! do i = 1, kmax
+        !     read (21, *) x%nodes(i)
+        ! end do
+        ! close (21)
     end if
 
     g%der1%mode_fdm = FDM_COM6_JACOBIAN     ! default
@@ -150,7 +150,7 @@ program VINTEGRAL
             call FDM_CreatePlan(x, g)
 
             f = du1_a
-            ! call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, g, u, f)
+            ! call FDM_Der1_Solve(imax*jmax, BCS_NONE, g%der1, g%der1%lu, u, f, wrk2d)
             f = f + lambda*u
 
             do ib = 1, 2
@@ -173,7 +173,7 @@ program VINTEGRAL
 
                 ! check the calculation of the derivative at the boundary
                 print *, dw1_n(:, 1)
-                call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, g, w_n, dw1_n)
+                call FDM_Der1_Solve(imax*jmax, BCS_NONE, g%der1, g%der1%lu, w_n, dw1_n, wrk2d)
                 select case (ibc)
                 case (BCS_MIN)
                     print *, dw1_n(:, 1)
@@ -196,9 +196,9 @@ program VINTEGRAL
 
         ! f = du2_a
         ! du1_n = du1_a ! I need it for the boundary conditions
-        call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, g, u, du1_n)
-        call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, g, du1_n, du2_n)
-        ! call OPR_Partial_Z(OPR_P2_P1, imax, jmax, kmax, g, u, du2_n, du1_n)
+        call FDM_Der1_Solve(imax*jmax, BCS_NONE, g%der1, g%der1%lu, u, du1_n, wrk2d)
+        call FDM_Der1_Solve(imax*jmax, BCS_NONE, g%der1, g%der1%lu, du1_n, du2_n, wrk2d)
+        ! call FDM_Der2_Solve(imax*jmax, g%du1_n%der2, g%der2%lu, u, du2_n, du1_n, wrk2d)
         f = du2_n
 
         bcs_cases(1:4) = [BCS_DD, BCS_DN, BCS_ND, BCS_NN]
@@ -211,22 +211,18 @@ program VINTEGRAL
             case (BCS_DD)
                 print *, 'Dirichlet/Dirichlet'
                 bcs(:, 1) = u(:, 1); bcs(:, 2) = u(:, kmax)
-                ! call OPR_ODE2_Factorize_1_SINGULAR_DD_OLD(g%der1%mode_fdm, g%size, len, g%nodes, g%jac, w_n, f, bcs, dw1_n, wrk1d)
                 call OPR_ODE2_Factorize_DD_Sing(len, fdmi, w_n, f, bcs, dw1_n, wrk1d, wrk2d)
             case (BCS_DN)
                 print *, 'Dirichlet/Neumann'
                 bcs(:, 1) = u(:, 1); bcs(:, 2) = du1_n(:, kmax)
-                ! call OPR_ODE2_Factorize_1_SINGULAR_DN_OLD(g%der1%mode_fdm, g%size, len, g%jac, w_n, f, bcs, dw1_n, wrk1d)
                 call OPR_ODE2_Factorize_DN_Sing(len, fdmi, w_n, f, bcs, dw1_n, wrk1d, wrk2d)
             case (BCS_ND)
                 print *, 'Neumann/Dirichlet'
                 bcs(:, 1) = du1_n(:, 1); bcs(:, 2) = u(:, kmax)
-                ! call OPR_ODE2_Factorize_1_SINGULAR_ND_OLD(g%der1%mode_fdm, g%size, len, g%jac, w_n, f, bcs, dw1_n, wrk1d)
                 call OPR_ODE2_Factorize_ND_Sing(len, fdmi, w_n, f, bcs, dw1_n, wrk1d, wrk2d)
             case (BCS_NN)
                 print *, 'Neumann/Neumann'
                 bcs(:, 1) = du1_n(:, 1); bcs(:, 2) = du1_n(:, kmax)
-                ! call OPR_ODE2_Factorize_1_SINGULAR_NN_OLD(g%der1%mode_fdm, g%size, len, g%jac, w_n, f, bcs, dw1_n, wrk1d)
                 call OPR_ODE2_Factorize_NN_Sing(len, fdmi, w_n, f, bcs, dw1_n, wrk1d, wrk2d)
             end select
 
@@ -251,9 +247,9 @@ program VINTEGRAL
 
         ! f = du2_a - lambda*lambda*u
         ! du1_n = du1_a ! I need it for the boundary conditions
-        call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, g, u, du1_n)
-        call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, g, du1_n, du2_n)
-        ! call OPR_Partial_Z(OPR_P2_P1, imax, jmax, kmax, g, u, du2_n, du1_n)
+        call FDM_Der1_Solve(imax*jmax, BCS_NONE, g%der1, g%der1%lu, u, du1_n, wrk2d)
+        call FDM_Der1_Solve(imax*jmax, BCS_NONE, g%der1, g%der1%lu, du1_n, du2_n, wrk2d)
+        ! call FDM_Der2_Solve(imax*jmax, g%der2, g%der2%lu, u, du2_n, du1_n, wrk2d)
         f = du2_n - lambda*lambda*u
 
         bcs_cases(1:2) = [BCS_DD, BCS_NN]!, BCS_DN, BCS_ND]
@@ -305,9 +301,9 @@ program VINTEGRAL
 
         ! f = du2_a - lambda*u
         ! du1_n = du1_a ! I need it for the boundary conditions
-        ! call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, g, u, du1_n)
-        ! call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, g, du1_n, du2_n)
-        call OPR_Partial_Z(OPR_P2_P1, imax, jmax, kmax, g, u, du2_n, du1_n)
+        call FDM_Der1_Solve(imax*jmax, BCS_NONE, g%der1, g%der1%lu, u, du1_n, wrk2d)
+        ! call FDM_Der1_Solve(imax*jmax, BCS_NONE, g%der1, g%der1%lu, du1_n, du2_n, wrk2d)
+        call FDM_Der2_Solve(imax*jmax, g%der2, g%der2%lu, u, du2_n, du1_n, wrk2d)
         f = du2_n - lambda*u
 
         bcs_cases(1:4) = [BCS_DD, BCS_NN, BCS_DN, BCS_ND]

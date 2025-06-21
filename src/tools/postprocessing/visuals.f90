@@ -16,7 +16,7 @@ program VISUALS
 #endif
     use IO_Fields
     use TLab_Grid
-    use FDM, only: g, FDM_Initialize
+    use FDM, only: FDM_Initialize
     use FDM, only: fdm_Int0
     use NavierStokes!, only: NavierStokes_Initialize_Parameters
     use Thermodynamics, only: Thermo_Initialize
@@ -254,9 +254,9 @@ program VISUALS
 
                 ! Additional pressure stuff...
                 plot_file = 'PressureGradientPower'//time_str(1:MaskSize)
-                call OPR_Partial_X(OPR_P1, imax, jmax, kmax, g(1), txc(1, 1), txc(1, 2))
-                call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, g(2), txc(1, 1), txc(1, 3))
-                call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, g(3), txc(1, 1), txc(1, 4))
+                call OPR_Partial_X(OPR_P1, imax, jmax, kmax, txc(1, 1), txc(1, 2))
+                call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, txc(1, 1), txc(1, 3))
+                call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, txc(1, 1), txc(1, 4))
                 txc(1:isize_field, 2) = -Tensor_Dot(q(:, 1:3), txc(:, 2:4))
                 call Write_Visuals(plot_file, txc(:, 2:2))
 
@@ -266,21 +266,21 @@ program VISUALS
                 plot_file = 'PressureStrainX'//time_str(1:MaskSize)
                 txc(1:isize_field, 3) = q(1:isize_field, 1)
                 call FI_FLUCTUATION_INPLACE(imax, jmax, kmax, txc(:, 3))
-                call OPR_Partial_X(OPR_P1, imax, jmax, kmax, g(1), txc(1, 3), txc(1, 4))
+                call OPR_Partial_X(OPR_P1, imax, jmax, kmax, txc(1, 3), txc(1, 4))
                 txc(1:isize_field, 3) = txc(1:isize_field, 2)*txc(1:isize_field, 4)
                 call Write_Visuals(plot_file, txc(:, 3:3))
 
                 plot_file = 'PressureStrainY'//time_str(1:MaskSize)
                 txc(1:isize_field, 3) = q(1:isize_field, 2)
                 call FI_FLUCTUATION_INPLACE(imax, jmax, kmax, txc(:, 3))
-                call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, g(2), txc(1, 3), txc(1, 4))
+                call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, txc(1, 3), txc(1, 4))
                 txc(1:isize_field, 3) = txc(1:isize_field, 2)*txc(1:isize_field, 4)
                 call Write_Visuals(plot_file, txc(:, 3:3))
 
                 plot_file = 'PressureStrainZ'//time_str(1:MaskSize)
                 txc(1:isize_field, 3) = q(1:isize_field, 3)
                 call FI_FLUCTUATION_INPLACE(imax, jmax, kmax, txc(:, 3))
-                call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, g(3), txc(1, 3), txc(1, 4))
+                call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, txc(1, 3), txc(1, 4))
                 txc(1:isize_field, 3) = txc(1:isize_field, 2)*txc(1:isize_field, 4)
                 call Write_Visuals(plot_file, txc(:, 3:3))
 
@@ -313,9 +313,9 @@ program VISUALS
                     write (str, *) is; str = 'Scalar'//trim(adjustl(str))
 
                     plot_file = trim(adjustl(str))//'GradientVector'//time_str(1:MaskSize)
-                    call OPR_Partial_X(OPR_P1, imax, jmax, kmax, g(1), s(1, is), txc(1, 1))
-                    call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, g(2), s(1, is), txc(1, 2))
-                    call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, g(3), s(1, is), txc(1, 3))
+                    call OPR_Partial_X(OPR_P1, imax, jmax, kmax, s(1, is), txc(1, 1))
+                    call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, s(1, is), txc(1, 2))
+                    call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, s(1, is), txc(1, 3))
                     call Write_Visuals(plot_file, txc(:, 1:3))
                 end do
 
@@ -381,9 +381,9 @@ program VISUALS
 
                 end select
                 txc(1:isize_field, 4) = txc(1:isize_field, 4)/froude
-                call OPR_Partial_X(OPR_P1, imax, jmax, kmax, g(1), txc(1, 4), txc(1, 1))
-                call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, g(2), txc(1, 4), txc(1, 2))
-                call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, g(3), txc(1, 4), txc(1, 3))
+                call OPR_Partial_X(OPR_P1, imax, jmax, kmax, txc(1, 4), txc(1, 1))
+                call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, txc(1, 4), txc(1, 2))
+                call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, txc(1, 4), txc(1, 3))
                 call FI_CURL(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), txc(1, 4), txc(1, 5), txc(1, 6), txc(1, 7))
                 txc(:, 1) = Tensor_Dot(txc(:, 1:3), txc(:, 4:6))
                 txc(1:isize_field, 1) = log10(txc(1:isize_field, 1)*txc(1:isize_field, 1) + small_wp)
@@ -466,8 +466,8 @@ program VISUALS
                 call Write_Visuals(plot_file, txc(:, 1:1))
 
             case ('HorizontalDivergence')
-                call OPR_Partial_X(OPR_P1, imax, jmax, kmax, g(1), q(1, 1), txc(1, 1))
-                call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, g(2), q(1, 2), txc(1, 2))
+                call OPR_Partial_X(OPR_P1, imax, jmax, kmax, q(1, 1), txc(1, 1))
+                call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, q(1, 2), txc(1, 2))
                 txc(1:isize_field, 1) = txc(1:isize_field, 1) + txc(1:isize_field, 2)
                 call Write_Visuals(plot_file, txc(:, 1:1))
 
@@ -517,9 +517,9 @@ program VISUALS
                 call Write_Visuals(plot_file, txc(:, 1:1))
 
                 plot_file = 'GradientRi'//time_str(1:MaskSize)
-                call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, g(3), txc(:, 1), txc(:, 2))
-                call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, g(3), q(:, 1), txc(:, 3))
-                call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, g(3), q(:, 2), txc(:, 4))
+                call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, txc(:, 1), txc(:, 2))
+                call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, q(:, 1), txc(:, 3))
+                call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, q(:, 2), txc(:, 4))
                 txc(1:isize_field, 2) = abs(txc(1:isize_field, 2))/(txc(1:isize_field, 3)**2.0 + txc(1:isize_field, 4)**2.0 + small_wp)
                 call Write_Visuals(plot_file, txc(:, 2:2))
 
@@ -595,7 +595,7 @@ program VISUALS
                 do is = 1, inb_scal
                     if (infraredProps%active(is)) then
                         write (str, *) is; plot_file = 'Sedimentation'//trim(adjustl(str))//time_str(1:MaskSize)
-                        call Microphysics_Sedimentation(sedimentationProps, imax, jmax, kmax, is, g(3), s, &
+                        call Microphysics_Sedimentation_Z(sedimentationProps, imax, jmax, kmax, is, s, &
                                                         txc(:, 1), txc(:, 2), txc(:, 3))
                         if (nse_eqns == DNS_EQNS_ANELASTIC) then
                             call Thermo_Anelastic_Weight_InPlace(imax, jmax, kmax, ribackground, txc(:, 1))

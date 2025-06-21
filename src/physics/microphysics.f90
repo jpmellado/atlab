@@ -14,7 +14,7 @@ module Microphysics
     private
 
     public :: Microphysics_Initialize
-    public :: Microphysics_Sedimentation
+    public :: Microphysics_Sedimentation_Z
 
     ! -------------------------------------------------------------------
     type microphysics_dt
@@ -144,12 +144,11 @@ contains
 
 !########################################################################
 !########################################################################
-    subroutine Microphysics_Sedimentation(locProps, nx, ny, nz, is, g, s, source, tmp1, flux)
+    subroutine Microphysics_Sedimentation_Z(locProps, nx, ny, nz, is, s, source, tmp1, flux)
         use Thermo_Anelastic, only: rbackground, Thermo_Anelastic_Weight_OutPlace, Thermo_Anelastic_StaticL
         use FDM, only: fdm_dt
         type(microphysics_dt), intent(in) :: locProps
         integer(wi), intent(in) :: nx, ny, nz, is
-        type(fdm_dt), intent(in) :: g
         real(wp), intent(in) :: s(nx*ny*nz, inb_scal_array)
         real(wp), intent(out) :: source(nx*ny*nz)
         real(wp), intent(inout) :: tmp1(nx*ny*nz)
@@ -193,7 +192,7 @@ contains
 
             end select
 
-            call OPR_Partial_Z(OPR_P1, nx, ny, nz, g, tmp1, source)
+            call OPR_Partial_Z(OPR_P1, nx, ny, nz, tmp1, source)
             if (present(flux)) flux = -tmp1
 
         case (TYPE_SED_AIRWATERSIMPLIFIED)
@@ -207,7 +206,7 @@ contains
             ! if (present(flux)) flux = -tmp1
 
             ! the previous formulation yields oscillations at sharp gradients
-            call OPR_Partial_Z(OPR_P1, nx, ny, nz, g, s_active, tmp1)
+            call OPR_Partial_Z(OPR_P1, nx, ny, nz, s_active, tmp1)
             if (exponent > 0.0_wp) tmp1 = tmp1*(s_active**exponent)
             source = locProps%parameters(is)*dummy*tmp1
 
@@ -215,10 +214,9 @@ contains
 
         end select
 
-! ###################################################################
         nullify (s_active)
 
-    end subroutine Microphysics_Sedimentation
+    end subroutine Microphysics_Sedimentation_Z
 
 ! !########################################################################
 ! !########################################################################

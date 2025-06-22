@@ -38,7 +38,7 @@ contains
 
         ! ###################################################################
         bakfile = trim(adjustl(inifile))//'.bak'
-        
+
         block = 'Broadband'
         eStr = __FILE__//'. '//trim(adjustl(block))//'. '
 
@@ -134,6 +134,7 @@ contains
         case (TYPE_DF_GAUSSIAN)
             do i = 1, isize_field
                 tmp2(i) = RANG(0.0_wp, 1.0_wp, seed)
+                ! tmp2(i) = 1.0_wp
             end do
 
         end select
@@ -154,7 +155,7 @@ contains
             nullify (c_tmp1, c_tmp3)
         end if
 
-        call RAND_NORMALIZE(variance, tmp2)
+        call RAND_NORMALIZE(variance, tmp2(1:isize_field))
         a(1:isize_field) = tmp2(1:isize_field)
 
         return

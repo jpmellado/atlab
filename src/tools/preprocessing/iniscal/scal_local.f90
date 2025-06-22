@@ -192,7 +192,7 @@ contains
         real(wp), intent(inout) :: tmp(imax, jmax, kmax)
 
         ! -------------------------------------------------------------------
-        real(wp) dummy, amplify, params(0)
+        real(wp) dummy, params(0)
 
         ! ###################################################################
 #ifdef USE_MPI
@@ -210,7 +210,6 @@ contains
         case (PERT_LAYER_BROADBAND)
             call IO_Read_Fields(trim(adjustl(tag_scal))//'rand', imax, jmax, kmax, itime, inb_scal, is, tmp, params)
 
-            amplify = 0.0_wp
             do k = 1, kmax
                 dummy = AVG1V2D(imax, jmax, kmax, k, 1, tmp)            ! Calculate mean
                 p_wrk3d(:, :, k) = (tmp(:, :, k) - dummy)*wrk1d(k, 1)   ! Remove mean and apply shape function
@@ -389,9 +388,10 @@ contains
             amplify = max(dummy, amplify)
         end do
 
-        amplify = norm_ini_s(is)/sqrt(amplify)          ! Scaling factor to normalize to maximum rms
-
-        s = s*amplify
+        if (amplify > 0.0_wp) then
+            amplify = norm_ini_s(is)/sqrt(amplify)      ! Scaling factor to normalize to maximum rms
+            s = s*amplify
+        end if
 
         return
     end subroutine SCAL_NORMALIZE

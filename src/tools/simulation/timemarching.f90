@@ -265,6 +265,11 @@ contains
             end do
         end do
 
+#ifdef USE_MPI
+        call MPI_ALLREDUCE(dx2i, dummy, 1, MPI_REAL8, MPI_MAX, MPI_COMM_WORLD, ims_err)
+        dx2i = dummy
+#endif
+
         call TMarch_Courant()
 
         return

@@ -413,11 +413,13 @@ contains
         end do
         amplify = 0.5_wp*amplify
 
-        amplify = sqrt(norm_ini_u/amplify)              ! Scaling factor to normalize to maximum TKE
+        if (amplify > 0.0_wp) then
+            amplify = sqrt(norm_ini_u/amplify)              ! Scaling factor to normalize to maximum TKE
 
-        u = u*amplify
-        v = v*amplify
-        w = w*amplify
+            u = u*amplify
+            v = v*amplify
+            w = w*amplify
+        end if
 
         return
     end subroutine FLOW_NORMALIZE

@@ -596,7 +596,7 @@ program VISUALS
                     if (infraredProps%active(is)) then
                         write (str, *) is; plot_file = 'Sedimentation'//trim(adjustl(str))//time_str(1:MaskSize)
                         call Microphysics_Sedimentation_Z(sedimentationProps, imax, jmax, kmax, is, s, &
-                                                        txc(:, 1), txc(:, 2), txc(:, 3))
+                                                          txc(:, 1), txc(:, 2), txc(:, 3))
                         if (nse_eqns == DNS_EQNS_ANELASTIC) then
                             call Thermo_Anelastic_Weight_InPlace(imax, jmax, kmax, ribackground, txc(:, 1))
                         end if
@@ -932,7 +932,11 @@ contains
 
         case (FORMAT_SINGLE)
             do ifield = 1, nfield
-                call Reduce_Block_InPlace(imax, jmax, kmax, subdomain(1), subdomain(3), subdomain(5), nx, ny, nz, field(:, ifield))
+                call Reduce_Block_InPlace(imax, jmax, kmax, &
+                                          mod(subdomain(1) - 1, imax) + 1, &    ! starting node
+                                          mod(subdomain(3) - 1, jmax) + 1, &    ! starting node
+                                          subdomain(5), &                       ! starting node
+                                          nx, ny, nz, field(:, ifield))
             end do
 
             varname = ''

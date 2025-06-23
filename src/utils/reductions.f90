@@ -25,6 +25,8 @@ contains
             end do
         end do
 
+        nullify(a_dst)
+        
         return
     end subroutine Reduce_Block_InPlace
 

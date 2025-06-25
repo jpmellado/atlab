@@ -68,7 +68,7 @@ contains
             call TLab_Stop(DNS_ERROR_OPTION)
         end if
 
-        if (evaporationProps%type /= TYPE_SED_NONE) then
+        if (evaporationProps%type /= TYPE_EVA_NONE) then
             evaporationProps%parameters(:) = 1.0_wp         ! default values
             call ScanFile_Char(bakfile, inifile, block, 'Parameters', 'void', sRes)
             if (trim(adjustl(sRes)) /= 'void') then

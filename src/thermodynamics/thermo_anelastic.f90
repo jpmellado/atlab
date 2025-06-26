@@ -14,7 +14,7 @@ module Thermo_Anelastic
     use Thermo_Base, only: gamma0
     use Thermo_Base, only: nondimensional
     use Thermo_AirWater, only: Rv, Rd, Rdv, Cd, Cdv, Lv0, Ld, Ldv, Cvl, Cdl, Cl, rd_ov_rv, PREF_1000
-    use Thermo_AirWater, only: inb_scal_e, inb_scal_ql, inb_scal_T
+    use Thermo_AirWater, only: inb_scal_e, inb_scal_qt, inb_scal_ql, inb_scal_T
     implicit none
     private
 
@@ -98,8 +98,10 @@ contains
         case (MIXT_TYPE_AIR)
             inb_scal_T = 2          ! scalar index for the temperature
         case (MIXT_TYPE_AIRVAPOR)
+            inb_scal_qt = 2          ! scalar index for the total water (vapor only in this case)
             inb_scal_T = 3          ! scalar index for the temperature
         case (MIXT_TYPE_AIRWATER)
+            inb_scal_qt = 2          ! scalar index for the total water (vapor only in this case)
             inb_scal_ql = 3         ! scalar index for the liquid (liquid water specific humidity)
             inb_scal_T = 4          ! scalar index for the temperature
         end select
@@ -145,7 +147,7 @@ contains
     !########################################################################
     subroutine Thermo_Anelastic_EquilibriumPH(nx, ny, nz, s, h)
         integer(wi), intent(in) :: nx, ny, nz
-        real(wp), intent(inout) :: s(nx*ny*nz, 3)   ! qt, ql, T
+        real(wp), intent(inout) :: s(nx*ny*nz, 2)   ! qt, ql
         real(wp), intent(in) :: h(nx*ny*nz)
 
         ! -------------------------------------------------------------------
@@ -280,12 +282,12 @@ contains
 
     subroutine Thermo_Anelastic_T(nx, ny, nz, s, T)
         integer(wi), intent(in) :: nx, ny, nz
-        real(wp), intent(in) :: s(nx*ny, nz, 3)
+        real(wp), intent(in) :: s(nx*ny, nz, *)
         real(wp), intent(out) :: T(nx*ny, nz)
 
         integer(wi) k
 
-! ###################################################################
+        ! ###################################################################
         select case (imixture)
         case (MIXT_TYPE_AIR)
             do k = 1, nz
@@ -307,9 +309,9 @@ contains
         return
     end subroutine Thermo_Anelastic_T
 
-!########################################################################
-! Calculating h_l - h; very similar to the temperature routine
-!########################################################################
+    !########################################################################
+    ! Calculating h_l - h; very similar to the temperature routine
+    !########################################################################
     subroutine Thermo_Anelastic_StaticL(nx, ny, nz, s, result)
         integer(wi), intent(in) :: nx, ny, nz
         real(wp), intent(in) :: s(nx*ny, nz, *)
@@ -317,25 +319,22 @@ contains
 
         integer(wi) k
 
-! ###################################################################
-#define T_LOC(ij,k) result(ij,k)
+        ! ###################################################################
+#define T_LOC(ij,k) s(ij, k, inb_scal_T)
 
         select case (imixture)
         case (MIXT_TYPE_AIR)
             do k = 1, nz
-                T_LOC(:, k) = s(:, k, 1) - E_LOC
                 result(:, k) = Cl*T_LOC(:, k) + E_LOC - Lv0 - s(:, k, 1)
             end do
 
         case (MIXT_TYPE_AIRVAPOR)
             do k = 1, nz
-                T_LOC(:, k) = (s(:, k, 1) - E_LOC)/(Cd + s(:, k, 2)*Cdv)
                 result(:, k) = Cl*T_LOC(:, k) + E_LOC - Lv0 - s(:, k, 1)
             end do
 
         case (MIXT_TYPE_AIRWATER)
             do k = 1, nz
-                T_LOC(:, k) = (s(:, k, 1) - E_LOC + s(:, k, 3)*Lv0)/(Cd + s(:, k, 2)*Cdv + s(:, k, 3)*Cvl)
                 result(:, k) = Cl*T_LOC(:, k) + E_LOC - Lv0 - s(:, k, 1)
             end do
 
@@ -346,8 +345,8 @@ contains
         return
     end subroutine Thermo_Anelastic_StaticL
 
-!########################################################################
-!########################################################################
+    !########################################################################
+    !########################################################################
     subroutine Thermo_Anelastic_Buoyancy(nx, ny, nz, s, b)
         integer(wi), intent(in) :: nx, ny, nz
         real(wp), intent(in) :: s(nx*ny, nz, *)
@@ -357,41 +356,40 @@ contains
         real(wp) R_LOC_INV
 
         ! ###################################################################
-#define T_LOC(ij,k) b(ij,k)
+#define T_LOC(ij,k) s(ij,k,inb_scal_T)
+#define TR_LOC(ij,k) b(ij,k)
 
         select case (imixture)
         case (MIXT_TYPE_AIR)
             do k = 1, nz
                 R_LOC_INV = 1.0_wp/R_LOC
-                T_LOC(:, k) = s(:, k, 1) - E_LOC
                 b(:, k) = R_LOC_INV*(R_LOC - P_LOC/T_LOC(:, k))
             end do
 
         case (MIXT_TYPE_AIRVAPOR)
             do k = 1, nz
                 R_LOC_INV = 1.0_wp/R_LOC
-                T_LOC(:, k) = (s(:, k, 1) - E_LOC)/(Cd + s(:, k, 2)*Cdv)
-                T_LOC(:, k) = (Rd + s(:, k, 2)*Rdv)*T_LOC(:, k)                     ! Multiply by gas constant
-                b(:, k) = R_LOC_INV*(R_LOC - P_LOC/T_LOC(:, k))
+                TR_LOC(:, k) = (Rd + s(:, k, 2)*Rdv)*T_LOC(:, k)                     ! Multiply by gas constant
+                b(:, k) = R_LOC_INV*(R_LOC - P_LOC/TR_LOC(:, k))
             end do
 
         case (MIXT_TYPE_AIRWATER)
             do k = 1, nz
                 R_LOC_INV = 1.0_wp/R_LOC
-                T_LOC(:, k) = (s(:, k, 1) - E_LOC + s(:, k, 3)*Lv0)/(Cd + s(:, k, 2)*Cdv + s(:, k, 3)*Cvl)
-                T_LOC(:, k) = (Rd + s(:, k, 2)*Rdv - s(:, k, 3)*Rv)*T_LOC(:, k)     ! Multiply by gas constant
-                b(:, k) = R_LOC_INV*(R_LOC - P_LOC/T_LOC(:, k))
+                TR_LOC(:, k) = (Rd + s(:, k, 2)*Rdv - s(:, k, 3)*Rv)*T_LOC(:, k)     ! Multiply by gas constant
+                b(:, k) = R_LOC_INV*(R_LOC - P_LOC/TR_LOC(:, k))
             end do
 
         end select
 
 #undef T_LOC
+#undef TR_LOC
 
         return
     end subroutine Thermo_Anelastic_Buoyancy
 
-!########################################################################
-!########################################################################
+    !########################################################################
+    !########################################################################
     subroutine Thermo_Anelastic_Weight_InPlace(nx, ny, nz, weight, a)
         integer(wi), intent(in) :: nx, ny, nz
         real(wp), intent(in) :: weight(nz)
@@ -407,8 +405,8 @@ contains
         return
     end subroutine Thermo_Anelastic_Weight_InPlace
 
-!########################################################################
-!########################################################################
+    !########################################################################
+    !########################################################################
     subroutine Thermo_Anelastic_Weight_OutPlace(nx, ny, nz, weight, a, b)
         integer(wi), intent(in) :: nx, ny, nz
         real(wp), intent(in) :: weight(nz)
@@ -425,8 +423,8 @@ contains
         return
     end subroutine Thermo_Anelastic_Weight_OutPlace
 
-!########################################################################
-!########################################################################
+    !########################################################################
+    !########################################################################
     subroutine Thermo_Anelastic_Weight_Add(nx, ny, nz, weight, a, b)
         integer(wi), intent(in) :: nx, ny, nz
         real(wp), intent(in) :: weight(nz)
@@ -443,8 +441,8 @@ contains
         return
     end subroutine Thermo_Anelastic_Weight_Add
 
-!########################################################################
-!########################################################################
+    !########################################################################
+    !########################################################################
     subroutine Thermo_Anelastic_Weight_Subtract(nx, ny, nz, weight, a, b)
         integer(wi), intent(in) :: nx, ny, nz
         real(wp), intent(in) :: weight(nz)
@@ -497,7 +495,7 @@ contains
 
         integer(wi) k
 
-! ###################################################################
+        ! ###################################################################
         select case (imixture)
         case (MIXT_TYPE_AIR)
             do k = 1, nz
@@ -729,10 +727,10 @@ contains
         real(wp), intent(out) :: lapse(nx*ny*nz)
         real(wp), intent(inout) :: T(nx*ny*nz)
 
-! -------------------------------------------------------------------
+        ! -------------------------------------------------------------------
         real(wp) one_ov_Rd, one_ov_Rv, Rv_ov_Rd
 
-! ###################################################################
+        ! ###################################################################
 
         select case (imixture)
         case (MIXT_TYPE_AIR)

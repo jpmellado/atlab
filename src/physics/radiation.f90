@@ -10,7 +10,7 @@ module Radiation
     use FDM_Integral, only: FDM_Int1_Solve, fdm_integral_dt
     use NavierStokes, only: nse_eqns, DNS_EQNS_ANELASTIC
     use Thermo_Base, only: imixture, MIXT_TYPE_AIRWATER
-    use Thermo_AirWater, only: inb_scal_e, inb_scal_ql, inb_scal_T
+    use Thermo_AirWater, only: inb_scal_e, inb_scal_qt, inb_scal_ql, inb_scal_T
     use Thermo_Anelastic, only: rbackground, Thermo_Anelastic_Weight_InPlace
     use OPR_ODES
     use Integration
@@ -221,7 +221,7 @@ contains
             bcs_ht = localProps%bcs_t(1)                    ! downward flux at domain top
             if (localProps%bcs_b(1) > 0.0_wp) then
                 ibc = BCS_BOTH                              ! Flux also given at the bottom
-                bcs_hb = localProps%bcs_b(1)                ! upward flux at domain bottom          
+                bcs_hb = localProps%bcs_b(1)                ! upward flux at domain bottom
             end if
             if (present(flux_up)) then
                 call IR_RTE1_OnlyLiquid(nx*ny, nz, fdmi, source, ibc, flux_down, flux_up)
@@ -236,7 +236,7 @@ contains
 
             ! absorption coefficient
             source(1:nx*ny*nz) = localProps%kappa(1, 1)*s(:, inb_scal_ql) + &
-                                 localProps%kappa(2, 1)*(s(:, 2) - s(:, inb_scal_ql)) + &
+                                 localProps%kappa(2, 1)*(s(:, inb_scal_qt) - s(:, inb_scal_ql)) + &
                                  localProps%kappa(3, 1)
             if (nse_eqns == DNS_EQNS_ANELASTIC) then
                 call Thermo_Anelastic_Weight_InPlace(nx, ny, nz, rbackground, source)
@@ -269,7 +269,7 @@ contains
 
                 ! absorption coefficient
                 p_source(1:nx*ny*nz) = localProps%kappa(1, iband)*s(:, inb_scal_ql) + &
-                                       localProps%kappa(2, iband)*(s(:, 2) - s(:, inb_scal_ql)) + &
+                                       localProps%kappa(2, iband)*(s(:, inb_scal_qt) - s(:, inb_scal_ql)) + &
                                        localProps%kappa(3, iband)
                 if (nse_eqns == DNS_EQNS_ANELASTIC) then
                     call Thermo_Anelastic_Weight_InPlace(nx, ny, nz, rbackground, p_source)

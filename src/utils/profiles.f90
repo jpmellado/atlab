@@ -228,7 +228,7 @@ contains
                 amplify = amplify + zamp                  ! Add Perturbations
 
             case (PROFILE_EKMAN_V)
-                amplify = -exp(-xi)*sin(xi)
+                amplify = exp(-xi)*sin(xi)
 
             end select
 

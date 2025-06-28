@@ -33,7 +33,7 @@ subroutine AVG_FLOW_XZ(q, s, dudx, dudy, dudz, dvdx, dvdy, dvdz, dwdx, dwdy, dwd
     use Thermo_Anelastic
     use NavierStokes
     use Gravity, only: gravityProps, Gravity_Source
-    ! use Rotation, only: coriolis
+    use Rotation, only: coriolisProps
     use Averages, only: AVG_IK_V
 
     implicit none
@@ -56,7 +56,7 @@ subroutine AVG_FLOW_XZ(q, s, dudx, dudy, dudz, dvdx, dvdy, dvdz, dwdx, dwdy, dwd
     ! -------------------------------------------------------------------
     integer, parameter :: MAX_VARS_GROUPS = 20
     integer k
-    real(wp) dummy
+    real(wp) dummy, fx, fy, fz
     real(wp) c23
 
     integer ig(MAX_VARS_GROUPS), sg(MAX_VARS_GROUPS), ng, nv
@@ -1061,16 +1061,17 @@ subroutine AVG_FLOW_XZ(q, s, dudx, dudy, dudz, dvdx, dvdy, dvdz, dwdx, dwdy, dwd
     Dxz(:) = rUf(:)*Tau_zz_z(:) + rWf(:)*Tau_xz_z(:)
     Dyz(:) = rVf(:)*Tau_zz_z(:) + rWf(:)*Tau_yz_z(:)
 
-    ! ! Rij Coriolis Terms
-    ! if (coriolis%active(1) .and. coriolis%active(3)) then ! contribution from angular velocity Oy
-    !     dummy = coriolis%vector(2)
-    !     Fxx(:) = dummy*2.0_wp*Rxz(:)
-    !     Fyy(:) = 0.0_wp
-    !     Fzz(:) = -dummy*2.0_wp*Rxz(:)
-    !     Fxy(:) = dummy*Ryz(:)
-    !     Fxz(:) = dummy*(Rzz(:) - Rxx(:))
-    !     Fyz(:) = -dummy*Rxy(:)
-    ! end if
+    ! Rij Coriolis Terms
+    fx = coriolisProps%vector(1)
+    fy = coriolisProps%vector(2)
+    fz = coriolisProps%vector(3)
+
+    Fxx(:) = 2.0_wp*(fy*Rxz(:) - fz*Rxy(:))
+    Fyy(:) = 2.0_wp*(fz*Rxy(:) - fx*Ryz(:))
+    Fzz(:) = 2.0_wp*(fx*Ryz(:) - fy*Rxz(:))
+    Fxy(:) = fy*Ryz(:) - fz*Ryy(:) + fz*Rxx(:) - fx*Rxz(:)
+    Fxz(:) = fy*Rzz(:) - fz*Ryz(:) + fx*Rxy(:) - fy*Rxx(:)
+    Fyz(:) = fz*Rxz(:) - fx*Rzz(:) + fx*Ryy(:) - fy*Rxy(:)
 
     ! Rij Transient terms
     select case (nse_eqns)

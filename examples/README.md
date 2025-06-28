@@ -1,6 +1,6 @@
 # Run Tlab
 
-This is a summary of the workflow. The details of each tool and the corresponding input data should be read in the corresponding source file.
+Workflow summary. Details of each tool and corresponding input data to be read in the corresponding source file.
 
 ## Preprocessing Tools
 
@@ -48,23 +48,18 @@ This is a summary of the workflow. The details of each tool and the correspondin
 * Case26. Stably stratified channel flow.
 * Case27. Half Channel flow.  
 * Case28. Same as 27, implicit solver. TBD.
-
-* Case91. Channel flow with constant streamwise pressure gradient (Re_tau=180, rotation term for turbulent transition!).  
+* Case29. Rotating channel flow (rotation term for turbulent transition).  
 
 ### Boundary layers
 
 * Case31. Heated plate.  
 * Case32. Convective boundary layer.
 
-* Case70. 1D perturbed laminar Ekman layer, implicit solver.  
-
-* Case81. 3D Neutral Ekman layer without sponge at the top.  
-* Case82. 3D Neutral Ekman layer with sponge at the top.  
-* Case84. 3D Stable Ekman layer with sponge at the top.  
-* Case85. 3D Same as 21, implicit solver.  
-* Case86. 3D Same as 22, implicit solver.  
-* Case87. 3D Same as 23, implicit solver.  
-* Case88. 3D Neutral Ekman layer with sponge at the top and interactive BC at the bottom.  
+* Case41. 1D perturbed laminar Ekman layer.
+* Case42. 1D perturbed laminar Ekman layer, implicit solver. TBD.
+* Case43. 3D Neutral Ekman layer with pasive scalar.
+* Case44. 3D Stable Ekman layer.
+* Case45. 3D Neutral Ekman layer with interactive BC at the bottom.  
 
 ### Anelastic flows
 

@@ -20,7 +20,7 @@ program DNS
     use NavierStokes, only: visc
     use Gravity, only: Gravity_Initialize
     use SpecialForcing, only: SpecialForcing_Initialize
-    ! use Rotation, only: Rotation_Initialize
+    use Rotation, only: Rotation_Initialize
     use Microphysics, only: Microphysics_Initialize
     use Radiation, only: Radiation_Initialize
     use LargeScaleForcing, only: LargeScaleForcing_Initialize
@@ -30,18 +30,13 @@ program DNS
     use OPR_Elliptic, only: OPR_Elliptic_Initialize
     use NSE_Burgers, only: NSE_Burgers_Initialize
     ! use OPR_FILTERS
-    ! use PARTICLE_VARS
-    ! use PARTICLE_ARRAYS
-    ! use PARTICLE_PROCS
     use DNS_LOCAL
     use DNS_Control
     use TimeMarching
-    ! use DNS_TOWER
     ! use PLANES
     use BoundaryConditions
     use Buffer, only: Buffer_Initialize
     use Statistics, only: Statistics_Initialize, Statistics_Compute
-    ! use ParticleTrajectories
     implicit none
 
     ! -------------------------------------------------------------------
@@ -65,8 +60,8 @@ program DNS
     call Thermo_Initialize(ifile)
 
     call Gravity_Initialize(ifile)
+    call Rotation_Initialize(ifile)
     call SpecialForcing_Initialize(ifile)
-    ! call Rotation_Initialize(ifile)
     call Microphysics_Initialize(ifile)
     call Radiation_Initialize(ifile)
     call LargeScaleForcing_Initialize(ifile)

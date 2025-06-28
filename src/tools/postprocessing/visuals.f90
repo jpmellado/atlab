@@ -22,7 +22,7 @@ program VISUALS
     use Thermodynamics, only: Thermo_Initialize
     use TLab_Background, only: TLab_Initialize_Background
     use Gravity, only: Gravity_Initialize, gravityProps, Gravity_Source, bbackground
-    ! use Rotation, only: Rotation_Initialize
+    use Rotation, only: Rotation_Initialize
     use Thermo_Anelastic
     use Radiation !, only: Radiation_Initialize, infraredProps
     use Microphysics !, only: Microphysics_Initialize, sedimentationProps
@@ -96,7 +96,7 @@ program VISUALS
     call Thermo_Initialize(ifile)
 
     call Gravity_Initialize(ifile)
-    ! call Rotation_Initialize(ifile)
+    call Rotation_Initialize(ifile)
     call Radiation_Initialize(ifile)
     call Microphysics_Initialize(ifile)
     call LargeScaleForcing_Initialize(ifile)

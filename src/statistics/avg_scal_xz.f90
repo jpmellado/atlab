@@ -26,7 +26,7 @@ subroutine AVG_SCAL_XZ(is, q, s, s_local, dsdx, dsdy, dsdz, tmp1, tmp2, tmp3, me
     use Thermo_Anelastic, only: ribackground, Thermo_Anelastic_Weight_InPlace
     use Thermo_Compressible, only: rho, vis
     use Gravity, only: gravityProps, Gravity_Source
-    ! use Rotation, only: coriolis
+    use Rotation, only: coriolisProps
     use Microphysics
     use Radiation
     use FI_GRADIENT_EQN
@@ -722,10 +722,10 @@ subroutine AVG_SCAL_XZ(is, q, s, s_local, dsdx, dsdy, dsdz, tmp1, tmp2, tmp3, me
     Dsv(:) = (rS(:) - fS(:))*Tau_yz_z(:) + (rV(:) - fV(:))*Fz_z(:)
     Dsw(:) = (rS(:) - fS(:))*Tau_zz_z(:) + (rW(:) - fW(:))*Fz_z(:)
 
-    ! ! Coriolis terms
-    ! dummy = coriolis%vector(2)
-    ! Fsu(:) = dummy*Rsw(:)
-    ! Fsw(:) = -dummy*Rsu(:)
+    ! Coriolis terms
+    Fsu(:) = coriolisProps%vector(2)*Rsw(:) - coriolisProps%vector(3)*Rsv(:)
+    Fsv(:) = coriolisProps%vector(3)*Rsu(:) - coriolisProps%vector(1)*Rsw(:)
+    Fsw(:) = coriolisProps%vector(1)*Rsv(:) - coriolisProps%vector(2)*Rsu(:)
 
     ! Transient terms
     Rss_t(:) = Css(:) + Pss(:) - Ess(:) + Qss(:) + (Dss(:) - Tssz_z(:))/rR(:)

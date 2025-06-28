@@ -22,7 +22,7 @@ program AVERAGES
     use TLab_Background, only: TLab_Initialize_Background
     use Gravity, only: Gravity_Initialize, gravityProps, Gravity_Source, bbackground
     use SpecialForcing, only: SpecialForcing_Initialize
-    ! use Rotation, only: Rotation_Initialize
+    use Rotation, only: Rotation_Initialize
     use Microphysics, only: Microphysics_Initialize
     use Radiation, only: Radiation_Initialize
     use LargeScaleForcing, only: LargeScaleForcing_Initialize
@@ -94,8 +94,8 @@ program AVERAGES
     call Thermo_Initialize(ifile)
 
     call Gravity_Initialize(ifile)
+    call Rotation_Initialize(ifile)
     call SpecialForcing_Initialize(ifile)
-    ! call Rotation_Initialize(ifile)
     call Microphysics_Initialize(ifile)
     call Radiation_Initialize(ifile)
     call LargeScaleForcing_Initialize(ifile)

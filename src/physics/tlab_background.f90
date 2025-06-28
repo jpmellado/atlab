@@ -69,8 +69,8 @@ contains
 
         ! Consistency check
         if (any([PROFILE_EKMAN_U, PROFILE_EKMAN_U_P] == qbg(1)%type)) then
-            qbg(3) = qbg(1)
-            qbg(3)%type = PROFILE_EKMAN_V
+            qbg(2) = qbg(1)
+            qbg(2)%type = PROFILE_EKMAN_V
         end if
 
         call Profiles_ReadBlock(bakfile, inifile, 'Flow', 'Pressure', pbg)

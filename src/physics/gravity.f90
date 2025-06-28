@@ -12,6 +12,10 @@ module Gravity
     implicit none
     private
 
+    public :: Gravity_Initialize
+    public :: Gravity_Source
+    public :: Gravity_Hydrostatic_Enthalpy
+
     type gravity_dt
         sequence
         integer type
@@ -23,15 +27,12 @@ module Gravity
     type(gravity_dt), public, protected :: gravityProps
     real(wp), allocatable, public :: bbackground(:)
 
+    ! -------------------------------------------------------------------
     integer, parameter :: TYPE_GRAV_NONE = 0
     integer, parameter :: TYPE_GRAV_HOMOGENEOUS = 5
     integer, parameter :: TYPE_GRAV_LINEAR = 6
     integer, parameter :: TYPE_GRAV_BILINEAR = 7
     integer, parameter :: TYPE_GRAV_QUADRATIC = 8
-
-    public :: Gravity_Initialize
-    public :: Gravity_Source
-    public :: Gravity_Hydrostatic_Enthalpy
 
 contains
     !########################################################################
@@ -63,7 +64,7 @@ contains
         else if (trim(adjustl(sRes)) == 'bilinear') then; gravityProps%type = TYPE_GRAV_BILINEAR
         else if (trim(adjustl(sRes)) == 'quadratic') then; gravityProps%type = TYPE_GRAV_QUADRATIC
         else
-            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Wrong TermBodyForce option.')
+            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Error in entry Type.')
             call TLab_Stop(DNS_ERROR_OPTION)
         end if
 

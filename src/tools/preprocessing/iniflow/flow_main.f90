@@ -18,7 +18,6 @@ program IniFlow
     use NavierStokes, only: NavierStokes_Initialize_Parameters
     use Thermodynamics, only: Thermo_Initialize
     ! use NavierStokes, only: nse_eqns, DNS_EQNS_COMPRESSIBLE, DNS_EQNS_TOTAL
-    ! use Rotation, only: Rotation_Initialize
     use OPR_Partial, only: OPR_Partial_Initialize
     use TLab_Background, only: TLab_Initialize_Background, qbg
     use Profiles, only: Profiles_Calculate
@@ -44,7 +43,6 @@ program IniFlow
 
     call NavierStokes_Initialize_Parameters(ifile)
     call Thermo_Initialize(ifile)
-    ! call Rotation_Initialize(ifile)
 
     call TLab_Consistency_Check()
 
@@ -75,9 +73,6 @@ program IniFlow
             p_q(:, :, k, iq) = Profiles_Calculate(qbg(iq), z%nodes(k))
         end do
     end do
-    ! if (coriolis%type == EQNS_COR_NORMALIZED) then
-    !     ! call rotation()
-    ! end if
 
     ! Fluctuation
     select case (flag_u)

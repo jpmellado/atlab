@@ -8,7 +8,7 @@ module TLab_Sources
     use NavierStokes, only: nse_eqns, DNS_EQNS_BOUSSINESQ, DNS_EQNS_ANELASTIC
     use Thermo_Anelastic, only: ribackground, Thermo_Anelastic_Buoyancy, Thermo_Anelastic_Weight_Add
     use Gravity, only: gravityProps, Gravity_Source
-    ! use Rotation, only: coriolis, Rotation_Coriolis
+    use Rotation, only: coriolisProps, Rotation_AddCoriolis
     use SpecialForcing
     use Microphysics
     use Radiation
@@ -32,7 +32,7 @@ contains
         integer iq
 
         ! #######################################################################
-        ! call Rotation_Coriolis(coriolis, imax, jmax, kmax, q, hq)
+        call Rotation_AddCoriolis(coriolisProps, imax, jmax, kmax, q, hq)
 
         do iq = 1, 3
             ! -----------------------------------------------------------------------

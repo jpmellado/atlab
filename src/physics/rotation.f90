@@ -1,7 +1,7 @@
 #include "tlab_error.h"
 
 module Rotation
-    use TLab_Constants, only: wp, wi, efile, lfile, MAX_VARS, MAX_PARS
+    use TLab_Constants, only: wp, wi, pi_wp, efile, lfile, MAX_VARS, MAX_PARS
     use NavierStokes, only: rossby
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
     implicit none
@@ -115,9 +115,9 @@ contains
             end do
 
         case (TYPE_COR_AGEOSTROPHIC_Z)
-            geo_u = cos(locProps%parameters(1))*locProps%parameters(2)
-            geo_v = sin(locProps%parameters(1))*locProps%parameters(2)
-            fy = locProps%vector(2)
+            geo_u = cos(locProps%parameters(2)*pi_wp/180.0_wp)*locProps%parameters(1)
+            geo_v = sin(locProps%parameters(2)*pi_wp/180.0_wp)*locProps%parameters(1)
+            fy = locProps%vector(3)
             do i = 1, nx*ny*nz
                 r(i, 1) = r(i, 1) + fy*(u(i, 2) - geo_v)
                 r(i, 2) = r(i, 2) + fy*(geo_u - u(i, 1))

@@ -3,7 +3,7 @@
 ! Definining functions f=f(x) to be used in bcs, ics, and reference background profiles
 module Profiles
     use TLab_Constants, only: wp, i4_, pi_wp, efile, wfile, MAX_PARS
-    use TLab_WorkFlow,  only: TLab_Write_ASCII, TLab_Stop
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
     implicit none
     private
 
@@ -16,7 +16,7 @@ module Profiles
         logical :: relative = .true.                ! use reference spatial position relative to the extent of the domain
         real(wp) :: mean = 0.0_wp                   ! mean value of f
         real(wp) :: delta = 1.0_wp                  ! increment of f
-        real(wp) :: zmean = 0.0_wp                  ! reference spatial position at which f changes      
+        real(wp) :: zmean = 0.0_wp                  ! reference spatial position at which f changes
         real(wp) :: zmean_rel = 0.5_wp              ! same but relative to the extent of the domain
         real(wp) :: thick = 1.0_wp                  ! spatial interval over which f changes
         real(wp) :: lslope = 0.0_wp                 ! slope of f below the zmean
@@ -25,38 +25,37 @@ module Profiles
         real(wp) :: parameters(MAX_PARS) = 0.0_wp   ! additional parameters
     end type profiles_dt
 
-    integer, parameter, public :: PROFILE_NONE               = 0
-    integer, parameter, public :: PROFILE_LINEAR             = 1
-    integer, parameter, public :: PROFILE_TANH               = 2
-    integer, parameter, public :: PROFILE_ERF                = 3
-    integer, parameter, public :: PROFILE_BICKLEY            = 4
-    integer, parameter, public :: PROFILE_GAUSSIAN           = 5
-    integer, parameter, public :: PROFILE_LINEAR_ERF         = 6
-    integer, parameter, public :: PROFILE_EKMAN_U            = 7
-    integer, parameter, public :: PROFILE_EKMAN_V            = 8
-    integer, parameter, public :: PROFILE_EKMAN_U_P          = 9
-    integer, parameter, public :: PROFILE_PARABOLIC          = 10
-    integer, parameter, public :: PROFILE_LINEAR_CROP        = 11
-    integer, parameter, public :: PROFILE_MIXEDLAYER         = 12
-    integer, parameter, public :: PROFILE_ERF_ANTISYM        = 13
-    integer, parameter, public :: PROFILE_ERF_SURFACE        = 14
+    integer, parameter, public :: PROFILE_NONE = 0
+    integer, parameter, public :: PROFILE_LINEAR = 1
+    integer, parameter, public :: PROFILE_TANH = 2
+    integer, parameter, public :: PROFILE_ERF = 3
+    integer, parameter, public :: PROFILE_BICKLEY = 4
+    integer, parameter, public :: PROFILE_GAUSSIAN = 5
+    integer, parameter, public :: PROFILE_LINEAR_ERF = 6
+    integer, parameter, public :: PROFILE_EKMAN = 7
+    integer, parameter, public :: PROFILE_EKMAN_P = 9
+    integer, parameter, public :: PROFILE_PARABOLIC = 10
+    integer, parameter, public :: PROFILE_LINEAR_CROP = 11
+    integer, parameter, public :: PROFILE_MIXEDLAYER = 12
+    integer, parameter, public :: PROFILE_ERF_ANTISYM = 13
+    integer, parameter, public :: PROFILE_ERF_SURFACE = 14
     integer, parameter, public :: PROFILE_LINEAR_ERF_SURFACE = 15
-    integer, parameter, public :: PROFILE_PARABOLIC_SURFACE  = 16
-    integer, parameter, public :: PROFILE_GAUSSIAN_SURFACE   = 17
-    integer, parameter, public :: PROFILE_GAUSSIAN_ANTISYM   = 18
-    integer, parameter, public :: PROFILE_GAUSSIAN_SYM       = 19
-    integer, parameter, public :: PROFILE_TANH_ANTISYM       = 20
-    integer, parameter, public :: PROFILE_TANH_SYM           = 21
-    integer, parameter, public :: PROFILE_TANH_COS           = 22
-    integer, parameter, public :: PROFILE_GAUSSIAN_TANH_SYM  = 23
+    integer, parameter, public :: PROFILE_PARABOLIC_SURFACE = 16
+    integer, parameter, public :: PROFILE_GAUSSIAN_SURFACE = 17
+    integer, parameter, public :: PROFILE_GAUSSIAN_ANTISYM = 18
+    integer, parameter, public :: PROFILE_GAUSSIAN_SYM = 19
+    integer, parameter, public :: PROFILE_TANH_ANTISYM = 20
+    integer, parameter, public :: PROFILE_TANH_SYM = 21
+    integer, parameter, public :: PROFILE_TANH_COS = 22
+    integer, parameter, public :: PROFILE_GAUSSIAN_TANH_SYM = 23
 
 contains
 !########################################################################
 !########################################################################
     subroutine Profiles_ReadBlock(bakfile, inifile, block, tag, var, default)
-        character(len=*),  intent(in)           :: bakfile, inifile, block, tag
-        type(profiles_dt), intent(out)          :: var
-        character(len=*),  intent(in), optional :: default
+        character(len=*), intent(in) :: bakfile, inifile, block, tag
+        type(profiles_dt), intent(out) :: var
+        character(len=*), intent(in), optional :: default
 
         character(len=512) sRes
         real(wp) derivative
@@ -78,25 +77,25 @@ contains
         else
             call ScanFile_Char(bakfile, inifile, block, 'Profile'//trim(adjustl(tag)), 'none', sRes)
         end if
-        if (trim(adjustl(sRes)) == 'none') then;                       var%type = PROFILE_NONE
-        else if (trim(adjustl(sRes)) == 'tanh') then;                  var%type = PROFILE_TANH
-        else if (trim(adjustl(sRes)) == 'tanhsymmetric') then;         var%type = PROFILE_TANH_SYM
-        else if (trim(adjustl(sRes)) == 'tanhantisymmetric') then;     var%type = PROFILE_TANH_ANTISYM
-        else if (trim(adjustl(sRes)) == 'linear') then;                var%type = PROFILE_LINEAR
-        else if (trim(adjustl(sRes)) == 'linearcrop') then;            var%type = PROFILE_LINEAR_CROP
-        else if (trim(adjustl(sRes)) == 'erf') then;                   var%type = PROFILE_ERF
-        else if (trim(adjustl(sRes)) == 'erfsurface') then;            var%type = PROFILE_ERF_SURFACE
-        else if (trim(adjustl(sRes)) == 'erfantisym') then;            var%type = PROFILE_ERF_ANTISYM
-        else if (trim(adjustl(sRes)) == 'bickley') then;               var%type = PROFILE_BICKLEY
-        else if (trim(adjustl(sRes)) == 'gaussian') then;              var%type = PROFILE_GAUSSIAN
-        else if (trim(adjustl(sRes)) == 'gaussiansurface') then;       var%type = PROFILE_GAUSSIAN_SURFACE
-        else if (trim(adjustl(sRes)) == 'gaussianvaricose') then;      var%type = PROFILE_GAUSSIAN_ANTISYM
-        else if (trim(adjustl(sRes)) == 'gaussiansinuous') then;       var%type = PROFILE_GAUSSIAN_SYM
-        else if (trim(adjustl(sRes)) == 'ekman') then;                 var%type = PROFILE_EKMAN_U
-        else if (trim(adjustl(sRes)) == 'ekmanp') then;                var%type = PROFILE_EKMAN_U_P
-        else if (trim(adjustl(sRes)) == 'parabolic') then;             var%type = PROFILE_PARABOLIC
-        else if (trim(adjustl(sRes)) == 'parabolicsurface') then;      var%type = PROFILE_PARABOLIC_SURFACE
-        else if (trim(adjustl(sRes)) == 'mixedlayer') then;            var%type = PROFILE_MIXEDLAYER
+        if (trim(adjustl(sRes)) == 'none') then; var%type = PROFILE_NONE
+        else if (trim(adjustl(sRes)) == 'tanh') then; var%type = PROFILE_TANH
+        else if (trim(adjustl(sRes)) == 'tanhsymmetric') then; var%type = PROFILE_TANH_SYM
+        else if (trim(adjustl(sRes)) == 'tanhantisymmetric') then; var%type = PROFILE_TANH_ANTISYM
+        else if (trim(adjustl(sRes)) == 'linear') then; var%type = PROFILE_LINEAR
+        else if (trim(adjustl(sRes)) == 'linearcrop') then; var%type = PROFILE_LINEAR_CROP
+        else if (trim(adjustl(sRes)) == 'erf') then; var%type = PROFILE_ERF
+        else if (trim(adjustl(sRes)) == 'erfsurface') then; var%type = PROFILE_ERF_SURFACE
+        else if (trim(adjustl(sRes)) == 'erfantisym') then; var%type = PROFILE_ERF_ANTISYM
+        else if (trim(adjustl(sRes)) == 'bickley') then; var%type = PROFILE_BICKLEY
+        else if (trim(adjustl(sRes)) == 'gaussian') then; var%type = PROFILE_GAUSSIAN
+        else if (trim(adjustl(sRes)) == 'gaussiansurface') then; var%type = PROFILE_GAUSSIAN_SURFACE
+        else if (trim(adjustl(sRes)) == 'gaussianvaricose') then; var%type = PROFILE_GAUSSIAN_ANTISYM
+        else if (trim(adjustl(sRes)) == 'gaussiansinuous') then; var%type = PROFILE_GAUSSIAN_SYM
+        else if (trim(adjustl(sRes)) == 'ekman') then; var%type = PROFILE_EKMAN
+        else if (trim(adjustl(sRes)) == 'ekmanp') then; var%type = PROFILE_EKMAN_P
+        else if (trim(adjustl(sRes)) == 'parabolic') then; var%type = PROFILE_PARABOLIC
+        else if (trim(adjustl(sRes)) == 'parabolicsurface') then; var%type = PROFILE_PARABOLIC_SURFACE
+        else if (trim(adjustl(sRes)) == 'mixedlayer') then; var%type = PROFILE_MIXEDLAYER
         else if (trim(adjustl(sRes)) == 'gaussiantanhsymmetric') then; var%type = PROFILE_GAUSSIAN_TANH_SYM
         else
             call TLab_Write_ASCII(efile, __FILE__//'. Wrong '//trim(adjustl(tag))//' profile.')
@@ -135,6 +134,7 @@ contains
             end if
         end if
 
+        call ScanFile_Real(bakfile, inifile, block, 'Angle'//trim(adjustl(tag)), '0.0', var%parameters(1))
         call ScanFile_Real(bakfile, inifile, block, 'LowerSlope'//trim(adjustl(tag)), '0.0', var%lslope)
         call ScanFile_Real(bakfile, inifile, block, 'UpperSlope'//trim(adjustl(tag)), '0.0', var%uslope)
         call ScanFile_Real(bakfile, inifile, block, 'Diam'//trim(adjustl(tag)), '0.0', var%diam)
@@ -162,11 +162,11 @@ contains
 !########################################################################
     function Profiles_Calculate(var, y) result(f)
         type(profiles_dt), intent(in) :: var
-        real(wp),          intent(in) :: y
-        real(wp)                      :: f
+        real(wp), intent(in) :: y
+        real(wp) :: f
 
         ! -------------------------------------------------------------------
-        real(wp) yrel, xi, amplify, zamp, cnought
+        real(wp) yrel, xi, amplify, uloc, vloc, zamp, cnought
 
         ! ###################################################################
         yrel = y - var%zmean    ! position relative to reference height
@@ -217,18 +217,18 @@ contains
                 amplify = exp(-0.5_wp*(xi - 0.5_wp*var%diam/var%thick)**2.0_wp) &
                           - exp(-0.5_wp*(xi + 0.5_wp*var%diam/var%thick)**2.0_wp)
 
-            case (PROFILE_EKMAN_U)
-                amplify = 1.0_wp - exp(-xi)*cos(xi)
+            case (PROFILE_EKMAN)        ! Projection of Ekman spiral at the angle given by parameters(1)
+                uloc = 1.0_wp - exp(-xi)*cos(xi)
+                vloc = exp(-xi)*sin(xi)
+                amplify = uloc*cos(var%parameters(1)*pi_wp/180.0_wp) - vloc*sin(var%parameters(1)*pi_wp/180.0_wp)
 
-            case (PROFILE_EKMAN_U_P)
-                amplify = 1.0_wp - exp(-xi)*cos(xi) ! + perturbation:
-
+            case (PROFILE_EKMAN_P)
                 cnought = pi_wp*pi_wp/4.0_wp/4.0_wp       ! Maximum initial Perturbation is at y=pi/2*var%thick
                 zamp = sqrt(2.0_wp)*xi*exp(-xi*xi/8.0_wp/cnought)/(var%thick*var%thick*4.0_wp*cnought)**1.5_wp
-                amplify = amplify + zamp                  ! Add Perturbations
 
-            case (PROFILE_EKMAN_V)
-                amplify = exp(-xi)*sin(xi)
+                uloc = 1.0_wp - exp(-xi)*cos(xi) + zamp
+                vloc = exp(-xi)*sin(xi)
+                amplify = uloc*cos(var%parameters(1)*pi_wp/180.0_wp) - vloc*sin(var%parameters(1)*pi_wp/180.0_wp)
 
             end select
 
@@ -276,7 +276,7 @@ contains
 !########################################################################
 !########################################################################
     subroutine Profiles_DerToThick(derivative, var)  ! Obtain thick from the value of the maximum derivative
-        real(wp),          intent(in)    :: derivative
+        real(wp), intent(in) :: derivative
         type(profiles_dt), intent(inout) :: var
 
         real(wp) thick_ratio    ! for readibility
@@ -307,7 +307,7 @@ contains
 !########################################################################
 !########################################################################
     subroutine Profiles_DerToDelta(derivative, var)  ! Obtain thick from the value of the maximum derivative
-        real(wp),          intent(in)    :: derivative
+        real(wp), intent(in) :: derivative
         type(profiles_dt), intent(inout) :: var
 
         real(wp) thick_ratio    ! for readibility

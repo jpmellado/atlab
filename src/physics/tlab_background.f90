@@ -31,19 +31,15 @@ contains
         use Thermodynamics, only: imode_thermo, THERMO_TYPE_ANELASTIC
         use Thermo_Anelastic
         use Profiles, only: Profiles_ReadBlock
-        use Profiles, only: PROFILE_NONE, PROFILE_EKMAN_U, PROFILE_EKMAN_U_P, PROFILE_EKMAN_V
         use Gravity
 
         character(len=*), intent(in) :: inifile
 
         ! -----------------------------------------------------------------------
         character(len=32) bakfile, block
-        ! character(len=512) sRes
         character(len=64) lstr
 
-        ! real(wp) ploc(2), rloc(2), Tloc(2), sloc(2, 1:MAX_VARS)
-
-        integer(wi) is, k!, idummy
+        integer(wi) is, k
 
         ! ###################################################################
         bakfile = trim(adjustl(inifile))//'.bak'
@@ -67,63 +63,12 @@ contains
         call Profiles_ReadBlock(bakfile, inifile, 'Flow', 'VelocityY', qbg(2))
         call Profiles_ReadBlock(bakfile, inifile, 'Flow', 'VelocityZ', qbg(3))
 
-        ! Consistency check
-        if (any([PROFILE_EKMAN_U, PROFILE_EKMAN_U_P] == qbg(1)%type)) then
-            qbg(2) = qbg(1)
-            qbg(2)%type = PROFILE_EKMAN_V
-        end if
-
         call Profiles_ReadBlock(bakfile, inifile, 'Flow', 'Pressure', pbg)
         call Profiles_ReadBlock(bakfile, inifile, 'Flow', 'Density', rbg)
         call Profiles_ReadBlock(bakfile, inifile, 'Flow', 'Temperature', tbg)
         call Profiles_ReadBlock(bakfile, inifile, 'Flow', 'Enthalpy', hbg)
 
-        ! ! consistency check; two and only two are given TO BE CHECKED BECAUSE PROFILE_NONE is used as constant profile
-        ! if (imode_thermo == THERMO_TYPE_COMPRESSIBLE) then
-        !     idummy = 0
-        !     if (pbg%type == PROFILE_NONE) idummy = idummy + 1
-        !     if (rbg%type == PROFILE_NONE) idummy = idummy + 1
-        !     if (tbg%type == PROFILE_NONE) idummy = idummy + 1
-        !     if (hbg%type == PROFILE_NONE) idummy = idummy + 1
-        !     if (idummy /= 2) then
-        !         call TLab_Write_ASCII(efile, __FILE__//'. Specify only 2 thermodynamic profiles.')
-        !         call TLab_Stop(DNS_ERROR_OPTION)
-        !     end if
-        ! end if
-
-        ! ! #######################################################################
-        ! ! mean_rho and delta_rho need to be defined, because of old version.
-        ! if (imode_thermo == THERMO_TYPE_COMPRESSIBLE) then
-        !     if (rbg%type == PROFILE_NONE .and. tbg%type /= PROFILE_NONE) then
-        !         rbg = tbg
-
-        !         Tloc(1) = tbg%mean + 0.5_wp*tbg%delta
-        !         Tloc(2) = tbg%mean - 0.5_wp*tbg%delta
-        !         ploc(1:2) = pbg%mean
-        !         sloc(1, :) = sbg(:)%mean + 0.5_wp*sbg(:)%delta
-        !         sloc(2, :) = sbg(:)%mean - 0.5_wp*sbg(:)%delta
-        !         call THERMO_THERMAL_DENSITY(2, sloc, ploc, Tloc, rloc)
-        !         rbg%mean = 0.5_wp*(rloc(1) + rloc(2))
-        !         rbg%delta = rloc(1) - rloc(2)
-
-        !     else if (rbg%type == PROFILE_NONE .and. hbg%type /= PROFILE_NONE) then
-        !         rbg%mean = 1.0_wp ! to be done; I need a nonzero value for dns_control.
-
-        !     else
-        !         tbg = rbg
-
-        !         rloc(1) = rbg%mean + 0.5_wp*rbg%delta
-        !         rloc(2) = rbg%mean - 0.5_wp*rbg%delta
-        !         ploc(1:2) = pbg%mean
-        !         sloc(1, :) = sbg(:)%mean + 0.5_wp*sbg(:)%delta
-        !         sloc(2, :) = sbg(:)%mean - 0.5_wp*sbg(:)%delta
-        !         call THERMO_THERMAL_TEMPERATURE(2, sloc, ploc, rloc, Tloc)
-        !         tbg%mean = 0.5_wp*(Tloc(1) + Tloc(2))
-        !         tbg%delta = Tloc(1) - Tloc(2)
-
-        !     end if
-        ! end if
-
+        ! -----------------------------------------------------------------------
         do is = 1, size(qbg)
             if (qbg(is)%relative) qbg(is)%zmean = z%nodes(1) + z%scale*qbg(is)%zmean_rel
         end do

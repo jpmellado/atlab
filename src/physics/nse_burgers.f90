@@ -69,14 +69,14 @@ contains
         use TLabMPI_VARS, only: ims_pro_i, ims_npro_i, ims_pro_j, ims_npro_j
 #endif
         use NavierStokes, only: nse_eqns, DNS_EQNS_ANELASTIC
-        use Thermo_Anelastic, only: rbackground, ribackground
+        use Thermo_Anelastic, only: ribackground
 
         character(len=*), intent(in) :: inifile
 
         ! -----------------------------------------------------------------------
         character(len=32) bakfile
 
-        integer(wi) ig, is, ip, j, idummy
+        integer(wi) ig, is, ip, j, ndl, idl
         integer(wi) nlines, offset
         real(wp) dummy
 
@@ -91,17 +91,17 @@ contains
         do ig = 1, 3
             if (g(ig)%size == 1) cycle
 
-            if (g(ig)%der2%nb_diag(1) /= 3) then
-                call TLab_Write_ASCII(efile, __FILE__//'. Undeveloped for more than 3 LHS diagonals in 2. order derivatives.')
-                call TLab_Stop(DNS_ERROR_OPTION)
-            end if
+            ! if (g(ig)%der2%nb_diag(1) /= 3) then
+            !     call TLab_Write_ASCII(efile, __FILE__//'. Undeveloped for more than 3 LHS diagonals in 2. order derivatives.')
+            !     call TLab_Stop(DNS_ERROR_OPTION)
+            ! end if
 
+            ndl = g(ig)%der2%nb_diag(1)
             if (g(ig)%periodic) then
-                idummy = g(ig)%der2%nb_diag(1) + 2
+                allocate (fdmDiffusion(ig)%lu(g(ig)%size, ndl + 2, 0:inb_scal))
             else
-                idummy = g(ig)%der2%nb_diag(1)
+                allocate (fdmDiffusion(ig)%lu(g(ig)%size, ndl, 0:inb_scal))
             end if
-            allocate (fdmDiffusion(ig)%lu(g(ig)%size, idummy, 0:inb_scal))
 
             ip = 0
             do is = 0, inb_scal ! case 0 for the reynolds number
@@ -119,9 +119,9 @@ contains
                     fdmDiffusion(ig)%lu(:, 5, is) = g(ig)%der2%lu(:, 5)         ! matrix U is the same
 
                 else                                            ! Check routines TRIDFS and TRIDSS
-                    fdmDiffusion(ig)%lu(:, 1, is) = g(ig)%der2%lu(:, 1)         ! matrix L is the same
-                    fdmDiffusion(ig)%lu(:, 2, is) = g(ig)%der2%lu(:, 2)*dummy   ! matrix U; 1/diagonal
-                    fdmDiffusion(ig)%lu(:, 3, is) = g(ig)%der2%lu(:, 3)/dummy   ! matrix U; 1. superdiagonal
+                    fdmDiffusion(ig)%lu(:, :, is) = g(ig)%der2%lu(:, :)
+                    idl = ndl/2 + 1
+                    fdmDiffusion(ig)%lu(:, idl, is) = g(ig)%der2%lu(:, idl)*dummy   ! U diagonal
 
                 end if
 
@@ -176,9 +176,11 @@ contains
             ! -----------------------------------------------------------------------
             ! Density correction term in the burgers operator along Z; see FDM_CreatePlan
             ! we implement it directly in the tridiagonal system
+            ndl = g(ig)%der2%nb_diag(1)
+            idl = ndl/2 + 1
             do is = 0, inb_scal ! case 0 for the velocity
                 fdmDiffusion(3)%lu(:, 2, is) = fdmDiffusion(3)%lu(:, 2, is)*ribackground(:)  ! matrix U; 1/diagonal
-                fdmDiffusion(3)%lu(:z%size - 1, 3, is) = fdmDiffusion(3)%lu(:z%size - 1, 3, is)*rbackground(2:) ! matrix U; 1. superdiagonal
+                ! fdmDiffusion(3)%lu(:z%size - 1, 3, is) = fdmDiffusion(3)%lu(:z%size - 1, 3, is)*rbackground(2:) ! matrix U; 1. superdiagonal
             end do
 
         end if

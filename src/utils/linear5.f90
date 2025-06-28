@@ -71,7 +71,7 @@ subroutine PENTADFS(nmax, a, b, c, d, e)
 end subroutine PENTADFS
 
 ! #######################################################################
-! Backward substitution step in the Thomas algorith
+! Backward substitution step in the Thomas algorithm
 ! #######################################################################
 subroutine PENTADSS(nmax, len, a, b, c, d, e, f)
     use TLab_Constants, only: wp, wi
@@ -81,52 +81,38 @@ subroutine PENTADSS(nmax, len, a, b, c, d, e, f)
     integer(wi) nmax, len
     real(wp), dimension(nmax), intent(IN) :: a, b, c, d, e
     real(wp), dimension(len, nmax), intent(INOUT) :: f
+
     ! -----------------------------------------------------------------------
-    integer(wi) n, l, omp_srt, omp_end, omp_siz
-
-    !! !$omp parallel default(none) &
-    !! !$omp shared(f,a,b,c,d,e,nmax,len) &
-    !! !$omp private(l,n,omp_srt,omp_end,omp_siz)
-
-    !  CALL TLab_OMP_PARTITION(len,omp_srt,omp_end,omp_siz)
-    omp_srt = 1
-    omp_end = len
-    omp_siz = len
+    integer(wi) n
+    real(wp) :: dummy1, dummy2
 
     ! #######################################################################
     ! -----------------------------------------------------------------------
     ! Solve Ly=f, forward
     ! -----------------------------------------------------------------------
     n = 2
-    do l = omp_srt, omp_end
-        f(l, n) = f(l, n) + f(l, n - 1)*b(2)
-    end do
+    f(:, n) = f(:, n) + f(:, n - 1)*b(2)
 
     do n = 3, nmax
-        do l = omp_srt, omp_end
-            f(l, n) = f(l, n) + f(l, n - 1)*b(n) + f(l, n - 2)*a(n)
-        end do
+        f(:, n) = f(:, n) + f(:, n - 1)*b(n) + f(:, n - 2)*a(n)
     end do
 
     ! -----------------------------------------------------------------------
     ! Solve Ux=y, backward
     ! -----------------------------------------------------------------------
     n = nmax
-    do l = omp_srt, omp_end
-        f(l, n) = f(l, n)*c(n)
-    end do
+    f(:, n) = f(:, n)*c(n)
 
     n = nmax - 1
-    do l = omp_srt, omp_end
-        f(l, n) = (f(l, n) + f(l, n + 1)*d(n))*c(n)
-    end do
+    dummy1 = d(n)*c(n)
+    f(:, n) = c(n)*f(:, n) + dummy1*f(:, n + 1)
 
     do n = nmax - 2, 1, -1
-        do l = omp_srt, omp_end
-            f(l, n) = (f(l, n) + f(l, n + 1)*d(n) + f(l, n + 2)*e(n))*c(n)
-        end do
+        dummy1 = d(n)*c(n)
+        dummy2 = e(n)*c(n)
+        f(:, n) = c(n)*f(:, n) + dummy1*f(:, n + 1) + dummy2*f(:, n + 2)
     end do
-    !! !$omp end parallel
+
     return
 end subroutine PENTADSS
 
@@ -198,6 +184,12 @@ subroutine PENTADFS2(nmax, a, b, c, d, e)
     b(n) = 1.0_wp ! padding
     a(n) = 1.0_wp ! padding
 
+    ! Final operations
+    a(3:) = -a(3:)
+    b(2:) = -b(2:)
+    c = 1.0_wp/c
+    d(:nmax - 1) = -d(:nmax - 1)
+    e(:nmax - 2) = -e(:nmax - 2)
     return
 end subroutine PENTADFS2
 
@@ -215,29 +207,33 @@ subroutine PENTADSS2(nmax, len, a, b, c, d, e, f)
 
     ! -----------------------------------------------------------------------
     integer(wi) n
+    real(wp) :: dummy1, dummy2
 
     ! #######################################################################
     ! -----------------------------------------------------------------------
     ! Solve Ly=f, forward
     ! -----------------------------------------------------------------------
     n = nmax - 1
-    f(:, n) = f(:, n) - f(:, n + 1)*d(n)
+    f(:, n) = f(:, n) + f(:, n + 1)*d(n)
 
     do n = nmax - 2, 1, -1
-        f(:, n) = f(:, n) - f(:, n + 1)*d(n) - f(:, n + 2)*e(n)
+        f(:, n) = f(:, n) + f(:, n + 1)*d(n) + f(:, n + 2)*e(n)
     end do
 
     ! -----------------------------------------------------------------------
     ! Solve Ux=y, backward
     ! -----------------------------------------------------------------------
     n = 1
-    f(:, n) = f(:, n)/c(n)
+    f(:, n) = f(:, n)*c(n)
 
     n = 2
-    f(:, n) = (f(:, n) - f(:, n - 1)*b(n))/c(n)
+    dummy1 = b(n)*c(n)
+    f(:, n) = c(n)*f(:, n) + dummy1*f(:, n - 1)
 
     do n = 3, nmax
-        f(:, n) = (f(:, n) - f(:, n - 1)*b(n) - f(:, n - 2)*a(n))/c(n)
+        dummy1 = b(n)*c(n)
+        dummy2 = a(n)*c(n)
+        f(:, n) = c(n)*f(:, n) + dummy1*f(:, n - 1) + dummy2*f(:, n - 2)
     end do
 
     return
@@ -347,7 +343,7 @@ subroutine PENTADPFS(nmax, a, b, c, d, e, f, g)
 end subroutine PENTADPFS
 
 ! #######################################################################
-! Backward substitution step in the Thomas algorith
+! Backward substitution step in the Thomas algorithm
 ! #######################################################################
 subroutine PENTADPSS(nmax, len, a, b, c, d, e, f, g, frc)
     use TLab_Constants, only: wp, wi

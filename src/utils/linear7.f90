@@ -89,11 +89,20 @@ subroutine HEPTADFS(nmax, a, b, c, d, e, f, g)
 !   f(n) = 1.0_wp ! padding
 !   g(n) = 1.0_wp ! padding
 
+    ! Final operations
+    a(4:) = -a(4:)
+    b(3:) = -b(3:)
+    c(2:) = -c(2:)
+    d = 1.0_wp/d
+    e(:nmax - 1) = -e(:nmax - 1)
+    f(:nmax - 2) = -f(:nmax - 2)
+    g(:nmax - 3) = -g(:nmax - 3)
+
     return
 end subroutine HEPTADFS
 
 ! #######################################################################
-! Backward substitution step in the Thomas algorith
+! Backward substitution step in the Thomas algorithm
 ! #######################################################################
 subroutine HEPTADSS(nmax, len, a, b, c, d, e, f, g, frc)
     use TLab_Constants, only: wp, wi
@@ -105,37 +114,41 @@ subroutine HEPTADSS(nmax, len, a, b, c, d, e, f, g, frc)
     real(wp), dimension(len, nmax), intent(INOUT) :: frc
 
 ! -----------------------------------------------------------------------
-    integer(wi) n, ij
+    integer(wi) n
+    real(wp) :: dummy1, dummy2, dummy3
 
 ! #######################################################################
 ! -----------------------------------------------------------------------
 ! Solve Ly=frc, forward
 ! -----------------------------------------------------------------------
-    do ij = 1, len
-        frc(ij, 1) = frc(ij, 1)*c(1) ! Normalize first eqn. See HEPTADFS
-        frc(ij, 2) = frc(ij, 2) - frc(ij, 1)*c(2)
-        frc(ij, 3) = frc(ij, 3) - frc(ij, 2)*c(3) - frc(ij, 1)*b(3)
-    end do
+    frc(:, 1) = frc(:, 1)*c(1) ! Normalize first eqn. See HEPTADFS
+    frc(:, 2) = frc(:, 2) + frc(:, 1)*c(2)
+    frc(:, 3) = frc(:, 3) + frc(:, 2)*c(3) + frc(:, 1)*b(3)
 
     do n = 4, nmax
-        do ij = 1, len
-            frc(ij, n) = frc(ij, n) - frc(ij, n - 1)*c(n) - frc(ij, n - 2)*b(n) - frc(ij, n - 3)*a(n)
-        end do
+        frc(:, n) = frc(:, n) + frc(:, n - 1)*c(n) + frc(:, n - 2)*b(n) + frc(:, n - 3)*a(n)
     end do
 
 ! -----------------------------------------------------------------------
 ! Solve Ux=y, backward
 ! -----------------------------------------------------------------------
-    do ij = 1, len
-        frc(ij, nmax) = frc(ij, nmax)/d(nmax)
-        frc(ij, nmax - 1) = (frc(ij, nmax - 1) - frc(ij, nmax)*e(nmax - 1))/d(nmax - 1)
-        frc(ij, nmax - 2) = (frc(ij, nmax - 2) - frc(ij, nmax - 1)*e(nmax - 2) - frc(ij, nmax)*f(nmax - 2))/d(nmax - 2)
-    end do
+    n = nmax
+    frc(:, n) = frc(:, n)*d(n)
+
+    n = nmax - 1
+    dummy1 = d(n)*e(n)
+    frc(:, n) = d(n)*frc(:, n) + dummy1*frc(:, n + 1)
+
+    n = nmax - 2
+    dummy1 = d(n)*e(n)
+    dummy2 = d(n)*f(n)
+    frc(:, n) = d(n)*frc(:, n) + dummy1*frc(:, n + 1) + dummy2*frc(:, n + 2)
 
     do n = nmax - 3, 1, -1
-        do ij = 1, len
-            frc(ij, n) = (frc(ij, n) - frc(ij, n + 1)*e(n) - frc(ij, n + 2)*f(n) - frc(ij, n + 3)*g(n))/d(n)
-        end do
+        dummy1 = d(n)*e(n)
+        dummy2 = d(n)*f(n)
+        dummy3 = d(n)*g(n)
+        frc(:, n) = d(n)*frc(:, n) + dummy1*frc(:, n + 1) + dummy2*frc(:, n + 2) + dummy3*frc(:, n + 3)
     end do
 
     return

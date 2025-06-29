@@ -43,7 +43,7 @@ program VPARTIAL
 
     x%size = kmax
     x%scale = 1.0_wp
-    x%periodic = .true.
+    ! x%periodic = .true.
     allocate (x%nodes(kmax))
 
     isize_field = imax*jmax*kmax
@@ -79,7 +79,7 @@ program VPARTIAL
         do i = 1, kmax
             x%nodes(i) = real(i - 1, wp)/real(kmax, wp)*x%scale
         end do
-        ! g%uniform = .true.
+
     else
         do i = 1, kmax
             x%nodes(i) = real(i - 1, wp)/real(kmax - 1, wp)*x%scale
@@ -108,7 +108,7 @@ program VPARTIAL
         u(:, i) = 1.0_wp + sin(2.0_wp*pi_wp/g%scale*wk*g%nodes(i)) ! + pi_wp/4.0_wp)
         du1_a(:, i) = (2.0_wp*pi_wp/g%scale*wk) &
                       *cos(2.0_wp*pi_wp/g%scale*wk*g%nodes(i))! + pi_wp/4.0_wp)
-        du2_a(:, i) =-(2.0_wp*pi_wp/g%scale*wk)**2.0_wp &
+        du2_a(:, i) = -(2.0_wp*pi_wp/g%scale*wk)**2.0_wp &
                       *sin(2.0_wp*pi_wp/g%scale*wk*g%nodes(i))! + pi_wp/4.0_wp)
         ! ! Gaussian
         ! u(:, i) = exp(-(g%nodes(i) - x_0*g%scale)**2/(2.0_wp*(g%scale/wk)**2))
@@ -193,7 +193,11 @@ program VPARTIAL
         ! ###################################################################
     case (3)
         fdm_cases(1:3) = [FDM_COM4_JACOBIAN, FDM_COM6_JACOBIAN, FDM_COM6_JACOBIAN_PENTA]
-        fdm_names(1:2) = ['1. order, Jacobian 4', '1. order, Jacobian 6']; fdm_names(3) = '1. order, Jacobian 6 Penta'
+        im = 0
+        im = im + 1; fdm_names(im) = 'Jacobian 4'
+        im = im + 1; fdm_names(im) = 'Jacobian 6'
+        im = im + 1; fdm_names(im) = 'Jacobian 6, penta-diagonal'
+
         bcs_cases(1:3) = [BCS_MIN, BCS_MAX, BCS_BOTH]
         do ip = 1, 3
             ibc = bcs_cases(ip)
@@ -237,7 +241,7 @@ program VPARTIAL
                 case (3)
                     call TRIDFS(nsize, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3))
                 case (5)
-    call PENTADFS2(nsize, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3), g%der1%lu(nmin:nmax, 4), g%der1%lu(nmin:nmax, 5))
+              call PENTADFS2(nsize, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3), g%der1%lu(nmin:nmax, 4), g%der1%lu(nmin:nmax, 5))
                 end select
 
                 du1_n(:, 1) = u(:, 1)           ! boundary condition
@@ -286,7 +290,11 @@ program VPARTIAL
         ! ###################################################################
     case (4)
         fdm_cases(1:3) = [FDM_COM4_JACOBIAN, FDM_COM6_JACOBIAN, FDM_COM6_JACOBIAN_PENTA]
-        fdm_names(1:2) = ['1. order, Jacobian 4', '1. order, Jacobian 6']; fdm_names(3) = '1. order, Jacobian 6 Penta'
+        im = 0
+        im = im + 1; fdm_names(im) = 'Jacobian 4'
+        im = im + 1; fdm_names(im) = 'Jacobian 6'
+        im = im + 1; fdm_names(im) = 'Jacobian 6, penta-diagonal'
+
         bcs_cases(1:4) = [BCS_DD, BCS_ND, BCS_DN, BCS_NN]
         do ip = 1, 4
             ibc = bcs_cases(ip)
@@ -329,7 +337,7 @@ program VPARTIAL
                 case (3)
                     call TRIDFS(nsize, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3))
                 case (5)
-    call PENTADFS2(nsize, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3), g%der1%lu(nmin:nmax, 4), g%der1%lu(nmin:nmax, 5))
+              call PENTADFS2(nsize, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3), g%der1%lu(nmin:nmax, 4), g%der1%lu(nmin:nmax, 5))
                 end select
 
                 select case (g%der1%nb_diag(2))
@@ -356,13 +364,15 @@ program VPARTIAL
                     do ic = 1, idl - 1
                         wrk2d(1:len, 1) = wrk2d(1:len, 1) + g%der1%lu(1, idl + ic)*du1_n(:, 1 + ic)
                     end do
-                    print *, u(:, 1), wrk2d(1:len, 1)
+                    print *, u(:, 1)
+                    print *, wrk2d(1:len, 1)
                 end if
                 if (any([BCS_DN, BCS_NN] == ibc)) then
                     do ic = 1, idl - 1
                         wrk2d(1:len, 2) = wrk2d(1:len, 2) + g%der1%lu(kmax, idl - ic)*du1_n(:, kmax - ic)
                     end do
-                    print *, u(:, kmax), wrk2d(1:len, 2)
+                    print *, u(:, kmax)
+                    print *, wrk2d(1:len, 2)
                 end if
 
             end do

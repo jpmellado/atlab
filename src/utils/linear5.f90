@@ -1,28 +1,6 @@
-!########################################################################
-!# Tool/Library
-!#
-!########################################################################
-!# HISTORY
-!#
-!# 2008/05/21 - J.P. Mellado
-!#              Created
-!# 2011/11/01 - C. Ansorge
-!#              OpenMP Optimization
-!#
-!########################################################################
-!# DESCRIPTION
-!#
-!# Solve LU of pentadiagonal system
-!#
-!########################################################################
-!# ARGUMENTS
-!#
-!# nmax    In     Size of the pentadiagonal system
-!# len     In     Number of simultaneous systems to be solved
-!# f       In     Array with forcing term
-!#         Out    Array with solution
-!#
-!########################################################################
+#include "tlab_error.h"
+
+! Vectorized Thomas algorithm for pentadiagonal systems
 
 ! #######################################################################
 ! LU factorization stage
@@ -64,8 +42,8 @@ subroutine PENTADFS(nmax, a, b, c, d, e)
     a(3:) = -a(3:)
     b(2:) = -b(2:)
     c = 1.0_wp/c
-    d(:nmax - 1) = -d(:nmax - 1)
-    e(:nmax - 2) = -e(:nmax - 2)
+    d(:nmax - 1) = -d(:nmax - 1)*c(:nmax - 1)
+    e(:nmax - 2) = -e(:nmax - 2)*c(:nmax - 2)
 
     return
 end subroutine PENTADFS
@@ -104,37 +82,19 @@ subroutine PENTADSS(nmax, len, a, b, c, d, e, f)
     f(:, n) = f(:, n)*c(n)
 
     n = nmax - 1
-    dummy1 = d(n)*c(n)
+    dummy1 = d(n) 
     f(:, n) = c(n)*f(:, n) + dummy1*f(:, n + 1)
 
     do n = nmax - 2, 1, -1
-        dummy1 = d(n)*c(n)
-        dummy2 = e(n)*c(n)
+        dummy1 = d(n) 
+        dummy2 = e(n) 
         f(:, n) = c(n)*f(:, n) + dummy1*f(:, n + 1) + dummy2*f(:, n + 2)
     end do
 
     return
 end subroutine PENTADSS
 
-!########################################################################
-!# Tool/Library
-!#
-!########################################################################
-!# HISTORY
-!#
-!# 2008/05/21 - J.P. Mellado
-!#              Created
-!#
-!########################################################################
-!# DESCRIPTION
-!#
-!# Perform LE decomposition of a pentadiagonal system.
 !# Reverse ordering.
-!#
-!########################################################################
-!# ARGUMENTS
-!#
-!########################################################################
 
 ! #######################################################################
 ! LU factorization stage
@@ -185,11 +145,12 @@ subroutine PENTADFS2(nmax, a, b, c, d, e)
     a(n) = 1.0_wp ! padding
 
     ! Final operations
-    a(3:) = -a(3:)
-    b(2:) = -b(2:)
     c = 1.0_wp/c
+    a(3:) = -a(3:)*c(3:)
+    b(2:) = -b(2:)*c(2:)
     d(:nmax - 1) = -d(:nmax - 1)
     e(:nmax - 2) = -e(:nmax - 2)
+
     return
 end subroutine PENTADFS2
 
@@ -227,12 +188,12 @@ subroutine PENTADSS2(nmax, len, a, b, c, d, e, f)
     f(:, n) = f(:, n)*c(n)
 
     n = 2
-    dummy1 = b(n)*c(n)
+    dummy1 = b(n) 
     f(:, n) = c(n)*f(:, n) + dummy1*f(:, n - 1)
 
     do n = 3, nmax
-        dummy1 = b(n)*c(n)
-        dummy2 = a(n)*c(n)
+        dummy1 = b(n)
+        dummy2 = a(n)
         f(:, n) = c(n)*f(:, n) + dummy1*f(:, n - 1) + dummy2*f(:, n - 2)
     end do
 
@@ -262,7 +223,7 @@ end subroutine PENTADSS2
 !# ARGUMENTS
 !#
 !########################################################################
-#include "tlab_error.h"
+
 ! #######################################################################
 ! LU factorization stage
 ! #######################################################################

@@ -5,6 +5,7 @@ module FDM_Derivative
     use TLab_Constants, only: BCS_DD, BCS_ND, BCS_DN, BCS_NN, BCS_NONE, BCS_PERIODIC
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
     use Thomas3
+    use Thomas5
     use FDM_MatMul
     use FDM_Base
     use FDM_ComX_Direct
@@ -92,7 +93,7 @@ contains
             case (3)
                 call Thomas3P_LU(g%size, g%lu(:, 1), g%lu(:, 2), g%lu(:, 3), g%lu(:, 4), g%lu(:, 5))
             case (5)
-                call PENTADPFS(g%size, g%lu(:, 1), g%lu(:, 2), g%lu(:, 3), g%lu(:, 4), g%lu(:, 5), g%lu(:, 6), g%lu(:, 7))
+                call Thomas5P_LU(g%size, g%lu(:, 1), g%lu(:, 2), g%lu(:, 3), g%lu(:, 4), g%lu(:, 5), g%lu(:, 6), g%lu(:, 7))
             end select
 
         else                            ! biased,  different BCs
@@ -112,7 +113,7 @@ contains
                 case (3)
                     call Thomas3_LU(nsize, g%lu(nmin:, ip + 1), g%lu(nmin:, ip + 2), g%lu(nmin:, ip + 3))
                 case (5)
-                    call PENTADFS2(nsize, g%lu(nmin:, ip + 1), g%lu(nmin:, ip + 2), g%lu(nmin:, ip + 3), g%lu(nmin:, ip + 4), g%lu(nmin:, ip + 5))
+                    call Thomas5_LU(nsize, g%lu(nmin:, ip + 1), g%lu(nmin:, ip + 2), g%lu(nmin:, ip + 3), g%lu(nmin:, ip + 4), g%lu(nmin:, ip + 5))
                 end select
 
             end do
@@ -259,7 +260,7 @@ contains
                 call Thomas3P_Solve(g%size, nlines, lu1(:, 1), lu1(:, 2), lu1(:, 3), lu1(:, 4), lu1(:, 5), &
                              result, wrk2d)
             case (5)
-                call PENTADPSS(g%size, nlines, lu1(:, 1), lu1(:, 2), lu1(:, 3), lu1(:, 4), lu1(:, 5), lu1(:, 6), lu1(:, 7), &
+                call Thomas5P_Solve(g%size, nlines, lu1(:, 1), lu1(:, 2), lu1(:, 3), lu1(:, 4), lu1(:, 5), lu1(:, 6), lu1(:, 7), &
                                result)
             end select
 
@@ -269,7 +270,7 @@ contains
                 call Thomas3_Solve(nsize, nlines, lu1(nmin:, ip + 1), lu1(nmin:, ip + 2), lu1(nmin:, ip + 3), &
                             result(:, nmin:))
             case (5)
-                call PENTADSS2(nsize, nlines, lu1(nmin:, ip + 1), lu1(nmin:, ip + 2), lu1(nmin:, ip + 3), lu1(nmin:, ip + 4), lu1(nmin:, ip + 5), &
+                call Thomas5_Solve(nsize, nlines, lu1(nmin:, ip + 1), lu1(nmin:, ip + 2), lu1(nmin:, ip + 3), lu1(nmin:, ip + 4), lu1(nmin:, ip + 5), &
                                result(:, nmin:))
             end select
 

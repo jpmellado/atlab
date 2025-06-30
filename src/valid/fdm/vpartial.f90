@@ -7,6 +7,7 @@ program VPARTIAL
     use TLab_Arrays, only: wrk2d, txc
     use TLab_Grid, only: grid_dt
     use Thomas3
+    use Thomas5
     use FDM, only: fdm_dt, FDM_CreatePlan
     use FDM_Derivative, only: FDM_Der1_Solve, FDM_Der2_Solve
     use FDM_Derivative, only: FDM_COM4_JACOBIAN, FDM_COM6_JACOBIAN, FDM_COM6_JACOBIAN_PENTA, FDM_COM6_JACOBIAN_HYPER, FDM_COM4_DIRECT, FDM_COM6_DIRECT
@@ -242,7 +243,7 @@ program VPARTIAL
                 case (3)
                     call Thomas3_LU(nsize, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3))
                 case (5)
-              call PENTADFS2(nsize, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3), g%der1%lu(nmin:nmax, 4), g%der1%lu(nmin:nmax, 5))
+              call Thomas5_LU(nsize, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3), g%der1%lu(nmin:nmax, 4), g%der1%lu(nmin:nmax, 5))
                 end select
 
                 du1_n(:, 1) = u(:, 1)           ! boundary condition
@@ -263,7 +264,7 @@ program VPARTIAL
                 case (3)
                     call Thomas3_Solve(nsize, len, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3), du1_n(:, nmin:nmax))
                 case (5)
-        call PENTADSS2(nsize, len, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3), g%der1%lu(nmin:nmax, 4), g%der1%lu(nmin:nmax, 5), du1_n(:, nmin:nmax))
+        call Thomas5_Solve(nsize, len, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3), g%der1%lu(nmin:nmax, 4), g%der1%lu(nmin:nmax, 5), du1_n(:, nmin:nmax))
                 end select
 
                 if (any([BCS_MIN, BCS_BOTH] == ibc)) then
@@ -338,7 +339,7 @@ program VPARTIAL
                 case (3)
                     call Thomas3_LU(nsize, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3))
                 case (5)
-              call PENTADFS2(nsize, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3), g%der1%lu(nmin:nmax, 4), g%der1%lu(nmin:nmax, 5))
+              call Thomas5_LU(nsize, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3), g%der1%lu(nmin:nmax, 4), g%der1%lu(nmin:nmax, 5))
                 end select
 
                 select case (g%der1%nb_diag(2))
@@ -357,7 +358,7 @@ program VPARTIAL
                 case (3)
                     call Thomas3_Solve(nsize, len, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3), du1_n(:, nmin:nmax))
                 case (5)
-        call PENTADSS2(nsize, len, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3), g%der1%lu(nmin:nmax, 4), g%der1%lu(nmin:nmax, 5), du1_n(:, nmin:nmax))
+        call Thomas5_Solve(nsize, len, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3), g%der1%lu(nmin:nmax, 4), g%der1%lu(nmin:nmax, 5), du1_n(:, nmin:nmax))
                 end select
 
                 call check(u(:, nmin:nmax), du1_a(:, nmin:nmax), du1_n(:, nmin:nmax), 'partial.dat')

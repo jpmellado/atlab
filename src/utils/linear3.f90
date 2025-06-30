@@ -1,4 +1,5 @@
 ! Vectorized Thomas algorithm for tridiagonal systems
+! LU factorization stage with unit diagonal in L
 
 module Thomas3
     use TLab_Constants, only: wp, wi
@@ -11,7 +12,6 @@ module Thomas3
 contains
     ! #######################################################################
     ! #######################################################################
-    ! LU factorization stage; L with diagonal unity
     subroutine Thomas3_LU(nmax, a, b, c)
         integer(wi), intent(IN) :: nmax
         real(wp), dimension(nmax), intent(INOUT) :: a, b, c

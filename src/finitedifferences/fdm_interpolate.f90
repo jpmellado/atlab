@@ -9,6 +9,7 @@
 module FDM_Interpolate
     use TLab_Constants, only: wp, wi, pi_wp, efile
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, stagger_on
+    use Thomas3
     use FDM_Com0_Jacobian
     implicit none
     private
@@ -55,7 +56,7 @@ contains
         end select
 
         ! LU decomposition
-        call TRIDPFS(nx, var%lu0i(1, 1), var%lu0i(1, 2), var%lu0i(1, 3), var%lu0i(1, 4), var%lu0i(1, 5))
+        call Thomas3P_LU(nx, var%lu0i(1, 1), var%lu0i(1, 2), var%lu0i(1, 3), var%lu0i(1, 4), var%lu0i(1, 5))
 
         !########################################################################
         ! first interp. derivative
@@ -68,7 +69,7 @@ contains
         end select
 
         ! LU decomposition
-        call TRIDPFS(nx, var%lu1i(1, 1), var%lu1i(1, 2), var%lu1i(1, 3), var%lu1i(1, 4), var%lu1i(1, 5))
+        call Thomas3P_LU(nx, var%lu1i(1, 1), var%lu1i(1, 2), var%lu1i(1, 3), var%lu1i(1, 4), var%lu1i(1, 5))
 
         ! -------------------------------------------------------------------
         ! modified wavenumbers; staggered case has different modified wavenumbers!
@@ -113,7 +114,7 @@ contains
             case DEFAULT
                 call FDM_C0INTVP6P_RHS(g%size, nlines, u, result)
             end select
-            call TRIDPSS(g%size, nlines, g%lu0i(1, 1), g%lu0i(1, 2), g%lu0i(1, 3), g%lu0i(1, 4), g%lu0i(1, 5), result, wrk2d)
+            call Thomas3P_Solve(g%size, nlines, g%lu0i(1, 1), g%lu0i(1, 2), g%lu0i(1, 3), g%lu0i(1, 4), g%lu0i(1, 5), result, wrk2d)
 
             ! Interpolation, direction 'pv': pre. --> vel. grid
         else if (dir == 1) then
@@ -121,7 +122,7 @@ contains
             case DEFAULT
                 call FDM_C0INTPV6P_RHS(g%size, nlines, u, result)
             end select
-            call TRIDPSS(g%size, nlines, g%lu0i(1, 1), g%lu0i(1, 2), g%lu0i(1, 3), g%lu0i(1, 4), g%lu0i(1, 5), result, wrk2d)
+            call Thomas3P_Solve(g%size, nlines, g%lu0i(1, 1), g%lu0i(1, 2), g%lu0i(1, 3), g%lu0i(1, 4), g%lu0i(1, 5), result, wrk2d)
         end if
 
         return
@@ -146,7 +147,7 @@ contains
             case default
                 call FDM_C1INTVP6P_RHS(g%size, nlines, u, result)
             end select
-            call TRIDPSS(g%size, nlines, g%lu1i(1, 1), g%lu1i(1, 2), g%lu1i(1, 3), g%lu1i(1, 4), g%lu1i(1, 5), result, wrk2d)
+            call Thomas3P_Solve(g%size, nlines, g%lu1i(1, 1), g%lu1i(1, 2), g%lu1i(1, 3), g%lu1i(1, 4), g%lu1i(1, 5), result, wrk2d)
 
             ! 1st interpolatory derivative, direction 'pv': pre. --> vel. grid
         else if (dir == 1) then
@@ -154,7 +155,7 @@ contains
             case default
                 call FDM_C1INTPV6P_RHS(g%size, nlines, u, result)
             end select
-            call TRIDPSS(g%size, nlines, g%lu1i(1, 1), g%lu1i(1, 2), g%lu1i(1, 3), g%lu1i(1, 4), g%lu1i(1, 5), result, wrk2d)
+            call Thomas3P_Solve(g%size, nlines, g%lu1i(1, 1), g%lu1i(1, 2), g%lu1i(1, 3), g%lu1i(1, 4), g%lu1i(1, 5), result, wrk2d)
         end if
 
         return

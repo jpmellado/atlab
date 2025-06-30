@@ -4,6 +4,7 @@ module FDM_Derivative
     use TLab_Constants, only: wp, wi, pi_wp, efile, wfile
     use TLab_Constants, only: BCS_DD, BCS_ND, BCS_DN, BCS_NN, BCS_NONE, BCS_PERIODIC
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
+    use Thomas3
     use FDM_MatMul
     use FDM_Base
     use FDM_ComX_Direct
@@ -89,9 +90,9 @@ contains
 
             select case (g%nb_diag(1))
             case (3)
-                call TRIDPFS(g%size, g%lu(1, 1), g%lu(1, 2), g%lu(1, 3), g%lu(1, 4), g%lu(1, 5))
+                call Thomas3P_LU(g%size, g%lu(:, 1), g%lu(:, 2), g%lu(:, 3), g%lu(:, 4), g%lu(:, 5))
             case (5)
-                call PENTADPFS(g%size, g%lu(1, 1), g%lu(1, 2), g%lu(1, 3), g%lu(1, 4), g%lu(1, 5), g%lu(1, 6), g%lu(1, 7))
+                call PENTADPFS(g%size, g%lu(:, 1), g%lu(:, 2), g%lu(:, 3), g%lu(:, 4), g%lu(:, 5), g%lu(:, 6), g%lu(:, 7))
             end select
 
         else                            ! biased,  different BCs
@@ -109,7 +110,7 @@ contains
 
                 select case (g%nb_diag(1))
                 case (3)
-                    call TRIDFS(nsize, g%lu(nmin:, ip + 1), g%lu(nmin:, ip + 2), g%lu(nmin:, ip + 3))
+                    call Thomas3_LU(nsize, g%lu(nmin:, ip + 1), g%lu(nmin:, ip + 2), g%lu(nmin:, ip + 3))
                 case (5)
                     call PENTADFS2(nsize, g%lu(nmin:, ip + 1), g%lu(nmin:, ip + 2), g%lu(nmin:, ip + 3), g%lu(nmin:, ip + 4), g%lu(nmin:, ip + 5))
                 end select
@@ -255,17 +256,17 @@ contains
         if (g%periodic) then
             select case (g%nb_diag(1))
             case (3)
-                call TRIDPSS(g%size, nlines, lu1(1, 1), lu1(1, 2), lu1(1, 3), lu1(1, 4), lu1(1, 5), &
+                call Thomas3P_Solve(g%size, nlines, lu1(:, 1), lu1(:, 2), lu1(:, 3), lu1(:, 4), lu1(:, 5), &
                              result, wrk2d)
             case (5)
-                call PENTADPSS(g%size, nlines, lu1(1, 1), lu1(1, 2), lu1(1, 3), lu1(1, 4), lu1(1, 5), lu1(1, 6), lu1(1, 7), &
+                call PENTADPSS(g%size, nlines, lu1(:, 1), lu1(:, 2), lu1(:, 3), lu1(:, 4), lu1(:, 5), lu1(:, 6), lu1(:, 7), &
                                result)
             end select
 
         else
             select case (g%nb_diag(1))
             case (3)
-                call TRIDSS(nsize, nlines, lu1(nmin:, ip + 1), lu1(nmin:, ip + 2), lu1(nmin:, ip + 3), &
+                call Thomas3_Solve(nsize, nlines, lu1(nmin:, ip + 1), lu1(nmin:, ip + 2), lu1(nmin:, ip + 3), &
                             result(:, nmin:))
             case (5)
                 call PENTADSS2(nsize, nlines, lu1(nmin:, ip + 1), lu1(nmin:, ip + 2), lu1(nmin:, ip + 3), lu1(nmin:, ip + 4), lu1(nmin:, ip + 5), &
@@ -302,13 +303,13 @@ contains
         if (g%periodic) then
             select case (g%nb_diag(1))
             case (3)
-                call TRIDPFS(g%size, g%lu(1, 1), g%lu(1, 2), g%lu(1, 3), g%lu(1, 4), g%lu(1, 5))
+                call Thomas3P_LU(g%size, g%lu(:, 1), g%lu(:, 2), g%lu(:, 3), g%lu(:, 4), g%lu(:, 5))
             end select
 
         else
             select case (g%nb_diag(1))
             case (3)
-                call TRIDFS(g%size, g%lu(:, 1), g%lu(:, 2), g%lu(:, 3))
+                call Thomas3_LU(g%size, g%lu(:, 1), g%lu(:, 2), g%lu(:, 3))
             end select
 
         end if
@@ -444,13 +445,13 @@ contains
         if (g%periodic) then
             select case (g%nb_diag(1))
             case (3)
-                call TRIDPSS(g%size, nlines, lu(1, 1), lu(1, 2), lu(1, 3), lu(1, 4), lu(1, 5), &
+                call Thomas3P_Solve(g%size, nlines, lu(:, 1), lu(:, 2), lu(:, 3), lu(:, 4), lu(:, 5), &
                              result, wrk2d)
             end select
         else
             select case (g%nb_diag(1))
             case (3)
-                call TRIDSS(g%size, nlines, lu(:, 1), lu(:, 2), lu(:, 3), &
+                call Thomas3_Solve(g%size, nlines, lu(:, 1), lu(:, 2), lu(:, 3), &
                             result)
             end select
         end if

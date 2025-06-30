@@ -11,6 +11,7 @@ module NSE_Burgers
     use TLabMPI_Transpose
 #endif
     use TLab_Grid, only: x, y, z
+    use Thomas3
     use FDM, only: fdm_dt, g
     use NavierStokes, only: visc, schmidt
     use OPR_Partial
@@ -111,14 +112,14 @@ contains
                     dummy = visc/schmidt(is)
                 end if
 
-                if (g(ig)%periodic) then                        ! Check routines TRIDPFS and TRIDPSS
+                if (g(ig)%periodic) then                        ! Check routines Thomas3P_LU and Thomas3P_Solve
                     fdmDiffusion(ig)%lu(:, 1, is) = g(ig)%der2%lu(:, 1)         ! matrix L; 1. subdiagonal
                     fdmDiffusion(ig)%lu(:, 2, is) = g(ig)%der2%lu(:, 2)*dummy   ! matrix L; 1/diagonal
                     fdmDiffusion(ig)%lu(:, 3, is) = g(ig)%der2%lu(:, 3)         ! matrix U is the same
                     fdmDiffusion(ig)%lu(:, 4, is) = g(ig)%der2%lu(:, 4)/dummy   ! matrix L; Additional row/column
                     fdmDiffusion(ig)%lu(:, 5, is) = g(ig)%der2%lu(:, 5)         ! matrix U is the same
 
-                else                                            ! Check routines TRIDFS and TRIDSS
+                else                                            ! Check routines Thomas3_LU and Thomas3_Solve
                     fdmDiffusion(ig)%lu(:, :, is) = g(ig)%der2%lu(:, :)
                     idl = ndl/2 + 1
                     fdmDiffusion(ig)%lu(:, idl, is) = g(ig)%der2%lu(:, idl)*dummy   ! U diagonal

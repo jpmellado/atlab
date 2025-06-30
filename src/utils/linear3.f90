@@ -1,20 +1,18 @@
-#ifdef SINGLE_PREC
-#define AXPY_LOC SAXPY
-#define SCAL_LOC SSCAL
-#else
-#define AXPY_LOC DAXPY
-#define SCAL_LOC DSCAL
-#endif
+! Vectorized Thomas algorithm for tridiagonal systems
 
-    ! Vectorized Thomas algorithm for tridiagonal systems
+module Thomas3
+    use TLab_Constants, only: wp, wi
+    implicit none
+    private
 
+    public :: Thomas3_LU, Thomas3_Solve
+    public :: Thomas3P_LU, Thomas3P_Solve   ! circulant systems (periodic boundary conditions)
+
+contains
+    ! #######################################################################
     ! #######################################################################
     ! LU factorization stage; L with diagonal unity
-    ! #######################################################################
-    subroutine TRIDFS(nmax, a, b, c)
-        use TLab_Constants, only: wp, wi
-        implicit none
-
+    subroutine Thomas3_LU(nmax, a, b, c)
         integer(wi), intent(IN) :: nmax
         real(wp), dimension(nmax), intent(INOUT) :: a, b, c
 
@@ -33,20 +31,15 @@
         c = -c*b
 
         return
-    end subroutine TRIDFS
+    end subroutine Thomas3_LU
 
     ! #######################################################################
-    ! Backward substitution step in the Thomas algorithm
     ! #######################################################################
-    subroutine TRIDSS(nmax, len, a, b, c, f)
-        use TLab_Constants, only: wp, wi
-
-        implicit none
-
-        integer(wi), intent(IN) :: nmax  ! dimension of tridiagonal systems
-        integer(wi), intent(IN) :: len   ! number of systems to be solved
-        real(wp), dimension(nmax), intent(IN) :: a, b, c ! factored LHS
-        real(wp), dimension(len, nmax), intent(INOUT) :: f     ! RHS and solution
+    subroutine Thomas3_Solve(nmax, len, a, b, c, f)
+        integer(wi), intent(IN) :: nmax                         ! dimension of tridiagonal systems
+        integer(wi), intent(IN) :: len                          ! number of systems to solve
+        real(wp), intent(IN) :: a(nmax), b(nmax), c(nmax)       ! factored LHS
+        real(wp), intent(INOUT) :: f(len, nmax)                 ! RHS and solution
 
         ! -------------------------------------------------------------------
         integer(wi) :: n
@@ -60,52 +53,28 @@
         ! -----------------------------------------------------------------------
         do n = 2, nmax
             dummy1 = a(n)
-#ifdef USE_BLAS
-            call AXPY_LOC(ilen, dummy1, f(1, n - 1), 1, f(1, n), 1)
-#else
             f(:, n) = f(:, n) + dummy1*f(:, n - 1)
-#endif
         end do
 
         ! -----------------------------------------------------------------------
         ! Backward sweep
         ! -----------------------------------------------------------------------
         dummy1 = b(nmax)
-#ifdef USE_BLAS
-        call SCAL_LOC(ilen, dummy1, f(1, nmax), 1)
-#else
         f(:, nmax) = f(:, nmax)*dummy1
-#endif
 
         do n = nmax - 1, 1, -1
             dummy1 = c(n)
             dummy2 = b(n)
-#ifdef USE_BLAS
-            ! call AXPY_LOC(ilen, dummy1, f(1, n + 1), 1, f(1, n), 1)
-            ! call SCAL_LOC(ilen, dummy2, f(1, n), 1)
-#else
             f(:, n) = dummy2*f(:, n) + dummy1*f(:, n + 1)
 
-#endif
         end do
 
         return
-    end subroutine TRIDSS
+    end subroutine Thomas3_Solve
 
     !########################################################################
-    !#
-    !# Circulant system (periodic bcs)
-    !#
     !########################################################################
-
-    ! #######################################################################
-    ! LU factorization stage
-    ! #######################################################################
-    subroutine TRIDPFS(nmax, a, b, c, d, e)
-        use TLab_Constants, only: wp, wi
-
-        implicit none
-
+    subroutine Thomas3P_LU(nmax, a, b, c, d, e)
         integer(wi) nmax
         real(wp), dimension(nmax) :: a, b, c, d, e
 
@@ -148,105 +117,60 @@
         end do
 
         return
-    end subroutine TRIDPFS
+    end subroutine Thomas3P_LU
 
     ! #######################################################################
-    ! Backward substitution step in the Thomas algorithm
     ! #######################################################################
-    subroutine TRIDPSS(nmax, len, a, b, c, d, e, f, wrk)
-        use TLab_Constants, only: wp, wi
-
-        implicit none
-
-        integer(wi), intent(IN) :: nmax, len
-        real(wp), dimension(nmax), intent(IN) :: a, b, c, d, e
-        real(wp), dimension(len, nmax), intent(INOUT) :: f
-        real(wp), dimension(len) :: wrk
+    subroutine Thomas3P_Solve(nmax, len, a, b, c, d, e, f, wrk)
+        integer(wi), intent(IN) :: nmax                         ! dimension of tridiagonal systems
+        integer(wi), intent(IN) :: len                          ! number of systems to solve
+        real(wp), intent(IN) :: a(nmax), b(nmax), c(nmax)       ! factored LHS
+        real(wp), intent(IN) :: d(nmax), e(nmax)
+        real(wp), intent(inout) :: f(len, nmax)                 ! RHS and solution
+        real(wp), intent(inout) :: wrk(len)
 
         ! -------------------------------------------------------------------
+        integer(wi) n
         real(wp) :: dummy1, dummy2
 
-        integer(wi) l, n
-#ifdef USE_BLAS
-        integer :: ilen
-#endif
+        ! ###################################################################
+        if (len <= 0) return
 
         ! -------------------------------------------------------------------
         ! Forward sweep
         ! -------------------------------------------------------------------
-
-        if (len <= 0) return
-
         dummy1 = b(1)
-#ifdef USE_BLAS
-        call SCAL_LOC(ilen, dummy1, f(1, 1), 1)
-#else
-        do l = 1, len
-            f(l, 1) = f(l, 1)*dummy1
-        end do
-#endif
+        f(:, 1) = f(:, 1)*dummy1
 
         do n = 2, nmax - 1
             dummy1 = a(n)
             dummy2 = b(n)
-#ifdef USE_BLAS
-            call SCAL_LOC(ilen, dummy2, f(1, n), 1)
-            call AXPY_LOC(ilen, dummy1, f(1, n - 1), 1, f(1, n), 1)
-#else
-            do l = 1, len
-                f(l, n) = f(l, n)*dummy2 + dummy1*f(l, n - 1)
-            end do
-#endif
+            f(:, n) = f(:, n)*dummy2 + dummy1*f(:, n - 1)
         end do
 
-        wrk(1:len) = 0.0_wp
+        wrk(:) = 0.0_wp
 
         do n = 1, nmax - 1
             dummy1 = d(n)
-#ifdef USE_BLAS
-            call AXPY_LOC(ilen, dummy1, f(1, n), 1, wrk(1), 1)
-#else
-            do l = 1, len
-                wrk(l) = wrk(l) + dummy1*f(l, n)
-            end do
-#endif
+            wrk(:) = wrk(:) + dummy1*f(:, n)
         end do
 
         dummy1 = b(nmax)
-#ifdef USE_BLAS
-        call SCAL_LOC(ilen, dummy1, f(1, nmax), 1)
-        call AXPY_LOC(ilen, -dummy1, wrk(1), 1, f(1, nmax), 1)
-#else
-        do l = 1, len
-            f(l, nmax) = (f(l, nmax) - wrk(l))*dummy1
-        end do
-#endif
+        f(:, nmax) = (f(:, nmax) - wrk(:))*dummy1
 
         ! -------------------------------------------------------------------
         ! Backward sweep
         ! -------------------------------------------------------------------
         dummy1 = e(nmax - 1)
-
-#ifdef USE_BLAS
-        call AXPY_LOC(ilen, dummy1, f(1, nmax), 1, f(1, nmax - 1), 1)
-#else
-        do l = 1, len
-            f(l, nmax - 1) = dummy1*f(l, nmax) + f(l, nmax - 1)
-        end do
-#endif
+        f(:, nmax - 1) = dummy1*f(:, nmax) + f(:, nmax - 1)
 
         do n = nmax - 2, 1, -1
             dummy1 = c(n)
             dummy2 = e(n)
-#ifdef USE_BLAS
-            call AXPY_LOC(ilen, dummy2, f(1, nmax), 1, f(1, n), 1)
-            call AXPY_LOC(ilen, dummy1, f(1, n + 1), 1, f(1, n), 1)
-#else
-            do l = 1, len
-                f(l, n) = f(l, n) + dummy1*f(l, n + 1) + dummy2*f(l, nmax)
-            end do
-#endif
+            f(:, n) = f(:, n) + dummy1*f(:, n + 1) + dummy2*f(:, nmax)
         end do
 
         return
-    end subroutine TRIDPSS
+    end subroutine Thomas3P_Solve
+
+end module Thomas3

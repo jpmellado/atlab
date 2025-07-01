@@ -92,11 +92,6 @@ contains
         do ig = 1, 3
             if (g(ig)%size == 1) cycle
 
-            ! if (g(ig)%der2%nb_diag(1) /= 3) then
-            !     call TLab_Write_ASCII(efile, __FILE__//'. Undeveloped for more than 3 LHS diagonals in 2. order derivatives.')
-            !     call TLab_Stop(DNS_ERROR_OPTION)
-            ! end if
-
             ndl = g(ig)%der2%nb_diag(1)
             if (g(ig)%periodic) then
                 allocate (fdmDiffusion(ig)%lu(g(ig)%size, ndl + 2, 0:inb_scal))
@@ -167,13 +162,11 @@ contains
             end do
 
             ! -----------------------------------------------------------------------
-            ! Density correction term in the burgers operator along Z; see FDM_CreatePlan
-            ! we implement it directly in the tridiagonal system
+            ! Density correction term in the burgers operator along Z in linear solver.
             ndl = g(ig)%der2%nb_diag(1)
             idl = ndl/2 + 1
             do is = 0, inb_scal ! case 0 for the velocity
-                fdmDiffusion(3)%lu(:, 2, is) = fdmDiffusion(3)%lu(:, 2, is)*ribackground(:)  ! matrix U; 1/diagonal
-                ! fdmDiffusion(3)%lu(:z%size - 1, 3, is) = fdmDiffusion(3)%lu(:z%size - 1, 3, is)*rbackground(2:) ! matrix U; 1. superdiagonal
+                fdmDiffusion(3)%lu(:, idl, is) = fdmDiffusion(3)%lu(:, idl, is)*ribackground(:)  ! matrix U; 1/diagonal
             end do
 
         end if

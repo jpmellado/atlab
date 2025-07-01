@@ -104,7 +104,7 @@
 #define DNS_ERROR_PSFFT        110
 #define DNS_ERROR_DILATATION   111
 #define DNS_ERROR_AVGTMP       112
-#define DNS_ERROR_PENTADP      113
+#define DNS_ERROR_THOMAS       113
 #define DNS_ERROR_BUFFER       114
 
 #define DNS_ERROR_PARTICLE          200

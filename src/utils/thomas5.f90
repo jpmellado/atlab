@@ -4,13 +4,13 @@
 ! LU factorization stage with unit diagonal in L
 
 module Thomas5
-    use TLab_Constants, only: wp, wi, efile
+    use TLab_Constants, only: wp, wi, small_wp, efile
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
     implicit none
     private
 
     public :: Thomas5_LU, Thomas5_Solve
-    public :: Thomas5P_LU, Thomas5P_Solve   ! circulant systems (periodic boundary conditions)
+    public :: Thomas5C_SMW_LU, Thomas5C_SMW_Solve   ! circulant systems (periodic boundary conditions)
 
 contains
     ! #######################################################################
@@ -113,7 +113,7 @@ contains
     ! #######################################################################
     ! LU factorization stage
     ! #######################################################################
-    subroutine Thomas5P_LU(nmax, a, b, c, d, e, f, g)
+    subroutine Thomas5C_SMW_LU(nmax, a, b, c, d, e, f, g)
         integer(wi), intent(IN) :: nmax
         real(wp), dimension(nmax), intent(INOUT) :: a, b, c, d, e ! Diagonals
         real(wp), dimension(nmax), intent(INOUT) :: f, g       ! Additional (u1,u2)
@@ -176,18 +176,18 @@ contains
         m3 = d(nmax)*f(1) + e(nmax)*f(2) + a(1)*f(nmax)
         m4 = d(nmax)*g(1) + e(nmax)*g(2) + a(1)*g(nmax) + 1.0_wp
         ! Check if M is invertible (eq. 2.9)
-        if ((m1*m4 - m2*m3) < 1e-8) then
-            call TLab_Write_ASCII(efile, 'FDM_CreatePlan. Pendad - matrix M not invertible.')
-            call TLab_Stop(DNS_ERROR_PENTADP)
+        if ((m1*m4 - m2*m3) < small_wp) then
+            call TLab_Write_ASCII(efile, __FILE__//'. Singular matrix M.')
+            call TLab_Stop(DNS_ERROR_THOMAS)
         end if
 
         return
-    end subroutine Thomas5P_LU
+    end subroutine Thomas5C_SMW_LU
 
     ! #######################################################################
     ! Backward substitution step in the Thomas algorithm
     ! #######################################################################
-    subroutine Thomas5P_Solve(nmax, len, a, b, c, d, e, f, g, frc)
+    subroutine Thomas5C_SMW_Solve(nmax, len, a, b, c, d, e, f, g, frc)
         integer(wi), intent(IN) :: nmax, len
         real(wp), dimension(nmax), intent(IN) :: a, b, c, d, e ! Diagonals
         real(wp), dimension(nmax), intent(IN) :: f, g       ! Additional (z,w)
@@ -243,7 +243,7 @@ contains
         end do
 
         return
-    end subroutine Thomas5P_Solve
+    end subroutine Thomas5C_SMW_Solve
 
 end module Thomas5
 

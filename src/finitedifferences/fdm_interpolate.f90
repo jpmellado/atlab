@@ -56,7 +56,7 @@ contains
         end select
 
         ! LU decomposition
-        call Thomas3P_LU(nx, var%lu0i(1, 1), var%lu0i(1, 2), var%lu0i(1, 3), var%lu0i(1, 4), var%lu0i(1, 5))
+        call Thomas3C_SMW_LU(var%lu0i(:, 1), var%lu0i(:, 2), var%lu0i(:, 3), var%lu0i(:, 4))
 
         !########################################################################
         ! first interp. derivative
@@ -69,7 +69,7 @@ contains
         end select
 
         ! LU decomposition
-        call Thomas3P_LU(nx, var%lu1i(1, 1), var%lu1i(1, 2), var%lu1i(1, 3), var%lu1i(1, 4), var%lu1i(1, 5))
+        call Thomas3C_SMW_LU(var%lu1i(:, 1), var%lu1i(:, 2), var%lu1i(:, 3), var%lu1i(:, 4))
 
         ! -------------------------------------------------------------------
         ! modified wavenumbers; staggered case has different modified wavenumbers!
@@ -105,7 +105,7 @@ contains
         type(fdm_interpol_dt), intent(in) :: g
         real(wp), intent(in) :: u(nlines, g%size)
         real(wp), intent(out) :: result(nlines, g%size)
-        real(wp), intent(inout) :: wrk2d(*)
+        real(wp), intent(inout) :: wrk2d(nlines)
 
         ! ###################################################################
         ! Interpolation, direction 'vp': vel. --> pre. grid
@@ -114,7 +114,7 @@ contains
             case DEFAULT
                 call FDM_C0INTVP6P_RHS(g%size, nlines, u, result)
             end select
-            call Thomas3P_Solve(g%size, nlines, g%lu0i(1, 1), g%lu0i(1, 2), g%lu0i(1, 3), g%lu0i(1, 4), g%lu0i(1, 5), result, wrk2d)
+            call Thomas3C_SMW_Solve(g%lu0i(:, 1), g%lu0i(:, 2), g%lu0i(:, 3), g%lu0i(:, 4), result, wrk2d)
 
             ! Interpolation, direction 'pv': pre. --> vel. grid
         else if (dir == 1) then
@@ -122,7 +122,7 @@ contains
             case DEFAULT
                 call FDM_C0INTPV6P_RHS(g%size, nlines, u, result)
             end select
-            call Thomas3P_Solve(g%size, nlines, g%lu0i(1, 1), g%lu0i(1, 2), g%lu0i(1, 3), g%lu0i(1, 4), g%lu0i(1, 5), result, wrk2d)
+            call Thomas3C_SMW_Solve(g%lu0i(:, 1), g%lu0i(:, 2), g%lu0i(:, 3), g%lu0i(:, 4), result, wrk2d)
         end if
 
         return
@@ -138,7 +138,7 @@ contains
         type(fdm_interpol_dt), intent(in) :: g
         real(wp), intent(in) :: u(nlines, g%size)
         real(wp), intent(out) :: result(nlines, g%size)
-        real(wp), intent(inout) :: wrk2d(*)
+        real(wp), intent(inout) :: wrk2d(nlines)
 
         ! ###################################################################
         ! 1st interpolatory derivative, direction 'vp': vel. --> pre. grid
@@ -147,7 +147,7 @@ contains
             case default
                 call FDM_C1INTVP6P_RHS(g%size, nlines, u, result)
             end select
-            call Thomas3P_Solve(g%size, nlines, g%lu1i(1, 1), g%lu1i(1, 2), g%lu1i(1, 3), g%lu1i(1, 4), g%lu1i(1, 5), result, wrk2d)
+            call Thomas3C_SMW_Solve(g%lu1i(:, 1), g%lu1i(:, 2), g%lu1i(:, 3), g%lu1i(:, 4), result, wrk2d)
 
             ! 1st interpolatory derivative, direction 'pv': pre. --> vel. grid
         else if (dir == 1) then
@@ -155,7 +155,7 @@ contains
             case default
                 call FDM_C1INTPV6P_RHS(g%size, nlines, u, result)
             end select
-            call Thomas3P_Solve(g%size, nlines, g%lu1i(1, 1), g%lu1i(1, 2), g%lu1i(1, 3), g%lu1i(1, 4), g%lu1i(1, 5), result, wrk2d)
+            call Thomas3C_SMW_Solve(g%lu1i(:, 1), g%lu1i(:, 2), g%lu1i(:, 3), g%lu1i(:, 4), result, wrk2d)
         end if
 
         return

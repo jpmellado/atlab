@@ -104,7 +104,7 @@ contains
                 allocate (fdmDiffusion(ig)%lu(g(ig)%size, ndl, 0:inb_scal))
             end if
 
-            ip = 0
+            idl = ndl/2 + 1
             do is = 0, inb_scal ! case 0 for the reynolds number
                 if (is == 0) then
                     dummy = visc
@@ -112,19 +112,11 @@ contains
                     dummy = visc/schmidt(is)
                 end if
 
-                if (g(ig)%periodic) then                        ! Check routines Thomas3P_LU and Thomas3P_Solve
-                    fdmDiffusion(ig)%lu(:, 1, is) = g(ig)%der2%lu(:, 1)         ! matrix L; 1. subdiagonal
-                    fdmDiffusion(ig)%lu(:, 2, is) = g(ig)%der2%lu(:, 2)*dummy   ! matrix L; 1/diagonal
-                    fdmDiffusion(ig)%lu(:, 3, is) = g(ig)%der2%lu(:, 3)         ! matrix U is the same
-                    fdmDiffusion(ig)%lu(:, 4, is) = g(ig)%der2%lu(:, 4)/dummy   ! matrix L; Additional row/column
-                    fdmDiffusion(ig)%lu(:, 5, is) = g(ig)%der2%lu(:, 5)         ! matrix U is the same
-
-                else                                            ! Check routines Thomas3_LU and Thomas3_Solve
-                    fdmDiffusion(ig)%lu(:, :, is) = g(ig)%der2%lu(:, :)
-                    idl = ndl/2 + 1
-                    fdmDiffusion(ig)%lu(:, idl, is) = g(ig)%der2%lu(:, idl)*dummy   ! U diagonal
-
-                end if
+                fdmDiffusion(ig)%lu(:, :, is) = g(ig)%der2%lu(:, :)                 ! Check routines Thomas3C_LU and Thomas3C_Solve
+                fdmDiffusion(ig)%lu(:, idl, is) = g(ig)%der2%lu(:, idl)*dummy
+                ! if (g(ig)%periodic) then
+                !     fdmDiffusion(ig)%lu(:, ndl + 1, is) = g(ig)%der2%lu(:, ndl + 1)/dummy
+                ! end if
 
             end do
         end do

@@ -91,9 +91,10 @@ contains
 
             select case (g%nb_diag(1))
             case (3)
-                call Thomas3P_LU(g%size, g%lu(:, 1), g%lu(:, 2), g%lu(:, 3), g%lu(:, 4), g%lu(:, 5))
+                ! call Thomas3C_LU(g%lu(:, 1), g%lu(:, 2), g%lu(:, 3), g%lu(:, 4), g%lu(:, 5))
+                call Thomas3C_SMW_LU(g%lu(:, 1), g%lu(:, 2), g%lu(:, 3), g%lu(:, 4))
             case (5)
-                call Thomas5P_LU(g%size, g%lu(:, 1), g%lu(:, 2), g%lu(:, 3), g%lu(:, 4), g%lu(:, 5), g%lu(:, 6), g%lu(:, 7))
+                call Thomas5C_SMW_LU(g%size, g%lu(:, 1), g%lu(:, 2), g%lu(:, 3), g%lu(:, 4), g%lu(:, 5), g%lu(:, 6), g%lu(:, 7))
             end select
 
         else                            ! biased,  different BCs
@@ -224,7 +225,7 @@ contains
         real(wp), intent(in) :: lu1(:, :)
         real(wp), intent(in) :: u(nlines, g%size)
         real(wp), intent(out) :: result(nlines, g%size)
-        real(wp), intent(inout) :: wrk2d(*)
+        real(wp), intent(inout) :: wrk2d(nlines)
 
         ! -------------------------------------------------------------------
         integer(wi) nmin, nmax, nsize, ip
@@ -257,21 +258,21 @@ contains
         if (g%periodic) then
             select case (g%nb_diag(1))
             case (3)
-                call Thomas3P_Solve(g%size, nlines, lu1(:, 1), lu1(:, 2), lu1(:, 3), lu1(:, 4), lu1(:, 5), &
-                             result, wrk2d)
+                ! call Thomas3C_Solve(lu1(:, 1), lu1(:, 2), lu1(:, 3), lu1(:, 4), lu1(:, 5), result, wrk2d)
+                call Thomas3C_SMW_Solve(lu1(:, 1), lu1(:, 2), lu1(:, 3), lu1(:, 4), result, wrk2d)
             case (5)
-                call Thomas5P_Solve(g%size, nlines, lu1(:, 1), lu1(:, 2), lu1(:, 3), lu1(:, 4), lu1(:, 5), lu1(:, 6), lu1(:, 7), &
-                               result)
+                call Thomas5C_SMW_Solve(g%size, nlines, lu1(:, 1), lu1(:, 2), lu1(:, 3), lu1(:, 4), lu1(:, 5), lu1(:, 6), lu1(:, 7), &
+                                    result)
             end select
 
         else
             select case (g%nb_diag(1))
             case (3)
                 call Thomas3_Solve(nsize, nlines, lu1(nmin:, ip + 1), lu1(nmin:, ip + 2), lu1(nmin:, ip + 3), &
-                            result(:, nmin:))
+                                   result(:, nmin:))
             case (5)
                 call Thomas5_Solve(nsize, nlines, lu1(nmin:, ip + 1), lu1(nmin:, ip + 2), lu1(nmin:, ip + 3), lu1(nmin:, ip + 4), lu1(nmin:, ip + 5), &
-                               result(:, nmin:))
+                                   result(:, nmin:))
             end select
 
         end if
@@ -304,7 +305,8 @@ contains
         if (g%periodic) then
             select case (g%nb_diag(1))
             case (3)
-                call Thomas3P_LU(g%size, g%lu(:, 1), g%lu(:, 2), g%lu(:, 3), g%lu(:, 4), g%lu(:, 5))
+                ! call Thomas3C_LU(g%lu(:, 1), g%lu(:, 2), g%lu(:, 3), g%lu(:, 4), g%lu(:, 5))
+                call Thomas3C_SMW_LU(g%lu(:, 1), g%lu(:, 2), g%lu(:, 3), g%lu(:, 4))
             end select
 
         else
@@ -419,7 +421,7 @@ contains
         real(wp), intent(in) :: u(nlines, g%size)
         real(wp), intent(in) :: du(nlines, g%size)          ! 1. derivative for correction in case of Jacobian formulation
         real(wp), intent(out) :: result(nlines, g%size)
-        real(wp), intent(out) :: wrk2d(*)
+        real(wp), intent(out) :: wrk2d(nlines)
 
         ! -------------------------------------------------------------------
         integer(wi) ip
@@ -446,14 +448,14 @@ contains
         if (g%periodic) then
             select case (g%nb_diag(1))
             case (3)
-                call Thomas3P_Solve(g%size, nlines, lu(:, 1), lu(:, 2), lu(:, 3), lu(:, 4), lu(:, 5), &
-                             result, wrk2d)
+                ! call Thomas3C_Solve(lu(:, 1), lu(:, 2), lu(:, 3), lu(:, 4), lu(:, 5), result, wrk2d)
+                call Thomas3C_SMW_Solve(lu(:, 1), lu(:, 2), lu(:, 3), lu(:, 4), result, wrk2d)
             end select
         else
             select case (g%nb_diag(1))
             case (3)
                 call Thomas3_Solve(g%size, nlines, lu(:, 1), lu(:, 2), lu(:, 3), &
-                            result)
+                                   result)
             end select
         end if
 

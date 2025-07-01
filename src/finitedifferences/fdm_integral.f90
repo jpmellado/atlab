@@ -80,10 +80,10 @@ contains
             call Thomas3_LU(nx - 2, fdmi%lhs(2:, 1), fdmi%lhs(2:, 2), fdmi%lhs(2:, 3))
         case (5)
             call Thomas5_LU(nx - 2, fdmi%lhs(2:, 1), fdmi%lhs(2:, 2), fdmi%lhs(2:, 3), &
-                          fdmi%lhs(2:, 4), fdmi%lhs(2:, 5))
+                            fdmi%lhs(2:, 4), fdmi%lhs(2:, 5))
         case (7)
             call Thomas7_LU(nx - 2, fdmi%lhs(2:, 1), fdmi%lhs(2:, 2), fdmi%lhs(2:, 3), &
-                          fdmi%lhs(2:, 4), fdmi%lhs(2:, 5), fdmi%lhs(2:, 6), fdmi%lhs(2:, 7))
+                            fdmi%lhs(2:, 4), fdmi%lhs(2:, 5), fdmi%lhs(2:, 6), fdmi%lhs(2:, 7))
         end select
 
         return
@@ -129,7 +129,7 @@ contains
         ! new rhs diagonals (array A), independent of lambda
         fdmi%rhs(:, :) = g%lhs(:, 1:ndl)
 
-        call FDM_Bcs_Reduce(fdmi%bc, fdmi%rhs, g%rhs(:,1:ndr), rhsr_b, rhsr_t)
+        call FDM_Bcs_Reduce(fdmi%bc, fdmi%rhs, g%rhs(:, 1:ndr), rhsr_b, rhsr_t)
 
         fdmi%rhs_b = 0.0_wp
         fdmi%rhs_t = 0.0_wp
@@ -266,12 +266,11 @@ contains
         end select
 
         if (any([BCS_MAX] == fdmi%bc)) then
-            result(:, 1) = wrk2d(:, 1) !*fdmi%lhs(1, idl)
+            result(:, 1) = wrk2d(:, 1)*fdmi%lhs(1, idl)
             do ic = 1, idl - 1
                 result(:, 1) = result(:, 1) + fdmi%lhs(1, idl + ic)*result(:, 1 + ic)
             end do
             result(:, 1) = result(:, 1) + fdmi%lhs(1, 1)*result(:, 1 + ic)
-            ! result(:, 1) = (result(:, 1) + fdmi%lhs(1, 1)*result(:, 1 + ic))*fdmi%lhs(1, idl)
 
             if (present(du_boundary)) then      ! calculate u'n
                 du_boundary(:) = fdmi%lhs(nx, idl)*result(:, nx)
@@ -290,12 +289,11 @@ contains
         end if
 
         if (any([BCS_MIN] == fdmi%bc)) then
-            result(:, nx) = wrk2d(:, 2) !*fdmi%lhs(nx, idl)
+            result(:, nx) = wrk2d(:, 2)*fdmi%lhs(nx, idl)
             do ic = 1, idl - 1
                 result(:, nx) = result(:, nx) + fdmi%lhs(nx, idl - ic)*result(:, nx - ic)
             end do
             result(:, nx) = result(:, nx) + fdmi%lhs(nx, ndl)*result(:, nx - ic)
-            ! result(:, nx) = (result(:, nx) + fdmi%lhs(nx, ndl)*result(:, nx - ic))*fdmi%lhs(nx, idl)
 
             if (present(du_boundary)) then      ! calculate u'1
                 du_boundary(:) = fdmi%lhs(1, idl)*result(:, 1)
@@ -357,10 +355,10 @@ contains
         case (5)
             ! We rely on this routines not changing a(2:3), b(2), e(ny-2:ny-1), d(ny-1)
             call Thomas5_LU(nx - 2, fdmi%lhs(2:, 1), fdmi%lhs(2:, 2), fdmi%lhs(2:, 3), &
-                          fdmi%lhs(2:, 4), fdmi%lhs(2:, 5))
+                            fdmi%lhs(2:, 4), fdmi%lhs(2:, 5))
         case (7)
             call Thomas7_LU(nx - 2, fdmi%lhs(2:, 1), fdmi%lhs(2:, 2), fdmi%lhs(2:, 3), &
-                          fdmi%lhs(2:, 4), fdmi%lhs(2:, 5), fdmi%lhs(2:, 6), fdmi%lhs(2:, 7))
+                            fdmi%lhs(2:, 4), fdmi%lhs(2:, 5), fdmi%lhs(2:, 6), fdmi%lhs(2:, 7))
         end select
 
         return

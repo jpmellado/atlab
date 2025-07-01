@@ -90,7 +90,7 @@ contains
         integer, parameter :: TYPE_FACTORIZE = 1
         integer, parameter :: TYPE_DIRECT = 2
 
-        integer(wi) :: ndl, ndr, nd
+        integer(wi) :: ndl, ndr, nd !, idr
         character(len=32) bakfile, block
         character(len=512) sRes
 
@@ -216,8 +216,8 @@ contains
                     end if
 
                     ! idr = ndr/2 + 1
-                    ! fdm_int1(:, i, j)%lhs(:, idr) = fdm_int1(:, i, j)%lhs(:, idr)*norm
-                    ! fdm_int1(:, i, j)%lhs(:, idr + 1:ndr) = fdm_int1(:, i, j)%lhs(:, idr + 1:ndr)/norm
+                    ! fdm_int1(BCS_MIN, i, j)%lhs(2:, idr) = fdm_int1(BCS_MIN, i, j)%lhs(2:, idr)*norm
+                    ! fdm_int1(BCS_MAX, i, j)%lhs(:z%size - 1, idr) = fdm_int1(BCS_MAX, i, j)%lhs(:z%size - 1, idr)*norm
 
                 case (TYPE_DIRECT)     ! only for case BCS_NN
                     ! Define \lambda based on modified wavenumbers (real)
@@ -237,6 +237,9 @@ contains
                     ! free memory that is independent of lambda
                     rhs_d(:, :) = fdm_int2(i, j)%rhs(:, :)
                     if (allocated(fdm_int2(i, j)%rhs)) deallocate (fdm_int2(i, j)%rhs)
+
+                    ! idr = ndr/2 + 1
+                    ! fdm_int2(i, j)%lhs(:, idr) = fdm_int2(i, j)%lhs(:, idr)*norm
 
                 end select
 

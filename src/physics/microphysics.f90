@@ -7,7 +7,7 @@ module Microphysics
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
     use Thermo_Base, only: imixture, MIXT_TYPE_AIRWATER
     use Thermo_Anelastic, only: dsmooth
-    use Thermo_AirWater, only: inb_scal_ql
+    use Thermo_AirWater, only: inb_scal_ql, inb_scal_qt, inb_scal_e
     use OPR_Partial, only: OPR_Partial_Z, OPR_P1
     ! use OPR_ODES
     implicit none
@@ -80,11 +80,18 @@ contains
 
         ! -------------------------------------------------------------------
         ! Initialize
-        if (imixture == MIXT_TYPE_AIRWATER .and. evaporationProps%type == TYPE_EVA_EQUILIBRIUM) then
-            inb_scal_array = inb_scal_array + 1         ! space for ql as diagnostic variable.
+        if (imixture == MIXT_TYPE_AIRWATER) then
+            if (evaporationProps%type == TYPE_EVA_EQUILIBRIUM) then
+                inb_scal_array = inb_scal_array + 1         ! space for ql as diagnostic variable.
 
 !            use Thermo_Base, only: dsmooth, NEWTONRAPHSON_ERROR
-            dsmooth = evaporationProps%parameters(1)    ! Smooth factor for thermodynamic partial derivatives
+                dsmooth = evaporationProps%parameters(1)    ! Smooth factor for thermodynamic partial derivatives
+            end if
+
+            if (inb_scal_array <= 3) then
+                call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'AirWater mixture needs at least 4 scalar arrays.')
+                call TLab_Stop(DNS_ERROR_OPTION)
+            end if
 
         end if
 
@@ -174,15 +181,14 @@ contains
 
         select case (locProps%type)
         case (TYPE_SED_AIRWATER)
-            select case (is)
-            case (2, 3)         ! q_t, q_l
+            if (any([inb_scal_qt, inb_scal_ql] == is)) then
                 if (exponent > 0.0_wp) then ! to avoid the calculation of a power, if not necessary
                     tmp1 = locProps%parameters(is)*(1.0_wp - s(:, is))*(s_active**dummy)
                 else
                     tmp1 = locProps%parameters(is)*(1.0_wp - s(:, is))*s_active
                 end if
 
-            case default        ! energy variables
+            else if (is == inb_scal_e) then
                 call Thermo_Anelastic_StaticL(nx, ny, nz, s, tmp1)
                 if (exponent > 0.0_wp) then
                     tmp1 = locProps%parameters(is)*tmp1*(s_active**dummy)
@@ -190,7 +196,25 @@ contains
                     tmp1 = locProps%parameters(is)*tmp1*s_active
                 end if
 
-            end select
+            end if
+
+            ! select case (is)
+            ! case (2, 3)         ! q_t, q_l
+            !     if (exponent > 0.0_wp) then ! to avoid the calculation of a power, if not necessary
+            !         tmp1 = locProps%parameters(is)*(1.0_wp - s(:, is))*(s_active**dummy)
+            !     else
+            !         tmp1 = locProps%parameters(is)*(1.0_wp - s(:, is))*s_active
+            !     end if
+
+            ! case default        ! energy variables
+            !     call Thermo_Anelastic_StaticL(nx, ny, nz, s, tmp1)
+            !     if (exponent > 0.0_wp) then
+            !         tmp1 = locProps%parameters(is)*tmp1*(s_active**dummy)
+            !     else
+            !         tmp1 = locProps%parameters(is)*tmp1*s_active
+            !     end if
+
+            ! end select
 
             call OPR_Partial_Z(OPR_P1, nx, ny, nz, tmp1, source)
             if (present(flux)) flux = -tmp1

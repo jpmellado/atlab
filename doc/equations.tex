@@ -1,0 +1,195 @@
+\def\pt{\partial_t}
+\def\psi{\partial_i}
+\def\pk{\partial_k}
+
+\def\Re{\mathrm{Re}}
+\def\Pr{\mathrm{Pr}}
+\def\Sc{\mathrm{Sc}}
+\def\Fr{\mathrm{Fr}}
+\def\Ro{\mathrm{Ro}}
+% \def\Le{\mathrm{Le}}
+% \def\Ma{\mathrm{Ma}}
+% \def\Da{\mathrm{Da}}
+
+\def\j{\mathbf{j}}
+\def\e{\mathbf{e}}
+
+\def\ref{_\mathrm{bg}}
+\def\ss{_\mathrm{s}}
+\def\sc{_\mathrm{c}}
+
+\chapter{Governing equations}\label{sec:equations}
+
+The code is build to solve the sets of equations described in this section as efficiently as possible. These sets of equations aim to be general enough to cover several problems. The consequence is that one needs to map the particular problem to one of these generic cases, and identify the appropriate values of the parameters and defining functions (for instance, $\Re$ or $b^e$). Certain knowledge of the equations is therefore advantageous.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Evolution equations}
+
+\subsection{Boussinesq}
+
+Dynamics and thermodynamics are at most coupled by the buoyancy field, and thermodynamics is not necessary (but can still be used). We consider the momentum equation and the evolution equations for an arbitrary number of scalar fields in the following form:
+\begin{subequations}
+    \begin{align}
+        &\pt v_i = -v_k\pk v_i + \pk\left(\Re^{-1} \nu \pk v_i\right) -\psi p'
+        +\Fr^{-1} g_i\,b +\Ro^{-1}\,\epsilon_{ijk} f_k\,v_k\;, &&i =1,2,3 \\
+        &\pt s_i  = -v_k\pk s_i +\pk \left[(\Re\Sc_i)^{-1} \nu \pk s_i -\pk (\j_i)_k\right] + \omega_i \;, &&i = 1,\ldots\,n
+    \end{align}
+\end{subequations}
+The dynamic variables in these equations are  nondimensionalized by $\rho_0$, $U_0$ and $L_0$. The parameters $\Re$, $\Sc$, $\Fr$ and $\Ro$ need to be provided.
+\begin{itemize}
+    \item The scalar field $\nu$ represents the kinematic viscosity. In the simplest case, it is equal to 1.
+    \item The scalar field $b$ represents the buoyancy, if any. The vector $(g_i)$ gives the direction of the buoyancy force and it is constant.
+    \item The vector fields $\j_i$ represent flux terms, if any.
+    \item The scalar fields $\omega_i$ represent source terms, if any.
+\end{itemize}
+These fields are defined in terms of the scalars $s_k$ by functions $\nu^e(s_k)$, $b^e(s_k)$, $\j^e_i(s_k)$ and $\omega^e_i(s_k)$, to be given.
+\begin{itemize}
+    \item The vector $(f_i)$ gives the direction of the angular velocity of the frame of reference, if any. It is assumed constant.
+\end{itemize}
+Mass conservation,
+\begin{equation}
+    \pk v_k=0\;,
+\end{equation}
+is imposed in terms of the pressure-Poisson equation
+\begin{equation}
+    \nabla^2 p'=\pk(\ldots)
+\end{equation}
+with the boundary conditions that result from particularizing the momentum equation at the top and bottom boundaries. Details can be found in \cite{mellado2012factorization}.
+
+\subsubsection{Dimensional Formulation}
+
+A dimensional formulation can be considered by substituting the parameters \texttt{Reynolds}, \texttt{Froude} and \texttt{Rossby} the input file (by default, \texttt{tlab.ini}) with \texttt{Viscosity}, \texttt{Gravity} and \texttt{Coriolis}. The boundary and initial conditions defined in the input file should then be given in dimensional form. 
+
+\subsection{Anelastic}
+
+Dynamics and thermodynamics are coupled by the density. The momentum equation is formulated in terms of the dynamic pressure and the density:
+\begin{equation}
+    \pt v_i = -v_k\pk v_i + \rho\ref^{-1}\pk\left(\Re^{-1} \mu \pk v_i\right) -\rho\ref^{-1}\psi p'
+        +\Fr^{-1} g_i(1-\rho/\rho\ref)+\Ro^{-1}\,\epsilon_{ijk} f_k\,v_k\;.
+\end{equation}
+The evolution equations for the scalars read:
+\begin{equation}
+    \pt s_i  = -v_k\pk s_i +\rho\ref^{-1}\pk \left[(\Re\Sc_i)^{-1} \mu \pk s_i -\pk (\j_i)_k\right] + \omega_i \;, \qquad i = 1,\ldots\,n
+\end{equation}
+Symbols are as explained in the Boussinesq case. The scalar field $\mu$ represents the dynamic viscosity. In the simplest case, it is equal to 1.
+\par
+Mass conservation,
+\begin{equation}
+    \pk (\rho\ref v_k)=0\;,
+\end{equation}
+is imposed in terms of the pressure-Poisson equation
+\begin{equation}
+    \nabla^2 p'=\pk(\rho\ref \ldots)
+\end{equation}
+with the boundary conditions that result from particularizing the momentum equation at the top and bottom boundaries
+
+\subsection{Compressible}
+
+Dynamics and thermodynamics are fully coupled. The pressure in the momentum equation is the thermodynamic pressure. Mass conservation is expressed in terms of the evolution equation
+\begin{equation}
+    \pt \rho = -\pk(\rho v_k) 
+\end{equation}
+instead of a solenoidal constraint.
+
+The variables in these equations are normalized by the reference scales $\mathrm{L}_0$, $\mathrm{U}_0$, $\rho_0$ and $\mathrm{T}_0$, which represent a length, a velocity, a density, and a temperature, respectively. The pressure is normalized by $\rho_0U_0^2$. 
+
+TBD
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Thermodynamics}
+
+We consider $n\sc$ components (or species) with mass fractions $\zeta_i$.
+
+\subsection{Compressible}
+The thermal equation of state is implemented as
+\begin{equation}
+    p = \rho R T \;.
+\end{equation}
+The scalar field 
+\begin{equation}
+    R =\sum^{n\sc}_1 R_i\zeta_i
+\end{equation}
+is the specific gas constant of the mixture.
+
+The caloric equation of state is implemented as
+\begin{equation}
+    h = \sum^{n\sc}_1 h_{i} \zeta_i \;,\qquad h_{i} = \Delta h^0_i + \int^{T}_{T_0}
+    c_{pi}(T) dT \;.
+\end{equation}
+
+Each species has a specific heat capacity $c_{pi}$ and a specific gas constant $R_i=\mathcal{R}/W_i$,  where  $\mathcal{R}$ is the universal gas constant and $W_i$ the molar mass of the species. They are nondimensionalized by the reference values $c_{p0}$ and $R_0=\mathcal{R}/W_0$, respectively, which are the values of one of the species. %They are defined in the procedure \texttt{Thermodynamics\_Initialize}. 
+
+The thermodynamic variables are nondimensionalized as in evolution equations, i.e., the reference scales $\mathrm{L}_0$, $\mathrm{U}_0$, $\rho_0$ and $\mathrm{T}_0$, which represent a length, a velocity, a density, and a temperature, respectively. The pressure is normalized by $\rho_0U_0^2$. Thermal energy variables are normalized with $c_{p0}T_0$, where $c_{p0}$ is a reference specific heat capacity at constant pressure.
+
+TBD
+
+\subsubsection{Dimensional Formulation}
+
+In this case of a multi-species, a dimensional formulation can be considered by setting the input parameter \texttt{nondimensional} equal to \texttt{.false.} in the block \texttt{[Thermodynamics]} of the input file (by default, \texttt{tlab.ini}). 
+
+\subsection{Anelastic}
+The thermal equation of state is implemented as
+\begin{equation}
+    p\ref = \rho R T \;.
+\end{equation}
+The thermodynamic variables are nondimensionalized by $\rho_0$, $T_0$ and $R_0$, such that $p_0=\rho_0R_0T_0$. The default reference values are $p_0=10^5$~Pa and $T_0=298$~K. Thermal energy variables are normalized with $c_{p0}T_0$, where $c_{p0}$ is a reference specific heat capacity at constant pressure.
+
+The caloric equation of state is formulated in terms of the static energy
+\begin{equation}
+    h =\sum^{n\sc}_1 h_{i} \zeta_i + \frac{\gamma_0-1}{\gamma_0}H^{-1}(x_3-x_{3,0}) \;.
+\end{equation}
+The scalar field $c$ is the specific heat capacity, a function of the scalars $s_i$. The parameter
+\begin{equation}
+    H = \frac{R_0T_0}{gL_0}
+\end{equation}
+is a nondimensional scale height, or the inverse of a nondimensional gravity, to be provided. The parameter
+\begin{equation}
+    R_0/c_{p0} =(\gamma_0-1)/\gamma_0 \;,
+\end{equation}
+a conversion factor between gas constants and heat capacities (thermal equation of state and caloric equation of state). We refer to it in the code as \texttt{GRATIO}. 
+
+The background profiles $\{\rho\ref,\, p\ref,\, T\ref,\, \zeta_{i,\mathrm{ref}}\}$ correspond to a state of thermodynamic and hydrostatic equilibrium. The code solves the system of equations
+\begin{subequations}
+    \begin{align}
+        &\partial_3\,p\ref=-H^{-1}\, g_3\,\rho\ref\;,\qquad p\ref|_{x_3=x_{3,0}}=p_{\mathrm{bg},0}\;,\\
+        &p\ref  = \rho\ref R\ref T\ref \;.
+    \end{align}
+\end{subequations}
+$\mathbf{g}$ is defined opposite to the gravitational acceleration (the problem is formulated in terms of the buoyancy). The two equations above relate 4 thermodynamic variables and we need two additional constraints. Typically, we impose the background profile of static energy (enthalpy plus potential energy) and the composition. If there is only one species, then $R\ref=1$ and we only need one additional constraint. 
+
+Currently implemented only for air-water mixtures. In this case, the first scalar is the energy variable and the remaining scalars are the composition (e.g., total water specific humidity and liquid water specific humidity).
+
+\subsubsection{Dimensional Formulation}
+
+A dimensional formulation can be considered by setting the parameter \texttt{nondimensional} equal to \texttt{.false.}, which sets \texttt{GRATIO} equal to 1
+
+\subsection{Mixtures}
+
+We consider $n\sc$ components (or species) with mass fractions $\zeta_i$. These need not be equal to the prognostic scalar variables $s_k$, and the relationship between them $\zeta_i=\zeta_i^e(s_k)$ needs to be given.
+
+In the generic case, we choose
+\begin{equation}
+    \zeta_i=s_i\;,\quad i=1,\ldots,n\sc-1\;,
+\end{equation}
+and the last component has a mass fraction
+\begin{equation}
+    \zeta_{n\sc} = 1-\sum_1^{n\sc-1}\zeta_i \;.
+\end{equation} 
+The gas constant can then be written as 
+\begin{equation}
+    R=\sum_1^{n\sc}\zeta_iR_i=\sum_1^{n\sc-1}(R_i-R_N) \;,
+\end{equation}
+and similarly for other thermodynamic variables.
+
+Particular cases different from this one occur for instance when we consider chemical equilibrium or phase equilibrium, or when different combinations of mass fractions might be preferable to better represent conservation properties.
+
+%For instance, in the case of moist thermodynamics with phase equilibrium (saturation adjustment), only the total water content is a prognostic variables and the partition into liquid and vapor is done assuming phase equilibrium.
+
+\subsubsection{Air-water mixtures in anelastic formulations}
+
+We consider the total water specific humidity as prognostic variable. If necessary, we also consider the liquid water specific humidity, which can be diagnostic in the case of phase equilibrium, or prognostic otherwise.
+
+
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% \section{Dimensional formulations}
+

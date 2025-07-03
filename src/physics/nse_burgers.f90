@@ -163,8 +163,7 @@ contains
 
             ! -----------------------------------------------------------------------
             ! Density correction term in the burgers operator along Z in linear solver.
-            ndl = g(ig)%der2%nb_diag(1)
-            idl = ndl/2 + 1
+            idl = g(3)%der2%nb_diag(1)/2 + 1
             do is = 0, inb_scal ! case 0 for the velocity
                 fdmDiffusion(3)%lu(:, idl, is) = fdmDiffusion(3)%lu(:, idl, is)*ribackground(:)  ! matrix U; 1/diagonal
             end do

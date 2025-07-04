@@ -688,7 +688,7 @@ program AVERAGES
 
             if (kmax_aux*opt_block /= z%size) then
                 do is = 1, ifield
-                    call REDUCE_BLOCK_INPLACE(imax, jmax, kmax, 1, 1, 1, imax, kmax_aux*opt_block, kmax, vars(is)%field)
+                    call REDUCE_BLOCK_INPLACE(imax, jmax, kmax, 1, 1, 1, imax, jmax, kmax_aux*opt_block, vars(is)%field)
                 end do
             end if
 

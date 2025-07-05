@@ -70,14 +70,14 @@ contains
         use TLabMPI_VARS, only: ims_pro_i, ims_npro_i, ims_pro_j, ims_npro_j
 #endif
         use NavierStokes, only: nse_eqns, DNS_EQNS_ANELASTIC
-        use Thermo_Anelastic, only: ribackground
+        use Thermo_Anelastic, only: ribackground, rbackground
 
         character(len=*), intent(in) :: inifile
 
         ! -----------------------------------------------------------------------
         character(len=32) bakfile
 
-        integer(wi) ig, is, ip, j, ndl, idl
+        integer(wi) ig, is, ip, j, ndl, idl, ic
         integer(wi) nlines, offset
         real(wp) dummy
 
@@ -162,10 +162,15 @@ contains
             end do
 
             ! -----------------------------------------------------------------------
-            ! Density correction term in the burgers operator along Z in linear solver.
-            idl = g(3)%der2%nb_diag(1)/2 + 1
+            ! Include density correction Z in linear solver; check Thomas routines
+            ndl = g(3)%der2%nb_diag(1)
+            idl = ndl/2 + 1
             do is = 0, inb_scal ! case 0 for the velocity
-                fdmDiffusion(3)%lu(:, idl, is) = fdmDiffusion(3)%lu(:, idl, is)*ribackground(:)  ! matrix U; 1/diagonal
+                fdmDiffusion(3)%lu(:, idl, is) = fdmDiffusion(3)%lu(:, idl, is)*ribackground(:)
+                do ic = 1, idl - 1
+                    fdmDiffusion(3)%lu(:g(3)%size - ic, idl + ic, is) = &
+                        fdmDiffusion(3)%lu(:g(3)%size - ic, idl + ic, is)*ribackground(:g(3)%size - ic)*rbackground(ic + 1:)
+                end do
             end do
 
         end if
@@ -452,6 +457,9 @@ contains
             end do
 
         else
+            ! do ij = 1, g%size         ! for checking
+            !     result(:, ij) = result(:, ij)*ribackground(ij) - u(:, ij)*dsdx(:, ij)
+            ! end do
             result(:, :) = result(:, :) - u(:, :)*dsdx(:, :)
         end if
 

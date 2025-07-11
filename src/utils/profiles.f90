@@ -73,7 +73,8 @@ contains
 
         ! -------------------------------------------------------------------
         if (present(default)) then
-            sRes = trim(adjustl(default))
+            !sRes = trim(adjustl(default))
+            call ScanFile_Char(bakfile, inifile, block, 'Profile'//trim(adjustl(tag)), trim(adjustl(default)), sRes)
         else
             call ScanFile_Char(bakfile, inifile, block, 'Profile'//trim(adjustl(tag)), 'none', sRes)
         end if

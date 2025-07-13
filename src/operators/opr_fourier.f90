@@ -1,5 +1,7 @@
 #include "tlab_error.h"
 
+! Backward FFT can change original array
+
 module OPR_Fourier
     use TLab_Constants, only: wp, wi, pi_wp, efile
     use TLab_Memory, only: isize_txc_field
@@ -38,9 +40,10 @@ module OPR_Fourier
     type(tmpi_transpose_dt), public :: tmpi_plan_fftx
     type(tmpi_transpose_dt), public :: tmpi_plan_ffty
     real(wp), pointer :: r_out(:) => null()
+    real(wp), pointer :: r_in(:) => null()
 #endif
 
-    complex(wp), pointer :: c_out(:) => null()
+    ! complex(wp), pointer :: c_out(:) => null()
 
 contains
     ! #######################################################################
@@ -203,19 +206,28 @@ contains
     !########################################################################
     !########################################################################
     subroutine OPR_Fourier_X_Backward(in, out)
-        complex(wp), intent(in) :: in(:)
+        complex(wp), intent(inout), target :: in(:)
         real(wp), intent(out), target :: out(:)
 
         ! #######################################################################
 #ifdef USE_MPI
         if (ims_npro_i > 1) then
-            call c_f_pointer(c_loc(out), c_out, shape=[isize_txc_field/2])
+            ! out is not big enough
+            ! call c_f_pointer(c_loc(out), c_out, shape=[isize_txc_field/2])
 
-            call TLabMPI_Trp_ExecI_Forward(in, c_out, tmpi_plan_fftx)
-            call dfftw_execute_dft_c2r(fft_plan_bx, c_out, wrk3d)
-            call TLabMPI_Trp_ExecI_Backward(wrk3d, out, tmpi_plan_dx)
+            ! call TLabMPI_Trp_ExecI_Forward(in, c_out, tmpi_plan_fftx)
+            ! call dfftw_execute_dft_c2r(fft_plan_bx, c_out, wrk3d)
+            ! call TLabMPI_Trp_ExecI_Backward(wrk3d, out, tmpi_plan_dx)
 
-            nullify (c_out)
+            ! nullify (c_out)
+
+            call c_f_pointer(c_loc(in), r_in, shape=[isize_txc_field])
+
+            call TLabMPI_Trp_ExecI_Forward(in, c_wrk3d, tmpi_plan_fftx)
+            call dfftw_execute_dft_c2r(fft_plan_bx, c_wrk3d, r_in)
+            call TLabMPI_Trp_ExecI_Backward(r_in, out, tmpi_plan_dx)
+
+            nullify (r_in)
 
         else
 #endif
@@ -264,9 +276,10 @@ contains
 #ifdef USE_MPI
         if (ims_npro_j > 1) then
             call TLabMPI_Trp_ExecJ_Forward(in, out, tmpi_plan_ffty)
-            call dfftw_execute_dft(fft_plan_by, out, c_wrk3d)
-            call TLabMPI_Trp_ExecJ_Backward(c_wrk3d, out, tmpi_plan_ffty)
-
+            ! call dfftw_execute_dft(fft_plan_by, out, c_wrk3d)
+            ! call TLabMPI_Trp_ExecJ_Backward(c_wrk3d, out, tmpi_plan_ffty)
+            call dfftw_execute_dft(fft_plan_by, out, in)
+            call TLabMPI_Trp_ExecJ_Backward(in, out, tmpi_plan_ffty)
         else
 #endif
             call dfftw_execute_dft(fft_plan_by, in, out)
@@ -305,18 +318,21 @@ contains
     ! #######################################################################
     subroutine OPR_Fourier_XY_Backward(in, out, tmp1)
         complex(wp), intent(in) :: in(:)
-        real(wp), intent(out), target :: out(:)
+        real(wp), intent(out) :: out(:)
         complex(wp), intent(inout) :: tmp1(:)
 
         ! #######################################################################
         if (fft_y_on) then
-            call c_f_pointer(c_loc(out), c_out, shape=[isize_txc_field/2])
+            ! call c_f_pointer(c_loc(out), c_out, shape=[isize_txc_field/2])
 
-            call OPR_Fourier_Y_Backward(in, c_out)
+            ! call OPR_Fourier_Y_Backward(in, c_out)
+            ! ! Local transposition: make y-direction the intermediate one again
+            ! call TLab_Transpose_complex(c_out, kmax, (imax/2 + 1)*jmax, kmax, tmp1, (imax/2 + 1)*jmax)
+
+            ! nullify (c_out)
+            call OPR_Fourier_Y_Backward(in, c_wrk3d)
             ! Local transposition: make y-direction the intermediate one again
-            call TLab_Transpose_complex(c_out, kmax, (imax/2 + 1)*jmax, kmax, tmp1, (imax/2 + 1)*jmax)
-
-            nullify (c_out)
+            call TLab_Transpose_complex(c_wrk3d, kmax, (imax/2 + 1)*jmax, kmax, tmp1, (imax/2 + 1)*jmax)
         else
             ! Local transposition: make y-direction the intermediate one again
             call TLab_Transpose_complex(in, kmax, (imax/2 + 1)*jmax, kmax, tmp1, (imax/2 + 1)*jmax)
@@ -356,21 +372,28 @@ contains
     ! #######################################################################
     subroutine OPR_Fourier_Backward(in, out, tmp1)
         complex(wp), intent(in) :: in(:)
-        real(wp), intent(out), target :: out(:)
+        real(wp), intent(out) :: out(:)
         complex(wp), intent(inout) :: tmp1(:)
 
         ! #######################################################################
         if (fft_y_on) then
-            call c_f_pointer(c_loc(out), c_out, shape=[isize_txc_field/2])
+            ! call c_f_pointer(c_loc(out), c_out, shape=[isize_txc_field/2])
 
-            call dfftw_execute_dft(fft_plan_bz, in, c_out)
+            ! call dfftw_execute_dft(fft_plan_bz, in, c_out)
+            ! ! Local transposition: make y-direction the last one
+            ! call TLab_Transpose_complex(c_out, (imax/2 + 1)*jmax, kmax, (imax/2 + 1)*jmax, tmp1, kmax)
+            ! call OPR_Fourier_Y_Backward(tmp1, c_out)
+            ! ! Local transposition: make y-direction the intermediate one again
+            ! call TLab_Transpose_complex(c_out, kmax, (imax/2 + 1)*jmax, kmax, tmp1, (imax/2 + 1)*jmax)
+
+            ! nullify (c_out)
+            call dfftw_execute_dft(fft_plan_bz, in, c_wrk3d)
             ! Local transposition: make y-direction the last one
-            call TLab_Transpose_complex(c_out, (imax/2 + 1)*jmax, kmax, (imax/2 + 1)*jmax, tmp1, kmax)
-            call OPR_Fourier_Y_Backward(tmp1, c_out)
+            call TLab_Transpose_complex(c_wrk3d, (imax/2 + 1)*jmax, kmax, (imax/2 + 1)*jmax, tmp1, kmax)
+            call OPR_Fourier_Y_Backward(tmp1, c_wrk3d)
             ! Local transposition: make y-direction the intermediate one again
-            call TLab_Transpose_complex(c_out, kmax, (imax/2 + 1)*jmax, kmax, tmp1, (imax/2 + 1)*jmax)
+            call TLab_Transpose_complex(c_wrk3d, kmax, (imax/2 + 1)*jmax, kmax, tmp1, (imax/2 + 1)*jmax)
 
-            nullify (c_out)
         else
             call dfftw_execute_dft(fft_plan_bz, in, tmp1)
 

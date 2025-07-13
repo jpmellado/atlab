@@ -103,12 +103,11 @@ subroutine OPR_Check()
     write (str, fmt_r) real(t_dif, wp)/PROC_CYCLES
 
     if (fft_y_on) then
-        ! norm = 1.0_wp/real(x%size*y%size, wp)
-        norm = 1.0_wp/real(x%size*y%size*z%size, wp)
+        norm = 1.0_wp/real(x%size*y%size, wp)
     else
-        ! norm = 1.0_wp/real(x%size, wp)
-        norm = 1.0_wp/real(x%size*z%size, wp)
+        norm = 1.0_wp/real(x%size, wp)
     end if
+    norm = norm/real(z%size,wp)
 
 #ifdef USE_MPI
     dummy = maxval(abs(norm*q(1:isize_field, 2) - q(1:isize_field, 1)))

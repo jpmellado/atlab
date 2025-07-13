@@ -2,7 +2,7 @@
 
 ! Definining functions f=f(x) to be used in bcs, ics, and reference background profiles
 module Profiles
-    use TLab_Constants, only: wp, i4_, pi_wp, efile, wfile, MAX_PARS
+    use TLab_Constants, only: wp, i4, pi_wp, efile, wfile, MAX_PARS
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
     implicit none
     private
@@ -12,7 +12,7 @@ module Profiles
     type, public :: profiles_dt
         sequence
         integer type
-        integer :: padding = 0_i4_
+        integer :: padding = 0_i4
         logical :: relative = .true.                ! use reference spatial position relative to the extent of the domain
         real(wp) :: mean = 0.0_wp                   ! mean value of f
         real(wp) :: delta = 1.0_wp                  ! increment of f

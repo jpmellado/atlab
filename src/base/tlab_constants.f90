@@ -40,12 +40,12 @@ module TLab_Constants
 ! !> Short length for integers, range -2¹⁵ to 2¹⁵-1; 16 bits
 ! integer, parameter :: i2 = selected_int_kind(4)
 !> Length of default integers, range -2³¹ to 2³¹-1; 32 bits
-    integer, parameter :: i4_ = selected_int_kind(9)            ! i4 was already used...
+    integer, parameter :: i4 = selected_int_kind(9)            ! i4 was already used...
 ! !> Long length for integers, range -2⁶³ to 2⁶³-1; 64 bits
 ! integer, parameter :: i8 = selected_int_kind(18)
-    integer, parameter :: i8_ = selected_int_kind(18)           ! i8 was already used...
-    integer, parameter :: wi = i4_                ! working integer type
-    integer, parameter :: longi = i8_             ! long integer type; different variable name to avoid errors
+    integer, parameter :: i8 = selected_int_kind(18)           ! i8 was already used...
+    integer, parameter :: wi = i4                ! working integer type
+    integer, parameter :: longi = i8             ! long integer type; different variable name to avoid errors
 
     integer, parameter :: sizeofreal = sizeof(1.0_wp)
     integer, parameter :: sizeofint = sizeof(1_wi)

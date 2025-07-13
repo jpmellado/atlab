@@ -128,7 +128,7 @@ module TLab_Memory
     integer(wi), public :: isize_wrk2d = 0, inb_wrk2d           ! 2D scratch arrays
     integer(wi), public :: isize_wrk3d = 0                      ! 3D scratch array (only 1)
     integer(wi), public :: isize_txc_field = 0, inb_txc         ! 3D arrays for intermediate calculations
-    integer(wi), public :: isize_txc_dimz                       ! partition for MPI data transposition
+    ! integer(wi), public :: isize_txc_dimz                       ! partition for MPI data transposition
 
     character*128 :: str, line
     integer :: ierr
@@ -166,16 +166,22 @@ contains
     ! ###################################################################
     ! ###################################################################
     subroutine TLab_Initialize_Memory(C_FILE_LOC)
+        use TLab_Constants, only: i8
         use TLab_Arrays
 #ifdef USE_MPI
         use TLabMPI_VARS, only: ims_npro, ims_npro_i, ims_npro_j, ims_npro_k
 #endif
 
         character(len=*), intent(in) :: C_FILE_LOC
+        integer(i8) maxSize
 
         ! ###################################################################
         ! loop counters over the whole domain are integer*4
-        if (isize_txc_field > huge(imax)) then
+        maxSize = int(imax + 2, i8)
+        maxSize = maxSize*int(jmax, i8)
+        maxSize = maxSize*int(kmax, i8)
+
+        if (maxSize > int(huge(imax), i8)) then
             call TLab_Write_ASCII(efile, C_FILE_LOC//'. Integer model of 4 bytes is not big enough.')
             call TLab_Stop(DNS_ERROR_UNDEVELOP)
         end if
@@ -185,8 +191,8 @@ contains
 
         ! auxiliar array txc for intermediate calculations
         isize_txc_field = imax*jmax*kmax
-        isize_txc_dimz = (imax + 2)*kmax            ! Add space for Nyquist frequency
-        isize_txc_field = max(isize_txc_field, isize_txc_dimz*jmax)
+        ! isize_txc_dimz = (imax + 2)*kmax            ! Add space for Nyquist frequency
+        isize_txc_field = max(isize_txc_field, (imax + 2)*jmax*kmax) ! Add space for Nyquist frequency
 
         ! scratch arrays
 #ifdef USE_MPI
@@ -197,6 +203,13 @@ contains
         isize_wrk2d = max(imax*jmax, max(imax*kmax, jmax*kmax))
         isize_wrk3d = max(isize_wrk3d, isize_field)
         isize_wrk3d = max(isize_wrk3d, isize_txc_field)
+
+        ! ###################################################################
+        ! loop counters over the whole domain are integer*4
+        if (isize_txc_field > huge(imax)) then
+            call TLab_Write_ASCII(efile, C_FILE_LOC//'. Integer model of 4 bytes is not big enough.')
+            call TLab_Stop(DNS_ERROR_UNDEVELOP)
+        end if
 
         ! ###################################################################
         call TLab_Allocate_Real(C_FILE_LOC, q, [isize_field, inb_flow_array], 'flow')

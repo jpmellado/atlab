@@ -31,11 +31,6 @@ module NavierStokes     ! Shall we call it EvolutionEquations?
     real(wp), public, protected :: prandtl                          ! molecular transport
     real(wp), public, protected :: mach                             ! Mach number
 
-    real(wp), public, protected :: damkohler(MAX_VARS)              ! reaction
-
-    real(wp), public, protected :: stokes                           ! particle inertial effects
-    real(wp), public, protected :: settling                         ! sedimentation effects
-
 contains
     subroutine NavierStokes_Initialize_Parameters(inifile)
         use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
@@ -49,8 +44,6 @@ contains
         character(len=32) bakfile, block
         character(len=128) eStr
         character(len=512) sRes
-        character(len=64) lstr
-        integer(wi) is, idummy
         real(wp) dummy, reynolds
 
         ! ###################################################################
@@ -105,13 +98,11 @@ contains
         ! -------------------------------------------------------------------
         call TLab_Write_ASCII(bakfile, '#Reynolds=<value>')
         call TLab_Write_ASCII(bakfile, '#Schmidt=<value>')
-        call TLab_Write_ASCII(bakfile, '#Froude=<value>')
-        call TLab_Write_ASCII(bakfile, '#Rossby=<value>')
-        call TLab_Write_ASCII(bakfile, '#Damkohler=<value>')
-        call TLab_Write_ASCII(bakfile, '#Stokes=<value>')
-        call TLab_Write_ASCII(bakfile, '#Settling=<value>')
         call TLab_Write_ASCII(bakfile, '#Mach=<value>')
         call TLab_Write_ASCII(bakfile, '#Prandtl=<value>')
+
+        call TLab_Write_ASCII(bakfile, '#Froude=<value>')
+        call TLab_Write_ASCII(bakfile, '#Rossby=<value>')
 
         ! Molecular transport
         call ScanFile_Real(bakfile, inifile, block,  'Reynolds', '-1.0', reynolds)
@@ -149,26 +140,9 @@ contains
             rossby = 1.0_wp/dummy
         end if
 
-        ! Additional source terms; this can be used to control input in chemistry, radiation, microphysics.... Still needed?
-        lstr = '0.0'
-        do is = 2, inb_scal
-            lstr = trim(adjustl(lstr))//',0.0'
-        end do
-        call ScanFile_Char(bakfile, inifile, block, 'Damkohler', lstr, sRes)
-        damkohler(:) = 0.0_wp; idummy = MAX_VARS
-        call LIST_REAL(sRes, idummy, damkohler)
-        if (inb_scal /= idummy) then ! Consistency check
-            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Schmidt and Damkholer sizes do not match.')
-            call TLab_Stop(DNS_ERROR_OPTION)
-        end if
-
         ! Compressible flows
         call ScanFile_Real(bakfile, inifile, block, 'Prandtl', '1.0', prandtl)   ! molecular transport, but only appearing in compressible formulation
         call ScanFile_Real(bakfile, inifile, block, 'Mach', '1.0', mach)
-
-        ! Particle-laden flows
-        call ScanFile_Real(bakfile, inifile, block, 'Stokes', '0.0', stokes)
-        call ScanFile_Real(bakfile, inifile, block, 'Settling', '0.0', settling)
 
         ! ###################################################################
         ! Initialization of array sizes

@@ -2,7 +2,7 @@
 
 module Microphysics
     use TLab_Constants, only: wp, wi, pi_wp, efile, MAX_VARS, MAX_PARS
-    use NavierStokes, only: nse_eqns, DNS_EQNS_ANELASTIC, settling
+    use NavierStokes, only: nse_eqns, DNS_EQNS_ANELASTIC
     use TLab_Memory, only: inb_scal_array
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
     use Thermo_Base, only: imixture, MIXT_TYPE_AIRWATER
@@ -36,6 +36,10 @@ module Microphysics
     integer, parameter :: TYPE_EVA_NONE = 0
     integer, parameter, public :: TYPE_EVA_EQUILIBRIUM = 1
 
+    real(wp), public :: settling                         ! sedimentation effects
+    real(wp), public :: damkohler(MAX_VARS)              ! reaction
+    real(wp), public :: stokes                           ! particle inertial effects
+
 contains
 !########################################################################
 !########################################################################
@@ -58,6 +62,7 @@ contains
         call TLab_Write_ASCII(bakfile, '#')
         call TLab_Write_ASCII(bakfile, '#['//trim(adjustl(block))//']')
         call TLab_Write_ASCII(bakfile, '#Type=<value>')
+        ! call TLab_Write_ASCII(bakfile, '#Damkohler=<value>')
         call TLab_Write_ASCII(bakfile, '#Parameters=<value>')
 
         call ScanFile_Char(bakfile, inifile, block, 'Type', 'none', sRes)
@@ -103,6 +108,7 @@ contains
         call TLab_Write_ASCII(bakfile, '#')
         call TLab_Write_ASCII(bakfile, '#['//trim(adjustl(block))//']')
         call TLab_Write_ASCII(bakfile, '#Type=<value>')
+        call TLab_Write_ASCII(bakfile, '#Settling=<value>')
         call TLab_Write_ASCII(bakfile, '#Parameters=<value>')
         call TLab_Write_ASCII(bakfile, '#Exponent=<value>')
 
@@ -114,6 +120,8 @@ contains
             call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Error in entry Type.')
             call TLab_Stop(DNS_ERROR_OPTION)
         end if
+
+        call ScanFile_Real(bakfile, inifile, block, 'Settling', '0.0', settling)
 
         if (sedimentationProps%type /= TYPE_SED_NONE) then
             sedimentationProps%parameters(:) = 1.0_wp           ! default values

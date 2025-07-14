@@ -13,6 +13,7 @@ subroutine TLab_Consistency_Check()
     use TLab_Time, only: rtime
     use TLab_Grid, only: x, y, z
     use NavierStokes
+    use Rotation, only: rossby
     use Thermodynamics
     use Thermo_Base, only: gamma0
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop

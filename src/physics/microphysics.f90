@@ -36,9 +36,9 @@ module Microphysics
     integer, parameter :: TYPE_EVA_NONE = 0
     integer, parameter, public :: TYPE_EVA_EQUILIBRIUM = 1
 
-    real(wp), public :: settling                         ! sedimentation effects
-    real(wp), public :: damkohler(MAX_VARS)              ! reaction
-    real(wp), public :: stokes                           ! particle inertial effects
+    real(wp) :: settling                         ! sedimentation effects
+    ! real(wp) :: damkohler(MAX_VARS)              ! reaction
+    ! real(wp) :: stokes                           ! particle inertial effects
 
 contains
 !########################################################################

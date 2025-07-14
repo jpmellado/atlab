@@ -2,7 +2,6 @@
 
 module Rotation
     use TLab_Constants, only: wp, wi, pi_wp, efile, lfile, MAX_VARS, MAX_PARS
-    use NavierStokes, only: rossby
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
     implicit none
     private
@@ -24,6 +23,8 @@ module Rotation
     integer, parameter :: TYPE_COR_AGEOSTROPHIC_Z = 1
     integer, parameter :: TYPE_COR_EXPLICIT_3D = 2
 
+    real(wp), public, protected :: rossby
+
 contains
     !########################################################################
     !########################################################################
@@ -35,18 +36,21 @@ contains
         character(len=128) eStr
         character(len=512) sRes
         integer(wi) idummy
+        real(wp) dummy
 
         !########################################################################
         bakfile = trim(adjustl(inifile))//'.bak'
-        block = 'Rotation'
+        block = 'Coriolis'
         eStr = __FILE__//'. '//trim(adjustl(block))//'. '
 
         call TLab_Write_ASCII(bakfile, '#')
         call TLab_Write_ASCII(bakfile, '#['//trim(adjustl(block))//']')
         call TLab_Write_ASCII(bakfile, '#Type=<none/ageostrophic/explicit>')
+        call TLab_Write_ASCII(bakfile, '#Rossby=<value>')
         call TLab_Write_ASCII(bakfile, '#Vector=<Fx,Fy,Fz>')
         call TLab_Write_ASCII(bakfile, '#Parameters=<value>')
 
+        ! Coriolis
         call ScanFile_Char(bakfile, inifile, block, 'Type', 'None', sRes)
         if (trim(adjustl(sRes)) == 'none') then; coriolisProps%type = TYPE_COR_NONE
         else if (trim(adjustl(sRes)) == 'ageostrophic') then; coriolisProps%type = TYPE_COR_AGEOSTROPHIC_Z
@@ -60,6 +64,12 @@ contains
         call ScanFile_Char(bakfile, inifile, block, 'Vector', '0.0,0.0,0.0', sRes)
         idummy = 3
         call LIST_REAL(sRes, idummy, coriolisProps%vector)
+
+        call ScanFile_Real(bakfile, inifile, block, 'Rossby', '-1.0', rossby)
+        if (rossby <= 0.0) then
+            call ScanFile_Real(bakfile, inifile, block, 'Coriolis', '1.0', dummy)   ! default value
+            rossby = 1.0_wp/dummy
+        end if
 
         ! coriolisProps%active = .false.
         ! if (abs(coriolisProps%vector(1)) > 0.0_wp) then; coriolisProps%active(2) = .true.; coriolisProps%active(3) = .true.; call TLab_Write_ASCII(lfile, 'Angular velocity along Ox.'); end if

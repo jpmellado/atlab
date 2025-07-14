@@ -90,15 +90,21 @@ contains
             call TLab_Stop(DNS_ERROR_OPTION)
         end if
 
-        call Profiles_ReadBlock(bakfile, inifile, block, 'IniS', IniS(1), 'gaussiansurface')
         if (trim(adjustl(sRes)) /= 'none') then
-            IniS(2:) = IniS(1)
-        else
+
+            ! Initialize for specific scalar
             do is = 1, inb_scal
                 write (lstr, *) is
-                call Profiles_ReadBlock(bakfile, inifile, block, 'IniS'//trim(adjustl(lstr)), IniS(is), 'gaussiansurface')
+                call Profiles_ReadBlock(bakfile, inifile, block, 'IniS'//trim(adjustl(lstr)), IniS(is), 'void')
+
+                ! If no scalar-specific info is found, initialize for general scalar
+                if (.not. any(IniSvalid == IniS(is)%type)) then
+                    call Profiles_ReadBlock(bakfile, inifile, block, 'IniS', IniS(is), 'gaussiansurface')
+                end if
             end do
         end if
+
+        ! Sanity check
         do is = 1, inb_scal
             if (.not. any(IniSvalid == IniS(is)%type)) then
                 call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Undeveloped IniS type.')

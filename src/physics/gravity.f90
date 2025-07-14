@@ -7,7 +7,6 @@
 module Gravity
     use TLab_Constants, only: wp, wi, small_wp, efile, lfile, wfile, MAX_PROF, MAX_VARS, MAX_PARS
     use TLab_Memory, only: inb_scal, inb_scal_array, inb_flow, inb_flow_array
-    use NavierStokes, only: froude
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
     implicit none
     private
@@ -15,6 +14,8 @@ module Gravity
     public :: Gravity_Initialize
     public :: Gravity_Source
     public :: Gravity_Hydrostatic_Enthalpy
+
+    real(wp), public, protected :: froude
 
     type gravity_dt
         sequence
@@ -45,6 +46,7 @@ contains
         character(len=128) eStr
         character(len=512) sRes
         integer(wi) idummy
+        real(wp) dummy
 
         !########################################################################
         bakfile = trim(adjustl(inifile))//'.bak'
@@ -54,6 +56,7 @@ contains
         call TLab_Write_ASCII(bakfile, '#')
         call TLab_Write_ASCII(bakfile, '#['//trim(adjustl(block))//']')
         call TLab_Write_ASCII(bakfile, '#Type=<none/Homogeneous/Linear/Bilinear/Quadratic>')
+        call TLab_Write_ASCII(bakfile, '#Froude=<value>')
         call TLab_Write_ASCII(bakfile, '#Vector=<Gx,Gy,Gz>')
         call TLab_Write_ASCII(bakfile, '#Parameters=<value>')
 
@@ -66,6 +69,12 @@ contains
         else
             call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Error in entry Type.')
             call TLab_Stop(DNS_ERROR_OPTION)
+        end if
+
+        call ScanFile_Real(bakfile, inifile, block, 'Froude', '-1.0', froude)
+        if (froude <= 0.0) then
+            call ScanFile_Real(bakfile, inifile, block, 'Gravity', '1.0', dummy)   ! default value
+            froude = 1.0_wp/dummy
         end if
 
         gravityProps%vector = 0.0_wp

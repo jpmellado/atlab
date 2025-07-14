@@ -25,8 +25,6 @@ module NavierStokes     ! Shall we call it EvolutionEquations?
 
     ! Nondimensional numbers
     real(wp), public :: visc, schmidt(MAX_VARS)                     ! molecular transport
-    real(wp), public, protected :: froude                           ! gravity force
-
     real(wp), public, protected :: prandtl                          ! molecular transport
     real(wp), public, protected :: mach                             ! Mach number
 
@@ -100,8 +98,6 @@ contains
         call TLab_Write_ASCII(bakfile, '#Mach=<value>')
         call TLab_Write_ASCII(bakfile, '#Prandtl=<value>')
 
-        call TLab_Write_ASCII(bakfile, '#Froude=<value>')
-
         ! Molecular transport
         call ScanFile_Real(bakfile, inifile, block,  'Reynolds', '-1.0', reynolds)
         if (reynolds <= 0.0) then
@@ -123,13 +119,6 @@ contains
         call ScanFile_Char(bakfile, inifile, block, 'Schmidt', '1.0', sRes)
         schmidt(:) = 0.0_wp; inb_scal = MAX_VARS
         call LIST_REAL(sRes, inb_scal, schmidt)
-
-        ! Gravity
-        call ScanFile_Real(bakfile, inifile, block, 'Froude', '-1.0', froude)
-        if (froude <= 0.0) then
-            call ScanFile_Real(bakfile, inifile, block, 'Gravity', '1.0', dummy)   ! default value
-            froude = 1.0_wp/dummy
-        end if
 
         ! Compressible flows
         call ScanFile_Real(bakfile, inifile, block, 'Prandtl', '1.0', prandtl)   ! molecular transport, but only appearing in compressible formulation

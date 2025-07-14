@@ -9,6 +9,8 @@ module Rotation
     public :: Rotation_Initialize
     public :: Rotation_AddCoriolis
 
+    real(wp), public, protected :: rossby
+
     type coriolis_dt
         sequence
         integer type
@@ -22,8 +24,6 @@ module Rotation
     integer, parameter :: TYPE_COR_NONE = 0
     integer, parameter :: TYPE_COR_AGEOSTROPHIC_Z = 1
     integer, parameter :: TYPE_COR_EXPLICIT_3D = 2
-
-    real(wp), public, protected :: rossby
 
 contains
     !########################################################################

@@ -32,7 +32,7 @@ subroutine AVG_FLOW_XZ(q, s, dudx, dudy, dudz, dvdx, dvdy, dvdz, dwdx, dwdy, dwd
     use Thermo_AirWater, only: inb_scal_T
     use Thermo_Anelastic
     use NavierStokes
-    use Gravity, only: gravityProps, Gravity_Source
+    use Gravity, only: froude, gravityProps, Gravity_Source
     use Rotation, only: coriolisProps
     use Averages, only: AVG_IK_V
 

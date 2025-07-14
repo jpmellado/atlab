@@ -21,7 +21,7 @@ program VISUALS
     use NavierStokes!, only: NavierStokes_Initialize_Parameters
     use Thermodynamics, only: Thermo_Initialize
     use TLab_Background, only: TLab_Initialize_Background
-    use Gravity, only: Gravity_Initialize, gravityProps, Gravity_Source, bbackground
+    use Gravity, only: Gravity_Initialize, froude, gravityProps, Gravity_Source, bbackground
     use Rotation, only: Rotation_Initialize
     use Thermo_Anelastic
     use Radiation !, only: Radiation_Initialize, infraredProps

@@ -43,7 +43,7 @@ module SCAL_LOCAL
     ! -------------------------------------------------------------------
     real(wp) :: norm_ini_s(MAX_VARS)                            ! Scaling of perturbation
     type(discrete_dt) :: fp                                     ! Discrete perturbation
-    type(profiles_dt) :: prof_loc, prof_dum
+    type(profiles_dt) :: prof_loc
     integer(wi) i, j, k
     integer(wi) im, idsp, jdsp
     real(wp) wx, wy, wx_1, wy_1
@@ -91,58 +91,20 @@ contains
         end if
 
         if (trim(adjustl(sRes)) /= 'none') then
-            ! Initialize default dummy scalar
-            call Profiles_ReadBlock(bakfile, inifile, block, 'DefaultDummy', prof_dum, 'gaussiansurface')
-            
-            ! Initialize for general scalar
-            call Profiles_ReadBlock(bakfile, inifile, block, 'IniS', prof_loc, 'gaussiansurface')
-            !call Profiles_ReadBlock(bakfile, inifile, block, 'IniS', IniS(1), 'gaussiansurface')
-            !IniS(2:) = IniS(1)
-            
+
             ! Initialize for specific scalar
             do is = 1, inb_scal
                 write (lstr, *) is
-                call Profiles_ReadBlock(bakfile, inifile, block, 'IniS'//trim(adjustl(lstr)), IniS(is), 'gaussiansurface')
-                ! If fields not updated by reading 'specific' use potential updates from 'general'
-                if (IniS(is)%type == prof_dum%type) then
-                    IniS(is)%type  = prof_loc%type
+                call Profiles_ReadBlock(bakfile, inifile, block, 'IniS'//trim(adjustl(lstr)), IniS(is), 'void')
+
+                ! If no scalar-specific info is found, initialize for general scalar
+                if (.not. any(IniSvalid == IniS(is)%type)) then
+                    call Profiles_ReadBlock(bakfile, inifile, block, 'IniS', IniS(is), 'gaussiansurface')
                 end if
-                !if (IniS(is)%padding == prof_dum%padding) then
-                !    IniS(is)%padding  = prof_loc%padding
-                !end if
-                if (IniS(is)%relative == prof_dum%relative) then
-                    IniS(is)%relative  = prof_loc%relative
-                end if
-                if (IniS(is)%mean == prof_dum%mean) then
-                    IniS(is)%mean  = prof_loc%mean
-                end if
-                if (IniS(is)%delta == prof_dum%delta) then
-                    IniS(is)%delta  = prof_loc%delta
-                end if
-                if (IniS(is)%zmean == prof_dum%zmean) then
-                    IniS(is)%zmean  = prof_loc%zmean
-                end if
-                if (IniS(is)%zmean_rel == prof_dum%zmean_rel) then
-                    IniS(is)%zmean_rel  = prof_loc%zmean_rel
-                end if
-                if (IniS(is)%thick == prof_dum%thick) then
-                    IniS(is)%thick  = prof_loc%thick
-                end if
-                if (IniS(is)%lslope == prof_dum%lslope) then
-                    IniS(is)%lslope  = prof_loc%lslope
-                end if
-                if (IniS(is)%uslope == prof_dum%uslope) then
-                    IniS(is)%uslope  = prof_loc%uslope
-                end if
-                if (IniS(is)%diam == prof_dum%diam) then
-                    IniS(is)%diam  = prof_loc%diam
-                end if
-                !if (IniS(is)%parameters == prof_dum%parameters) then
-                !    IniS(is)%parameters  = prof_loc%parameters
-                !end if
             end do
         end if
 
+        ! Sanity check
         do is = 1, inb_scal
             if (.not. any(IniSvalid == IniS(is)%type)) then
                 call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Undeveloped IniS type.')

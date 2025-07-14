@@ -25,6 +25,7 @@ module Profiles
         real(wp) :: parameters(MAX_PARS) = 0.0_wp   ! additional parameters
     end type profiles_dt
 
+    integer, parameter, public :: PROFILE_VOID = -1
     integer, parameter, public :: PROFILE_NONE = 0
     integer, parameter, public :: PROFILE_LINEAR = 1
     integer, parameter, public :: PROFILE_TANH = 2
@@ -98,6 +99,7 @@ contains
         else if (trim(adjustl(sRes)) == 'parabolicsurface') then; var%type = PROFILE_PARABOLIC_SURFACE
         else if (trim(adjustl(sRes)) == 'mixedlayer') then; var%type = PROFILE_MIXEDLAYER
         else if (trim(adjustl(sRes)) == 'gaussiantanhsymmetric') then; var%type = PROFILE_GAUSSIAN_TANH_SYM
+        else if (trim(adjustl(sRes)) == 'void') then; var%type = PROFILE_VOID
         else
             call TLab_Write_ASCII(efile, __FILE__//'. Wrong '//trim(adjustl(tag))//' profile.')
             call TLab_Stop(DNS_ERROR_OPTION)

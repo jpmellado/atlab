@@ -4,7 +4,7 @@
 ! q(:,1:inb_flow) for flow variables.
 ! s(:,1:inb_scal) for scal variables.
 
-module NavierStokes     ! Shall we call it EvolutionEquations?
+module NavierStokes     ! Shall we call it NavierStokes?
     use TLab_Constants, only: wp, wi, lfile, efile, wfile, MAX_VARS
     implicit none
     private
@@ -45,17 +45,17 @@ contains
 
         ! ###################################################################
         bakfile = trim(adjustl(inifile))//'.bak'
-        block = 'EvolutionEquations'
+        block = 'NavierStokes'
         eStr = __FILE__//'. '//trim(adjustl(block))//'. '
 
         call TLab_Write_ASCII(bakfile, '#')
         call TLab_Write_ASCII(bakfile, '#['//trim(adjustl(block))//']')
-        call TLab_Write_ASCII(bakfile, '#Equations=<total/internal/incompressible/anelastic>')
+        call TLab_Write_ASCII(bakfile, '#Type=<total/internal/incompressible/anelastic>')
         call TLab_Write_ASCII(bakfile, '#TermAdvection=<divergence/skewsymmetric>')
         call TLab_Write_ASCII(bakfile, '#TermViscous=<divergence/explicit>')
         call TLab_Write_ASCII(bakfile, '#TermDiffusion=<divergence/explicit>')
 
-        call ScanFile_Char(bakfile, inifile, block, 'Equations', 'internal', sRes)
+        call ScanFile_Char(bakfile, inifile, block, 'Type', 'boussinesq', sRes)
         if (trim(adjustl(sRes)) == 'boussinesq') then; nse_eqns = DNS_EQNS_BOUSSINESQ
         else if (trim(adjustl(sRes)) == 'anelastic') then; nse_eqns = DNS_EQNS_ANELASTIC
         else if (trim(adjustl(sRes)) == 'compressible') then; nse_eqns = DNS_EQNS_COMPRESSIBLE

@@ -3,7 +3,7 @@ module TLab_Constants
     save
 
     integer, parameter :: MajorVersion = 0
-    integer, parameter :: MinorVersion = 1
+    integer, parameter :: MinorVersion = 2
 
     integer, parameter :: MAX_PARS = 10
     integer, parameter :: MAX_VARS = 10

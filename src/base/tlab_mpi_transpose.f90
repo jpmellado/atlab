@@ -174,9 +174,9 @@ contains
 
         ! -----------------------------------------------------------------------
         ! to use alltoallw
-        allocate (counts(max(ims_npro_i, ims_npro_j, ims_npro_j)))
-        allocate (types_send(max(ims_npro_i, ims_npro_j, ims_npro_j)))
-        allocate (types_recv(max(ims_npro_i, ims_npro_j, ims_npro_j)))
+        allocate (counts(max(ims_npro_i, ims_npro_j, ims_npro_k)))
+        allocate (types_send(max(ims_npro_i, ims_npro_j, ims_npro_k)))
+        allocate (types_recv(max(ims_npro_i, ims_npro_j, ims_npro_k)))
         counts(:) = 1
 
         ! -----------------------------------------------------------------------
@@ -713,8 +713,8 @@ contains
         case (TLAB_MPI_TRP_ALLTOALL)
             types_send(1:npro) = tsend
             types_recv(1:npro) = trecv
-            call MPI_ALLTOALLW(a, counts, dsend*int(sizeof(1.0_sp)), types_send, &
-                               b, counts, drecv*int(sizeof(1.0_sp)), types_recv, comm, ims_err)
+            call MPI_ALLTOALLW(a, counts, dsend*int(2*sizeof(1.0_wp)), types_send, &
+                               b, counts, drecv*int(2*sizeof(1.0_wp)), types_recv, comm, ims_err)
             ! call MPI_ALLTOALLW(a, spread(1, 1, npro), dsend*int(sizeof(1.0_wp)), spread(tsend, 1, npro), &
             !                    b, spread(1, 1, npro), drecv*int(sizeof(1.0_wp)), spread(trecv, 1, npro), comm, ims_err)
 

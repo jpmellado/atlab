@@ -21,8 +21,9 @@ program vmpi_io_levante
 
     ! Decomposition along X and Y in ims_npro_i x ims_npro_j pencils
     integer ims_npro                            ! number of tasks
-    integer, parameter :: ims_npro_i = 48       ! number of tasks in X
-    integer, parameter :: ims_npro_j = 32       ! number of tasks in Y
+    !integer, parameter :: ims_npro_i = 48       ! number of tasks in X
+    integer, parameter :: ims_npro_i = 96       ! number of tasks in X
+    integer, parameter :: ims_npro_j = 64       ! number of tasks in Y
     !integer, parameter :: ims_npro_i = 2       ! number of tasks in X
     !integer, parameter :: ims_npro_j = 2       ! number of tasks in Y
     integer ims_pro                             ! local task in global communicator
@@ -53,7 +54,7 @@ program vmpi_io_levante
     ny = 3072
     nz = 768
     nx = nx/ims_npro_i                      ! task-local number of grid points along X
-    nz = nz/ims_npro_j                      ! task-local number of grid points along Z
+    ny = ny/ims_npro_j                      ! task-local number of grid points along Z
     
     ims_pro_i = mod(ims_pro, ims_npro_i)    ! MPI offset
     ims_pro_j = ims_pro/ims_npro_i          ! MPI offset
@@ -66,8 +67,8 @@ program vmpi_io_levante
     ! double precission
     ! subarray = IO_Create_Subarray_XOY(nx, ny, nz, MPI_REAL8)
 
-    !offset = 0
-    offset = 1*sizeofint
+    offset = 0        ! no header
+    !offset = 1*sizeofint
     mpio_locsize = nx*ny*nz
     do iv = 1, nv
 
@@ -75,24 +76,25 @@ program vmpi_io_levante
 
         ! if PE 0 does this and not the others, then it hangs...
         if ( ims_pro == 0 ) then
-           open(55,file=str,status='unknown',form='unformatted',access='stream')
-           write(55) nx*ny*nz
-           close(55)
+        !   open(55,file=str,status='unknown',form='unformatted',access='stream')
+        !   write(55) nx*ny*nz
+        !   close(55)
         end if
 
         call MPI_BARRIER(MPI_COMM_WORLD, ims_err)
 
-        !call MPI_FILE_OPEN(MPI_COMM_WORLD, str, MPI_MODE_WRONLY+MPI_MODE_CREATE, MPI_INFO_NULL, mpio_fh, ims_err)
-        call MPI_FILE_OPEN(MPI_COMM_WORLD, str, MPI_MODE_WRONLY, MPI_INFO_NULL, mpio_fh, ims_err)
+        call MPI_FILE_OPEN(MPI_COMM_WORLD, str, MPI_MODE_WRONLY+MPI_MODE_CREATE, MPI_INFO_NULL, mpio_fh, ims_err)
+        !call MPI_FILE_OPEN(MPI_COMM_WORLD, str, MPI_MODE_WRONLY, MPI_INFO_NULL, mpio_fh, ims_err)
 
         ! single precision
         call MPI_File_set_view(mpio_fh, offset, MPI_REAL4, subarray, 'native', MPI_INFO_NULL, ims_err)
         call MPI_File_write_all(mpio_fh, a(:, iv), mpio_locsize, MPI_REAL4, status, ims_err)
         ! double precision
         ! call MPI_File_set_view(mpio_fh, offset, MPI_REAL8, subarray, 'native', MPI_INFO_NULL, ims_err)
-        ! call MPI_File_write_all(mpio_fh, a(:, :, :, iv), mpio_locsize, MPI_REAL8, status, ims_err)
+        ! call MPI_File_write_all(mpio_fh, a(:, iv), mpio_locsize, MPI_REAL8, status, ims_err)
 
         call MPI_File_close(mpio_fh, ims_err)
+
     end do
 
     call MPI_FINALIZE(ims_err)
@@ -107,6 +109,8 @@ contains
         type(MPI_Datatype) :: locSubarray
         integer, parameter :: ndims = 3
         integer(wi) :: sizes(ndims), locsize(ndims), offset(ndims)
+
+        !if ( ims_pro == 0 ) print*, nx, ny, nz, ims_npro_i, ims_npro_j
 
         sizes = [nx*ims_npro_i, ny*ims_npro_j, nz]
         locsize = [nx, ny, nz]

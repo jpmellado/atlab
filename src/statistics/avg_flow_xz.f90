@@ -246,7 +246,7 @@ subroutine AVG_FLOW_XZ(q, s, dudx, dudy, dudz, dvdx, dvdy, dvdz, dwdx, dwdy, dwd
     sg(ng) = 17
 
     groupname(ng) = 'TkeBudget'
-    varname(ng) = 'Tke_t Buo Con Prd Eps Pi Trp Trp1 Trp2 Trp3 Trp1_z Trp2_z Trp3_z G D Phi UgradP'
+    varname(ng) = 'Tke_t Buo Con Prd Eps Pi Trp_z Trp1 Trp2 Trp3 Trp1_z Trp2_z Trp3_z G D Phi UgradP'
 
     ! -----------------------------------------------------------------------
     ng = ng + 1; ig(ng) = ig(ng - 1) + sg(ng - 1)

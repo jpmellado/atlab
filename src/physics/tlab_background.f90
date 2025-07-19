@@ -98,7 +98,7 @@ contains
             allocate (rbackground(z%size))
             allocate (ribackground(z%size))
 
-            call Gravity_Hydrostatic_Enthalpy(fdm_Int0, z%nodes(:), sbackground, epbackground, tbackground, pbackground, pbg%zmean, pbg%mean, wrk1d)
+            call Gravity_Hydrostatic_Enthalpy(fdm_Int0, z%nodes(:), sbackground, epbackground, tbackground, pbackground, pbg%zmean, pbg%mean, equilibrium=.true.)
 
             call Thermo_Anelastic_Rho(1, 1, z%size, sbackground, rbackground, wrk1d)
             ribackground = 1.0_wp/rbackground

@@ -185,27 +185,33 @@ contains
     ! Compute hydrostatic equilibrium from profiles s=(h,q_t) where h is the enthalpy
     ! Evaluate the integral \int_zref^z dx/H(x), where H(x) is the scale height in the system
     !########################################################################
-    subroutine Gravity_Hydrostatic_Enthalpy(fdmi, z, s, ep, T, p, zref, pref, wrk1d)
+    subroutine Gravity_Hydrostatic_Enthalpy(fdmi, z, s, ep, T, p, zref, pref, equilibrium)!wrk1d)
         use TLab_Constants, only: BCS_MIN
+        use TLab_Arrays, only: wrk1d
         use FDM_Integral, only: FDM_Int1_Solve, fdm_integral_dt
         use Thermodynamics, only: imode_thermo, THERMO_TYPE_ANELASTIC, THERMO_TYPE_COMPRESSIBLE
-        use Thermo_Base, only: imixture, MIXT_TYPE_AIRWATER
         use Thermo_Anelastic
-        use Microphysics
         use OPR_ODES
 
         type(fdm_integral_dt), intent(in) :: fdmi(2)
-        real(wp), intent(in) :: z(:)
-        real(wp), intent(inout) :: s(:, :)      ! We calculate equilibrium composition
+        real(wp), intent(in) :: z(:)            ! spatial coordinate
+        real(wp), intent(inout) :: s(:, :)      ! We could calculate equilibrium composition
         real(wp), intent(out) :: ep(:), T(:), p(:)
-        real(wp), intent(in) :: zref, pref
-        real(wp), dimension(size(z), 3), intent(inout) :: wrk1d
+        real(wp), intent(in) :: zref, pref      ! integration constant: p(zref)=pref
+        logical, optional :: equilibrium        ! use phase/chemical equilibrium for species or not
 
         ! -------------------------------------------------------------------
         integer(wi) iter, niter, k, kcenter, nz
         real(wp) dummy
+        logical locEquilibrium
 
         ! ###################################################################
+        if (present(equilibrium)) then
+            locEquilibrium = equilibrium
+        else
+            locEquilibrium = .false.
+        end if
+
         nz = size(z)
 
         ! Get the center
@@ -225,7 +231,7 @@ contains
             ep(:) = -(z(:) - zref)*gravityProps%vector(3)
         end if
 
-        ! hydrstatic pressure
+        ! hydrostatic pressure
 #define p_aux(i)        wrk1d(i,1)
 #define r_aux(i)        wrk1d(i,2)
 #define wrk_aux(i)      wrk1d(i,3)
@@ -264,7 +270,7 @@ contains
 
             select case (imode_thermo)
             case (THERMO_TYPE_ANELASTIC)
-                if (imixture == MIXT_TYPE_AIRWATER .and. evaporationProps%type == TYPE_EVA_EQUILIBRIUM) then
+                if (locEquilibrium) then
                     pbackground(:) = p(:)
                     call Thermo_Anelastic_EquilibriumPH(1, 1, nz, s(:, 2), s(:, 1))
                 end if
@@ -278,6 +284,7 @@ contains
 
 #undef p_aux
 #undef r_aux
+#undef wrk_aux
 
         return
     end subroutine Gravity_Hydrostatic_Enthalpy

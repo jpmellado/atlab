@@ -201,7 +201,7 @@ contains
         logical, optional :: equilibrium        ! use phase/chemical equilibrium for species or not
 
         ! -------------------------------------------------------------------
-        integer(wi) iter, niter, k, kcenter, nz
+        integer(wi) iter, niter, kcenter, nz
         real(wp) dummy
         logical locEquilibrium
 
@@ -221,13 +221,10 @@ contains
         nz = size(z)
 
         ! Get the center
-        do k = 1, nz
-            if (z(k) <= zref .and. &
-                z(k + 1) > zref) then
-                kcenter = k
-                exit
-            end if
+        do kcenter = 1, nz - 1
+            if (z(kcenter) <= zref .and. z(kcenter + 1) > zref) exit
         end do
+        ! print *, kcenter, z(kcenter), zref
 
         ! specific potential energy
         if (imode_thermo == THERMO_TYPE_ANELASTIC) then
@@ -265,12 +262,7 @@ contains
 
             ! Calculate pressure and normalize s.t. p=pref at z=zref
             p(:) = exp(p(:))
-            if (abs(zref - z(kcenter)) == 0.0_wp) then
-                dummy = p(kcenter)
-            else
-                dummy = p(kcenter) + (p(kcenter + 1) - p(kcenter)) &
-                        /(z(kcenter + 1) - z(kcenter))*(zref - z(kcenter))
-            end if
+            dummy = p(kcenter) + (zref - z(kcenter))*(p(kcenter + 1) - p(kcenter))/(z(kcenter + 1) - z(kcenter))
             dummy = pref/dummy
             p(:) = dummy*p(:)
 

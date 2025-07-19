@@ -185,7 +185,7 @@ contains
     ! Compute hydrostatic equilibrium from profiles s=(h,q_t) where h is the enthalpy
     ! Evaluate the integral \int_zref^z dx/H(x), where H(x) is the scale height in the system
     !########################################################################
-    subroutine Gravity_Hydrostatic_Enthalpy(fdmi, z, s, ep, T, p, zref, pref, equilibrium)!wrk1d)
+    subroutine Gravity_Hydrostatic_Enthalpy(fdmi, z, s, ep, T, p, zref, pref, equilibrium)
         use TLab_Constants, only: BCS_MIN
         use TLab_Arrays, only: wrk1d
         use FDM_Integral, only: FDM_Int1_Solve, fdm_integral_dt
@@ -195,7 +195,7 @@ contains
 
         type(fdm_integral_dt), intent(in) :: fdmi(2)
         real(wp), intent(in) :: z(:)            ! spatial coordinate
-        real(wp), intent(inout) :: s(:, :)      ! We could calculate equilibrium composition
+        real(wp), intent(inout) :: s(:, :)      ! inout because we might need to calculate equilibrium composition
         real(wp), intent(out) :: ep(:), T(:), p(:)
         real(wp), intent(in) :: zref, pref      ! integration constant: p(zref)=pref
         logical, optional :: equilibrium        ! use phase/chemical equilibrium for species or not
@@ -210,6 +210,12 @@ contains
             locEquilibrium = equilibrium
         else
             locEquilibrium = .false.
+        end if
+
+        if (locEquilibrium) then    ! maybe to be implemented in terms of a residual
+            niter = 10
+        else
+            niter = 1
         end if
 
         nz = size(z)
@@ -236,28 +242,28 @@ contains
 #define r_aux(i)        wrk1d(i,2)
 #define wrk_aux(i)      wrk1d(i,3)
 
-        ! Setting the pressure entry to 1 to get 1/RT
-        p_aux(:) = 1.0_wp
-
-        niter = 10
-
-        p(:) = pref                                                                     ! initialize iteration
-        s(:, inb_scal + 1:inb_scal_array) = 0.0_wp                                      ! initialize diagnostic
-        do iter = 1, niter           ! iterate
-            if (imode_thermo == THERMO_TYPE_ANELASTIC) then
+        p(:) = pref                                                                 ! initialize iteration
+        s(:, inb_scal + 1:inb_scal_array) = 0.0_wp                                  ! initialize diagnostic
+        do iter = 1, niter                                                          ! iterate
+            select case (imode_thermo)
+            case (THERMO_TYPE_ANELASTIC)
+                p_aux(:) = pbackground(:)
+                pbackground(:) = 1.0_wp                                             ! Set p to 1 to get 1/RT
+                call Thermo_Anelastic_Rho(1, 1, nz, s, r_aux(:), wrk_aux(:))        ! Get r_aux=1/RT
                 pbackground(:) = p_aux(:)
-                call Thermo_Anelastic_Rho(1, 1, nz, s, r_aux(:), wrk_aux(:))    ! Get r_aux=1/RT
-                r_aux(:) = -scaleheightinv*r_aux(:)
-            else
+                r_aux(:) = -scaleheightinv*r_aux(:)                                 ! Define (1/p)dpdz = -g/RT
+
+            case (THERMO_TYPE_COMPRESSIBLE)
                 ! call THERMO_AIRWATER_PH_RE(nx, s(:, 2), p, s(:, 1), T)
-                ! call THERMO_THERMAL_DENSITY(nx, s(:, 2), p_aux(:), T, r_aux(:))     ! Get r_aux=1/RT
+                ! call THERMO_THERMAL_DENSITY(nx, s(:, 2), p_aux(:), T, r_aux(:))   ! Get r_aux=1/RT
                 ! r_aux(:) = gravityProps%vector(2)*r_aux(:)
-            end if
+
+            end select
 
             p(1) = 0.0_wp
             call FDM_Int1_Solve(1, fdmi(BCS_MIN), fdmi(BCS_MIN)%rhs, r_aux(:), p, wrk_aux(:))
 
-            ! Calculate pressure and normalize s.t. p=pref at y=zref
+            ! Calculate pressure and normalize s.t. p=pref at z=zref
             p(:) = exp(p(:))
             if (abs(zref - z(kcenter)) == 0.0_wp) then
                 dummy = p(kcenter)
@@ -271,7 +277,6 @@ contains
             select case (imode_thermo)
             case (THERMO_TYPE_ANELASTIC)
                 if (locEquilibrium) then
-                    pbackground(:) = p(:)
                     call Thermo_Anelastic_EquilibriumPH(1, 1, nz, s(:, 2), s(:, 1))
                 end if
                 call Thermo_Anelastic_T(1, 1, nz, s, T)

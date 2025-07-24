@@ -1,5 +1,9 @@
 set(LEVEL1_LIBS utils base)
 
+FILE(GLOB sourcefiles "linear/vlinear.f90")
+add_executable(vlinear.x ${sourcefiles})
+target_link_libraries(vlinear.x finitedifferences ${LEVEL1_LIBS} ${LIBS})
+
 FILE(GLOB sourcefiles "fdm/vpartial.f90")
 add_executable(vpartial.x ${sourcefiles})
 target_link_libraries(vpartial.x physics operators finitedifferences ${LEVEL1_LIBS} ${LIBS})

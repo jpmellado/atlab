@@ -1,6 +1,7 @@
 program vLinear
     use TLab_Constants, only: wp, wi, BCS_NONE
     use Thomas3
+    use Thomas3_Split
     ! use Thomas5
     use FDM_MatMul
 
@@ -10,10 +11,12 @@ program vLinear
     integer(wi), parameter :: nx = 128
     integer(wi), parameter :: nd = 3
 
-    real(wp) :: lhs(nx, nd)
-    real(wp) :: u(len, nx), f(len, nx)
+    real(wp) :: lhs(nx, nd), lhs_loc(nx, nd)
+    real(wp) :: u(len, nx), u_loc(len, nx), f(len, nx)
+    real(wp) :: wrk2d(len)
+    type(matrix_split_dt) split
 
-    integer(wi) id !, n
+    integer(wi) id
 
     integer :: nseed
     integer, allocatable :: seed(:)
@@ -23,12 +26,12 @@ program vLinear
     ! from https://masuday.github.io/fortran_tutorial/random.html
     call random_seed(size=nseed)
     allocate (seed(nseed))
-    call random_seed(get=seed)
-    print *, seed
-    seed = 123456789    ! putting arbitrary seed to all elements
-    call random_seed(put=seed)
-    call random_seed(get=seed)
-    print *, seed
+    ! call random_seed(get=seed)
+    ! print *, seed
+    ! seed = 123456789    ! putting arbitrary seed to all elements
+    ! call random_seed(put=seed)
+    ! call random_seed(get=seed)
+    ! print *, seed
     deallocate (seed)
 
     ! -------------------------------------------------------------------
@@ -42,27 +45,26 @@ program vLinear
 
     call random_number(u)
     call MatMul_3d(lhs, u, f, ibc=BCS_NONE)
-    ! n = 1; f(:, n) = lhs(n, 2)*u(:, n) + lhs(n, 3)*u(:, n + 1)
-    ! do n = 2, nx - 1
-    !     f(:, n) = lhs(n, 1)*u(:, n - 1) + lhs(n, 2)*u(:, n) + lhs(n, 3)*u(:, n + 1)
-    ! end do
-    ! f(:, n) = lhs(n, 1)*u(:, n - 1) + lhs(n, 2)*u(:, n)
 
     ! -------------------------------------------------------------------
-    ! solve using standard thomas algorithm
-    call Thomas3_LU(nx, lhs(:, 1), lhs(:, 2), lhs(:, 3))
-    call Thomas3_Solve(nx, len, lhs(:, 1), lhs(:, 2), lhs(:, 3), f)
+    print *, new_line('a'), 'Standard Thomas algorithm'
 
-    print *, 'Standard Thomas algorithm'
-    call check(u, f, 'linear.dat')
+    lhs_loc = lhs
+    call Thomas3_LU(nx, lhs_loc(:, 1), lhs_loc(:, 2), lhs_loc(:, 3))
+    u_loc(:, :) = f(:, :)
+    call Thomas3_Solve(nx, len, lhs_loc(:, 1), lhs_loc(:, 2), lhs_loc(:, 3), u_loc)
+
+    call check(u_loc, u, 'linear.dat')
 
     ! -------------------------------------------------------------------
-    ! solve using standard splitting algorithm
-    ! call SplittingThomas3_Initialize()
-    ! call SplittingThomas3_Solve()
+    print *, new_line('a'), 'Splitting Thomas algorithm'
 
-    print *, 'Splitting Thomas algorithm'
-    ! call check(u, f, 'linear.dat')
+    lhs_loc = lhs
+    call Thomas3_Split_Initialize(lhs_loc(:, 1), lhs_loc(:, 2), lhs_loc(:, 3), [nx/2], split)
+    u_loc(:, :) = f(:, :)
+    call Thomas3_Split_Solve(lhs_loc(:, 1), lhs_loc(:, 2), lhs_loc(:, 3), split, u_loc, wrk2d)
+
+    call check(u_loc, u, 'linear.dat')
 
     ! ###################################################################
 contains

@@ -15,7 +15,7 @@ module Thomas3_Split
 
     type, public :: matrix_split_dt
         integer :: np                           ! number of splitting points
-        logical :: periodic = .false.
+        logical :: circulant = .true.
         integer(wi), allocatable :: points(:)   ! sequence of splitting points in ascending order
         real(wp), allocatable :: z(:, :)
         real(wp), allocatable :: alpha(:, :)
@@ -26,7 +26,7 @@ module Thomas3_Split
     type, public :: thomas3_split_dt
         integer :: block
         integer(wi) :: pmin, pmax
-        logical :: periodic = .false.
+        logical :: circulant = .true.
         real(wp), allocatable :: a(:), b(:), c(:)
         real(wp), allocatable :: z(:, :)
         real(wp) :: alpha(2)
@@ -80,7 +80,7 @@ contains
         ! temporary arrays to calculate z
         allocate (aloc(gsize), bloc(gsize), cloc(gsize))
 
-        if (split%periodic) then        ! block mmax+1 has the circulant case
+        if (split%circulant) then        ! block mmax+1 has the circulant case
             m = mmax + 1
             p = gsize
             p_plus_1 = 1
@@ -103,7 +103,7 @@ contains
         end do
 
         ! Calculate gamma
-        if (split%periodic) then
+        if (split%circulant) then
             do m = 1, mmax
                 split%gamma(m) = split%alpha(1, mmax + 1)*split%z(gsize, m) + split%alpha(2, mmax + 1)*split%z(1, m)
             end do
@@ -229,7 +229,7 @@ contains
                 end do
             end if
 
-            if (split%periodic) then         ! accumulate alpha_0
+            if (split%circulant) then         ! accumulate alpha_0
                 if (k <= nblocks - 1) then
                     tmp(:) = alpha_0(:, k + 1)  ! this info comes from block k+1
                     alpha_0(:, k) = tmp(:) + split%gamma(k)*alpha(:, k)
@@ -240,7 +240,7 @@ contains
 
         end do
 
-        if (split%periodic) then
+        if (split%circulant) then
             ! broadcast alpha_0(:) from block 1 into tmp of all ranks
             tmp(:) = alpha_0(:, 1)
             do k = nblocks, 1, -1              ! loop over blocks
@@ -317,7 +317,7 @@ contains
                 end do
             end if
 
-            if (split(k)%periodic) then         ! accumulate alpha_0
+            if (split(k)%circulant) then         ! accumulate alpha_0
                 if (k <= nblocks - 1) then
                     tmp(:) = alpha_0(:, k + 1)  ! this info comes from block k+1
                     alpha_0(:, k) = tmp(:) + split(k)%gamma*alpha(:, k)
@@ -328,7 +328,7 @@ contains
 
         end do
 
-        if (split(k)%periodic) then
+        if (split(k)%circulant) then
             ! broadcast alpha_0(:) from block 1 into tmp of all ranks
             tmp(:) = alpha_0(:, 1)
             do k = nblocks, 1, -1               ! loop over blocks

@@ -70,7 +70,7 @@ program vLinear
     lhs_loc = lhs
     u_loc(:, :) = f(:, :)
     mmax = 3
-    split%periodic = periodic
+    split%circulant = periodic
 
     call Thomas3_Split_Initialize_Global(lhs_loc(:, 1), lhs_loc(:, 2), lhs_loc(:, 3), &
                                   [(m, m=nx/(mmax + 1), nx - 1, nx/(mmax + 1))], split)

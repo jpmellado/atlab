@@ -11,6 +11,7 @@ module Thomas3_Split
 
     public :: Thomas3_Split_Initialize_Global
     public :: Thomas3_Split_Solve_Global
+    public :: Thomas3_Split_Solve
 
     type, public :: matrix_split_dt
         integer :: np                           ! number of splitting points
@@ -28,8 +29,8 @@ module Thomas3_Split
         logical :: periodic = .false.
         real(wp), allocatable :: a(:), b(:), c(:)
         real(wp), allocatable :: z(:, :)
-        real(wp), allocatable :: alpha(:, :)
-        real(wp), allocatable :: beta(:)
+        real(wp) :: alpha(2)
+        real(wp) :: beta
         real(wp), allocatable :: gamma(:)
     end type thomas3_split_dt
 
@@ -42,31 +43,30 @@ contains
         type(matrix_split_dt), intent(inout) :: split
 
         ! -------------------------------------------------------------------
-        integer(wi) nmax, m, mmax, mmin, p, pmax, p_plus_1, k
+        integer(wi) gsize, m, mmax, p, p_plus_1, k
+        integer(wi) nmin, nmax, nsize
 
         real(wp), allocatable :: aloc(:), bloc(:), cloc(:)
         real(wp) delta
 
         !########################################################################
-        nmax = size(a)
+        gsize = size(a)
         mmax = size(points)
-
-        mmin = 1
-        if (split%periodic) mmin = 0
 
         ! splitting data
         if (allocated(split%points)) deallocate (split%points)
         allocate (split%points(0:mmax + 1))
 
         split%points(1:mmax) = points(1:mmax)
-        split%points(0) = nmax; split%points(mmax + 1) = nmax      ! extended
+        split%points(mmax + 1) = gsize      ! extended for circulant case
+        split%points(0) = gsize; 
         print *, points(:)
 
         if (allocated(split%z)) deallocate (split%z)
-        allocate (split%z(nmax, mmin:mmax))
+        allocate (split%z(gsize, mmax + 1))
 
         if (allocated(split%alpha)) deallocate (split%alpha)
-        allocate (split%alpha(2, mmin:mmax))
+        allocate (split%alpha(2, mmax + 1))
 
         if (allocated(split%beta)) deallocate (split%beta)
         allocate (split%beta(mmax))
@@ -75,40 +75,22 @@ contains
         allocate (split%gamma(mmax))
 
         ! -------------------------------------------------------------------
+        ! Calculate alpha and z
+
         ! temporary arrays to calculate z
-        allocate (aloc(nmax), bloc(nmax), cloc(nmax))
+        allocate (aloc(gsize), bloc(gsize), cloc(gsize))
 
-        do m = mmin, mmax               ! loop over splitting points
+        if (split%periodic) then        ! block mmax+1 has the circulant case
+            m = mmax + 1
+            p = gsize
+            p_plus_1 = 1
+            call Splitting(a, b, c, p, p_plus_1, split%alpha(:, m), split%z(:, m))
+        end if
+
+        do m = 1, mmax                  ! loop over splitting points
             p = split%points(m)         ! index of splitting point
-            p_plus_1 = mod(p + 1, nmax)
-
-            ! Start definition of alpha
-            split%alpha(1, m) = a(p_plus_1)
-            split%alpha(2, m) = c(p)
-
-            ! Generate matrix Ak
-            b(p) = b(p) - a(p_plus_1)
-            a(p_plus_1) = 0.0_wp
-            b(p_plus_1) = b(p_plus_1) - c(p)
-            c(p) = 0.0_wp
-
-            ! Generate vector zk
-            aloc(:) = a(:); bloc(:) = b(:); cloc(:) = c(:)
-            call Thomas3_LU(nmax, aloc, bloc, cloc)
-
-            split%z(:, m) = 0.0_wp
-            split%z(p, m) = 1.0_wp
-            split%z(p_plus_1, m) = 1.0_wp
-            call Thomas3_Solve(nmax, 1, aloc, bloc, cloc, split%z(:, m))
-
-            ! Complete definition of alpha
-            delta = 1.0_wp + split%alpha(1, m)*split%z(p, m) + split%alpha(2, m)*split%z(p_plus_1, m)
-            if (abs(delta) < small_wp) then
-                call TLab_Write_ASCII(efile, __FILE__//'. Singular matrix M.')
-                call TLab_Stop(DNS_ERROR_THOMAS)
-            end if
-            split%alpha(1, m) = -split%alpha(1, m)/delta
-            split%alpha(2, m) = -split%alpha(2, m)/delta
+            p_plus_1 = mod(p + 1, gsize)
+            call Splitting(a, b, c, p, p_plus_1, split%alpha(:, m), split%z(:, m))
 
         end do
 
@@ -123,20 +105,60 @@ contains
         ! Calculate gamma
         if (split%periodic) then
             do m = 1, mmax
-                split%gamma(m) = split%alpha(1, 0)*split%z(nmax, m) + split%alpha(2, 0)*split%z(1, m)
+                split%gamma(m) = split%alpha(1, mmax + 1)*split%z(gsize, m) + split%alpha(2, mmax + 1)*split%z(1, m)
             end do
         end if
 
         ! -------------------------------------------------------------------
         ! LU decomposition of block matrix Am
-        do k = 1, mmax + 1                  ! loop over blocks
-            p = mod(split%points(k - 1), nmax)
-            p = p + 1
-            pmax = split%points(k)
-            call Thomas3_LU(pmax - p + 1, a(p:pmax), b(p:pmax), c(p:pmax))
+        do k = 1, mmax + 1              ! loop over blocks
+            nmin = mod(split%points(k - 1), gsize)
+            nmin = nmin + 1
+            nmax = split%points(k)
+            nsize = nmax - nmin + 1
+            call Thomas3_LU(nsize, a(nmin:nmax), b(nmin:nmax), c(nmin:nmax))
         end do
 
         return
+
+    contains
+        subroutine Splitting(a, b, c, p, p_plus_1, alpha, z)
+            real(wp), intent(inout) :: a(:), b(:), c(:)
+            integer(wi), intent(in) :: p, p_plus_1
+            real(wp), intent(inout) :: alpha(2)
+            real(wp), intent(inout) :: z(:)
+
+            ! Start definition of alpha
+            alpha(1) = a(p_plus_1)
+            alpha(2) = c(p)
+
+            ! Generate matrix Ak
+            b(p) = b(p) - a(p_plus_1)
+            a(p_plus_1) = 0.0_wp
+            b(p_plus_1) = b(p_plus_1) - c(p)
+            c(p) = 0.0_wp
+
+            ! Generate vector zk
+            aloc(:) = a(:); bloc(:) = b(:); cloc(:) = c(:)
+            call Thomas3_LU(gsize, aloc, bloc, cloc)
+
+            z(:) = 0.0_wp
+            z(p) = 1.0_wp
+            z(p_plus_1) = 1.0_wp
+            call Thomas3_Solve(gsize, 1, aloc, bloc, cloc, z(:))
+
+            ! Complete definition of alpha
+            delta = 1.0_wp + alpha(1)*z(p) + alpha(2)*z(p_plus_1)
+            if (abs(delta) < small_wp) then
+                call TLab_Write_ASCII(efile, __FILE__//'. Singular matrix M.')
+                call TLab_Stop(DNS_ERROR_THOMAS)
+            end if
+            alpha(1) = -alpha(1)/delta
+            alpha(2) = -alpha(2)/delta
+
+            return
+        end subroutine Splitting
+
     end subroutine Thomas3_Split_Initialize_Global
 
     !########################################################################
@@ -146,71 +168,182 @@ contains
         type(matrix_split_dt), intent(in) :: split
         real(wp), intent(inout) :: f(:, :)          ! forcing and solution
 
-        integer(wi) n, nmax, m, mmin, mmax, p, pmax, p_plus_1, k, len
-        real(wp), allocatable :: xp(:), alpha(:, :)
+        integer(wi) n, nmin, nmax, nsize, nlines
+        integer(wi) m, mmax, nblocks
+        integer(wi) p, k
+        integer(wi) gsize
+        real(wp), allocatable :: tmp(:), xp(:, :), alpha(:, :), alpha_0(:, :)
 
         !########################################################################
-        len = size(f, 1)
-        nmax = size(f, 2)
+        nlines = size(f, 1)
         mmax = size(split%points) - 2
+        nblocks = mmax + 1
 
-        allocate (xp(len))
-        allocate (alpha(len, 0:mmax))
+        gsize = size(f, 2)
 
-        ! -------------------------------------------------------------------
-        ! Solving block system Am in m+1 block
-        do k = 1, mmax + 1                  ! loop over blocks
-            p = mod(split%points(k - 1), nmax)
-            p = p + 1
-            pmax = split%points(k)
-            call Thomas3_Solve(pmax - p + 1, len, &
-                               a(p:pmax), b(p:pmax), c(p:pmax), f(:, p:pmax))
-        end do
+        allocate (tmp(nlines))
+        allocate (xp(nlines, nblocks))          ! the idea is that each block needs only one alpha
+        allocate (alpha(nlines, nblocks))       ! the idea is that each block needs only one alpha
+        allocate (alpha_0(nlines, nblocks))     ! the idea is that each block needs only one alpha
 
         ! -------------------------------------------------------------------
-        ! Collect solution at block boundaries and calculate alphas
-        ! written in terms of blocks to mimic parallel computing
-        do k = 1, mmax + 1
-            m = mod(k, mmax + 1)            ! block k calculates alpha_k
-            !                                 block m+1 calculates alpha_0 for circulant case
-            p = split%points(m)
-            p_plus_1 = mod(p + 1, nmax)
-            xp(:) = f(:, p_plus_1)          ! this info comes from block k+1
-            alpha(:, m) = split%alpha(1, m)*f(:, p) + split%alpha(2, m)*xp(:)
+        ! Solving block system Am in each block
+        do k = 1, nblocks                       ! loop over blocks
+            nmin = mod(split%points(k - 1), gsize)
+            nmin = nmin + 1
+            nmax = split%points(k)
+            nsize = nmax - nmin + 1
+            call Thomas3_Solve(nsize, nlines, &
+                               a(nmin:nmax), b(nmin:nmax), c(nmin:nmax), f(:, nmin:nmax))
         end do
 
-        do k = mmax, 1, -1
-            m = k                           ! block k calculates alpha k
-            if (m == mmax) cycle            ! the last alpha has no beta correction
-            alpha(:, m) = alpha(:, m) + split%beta(m)*alpha(:, m + 1)
+        ! -------------------------------------------------------------------
+        ! Reduction step
+        ! pass x(:,1) to previous block
+        do k = nblocks, 1, -1                   ! loop over blocks
+            p = mod(split%points(k), gsize) + 1
+            xp(:, k) = f(:, p)                  ! solution at left boundary of block k+1
         end do
 
-        if (split%periodic) then            ! block m+1 handles circulant case
-            do m = 1, mmax
-                alpha(:, 0) = alpha(:, 0) + split%gamma(m)*alpha(:, m)
+        do k = nblocks, 1, -1                   ! loop over blocks
+            m = k
+            ! m = mod(k, nblocks)                 ! block k calculates alpha_k
+            !                                     block m+1 calculates alpha_0 for circulant case
+            nmax = split%points(k)
+            alpha(:, k) = split%alpha(1, m)*f(:, nmax) + split%alpha(2, m)*xp(:, k)
+
+            if (k <= nblocks - 2) then          ! the last 2 have no beta correction
+                tmp(:) = alpha(:, m + 1)        ! this info comes from block k+1
+                alpha(:, k) = alpha(:, k) + split%beta(k)*tmp(:)
+            end if
+
+            if (k <= nblocks - 1) then          ! update solution
+                ! send alpha_k to all PEs with larger rank
+                do m = k, nblocks
+                    nmin = mod(split%points(m - 1), gsize)
+                    nmin = nmin + 1
+                    nmax = split%points(m)
+                    do n = nmin, nmax
+                        f(:, n) = f(:, n) + alpha(:, k)*split%z(n, k)
+                    end do
+                end do
+            end if
+
+            if (split%periodic) then         ! accumulate alpha_0
+                if (k <= nblocks - 1) then
+                    tmp(:) = alpha_0(:, k + 1)  ! this info comes from block k+1
+                    alpha_0(:, k) = tmp(:) + split%gamma(k)*alpha(:, k)
+                else
+                    alpha_0(:, k) = alpha(:, k)
+                end if
+            end if
+
+        end do
+
+        if (split%periodic) then
+            ! broadcast alpha_0(:) from block 1 into tmp of all ranks
+            tmp(:) = alpha_0(:, 1)
+            do k = nblocks, 1, -1              ! loop over blocks
+                nmin = mod(split%points(k - 1), gsize)
+                nmin = nmin + 1
+                nmax = split%points(k)
+                do n = nmin, nmax
+                    f(:, n) = f(:, n) + tmp(:)*split%z(n, nblocks)
+                end do
             end do
         end if
 
-        ! -------------------------------------------------------------------
-        ! calculate solution in m+1 blocks
-        mmin = 1
-        if (split%periodic) mmin = 0        ! if circulant, down to alpha_0
-
-        do k = mmax + 1, 1, -1              ! loop over blocks
-            p = mod(split%points(k - 1), nmax)
-            p = p + 1
-            pmax = split%points(k)
-            do m = min(k, mmax), mmin, -1   ! each time I have an alpha, update
-                !                             block k+1 needs same alphas as block k
-                do n = p, pmax
-                    f(:, n) = f(:, n) + alpha(:, m)*split%z(n, m)
-                end do
-            end do
-        end do
-
-        deallocate (xp, alpha)
+        deallocate (xp, tmp, alpha, alpha_0)
 
         return
     end subroutine Thomas3_Split_Solve_Global
+
+    !########################################################################
+    !########################################################################
+    subroutine Thomas3_Split_Solve(split, f)
+        type(thomas3_split_dt), intent(in) :: split(:)
+        real(wp), intent(inout) :: f(:, :)          ! forcing and solution
+
+        integer(wi) n, nmin, nmax, nsize, nlines
+        integer(wi) m, mmax, nblocks
+        integer(wi) p, k
+        real(wp), allocatable :: tmp(:), xp(:, :), alpha(:, :), alpha_0(:, :)
+
+        !########################################################################
+        nlines = size(f, 1)
+        nblocks = nblocks
+        mmax = nblocks - 1
+
+        allocate (tmp(nlines))
+        allocate (xp(nlines, nblocks))          ! the idea is that each block needs only one alpha
+        allocate (alpha(nlines, nblocks))       ! the idea is that each block needs only one alpha
+        allocate (alpha_0(nlines, nblocks))     ! the idea is that each block needs only one alpha
+
+        ! -------------------------------------------------------------------
+        ! Solving block system Am in each block
+        do k = 1, nblocks                       ! loop over blocks
+            nmin = split(k)%pmin
+            nmax = split(k)%pmax
+            nsize = nmax - nmin + 1
+            call Thomas3_Solve(nsize, nlines, &
+                               split(k)%a(:), split(k)%b(:), split(k)%c(:), f(:, nmin:nmax))
+        end do
+
+        ! -------------------------------------------------------------------
+        ! Reduction step
+        ! pass x(:,1) to previous block
+        do k = nblocks, 1, -1                   ! loop over blocks
+            p = split(mod(k, nblocks) + 1)%pmin
+            xp(:, k) = f(:, p)                  ! solution at left boundary of block k+1
+        end do
+
+        do k = nblocks, 1, -1                   ! loop over blocks
+            nmax = split(k)%pmax
+            alpha(:, k) = split(k)%alpha(1)*f(:, nmax) + split(k)%alpha(2)*xp(:, k)
+
+            if (k <= nblocks - 2) then          ! the last 2 have no beta correction
+                tmp(:) = alpha(:, k + 1)        ! this info comes from block k+1
+                alpha(:, k) = alpha(:, k) + split(k)%beta*tmp(:)
+            end if
+
+            if (k <= nblocks - 1) then          ! update solution
+                ! send alpha_k to all PEs with larger rank
+                do m = k, nblocks
+                    nmin = split(m)%pmin
+                    nmax = split(m)%pmax
+                    do n = nmin, nmax
+                        f(:, n) = f(:, n) + alpha(:, k)*split(k)%z(n, k)
+                    end do
+                end do
+            end if
+
+            if (split(k)%periodic) then         ! accumulate alpha_0
+                if (k <= nblocks - 1) then
+                    tmp(:) = alpha_0(:, k + 1)  ! this info comes from block k+1
+                    alpha_0(:, k) = tmp(:) + split(k)%gamma*alpha(:, k)
+                else
+                    alpha_0(:, k) = alpha(:, k)
+                end if
+            end if
+
+        end do
+
+        if (split(k)%periodic) then
+            ! broadcast alpha_0(:) from block 1 into tmp of all ranks
+            tmp(:) = alpha_0(:, 1)
+            do k = nblocks, 1, -1               ! loop over blocks
+                nmin = split(k)%pmin
+                nmax = split(k)%pmax
+                do n = nmin, nmax
+                    f(:, n) = f(:, n) + tmp(:)*split(k)%z(n, 0)
+                end do
+
+            end do
+        end if
+
+        deallocate (tmp, alpha, alpha_0)
+
+        return
+    end subroutine Thomas3_Split_Solve
 
 end module Thomas3_Split

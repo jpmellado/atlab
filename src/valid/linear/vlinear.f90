@@ -5,13 +5,13 @@ program vLinear
 
     implicit none
 
-    integer(wi), parameter :: len = 1
+    integer(wi), parameter :: nlines = 5
     integer(wi), parameter :: nx = 32
     integer(wi), parameter :: nd = 3
 
     real(wp) :: lhs(nx, nd), lhs_loc(nx, nd)
-    real(wp) :: u(len, nx), u_loc(len, nx), f(len, nx)
-    real(wp) :: z(nx), wrk(len)     ! for circulant case
+    real(wp) :: u(nlines, nx), u_loc(nlines, nx), f(nlines, nx)
+    real(wp) :: z(nx), wrk(nlines)     ! for circulant case
     type(matrix_split_dt) split
 
     integer(wi) m, mmax, n
@@ -19,7 +19,7 @@ program vLinear
     integer :: nseed
     integer, allocatable :: seed(:)
 
-    logical, parameter :: periodic = .false.
+    logical, parameter :: periodic = .true.
 
     ! -------------------------------------------------------------------
     ! random number initialization for reproducibility
@@ -59,7 +59,7 @@ program vLinear
         call Thomas3C_SMW_Solve(lhs_loc(:, 1), lhs_loc(:, 2), lhs_loc(:, 3), z, u_loc, wrk)
     else
         call Thomas3_LU(nx, lhs_loc(:, 1), lhs_loc(:, 2), lhs_loc(:, 3))
-        call Thomas3_Solve(nx, len, lhs_loc(:, 1), lhs_loc(:, 2), lhs_loc(:, 3), u_loc)
+        call Thomas3_Solve(nx, nlines, lhs_loc(:, 1), lhs_loc(:, 2), lhs_loc(:, 3), u_loc)
     end if
 
     call check(u_loc, u, 'linear.dat')
@@ -107,7 +107,7 @@ contains
             close (20)
         end if
 
-        write (*, *) 'Solution L2-norm ...........:', sqrt(dummy)/real(len, wp)
+        write (*, *) 'Solution L2-norm ...........:', sqrt(dummy)/real(nlines, wp)
         if (dummy == 0.0_wp) return
         write (*, *) 'Relative Error L2-norm .....:', sqrt(error_l2)/sqrt(dummy)
         write (*, *) 'Relative Error Linf-norm ...:', error_max/abs(maxval(u_ref))

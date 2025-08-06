@@ -5,16 +5,22 @@ program vLinear
 
     implicit none
 
-    integer(wi), parameter :: nlines = 5
-    integer(wi), parameter :: nx = 32
+    integer(wi), parameter :: nlines = 128
+    integer(wi), parameter :: nsize = 1024
     integer(wi), parameter :: nd = 3
+    integer(wi) n
 
-    real(wp) :: lhs(nx, nd), lhs_loc(nx, nd)
-    real(wp) :: u(nlines, nx), u_loc(nlines, nx), f(nlines, nx)
-    real(wp) :: z(nx), wrk(nlines)     ! for circulant case
-    type(matrix_split_dt) split
+    real(wp) :: lhs(nsize, nd), lhs_loc(nsize, nd)
+    real(wp) :: u(nlines, nsize), u_loc(nlines, nsize), f(nlines, nsize)
+    real(wp) :: z(nsize), wrk(nlines)       ! for circulant case
 
-    integer(wi) m, mmax, n
+    integer(wi) k
+    integer, parameter :: nblocks = 16       ! number of blocks
+    integer, parameter :: points(1:nblocks) = [(k, k=nsize/nblocks, nsize, nsize/nblocks)]
+
+    type(thomas3_split_dt) split(nblocks)
+    type(data_dt) data(nblocks)
+    target u_loc
 
     integer :: nseed
     integer, allocatable :: seed(:)
@@ -42,8 +48,8 @@ program vLinear
 
     n = 1
     f(:, n) = lhs(n, 2)*u(:, n) + lhs(n, 3)*u(:, n + 1)
-    if (periodic) f(:, n) = f(:, n) + lhs(n, 1)*u(:, nx)
-    do n = 2, nx - 1
+    if (periodic) f(:, n) = f(:, n) + lhs(n, 1)*u(:, nsize)
+    do n = 2, nsize - 1
         f(:, n) = lhs(n, 1)*u(:, n - 1) + lhs(n, 2)*u(:, n) + lhs(n, 3)*u(:, n + 1)
     end do
     f(:, n) = lhs(n, 1)*u(:, n - 1) + lhs(n, 2)*u(:, n)
@@ -54,12 +60,13 @@ program vLinear
 
     lhs_loc = lhs
     u_loc(:, :) = f(:, :)
+
     if (periodic) then
         call Thomas3C_SMW_LU(lhs_loc(:, 1), lhs_loc(:, 2), lhs_loc(:, 3), z)
         call Thomas3C_SMW_Solve(lhs_loc(:, 1), lhs_loc(:, 2), lhs_loc(:, 3), z, u_loc, wrk)
     else
-        call Thomas3_LU(nx, lhs_loc(:, 1), lhs_loc(:, 2), lhs_loc(:, 3))
-        call Thomas3_Solve(nx, nlines, lhs_loc(:, 1), lhs_loc(:, 2), lhs_loc(:, 3), u_loc)
+        call Thomas3_LU(nsize, lhs_loc(:, 1), lhs_loc(:, 2), lhs_loc(:, 3))
+        call Thomas3_Solve(nsize, nlines, lhs_loc(:, 1), lhs_loc(:, 2), lhs_loc(:, 3), u_loc)
     end if
 
     call check(u_loc, u, 'linear.dat')
@@ -67,14 +74,36 @@ program vLinear
     ! -------------------------------------------------------------------
     print *, new_line('a'), 'Splitting Thomas algorithm'
 
-    lhs_loc = lhs
-    u_loc(:, :) = f(:, :)
-    mmax = 3
-    split%circulant = periodic
+    ! ! old version
+    ! lhs_loc = lhs
+    ! u_loc(:, :) = f(:, :)
 
-    call Thomas3_Split_Initialize_Global(lhs_loc(:, 1), lhs_loc(:, 2), lhs_loc(:, 3), &
-                                  [(m, m=nx/(mmax + 1), nx - 1, nx/(mmax + 1))], split)
-    call Thomas3_Split_Solve_Global(lhs_loc(:, 1), lhs_loc(:, 2), lhs_loc(:, 3), split, u_loc)
+    ! split_global%circulant = periodic
+    ! call Thomas3_Split_Initialize_Global(lhs_loc(:, 1), lhs_loc(:, 2), lhs_loc(:, 3), &
+    !                                      points, split_global)
+    ! call Thomas3_Split_Solve_Global(lhs_loc(:, 1), lhs_loc(:, 2), lhs_loc(:, 3), split_global, u_loc)
+
+    ! call check(u_loc, u, 'linear.dat')
+
+    u_loc(:, :) = f(:, :)
+
+    split(:)%circulant = periodic
+    do k = 1, nblocks
+        split(k)%block_id = k
+        split(k)%nmin = points(mod(k - 2 + nblocks, nblocks) + 1)
+        split(k)%nmin = mod(split(k)%nmin, nsize) + 1
+        split(k)%nmax = points(k)
+
+        lhs_loc = lhs
+
+        call Thomas3_Split_Initialize(lhs_loc(:, 1), lhs_loc(:, 2), lhs_loc(:, 3), &
+                                      points, split(k))
+
+        data(k)%p => u_loc(1:nlines, split(k)%nmin:split(k)%nmax)
+
+    end do
+
+    call Thomas3_Split_Solve(split, data)
 
     call check(u_loc, u, 'linear.dat')
 

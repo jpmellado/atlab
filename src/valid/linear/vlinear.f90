@@ -2,10 +2,13 @@ program vLinear
     use TLab_Constants, only: wp, wi, BCS_NONE
     use Thomas3
     use Thomas3_Split
-
+#ifdef USE_MPI
+    use mpi_f08
+    use TLabMPI_VARS, only: ims_pro, ims_npro
+#endif
     implicit none
 
-    integer(wi), parameter :: nlines = 128
+    integer(wi), parameter :: nlines = 32
     integer(wi), parameter :: nsize = 1024
     integer(wi), parameter :: nd = 3
     integer(wi) n
@@ -15,7 +18,7 @@ program vLinear
     real(wp) :: z(nsize), wrk(nlines)       ! for circulant case
 
     integer(wi) k
-    integer, parameter :: nblocks = 16       ! number of blocks
+    integer, parameter :: nblocks = 8       ! number of blocks
     integer, parameter :: points(1:nblocks) = [(k, k=nsize/nblocks, nsize, nsize/nblocks)]
 
     type(thomas3_split_dt) split(nblocks)
@@ -27,7 +30,19 @@ program vLinear
 
     logical, parameter :: periodic = .true.
 
+#ifdef USE_MPI
+    integer ims_err
+    type(thomas3_split_dt) split_mpi
+#endif
+
     ! -------------------------------------------------------------------
+#ifdef USE_MPI
+    call MPI_INIT(ims_err)
+    call MPI_COMM_SIZE(MPI_COMM_WORLD, ims_npro, ims_err)
+    call MPI_COMM_RANK(MPI_COMM_WORLD, ims_pro, ims_err)
+#endif
+
+! -------------------------------------------------------------------
     ! random number initialization for reproducibility
     ! from https://masuday.github.io/fortran_tutorial/random.html
     call random_seed(size=nseed)
@@ -56,56 +71,82 @@ program vLinear
     if (periodic) f(:, n) = f(:, n) + lhs(n, 3)*u(:, 1)
 
     ! -------------------------------------------------------------------
-    print *, new_line('a'), 'Standard Thomas algorithm'
+#ifdef USE_MPI
+    if (ims_pro == 0) then
+        print *, new_line('a'), 'Running in parallel. Processor 0 doing the serial version.'
 
-    lhs_loc = lhs
-    u_loc(:, :) = f(:, :)
+        if (nblocks /= ims_npro) then
+            print *, 'Number of blocks must equal number of processors.'
+            call MPI_FINALIZE(ims_err)
+            stop
+        end if
+#endif
 
-    if (periodic) then
-        call Thomas3C_SMW_LU(lhs_loc(:, 1), lhs_loc(:, 2), lhs_loc(:, 3), z)
-        call Thomas3C_SMW_Solve(lhs_loc(:, 1), lhs_loc(:, 2), lhs_loc(:, 3), z, u_loc, wrk)
-    else
-        call Thomas3_LU(nsize, lhs_loc(:, 1), lhs_loc(:, 2), lhs_loc(:, 3))
-        call Thomas3_Solve(nsize, nlines, lhs_loc(:, 1), lhs_loc(:, 2), lhs_loc(:, 3), u_loc)
-    end if
+        ! -------------------------------------------------------------------
+        print *, new_line('a'), 'Standard Thomas algorithm'
 
-    call check(u_loc, u, 'linear.dat')
-
-    ! -------------------------------------------------------------------
-    print *, new_line('a'), 'Splitting Thomas algorithm'
-
-    ! ! old version
-    ! lhs_loc = lhs
-    ! u_loc(:, :) = f(:, :)
-
-    ! split_global%circulant = periodic
-    ! call Thomas3_Split_Initialize_Global(lhs_loc(:, 1), lhs_loc(:, 2), lhs_loc(:, 3), &
-    !                                      points, split_global)
-    ! call Thomas3_Split_Solve_Global(lhs_loc(:, 1), lhs_loc(:, 2), lhs_loc(:, 3), split_global, u_loc)
-
-    ! call check(u_loc, u, 'linear.dat')
-
-    u_loc(:, :) = f(:, :)
-
-    split(:)%circulant = periodic
-    do k = 1, nblocks
-        split(k)%block_id = k
-        split(k)%nmin = points(mod(k - 2 + nblocks, nblocks) + 1)
-        split(k)%nmin = mod(split(k)%nmin, nsize) + 1
-        split(k)%nmax = points(k)
+        u_loc(:, :) = f(:, :)
 
         lhs_loc = lhs
+        if (periodic) then
+            call Thomas3C_SMW_LU(lhs_loc(:, 1), lhs_loc(:, 2), lhs_loc(:, 3), z)
+            call Thomas3C_SMW_Solve(lhs_loc(:, 1), lhs_loc(:, 2), lhs_loc(:, 3), z, u_loc, wrk)
+        else
+            call Thomas3_LU(nsize, lhs_loc(:, 1), lhs_loc(:, 2), lhs_loc(:, 3))
+            call Thomas3_Solve(nsize, nlines, lhs_loc(:, 1), lhs_loc(:, 2), lhs_loc(:, 3), u_loc)
+        end if
 
-        call Thomas3_Split_Initialize(lhs_loc(:, 1), lhs_loc(:, 2), lhs_loc(:, 3), &
-                                      points, split(k))
+        call check(u_loc, u, 'linear.dat')
 
-        data(k)%p => u_loc(1:nlines, split(k)%nmin:split(k)%nmax)
+        ! -------------------------------------------------------------------
+        print *, new_line('a'), 'Splitting Thomas algorithm'
 
-    end do
+        u_loc(:, :) = f(:, :)
 
-    call Thomas3_Split_Solve(split, data)
+        do k = 1, nblocks
+            split(k)%circulant = periodic
+            split(k)%block_id = k
 
-    call check(u_loc, u, 'linear.dat')
+            lhs_loc = lhs
+            call Thomas3_Split_Initialize(lhs_loc(:, 1), lhs_loc(:, 2), lhs_loc(:, 3), &
+                                          points, split(k))
+            data(k)%p => u_loc(1:nlines, split(k)%nmin:split(k)%nmax)
+
+        end do
+
+        call Thomas3_Split_Solve(split, data)
+
+        call check(u_loc, u, 'linear.dat')
+
+#ifdef USE_MPI
+    end if
+    call MPI_BARRIER(MPI_COMM_WORLD, ims_err)
+
+    if (ims_pro == 0) then
+        print *, new_line('a'), 'Parallel version.'
+        print *, new_line('a'), 'Splitting Thomas algorithm'
+    end if
+
+    split_mpi%circulant = periodic
+    split_mpi%block_id = ims_pro + 1
+
+    lhs_loc = lhs
+    call Thomas3_Split_Initialize(lhs_loc(:, 1), lhs_loc(:, 2), lhs_loc(:, 3), &
+                                  points, split_mpi)
+
+    u_loc(:, :) = f(:, :)   ! Each processor will only see its part of the array
+
+    ! Solve and reduce
+    call Thomas3_Split_MPI_Solve(split_mpi, u_loc(1:nlines, split_mpi%nmin:split_mpi%nmax))
+
+    ! each processor checks its part
+    call check(u_loc(1:nlines, split_mpi%nmin:split_mpi%nmax), u(1:nlines, split_mpi%nmin:split_mpi%nmax))
+
+    call MPI_FINALIZE(ims_err)
+
+#endif
+
+    stop
 
     ! ###################################################################
 contains

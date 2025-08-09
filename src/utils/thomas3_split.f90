@@ -353,8 +353,10 @@ contains
             do source = ims_pro - 1, 0, -1
                 l = l + 1
                 tag = source + 1
-                call MPI_IRecv(tmp(:, 1), nlines, MPI_REAL8, source, tag, MPI_COMM_WORLD, request(l), ims_err)
-                call MPI_Wait(request(l), status, ims_err)
+                ! call MPI_IRecv(tmp(:, 1), nlines, MPI_REAL8, source, tag, MPI_COMM_WORLD, request(l), ims_err)
+                ! call MPI_Wait(request(l), status, ims_err)
+                ! I think the previous one could overwrite tmp...
+                call MPI_Recv(tmp(:, 1), nlines, MPI_REAL8, source, tag, MPI_COMM_WORLD, status, ims_err)
                 m = tag
                 do n = 1, nsize
                     f(:, n) = f(:, n) + tmp(:, 1)*split%z(n, m)

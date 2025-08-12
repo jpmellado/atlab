@@ -1,3 +1,5 @@
+#include "tlab_error.h"
+
 module OPR_Partial
     use TLab_Constants, only: wp, wi
     use TLab_Constants, only: BCS_NONE
@@ -5,9 +7,11 @@ module OPR_Partial
 #ifdef USE_MPI
     use TLabMPI_VARS, only: ims_npro_i, ims_npro_j
     use TLabMPI_Transpose
+    use FDM_Derivative_MPISplit
 #endif
     use FDM, only: g
     use FDM_Derivative, only: FDM_Der1_Solve, FDM_Der2_Solve
+    use Thomas3_Split
     implicit none
     private
 
@@ -35,16 +39,75 @@ module OPR_Partial
     end interface
     procedure(OPR_Partial_dt), pointer :: OPR_Partial_X, OPR_Partial_Y
 
+#ifdef USE_MPI
+    type(fdm_derivative_split_dt) :: der1_split_x, der2_split_x
+    type(fdm_derivative_split_dt) :: der1_split_y, der2_split_y
+    real(wp), allocatable, target :: halo_m(:), halo_p(:)
+    real(wp), pointer :: pyz_halo_m(:, :) => null(), pyz_halo_p(:, :) => null()
+    real(wp), pointer :: pxz_halo_m(:, :) => null(), pxz_halo_p(:, :) => null()
+#endif
+
 contains
     ! ###################################################################
     ! ###################################################################
-    subroutine OPR_Partial_Initialize()
+    subroutine OPR_Partial_Initialize(inifile)
+        use TLab_Constants, only: efile
+        use TLab_Memory, only: imax, jmax, kmax
+        use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
+
+        character(len=*), intent(in) :: inifile
+
+        ! -----------------------------------------------------------------------
+        character(len=32) bakfile, block
+        character(len=128) eStr
+        character(len=512) sRes
+
+        integer der_mode_i, der_mode_j
+        integer, parameter :: TYPE_TRANSPOSE = 1
+        integer, parameter :: TYPE_SPLIT = 2
+
+        integer np
+
+        ! #######################################################################
+        ! Read data
+        bakfile = trim(adjustl(inifile))//'.bak'
+
+        block = 'Parallel'
+        eStr = __FILE__//'. '//trim(adjustl(block))//'. '
+
+        call ScanFile_Char(bakfile, inifile, block, 'DerivativeModeI', 'transpose', sRes)
+        if (trim(adjustl(sRes)) == 'transpose') then; der_mode_i = TYPE_TRANSPOSE
+        elseif (trim(adjustl(sRes)) == 'split') then; der_mode_i = TYPE_SPLIT
+        else
+            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Wrong DerivativeModeI option.')
+            call TLab_Stop(DNS_ERROR_OPTION)
+        end if
+
+        call ScanFile_Char(bakfile, inifile, block, 'DerivativeModeJ', 'transpose', sRes)
+        if (trim(adjustl(sRes)) == 'transpose') then; der_mode_j = TYPE_TRANSPOSE
+        elseif (trim(adjustl(sRes)) == 'split') then; der_mode_j = TYPE_SPLIT
+        else
+            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Wrong DerivativeModeJ option.')
+            call TLab_Stop(DNS_ERROR_OPTION)
+        end if
 
         ! ###################################################################
         ! Setting procedure pointers
 #ifdef USE_MPI
+        np = 0
+
         if (ims_npro_i > 1) then
-            OPR_Partial_X => OPR_Partial_X_Parallel
+            select case (der_mode_i)
+            case (TYPE_TRANSPOSE)
+                OPR_Partial_X => OPR_Partial_X_MPITranspose
+            case (TYPE_SPLIT)
+                OPR_Partial_X => OPR_Partial_X_MPISplit
+                call FDM_MPISplit_Initialize(1, g(1)%der1, der1_split_x, 'x')
+                call FDM_MPISplit_Initialize(2, g(1)%der2, der2_split_x, 'x')
+                np = max(np, size(der1_split_x%rhs)/2)
+                np = max(np, size(der2_split_x%rhs)/2)
+            end select
+
         else
 #endif
             OPR_Partial_X => OPR_Partial_X_Serial
@@ -54,12 +117,34 @@ contains
 
 #ifdef USE_MPI
         if (ims_npro_j > 1) then
-            OPR_Partial_Y => OPR_Partial_Y_Parallel
+            select case (der_mode_j)
+            case (TYPE_TRANSPOSE)
+                OPR_Partial_Y => OPR_Partial_Y_MPITranspose
+            case (TYPE_SPLIT)
+                OPR_Partial_Y => OPR_Partial_Y_MPISplit
+                call FDM_MPISplit_Initialize(1, g(2)%der1, der1_split_y, 'y')
+                call FDM_MPISplit_Initialize(2, g(2)%der2, der2_split_y, 'y')
+                np = max(np, size(der1_split_y%rhs)/2)
+                np = max(np, size(der2_split_y%rhs)/2)
+            end select
+
         else
 #endif
             OPR_Partial_Y => OPR_Partial_Y_Serial
 #ifdef USE_MPI
         end if
+
+        if (np > 0) then
+            allocate (halo_m(max(imax*kmax, jmax*kmax)*np))
+            pyz_halo_m(1:jmax*kmax, 1:np) => halo_m(1:jmax*kmax*np)
+            pxz_halo_m(1:imax*kmax, 1:np) => halo_m(1:imax*kmax*np)
+
+            allocate (halo_p(max(imax*kmax, jmax*kmax)*np))
+            pyz_halo_p(1:jmax*kmax, 1:np) => halo_p(1:jmax*kmax*np)
+            pxz_halo_p(1:imax*kmax, 1:np) => halo_p(1:imax*kmax*np)
+
+        end if
+
 #endif
 
         return
@@ -135,7 +220,7 @@ contains
     ! ###################################################################
     ! ###################################################################
 #ifdef USE_MPI
-    subroutine OPR_Partial_X_Parallel(type, nx, ny, nz, u, result, tmp1, ibc)
+    subroutine OPR_Partial_X_MPITranspose(type, nx, ny, nz, u, result, tmp1, ibc)
         integer(wi), intent(in) :: type                         ! OPR_P1, OPR_P2, OPR_P2_P1
         integer(wi), intent(in) :: nx, ny, nz
         real(wp), intent(in) :: u(nx*ny*nz)
@@ -208,7 +293,80 @@ contains
 #endif
 
         return
-    end subroutine OPR_Partial_X_Parallel
+    end subroutine OPR_Partial_X_MPITranspose
+
+    !########################################################################
+    !########################################################################
+    subroutine OPR_Partial_X_MPISplit(type, nx, ny, nz, u, result, tmp1, ibc)
+        use TLabMPI_PROCS, only: TLabMPI_Halos_X
+        use TLab_Pointers_2D, only: pyz_wrk3d
+        integer(wi), intent(in) :: type                         ! OPR_P1, OPR_P2, OPR_P2_P1
+        integer(wi), intent(in) :: nx, ny, nz
+        real(wp), intent(in) :: u(nx*ny*nz)
+        real(wp), intent(out) :: result(nx*ny*nz)
+        real(wp), intent(inout), optional :: tmp1(nx*ny*nz)     ! 1. order derivative in 2. order calculation
+        integer, intent(in), optional :: ibc                    ! boundary conditions 1. order derivative
+
+        ! -------------------------------------------------------------------
+        integer np, np1, np2
+
+        ! ###################################################################
+        if (g(1)%size == 1) then ! Set to zero in 2D case
+            result = 0.0_wp
+            if (present(tmp1)) tmp1 = 0.0_wp
+            return
+        end if
+
+        ! Transposition: make x-direction the last one
+#ifdef USE_ESSL
+        call DGETMO(u, nx, nx, ny*nz, result, ny*nz)
+#else
+        call TLab_Transpose(u, nx, ny*nz, nx, result, ny*nz)
+#endif
+
+        ! -------------------------------------------------------------------
+        np1 = size(der1_split_x%rhs)/2
+        np2 = size(der2_split_x%rhs)/2
+        np = max(np1, np2)
+        call TLabMPI_Halos_X(result, ny*nz, np, pyz_halo_m(:, 1), pyz_halo_p(:, 1))
+
+        select case (type)
+        case (OPR_P2)
+            call FDM_MPISplit_Solve(ny*nz, nx, der2_split_x, result, &
+                                    pyz_halo_m(:, np - np2 + 1:np), pyz_halo_p, pyz_wrk3d, wrk2d)
+
+        case (OPR_P2_P1)
+            call FDM_MPISplit_Solve(ny*nz, nx, der2_split_x, result, &
+                                    pyz_halo_m(:, np - np2 + 1:np), pyz_halo_p, tmp1, wrk2d)
+            call FDM_MPISplit_Solve(ny*nz, nx, der1_split_x, result, &
+                                    pyz_halo_m(:, np - np1 + 1:np), pyz_halo_p, pyz_wrk3d, wrk2d)
+
+        case (OPR_P1)
+            call FDM_MPISplit_Solve(ny*nz, nx, der1_split_x, result, &
+                                    pyz_halo_m(:, np - np1 + 1:np), pyz_halo_p, pyz_wrk3d, wrk2d)
+
+        end select
+
+        ! Put arrays back in the order in which they came in
+#ifdef USE_ESSL
+        if (type == OPR_P2_P1) then
+            call DGETMO(tmp1, ny*nz, ny*nz, nx, result, nx)
+            call DGETMO(wrk3d, ny*nz, ny*nz, nx, tmp1, nx)
+        else
+            call DGETMO(wrk3d, ny*nz, ny*nz, nx, result, nx)
+        end if
+#else
+        if (type == OPR_P2_P1) then
+            call TLab_Transpose(tmp1, ny*nz, nx, ny*nz, result, nx)
+            call TLab_Transpose(wrk3d, ny*nz, nx, ny*nz, tmp1, nx)
+        else
+            call TLab_Transpose(wrk3d, ny*nz, nx, ny*nz, result, nx)
+        end if
+#endif
+
+        return
+    end subroutine OPR_Partial_X_MPISplit
+
 #endif
 
     !########################################################################
@@ -284,7 +442,7 @@ contains
     !########################################################################
     !########################################################################
 #ifdef USE_MPI
-    subroutine OPR_Partial_Y_Parallel(type, nx, ny, nz, u, result, tmp1, ibc)
+    subroutine OPR_Partial_Y_MPITranspose(type, nx, ny, nz, u, result, tmp1, ibc)
         integer(wi), intent(in) :: type                         ! OPR_P1, OPR_P2, OPR_P2_P1
         integer(wi), intent(in) :: nx, ny, nz
         real(wp), intent(in) :: u(nx*ny*nz)
@@ -357,7 +515,81 @@ contains
 #endif
 
         return
-    end subroutine OPR_Partial_Y_Parallel
+    end subroutine OPR_Partial_Y_MPITranspose
+
+    !########################################################################
+    !########################################################################
+    subroutine OPR_Partial_Y_MPISplit(type, nx, ny, nz, u, result, tmp1, ibc)
+        use TLabMPI_PROCS, only: TLabMPI_Halos_Y
+        use TLab_Pointers_2D, only: pxz_wrk3d
+        integer(wi), intent(in) :: type                         ! OPR_P1, OPR_P2, OPR_P2_P1
+        integer(wi), intent(in) :: nx, ny, nz
+        real(wp), intent(in) :: u(nx*ny*nz)
+        real(wp), intent(out) :: result(nx*ny*nz)
+        real(wp), intent(inout), optional :: tmp1(nx*ny*nz)     ! 1. order derivative in 2. order calculation
+        integer, intent(in), optional :: ibc                    ! boundary conditions 1. order derivative
+
+        ! -------------------------------------------------------------------
+        integer np, np1, np2
+
+        ! ###################################################################
+        if (g(2)%size == 1) then ! Set to zero in 2D case
+            result = 0.0_wp
+            if (present(tmp1)) tmp1 = 0.0_wp
+            return
+        end if
+
+        ! Transposition: make y-direction the last one
+#ifdef USE_ESSL
+        call DGETMO(u, nx*ny, nx*ny, nz, result, nz)
+#else
+        call TLab_Transpose(u, nx*ny, nz, nx*ny, result, nz)
+#endif
+
+        ! -------------------------------------------------------------------
+        np1 = size(der1_split_y%rhs)/2
+        np2 = size(der2_split_y%rhs)/2
+        np = max(np1, np2)
+        call TLabMPI_Halos_Y(result, nx*nz, np, pxz_halo_m(:, 1), pxz_halo_p(:, 1))
+
+        select case (type)
+        case (OPR_P2)
+            call FDM_MPISplit_Solve(nx*nz, ny, der2_split_y, result, &
+                                    pxz_halo_m(:, np - np2 + 1:np), pxz_halo_p, pxz_wrk3d, wrk2d)
+
+        case (OPR_P2_P1)
+            call FDM_MPISplit_Solve(nx*nz, ny, der2_split_y, result, &
+                                    pxz_halo_m(:, np - np2 + 1:np), pxz_halo_p, tmp1, wrk2d)
+            call FDM_MPISplit_Solve(nx*nz, ny, der1_split_y, result, &
+                                    pxz_halo_m(:, np - np1 + 1:np), pxz_halo_p, pxz_wrk3d, wrk2d)
+
+        case (OPR_P1)
+            call FDM_MPISplit_Solve(nx*nz, ny, der1_split_y, result, &
+                                    pxz_halo_m(:, np - np1 + 1:np), pxz_halo_p, pxz_wrk3d, wrk2d)
+
+        end select
+
+        ! ###################################################################
+        ! Put arrays back in the order in which they came in
+#ifdef USE_ESSL
+        if (type == OPR_P2_P1) then
+            call DGETMO(tmp1, nz, nz, nx*ny, result, nx*ny)
+            call DGETMO(wrk3d, nz, nz, nx*ny, tmp1, nx*ny)
+        else
+            call DGETMO(wrk3d, nz, nz, nx*ny, result, nx*ny)
+        end if
+#else
+        if (type == OPR_P2_P1) then
+            call TLab_Transpose(tmp1, nz, nx*ny, nz, result, nx*ny)
+            call TLab_Transpose(wrk3d, nz, nx*ny, nz, tmp1, nx*ny)
+        else
+            call TLab_Transpose(wrk3d, nz, nx*ny, nz, result, nx*ny)
+        end if
+#endif
+
+        return
+    end subroutine OPR_Partial_Y_MPISplit
+
 #endif
 
     !########################################################################

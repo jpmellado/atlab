@@ -18,7 +18,7 @@ program vLinear
     real(wp) :: z(nsize), wrk(nlines)       ! for circulant case
 
     integer(wi) k
-    integer, parameter :: nblocks = 8       ! number of blocks
+    integer, parameter :: nblocks = 4       ! number of blocks
     integer, parameter :: points(1:nblocks) = [(k, k=nsize/nblocks, nsize, nsize/nblocks)]
 
     type(thomas3_split_dt) split(nblocks)
@@ -33,6 +33,7 @@ program vLinear
 #ifdef USE_MPI
     integer ims_err
     type(thomas3_split_dt) split_mpi
+    real(wp) wrk2d(nlines, 4)
 #endif
 
     ! -------------------------------------------------------------------
@@ -114,7 +115,7 @@ program vLinear
 
         end do
 
-        call Thomas3_Split_Solve(split, data)
+        call Thomas3_Split_Solve_Serial(split, data)
 
         call check(u_loc, u, 'linear.dat')
 
@@ -129,6 +130,9 @@ program vLinear
 
     split_mpi%circulant = periodic
     split_mpi%block_id = ims_pro + 1
+    split_mpi%communicator = MPI_COMM_WORLD
+    split_mpi%rank = ims_pro
+    split_mpi%n_ranks = ims_npro
 
     lhs_loc = lhs
     call Thomas3_Split_Initialize(lhs_loc(:, 1), lhs_loc(:, 2), lhs_loc(:, 3), &
@@ -137,7 +141,7 @@ program vLinear
     u_loc(:, :) = f(:, :)   ! Each processor will only see its part of the array
 
     ! Solve and reduce
-    call Thomas3_Split_MPI_Solve(split_mpi, u_loc(1:nlines, split_mpi%nmin:split_mpi%nmax))
+    call Thomas3_Split_Solve_MPI(split_mpi, u_loc(1:nlines, split_mpi%nmin:split_mpi%nmax),  wrk2d(:, 1:2), wrk2d(:, 3:4))
 
     ! each processor checks its part
     call check(u_loc(1:nlines, split_mpi%nmin:split_mpi%nmax), u(1:nlines, split_mpi%nmin:split_mpi%nmax))

@@ -112,7 +112,7 @@ contains
             call TLab_Stop(DNS_ERROR_UNDEVELOP)
         end if
 
-        call ScanFile_Char(bakfile, inifile, block, 'TransposeTypJ', 'Double', sRes)
+        call ScanFile_Char(bakfile, inifile, block, 'TransposeTypeJ', 'Double', sRes)
         if (trim(adjustl(sRes)) == 'double') then; trp_datatype_j = MPI_REAL8
         elseif (trim(adjustl(sRes)) == 'single') then; trp_datatype_j = MPI_REAL4
         else

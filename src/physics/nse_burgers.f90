@@ -398,7 +398,7 @@ contains
     !########################################################################
     !########################################################################
     subroutine NSE_Burgers_Z(is, nx, ny, nz, s, result, u)
-        use TLab_Pointers_2D, only: p2d_wrk3d
+        use TLab_Pointers_2D, only: pxy_wrk3d
         integer, intent(in) :: is                       ! scalar index; if 0, then velocity
         integer(wi), intent(in) :: nx, ny, nz
         real(wp), intent(in) :: s(nx*ny*nz)
@@ -418,7 +418,7 @@ contains
 
         if (subsidenceProps%type == TYPE_SUB_CONSTANT) then
             do k = 1, nz
-                result(:, k) = result(:, k) + p2d_wrk3d(:, k)*wbackground(k)
+                result(:, k) = result(:, k) + pxy_wrk3d(:, k)*wbackground(k)
             end do
         end if
 

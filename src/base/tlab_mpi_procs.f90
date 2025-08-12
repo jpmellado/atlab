@@ -10,6 +10,7 @@ module TLabMPI_PROCS
     private
 
     public :: TLabMPI_Initialize
+    public :: TLabMPI_Halos_X, TLabMPI_Halos_Y
     public :: TLabMPI_Panic
 
 contains
@@ -116,6 +117,7 @@ contains
             TLAB_MPI_REAL_TYPE = MPI_REAL4
         end select
 
+        return
     end subroutine TLabMPI_Initialize
 
     ! ###################################################################
@@ -136,5 +138,75 @@ contains
         ! Not supposed to return from this subroutine
 
     end subroutine TLabMPI_Panic
+
+    ! ###################################################################
+    ! ###################################################################
+    subroutine TLabMPI_Halos_X(a, size_plane, n_halo_planes, halo_m, halo_p)
+        real(wp), intent(in) :: a(:)
+        integer(wi), intent(in) :: size_plane
+        integer(wi), intent(in) :: n_halo_planes
+        real(wp), intent(out) :: halo_m(:)      ! minus, coming from left/west processor
+        real(wp), intent(out) :: halo_p(:)      ! plus, coming from right/east processor
+
+        type(MPI_Status) status
+        integer(wi) :: counts, disp
+        integer source, dest
+
+        ! ###################################################################
+        counts = size_plane*n_halo_planes
+
+        ! pass to previous processor
+        dest = mod(ims_pro_i - 1 + ims_npro_i, ims_npro_i)
+        source = mod(ims_pro_i + 1, ims_npro_i)
+        disp = 1
+        call MPI_Sendrecv(a(disp), counts, MPI_REAL8, dest, 0, &
+                          halo_p, counts, MPI_REAL8, source, 0, &
+                          ims_comm_x, status, ims_err)
+
+        ! pass to following processor
+        dest = mod(ims_pro_i + 1, ims_npro_i)
+        source = mod(ims_pro_i - 1 + ims_npro_i, ims_npro_i)
+        disp = size(a) - counts + 1
+        call MPI_Sendrecv(a(disp), counts, MPI_REAL8, dest, 1, &
+                          halo_m, counts, MPI_REAL8, source, 1, &
+                          ims_comm_x, status, ims_err)
+
+        return
+    end subroutine TLabMPI_Halos_X
+
+    ! ###################################################################
+    ! ###################################################################
+    subroutine TLabMPI_Halos_Y(a, size_plane, n_halo_planes, halo_m, halo_p)
+        real(wp), intent(in) :: a(:)
+        integer(wi), intent(in) :: size_plane
+        integer(wi), intent(in) :: n_halo_planes
+        real(wp), intent(out) :: halo_m(:)      ! minus, coming from left/west processor
+        real(wp), intent(out) :: halo_p(:)      ! plus, coming from right/east processor
+
+        type(MPI_Status) status
+        integer(wi) :: counts, disp
+        integer source, dest
+
+        ! ###################################################################
+        counts = size_plane*n_halo_planes
+
+        ! pass to previous processor
+        dest = mod(ims_pro_j - 1 + ims_npro_j, ims_npro_j)
+        source = mod(ims_pro_j + 1, ims_npro_j)
+        disp = 1
+        call MPI_Sendrecv(a(disp), counts, MPI_REAL8, dest, 0, &
+                          halo_p, counts, MPI_REAL8, source, 0, &
+                          ims_comm_y, status, ims_err)
+
+        ! pass to following processor
+        dest = mod(ims_pro_j + 1, ims_npro_j)
+        source = mod(ims_pro_j - 1 + ims_npro_j, ims_npro_j)
+        disp = size(a) - counts + 1
+        call MPI_Sendrecv(a(disp), counts, MPI_REAL8, dest, 1, &
+                          halo_m, counts, MPI_REAL8, source, 1, &
+                          ims_comm_y, status, ims_err)
+
+        return
+    end subroutine TLabMPI_Halos_Y
 
 end module TLabMPI_PROCS

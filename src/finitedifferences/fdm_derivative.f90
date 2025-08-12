@@ -30,18 +30,6 @@ module FDM_Derivative
         procedure(matmul_interface), pointer, nopass :: matmul  ! matrix multiplication to calculate the right-hand side
     end type fdm_derivative_dt
 
-    abstract interface
-        subroutine matmul_interface(rhs, u, f, ibc, rhs_b, rhs_t, bcs_b, bcs_t)
-            use TLab_Constants, only: wp
-            real(wp), intent(in) :: rhs(:, :)                               ! diagonals of B
-            real(wp), intent(in) :: u(:, :)                                 ! vector u
-            real(wp), intent(out) :: f(:, :)                                ! vector f = B u
-            integer, intent(in) :: ibc
-            real(wp), intent(in), optional :: rhs_b(:, 0:), rhs_t(0:, :)    ! Special bcs at bottom, top
-            real(wp), intent(out), optional :: bcs_b(:), bcs_t(:)
-        end subroutine
-    end interface
-
     public :: FDM_Der1_Initialize
     ! public :: FDM_Der1_CreateSystem
     public :: FDM_Der1_Solve
@@ -58,6 +46,19 @@ module FDM_Derivative
 
     integer, parameter, public :: FDM_COM6_DIRECT = 16
     integer, parameter, public :: FDM_COM4_DIRECT = 17
+
+    ! -----------------------------------------------------------------------
+    abstract interface
+        subroutine matmul_interface(rhs, u, f, ibc, rhs_b, rhs_t, bcs_b, bcs_t)
+            use TLab_Constants, only: wp
+            real(wp), intent(in) :: rhs(:, :)                               ! diagonals of B
+            real(wp), intent(in) :: u(:, :)                                 ! vector u
+            real(wp), intent(out) :: f(:, :)                                ! vector f = B u
+            integer, intent(in) :: ibc
+            real(wp), intent(in), optional :: rhs_b(:, 0:), rhs_t(0:, :)    ! Special bcs at bottom, top
+            real(wp), intent(out), optional :: bcs_b(:), bcs_t(:)
+        end subroutine
+    end interface
 
 contains
     ! ###################################################################
@@ -262,7 +263,7 @@ contains
                 call Thomas3C_SMW_Solve(lu1(:, 1), lu1(:, 2), lu1(:, 3), lu1(:, 4), result, wrk2d)
             case (5)
                 call Thomas5C_SMW_Solve(g%size, nlines, lu1(:, 1), lu1(:, 2), lu1(:, 3), lu1(:, 4), lu1(:, 5), lu1(:, 6), lu1(:, 7), &
-                                    result)
+                                        result)
             end select
 
         else

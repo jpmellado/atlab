@@ -3,7 +3,7 @@ program VPARTIAL3D
     use TLab_Constants, only: gfile, ifile
     use TLab_Time, only: itime
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Start
-    use TLab_Memory, only: imax, jmax, kmax, inb_txc
+    use TLab_Memory, only: imax, jmax, kmax, inb_txc, inb_wrk1d, inb_wrk2d
     use TLab_Memory, only: TLab_Initialize_Memory
     use TLab_Arrays
 #ifdef USE_MPI
@@ -12,7 +12,7 @@ program VPARTIAL3D
     use TLabMPI_PROCS, only: TLabMPI_Initialize
     use TLabMPI_Transpose, only: TLabMPI_Trp_Initialize
 #endif
-    use FDM, only: FDM_Initialize, FDM_CreatePlan
+    use FDM, only: FDM_Initialize, FDM_CreatePlan, g
     use FDM_Derivative, only: FDM_COM4_DIRECT, FDM_COM6_JACOBIAN
     use NavierStokes, only: NavierStokes_Initialize_Parameters
     use TLab_Grid
@@ -27,7 +27,7 @@ program VPARTIAL3D
 
     integer(wi) i, bcs(2, 2), idsp, jdsp
     integer(wi) type_of_problem
-    real(wp) wk, x_0!, params(0) 
+    real(wp) wk, x_0!, params(0)
 
     ! ###################################################################
     call TLab_Start()
@@ -41,7 +41,9 @@ program VPARTIAL3D
     call TLab_Grid_Read(gfile, x, y, z)
     call FDM_Initialize(ifile)
 
-    call NavierStokes_Initialize_Parameters(ifile)
+    ! call NavierStokes_Initialize_Parameters(ifile)
+    inb_wrk1d = 18
+    inb_wrk2d = 4
 
     inb_txc = 8
 
@@ -61,6 +63,8 @@ program VPARTIAL3D
     d(1:imax, 1:jmax, 1:kmax) => txc(1:imax*jmax*kmax, 6)
     e(1:imax, 1:jmax, 1:kmax) => txc(1:imax*jmax*kmax, 7)
     f(1:imax, 1:jmax, 1:kmax) => txc(1:imax*jmax*kmax, 8)
+
+    call OPR_Partial_Initialize(ifile)
 
     bcs = 0
 
@@ -128,12 +132,20 @@ program VPARTIAL3D
     ! ###################################################################
     select case (type_of_problem)
     case (1)
-        call OPR_Partial_X(OPR_P2_P1, imax, jmax, kmax,  u, du2_n, du1_n)
-        ! call OPR_Partial_Y(OPR_P2_P1, imax, jmax, kmax,  u, du2_n, du1_n)
-        ! call OPR_Partial_Z(OPR_P2_P1, imax, jmax, kmax, u, du2_n, du1_n)
-
+        print *, new_line('a'), 'Derivative along x.'
+        call OPR_Partial_X(OPR_P2_P1, imax, jmax, kmax, u, du2_n, du1_n)
         call check(du1_a, du1_n, txc(:, 1))
         call check(du2_a, du2_n, txc(:, 1))
+
+        ! print *, new_line('a'), 'Derivative along y.'
+        ! call OPR_Partial_Y(OPR_P2_P1, imax, jmax, kmax, u, du2_n, du1_n)
+        ! call check(du1_a, du1_n, txc(:, 1))
+        ! call check(du2_a, du2_n, txc(:, 1))
+
+        ! print *, new_line('a'), 'Derivative along z.'
+        ! call OPR_Partial_Z(OPR_P2_P1, imax, jmax, kmax, u, du2_n, du1_n)
+        ! call check(du1_a, du1_n, txc(:, 1))
+        ! call check(du2_a, du2_n, txc(:, 1))
 
     end select
 

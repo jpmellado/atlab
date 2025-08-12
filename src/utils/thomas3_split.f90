@@ -5,16 +5,24 @@
 module Thomas3_Split
     use TLab_Constants, only: wp, wi, small_wp, efile
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
+#ifdef USE_MPI
+    use mpi_f08, only: MPI_Comm
+#endif
     use Thomas3
     implicit none
     private
 
     public :: Thomas3_Split_Initialize
-    public :: Thomas3_Split_Solve
+    public :: Thomas3_Split_Solve_Serial
 #ifdef USE_MPI
-    public :: Thomas3_Split_MPI_Solve
+    public :: Thomas3_Split_Solve_MPI
 #endif
+
     type, public :: thomas3_split_dt
+#ifdef USE_MPI
+        type(MPI_Comm) communicator
+        integer rank, n_ranks
+#endif
         integer :: block_id
         integer(wi) :: nmin, nmax
         logical :: circulant = .true.
@@ -160,7 +168,7 @@ contains
 
     !########################################################################
     !########################################################################
-    subroutine Thomas3_Split_Solve(split, f)
+    subroutine Thomas3_Split_Solve_Serial(split, f)
         type(thomas3_split_dt), intent(in) :: split(:)
         type(data_dt), intent(inout) :: f(:)
 
@@ -245,22 +253,22 @@ contains
         deallocate (tmp, alpha, alpha_0)
 
         return
-    end subroutine Thomas3_Split_Solve
+    end subroutine Thomas3_Split_Solve_Serial
 
 #ifdef USE_MPI
     !########################################################################
     !########################################################################
-    subroutine Thomas3_Split_MPI_Solve(split, f)
+    subroutine Thomas3_Split_Solve_MPI(split, f, alphas, tmp)
         use mpi_f08
-        use TLabMPI_VARS, only: ims_pro, ims_npro
 
         type(thomas3_split_dt), intent(in) :: split
         real(wp), intent(inout) :: f(:, :)
+        real(wp), intent(inout) :: alphas(:, :)    ! auxiliary memory space for (alpha_j, alpha_0)
+        real(wp), intent(inout) :: tmp(:, :)       ! auxiliary memory space
 
         integer(wi) n, nsize, nlines
         integer(wi) m
         integer(wi) k, nblocks
-        real(wp), allocatable :: xp(:), alphas(:, :), tmp(:, :)
 
         type(MPI_Status) status
         integer ims_err
@@ -269,12 +277,12 @@ contains
         integer l
 
         !########################################################################
-        nblocks = ims_npro
+        nblocks = split%n_ranks
         nlines = size(f, 1)
         nsize = size(f, 2)              ! Assume all blocks have same size
 
         if (allocated(request)) deallocate (request)
-        allocate (request(2*ims_npro))
+        allocate (request(2*split%n_ranks))
 
         !########################################################################
         ! Solving block system Am in each block
@@ -289,35 +297,29 @@ contains
 
         ! -------------------------------------------------------------------
         ! pass x(:,1) to previous block
-        allocate (xp(nlines))
+#define xp(j) tmp(:,1)
 
-        dest = mod(ims_pro - 1 + ims_npro, ims_npro)
-        source = mod(ims_pro + 1, ims_npro)
+        dest = mod(split%rank - 1 + split%n_ranks, split%n_ranks)
+        source = mod(split%rank + 1, split%n_ranks)
         tag = 0
         call MPI_Sendrecv(f(:, 1), nlines, MPI_REAL8, dest, tag, &
                           xp(:), nlines, MPI_REAL8, source, tag, &
-                          MPI_COMM_WORLD, status, ims_err)
+                          split%communicator, status, ims_err)
 
         ! -------------------------------------------------------------------
         ! Calculate coefficients
-        ! if (split%circulant) then
-        allocate (alphas(nlines, 2))    ! (alpha_j, alpha_0)
-        allocate (tmp(nlines, 2))
-        ! else
-        ! allocate (alphas(nlines, 1))    ! alpha_j only
-        ! allocate (tmp(nlines, 1))
-        ! end if
 
         nsize = size(f, 2)
         alphas(:, 1) = split%alpha(1)*f(:, nsize) + split%alpha(2)*xp(:)    ! alpha_j, first contribution
         ! if (split%circulant) then
         alphas(:, 2) = alphas(:, 1)                                         ! alpha_0, initial value
         ! end if
+#undef xp
 
         tag = 1
-        if (ims_pro < nblocks - 1) then
-            source = ims_pro + 1
-            call MPI_Recv(tmp, 2*nlines, MPI_REAL8, source, tag, MPI_COMM_WORLD, status, ims_err)
+        if (split%rank < nblocks - 1) then
+            source = split%rank + 1
+            call MPI_Recv(tmp, 2*nlines, MPI_REAL8, source, tag, split%communicator, status, ims_err)
             if (split%block_id <= nblocks - 2) then
                 alphas(:, 1) = alphas(:, 1) + split%beta*tmp(:, 1)          ! alpha_j, second contribution
             end if
@@ -326,17 +328,17 @@ contains
             !endif
         end if
 
-        if (ims_pro /= 0) then
-            dest = ims_pro - 1
-            call MPI_Send(alphas, 2*nlines, MPI_REAL8, dest, tag, MPI_COMM_WORLD, ims_err)
+        if (split%rank /= 0) then
+            dest = split%rank - 1
+            call MPI_Send(alphas, 2*nlines, MPI_REAL8, dest, tag, split%communicator, ims_err)
         end if
 
         l = 0                                               ! send coefficients to processors with higher rank
         if (split%block_id <= nblocks - 1) then
-            do dest = ims_pro + 1, ims_npro - 1
+            do dest = split%rank + 1, split%n_ranks - 1
                 l = l + 1
                 tag = split%block_id
-                call MPI_ISend(alphas(:, 1), nlines, MPI_REAL8, dest, tag, MPI_COMM_WORLD, request(l), ims_err)
+                call MPI_ISend(alphas(:, 1), nlines, MPI_REAL8, dest, tag, split%communicator, request(l), ims_err)
             end do
         end if
 
@@ -349,14 +351,13 @@ contains
             end do
         end if
 
-        if (ims_pro /= 0) then                              ! coefficients from processors with lower rank
-            do source = ims_pro - 1, 0, -1
+        if (split%rank /= 0) then                              ! coefficients from processors with lower rank
+            do source = split%rank - 1, 0, -1
                 l = l + 1
                 tag = source + 1
-                ! call MPI_IRecv(tmp(:, 1), nlines, MPI_REAL8, source, tag, MPI_COMM_WORLD, request(l), ims_err)
-                ! call MPI_Wait(request(l), status, ims_err)
-                ! I think the previous one could overwrite tmp...
-                call MPI_Recv(tmp(:, 1), nlines, MPI_REAL8, source, tag, MPI_COMM_WORLD, status, ims_err)
+                call MPI_IRecv(tmp(:, 1), nlines, MPI_REAL8, source, tag, split%communicator, request(l), ims_err)
+                call MPI_Wait(request(l), status, ims_err)
+                ! call MPI_Recv(tmp(:, 1), nlines, MPI_REAL8, source, tag, split%communicator, status, ims_err)
                 m = tag
                 do n = 1, nsize
                     f(:, n) = f(:, n) + tmp(:, 1)*split%z(n, m)
@@ -365,16 +366,14 @@ contains
         end if
 
         ! if (split%circulant) then                         ! circulant coefficient
-        call MPI_Bcast(alphas(:, 2), nlines, MPI_REAL8, 0, MPI_COMM_WORLD, ims_err)
+        call MPI_Bcast(alphas(:, 2), nlines, MPI_REAL8, 0, split%communicator, ims_err)
         do n = 1, nsize
             f(:, n) = f(:, n) + alphas(:, 2)*split%z(n, nblocks)
         end do
         ! end if
 
-        deallocate (xp, tmp, alphas)
-
         return
-    end subroutine Thomas3_Split_MPI_Solve
+    end subroutine Thomas3_Split_Solve_MPI
 #endif
 
 end module Thomas3_Split

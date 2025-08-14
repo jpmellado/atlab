@@ -481,11 +481,12 @@ contains
         integer(wi) m
         integer(wi) k, nblocks
 
-        type(MPI_Status) status
+        ! type(MPI_Status), allocatable :: status(:)
         integer ims_err
         integer source, dest, tag
         type(MPI_Request), allocatable :: request(:)
-        integer l
+        integer l, index, count
+        logical flag
 
         !########################################################################
         nblocks = split%n_ranks
@@ -494,6 +495,8 @@ contains
 
         if (allocated(request)) deallocate (request)
         allocate (request(2*split%n_ranks))
+        ! if (allocated(status)) deallocate (status)
+        ! allocate (status(split%n_ranks))
 
         !########################################################################
         ! Solving block system Am in each block
@@ -517,21 +520,46 @@ contains
                        split%communicator, request(1), ims_err)
         call MPI_IRecv(xp(:), nlines, MPI_REAL8, source, tag, &
                        split%communicator, request(2), ims_err)
-        call MPI_Wait(request(2), status, ims_err)
+        call MPI_Wait(request(2), MPI_STATUS_IGNORE, ims_err)
         alpha(:) = split%alpha(1)*f(:, nsize) + split%alpha(2)*xp(:)
 
 #undef xp
 
-        ! Distribute coefficients
-        call MPI_Allgather(alpha, nlines, MPI_REAL8, &
-                           tmp, nlines, MPI_REAL8, split%communicator, ims_err)
+        ! ! Distribute coefficients
+        ! call MPI_Allgather(alpha, nlines, MPI_REAL8, &
+        !                    tmp, nlines, MPI_REAL8, split%communicator, ims_err)
 
-        ! -------------------------------------------------------------------
-        ! update solution as the coefficient is received
-        do m = 1, nblocks
-            do n = 1, nsize
-                f(:, n) = f(:, n) + tmp(:, m)*split%y(n, m)
-            end do
+        ! ! -------------------------------------------------------------------
+        ! ! update solution as the coefficient is received
+        ! do m = 1, nblocks
+        !     do n = 1, nsize
+        !         f(:, n) = f(:, n) + tmp(:, m)*split%y(n, m)
+        !     end do
+        ! end do
+
+        l = split%n_ranks
+        do dest = 0, split%n_ranks - 1
+            l = l + 1
+            call MPI_ISend(alpha, nlines, MPI_REAL8, dest, 0, &
+                           split%communicator, request(l), ims_err)
+        end do
+
+        l = 0
+        do source = 0, split%n_ranks - 1
+            l = l + 1
+            call MPI_IRecv(tmp(:, source + 1), nlines, MPI_REAL8, source, 0, &
+                           split%communicator, request(l), ims_err)
+        end do
+
+        count = 0
+        do while (count /= split%n_ranks)
+            call MPI_Testany(split%n_ranks, request(:), index, flag, MPI_STATUS_IGNORE, ims_err)
+            if (flag) then
+                do n = 1, nsize
+                    f(:, n) = f(:, n) + tmp(:, index)*split%y(n, index)
+                end do
+                count = count + 1
+            end if
         end do
 
         return

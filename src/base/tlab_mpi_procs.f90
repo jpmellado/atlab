@@ -148,28 +148,54 @@ contains
         real(wp), intent(out) :: halo_m(:)      ! minus, coming from left/west processor
         real(wp), intent(out) :: halo_p(:)      ! plus, coming from right/east processor
 
-        type(MPI_Status) status
+        ! type(MPI_Status) status
+        type(MPI_Status) status(2)
+        type(MPI_Request) request(4)
         integer(wi) :: counts, disp
         integer source, dest
 
         ! ###################################################################
         counts = size_plane*n_halo_planes
 
+        ! ! pass to previous processor
+        ! dest = mod(ims_pro_i - 1 + ims_npro_i, ims_npro_i)
+        ! source = mod(ims_pro_i + 1, ims_npro_i)
+        ! disp = 1
+        ! call MPI_Sendrecv(a(disp), counts, MPI_REAL8, dest, 0, &
+        !                   halo_p, counts, MPI_REAL8, source, 0, &
+        !                   ims_comm_x, status, ims_err)
+
+        ! ! pass to following processor
+        ! dest = mod(ims_pro_i + 1, ims_npro_i)
+        ! source = mod(ims_pro_i - 1 + ims_npro_i, ims_npro_i)
+        ! disp = size(a) - counts + 1
+        ! call MPI_Sendrecv(a(disp), counts, MPI_REAL8, dest, 1, &
+        !                   halo_m, counts, MPI_REAL8, source, 1, &
+        !                   ims_comm_x, status, ims_err)
+
         ! pass to previous processor
         dest = mod(ims_pro_i - 1 + ims_npro_i, ims_npro_i)
-        source = mod(ims_pro_i + 1, ims_npro_i)
         disp = 1
-        call MPI_Sendrecv(a(disp), counts, MPI_REAL8, dest, 0, &
-                          halo_p, counts, MPI_REAL8, source, 0, &
-                          ims_comm_x, status, ims_err)
+        call MPI_ISend(a(disp), counts, MPI_REAL8, dest, 0, &
+                       ims_comm_x, request(1), ims_err)
 
         ! pass to following processor
         dest = mod(ims_pro_i + 1, ims_npro_i)
-        source = mod(ims_pro_i - 1 + ims_npro_i, ims_npro_i)
         disp = size(a) - counts + 1
-        call MPI_Sendrecv(a(disp), counts, MPI_REAL8, dest, 1, &
-                          halo_m, counts, MPI_REAL8, source, 1, &
-                          ims_comm_x, status, ims_err)
+        call MPI_ISend(a(disp), counts, MPI_REAL8, dest, 1, &
+                       ims_comm_x, request(2), ims_err)
+
+        ! receive from following processor
+        source = mod(ims_pro_i + 1, ims_npro_i)
+        call MPI_IRecv(halo_p, counts, MPI_REAL8, source, 0, &
+                       ims_comm_x, request(3), ims_err)
+
+        ! receive from previous processor
+        source = mod(ims_pro_i - 1 + ims_npro_i, ims_npro_i)
+        call MPI_IRecv(halo_m, counts, MPI_REAL8, source, 1, &
+                       ims_comm_x, request(4), ims_err)
+
+        call MPI_Waitall(2, request(3:4), status(1:2), ims_err)
 
         return
     end subroutine TLabMPI_Halos_X
@@ -183,28 +209,54 @@ contains
         real(wp), intent(out) :: halo_m(:)      ! minus, coming from left/west processor
         real(wp), intent(out) :: halo_p(:)      ! plus, coming from right/east processor
 
-        type(MPI_Status) status
+        ! type(MPI_Status) status
+        type(MPI_Status) status(2)
+        type(MPI_Request) request(4)
         integer(wi) :: counts, disp
         integer source, dest
 
         ! ###################################################################
         counts = size_plane*n_halo_planes
 
+        ! ! pass to previous processor
+        ! dest = mod(ims_pro_j - 1 + ims_npro_j, ims_npro_j)
+        ! source = mod(ims_pro_j + 1, ims_npro_j)
+        ! disp = 1
+        ! call MPI_Sendrecv(a(disp), counts, MPI_REAL8, dest, 0, &
+        !                   halo_p, counts, MPI_REAL8, source, 0, &
+        !                   ims_comm_y, status, ims_err)
+
+        ! ! pass to following processor
+        ! dest = mod(ims_pro_j + 1, ims_npro_j)
+        ! source = mod(ims_pro_j - 1 + ims_npro_j, ims_npro_j)
+        ! disp = size(a) - counts + 1
+        ! call MPI_Sendrecv(a(disp), counts, MPI_REAL8, dest, 1, &
+        !                   halo_m, counts, MPI_REAL8, source, 1, &
+        !                   ims_comm_y, status, ims_err)
+
         ! pass to previous processor
         dest = mod(ims_pro_j - 1 + ims_npro_j, ims_npro_j)
-        source = mod(ims_pro_j + 1, ims_npro_j)
         disp = 1
-        call MPI_Sendrecv(a(disp), counts, MPI_REAL8, dest, 0, &
-                          halo_p, counts, MPI_REAL8, source, 0, &
-                          ims_comm_y, status, ims_err)
+        call MPI_ISend(a(disp), counts, MPI_REAL8, dest, 0, &
+                       ims_comm_y, request(1), ims_err)
 
         ! pass to following processor
         dest = mod(ims_pro_j + 1, ims_npro_j)
-        source = mod(ims_pro_j - 1 + ims_npro_j, ims_npro_j)
         disp = size(a) - counts + 1
-        call MPI_Sendrecv(a(disp), counts, MPI_REAL8, dest, 1, &
-                          halo_m, counts, MPI_REAL8, source, 1, &
-                          ims_comm_y, status, ims_err)
+        call MPI_ISend(a(disp), counts, MPI_REAL8, dest, 1, &
+                       ims_comm_y, request(2), ims_err)
+
+        ! receive from following processor
+        source = mod(ims_pro_j + 1, ims_npro_j)
+        call MPI_IRecv(halo_p, counts, MPI_REAL8, source, 0, &
+                       ims_comm_y, request(3), ims_err)
+
+        ! receive from previous processor
+        source = mod(ims_pro_j - 1 + ims_npro_j, ims_npro_j)
+        call MPI_IRecv(halo_m, counts, MPI_REAL8, source, 1, &
+                       ims_comm_y, request(4), ims_err)
+
+        call MPI_Waitall(2, request(3:4), status(1:2), ims_err)
 
         return
     end subroutine TLabMPI_Halos_Y

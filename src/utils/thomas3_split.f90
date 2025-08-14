@@ -507,21 +507,19 @@ contains
         ! Assume circulant matrix and need alpha_0
 
         ! -------------------------------------------------------------------
-        ! pass x(:,1) to previous block
-#define xp(j) tmp(:,1)
+        ! pass x(:,1) to previous block and calculate local coefficient
+#define xp(j) alpha(j)
 
         dest = mod(split%rank - 1 + split%n_ranks, split%n_ranks)
         source = mod(split%rank + 1, split%n_ranks)
         tag = 0
-        call MPI_Sendrecv(f(:, 1), nlines, MPI_REAL8, dest, tag, &
-                          xp(:), nlines, MPI_REAL8, source, tag, &
-                          split%communicator, status, ims_err)
-
-        ! -------------------------------------------------------------------
-        ! Calculate local coefficient
-
-        nsize = size(f, 2)
+        call MPI_ISend(f(:, 1), nlines, MPI_REAL8, dest, tag, &
+                       split%communicator, request(1), ims_err)
+        call MPI_IRecv(xp(:), nlines, MPI_REAL8, source, tag, &
+                       split%communicator, request(2), ims_err)
+        call MPI_Wait(request(2), status, ims_err)
         alpha(:) = split%alpha(1)*f(:, nsize) + split%alpha(2)*xp(:)
+
 #undef xp
 
         ! Distribute coefficients

@@ -113,10 +113,11 @@ contains
         real(wp), intent(in) :: u_halo_m(nlines, nsize)
         real(wp), intent(in) :: u_halo_p(nlines, nsize)
         real(wp), intent(out) :: result(nlines, nsize)      ! derivative of u
-        real(wp), intent(inout) :: wrk2d(nlines, 4)
+        real(wp), intent(inout) :: wrk2d(nlines, gSplit%thomas3%n_ranks)
 
         call gSplit%matmul(gSplit%rhs, u, u_halo_m, u_halo_p, result)
-        call Thomas3_Split_Solve_MPI(gSplit%thomas3, result, wrk2d(:, 1:2), wrk2d(:, 3:4))
+        ! call Thomas3_Split_Solve_MPI(gSplit%thomas3, result, wrk2d(:, 1:2), wrk2d(:, 3:4))
+        call Thomas3_Split_Solve_MPI2(gSplit%thomas3, result, wrk2d(:, 1), wrk2d(:, 2:))
 
         return
     end subroutine FDM_MPISplit_Solve

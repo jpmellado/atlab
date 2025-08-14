@@ -45,6 +45,7 @@ module OPR_Partial
     real(wp), allocatable, target :: halo_m(:), halo_p(:)
     real(wp), pointer :: pyz_halo_m(:, :) => null(), pyz_halo_p(:, :) => null()
     real(wp), pointer :: pxz_halo_m(:, :) => null(), pxz_halo_p(:, :) => null()
+    real(wp), allocatable :: wrk_split(:)
 #endif
 
 contains
@@ -52,7 +53,9 @@ contains
     ! ###################################################################
     subroutine OPR_Partial_Initialize(inifile)
         use TLab_Constants, only: efile
+#ifdef USE_MPI
         use TLab_Memory, only: imax, jmax, kmax
+#endif
         use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
 
         character(len=*), intent(in) :: inifile
@@ -66,7 +69,9 @@ contains
         integer, parameter :: TYPE_TRANSPOSE = 1
         integer, parameter :: TYPE_SPLIT = 2
 
+#ifdef USE_MPI
         integer np
+#endif
 
         ! #######################################################################
         ! Read data
@@ -143,6 +148,7 @@ contains
             pyz_halo_p(1:jmax*kmax, 1:np) => halo_p(1:jmax*kmax*np)
             pxz_halo_p(1:imax*kmax, 1:np) => halo_p(1:imax*kmax*np)
 
+            allocate (wrk_split(max(imax*kmax*(ims_npro_j + 1), jmax*kmax*(ims_npro_i + 1))))
         end if
 
 #endif
@@ -333,17 +339,17 @@ contains
         select case (type)
         case (OPR_P2)
             call FDM_MPISplit_Solve(ny*nz, nx, der2_split_x, result, &
-                                    pyz_halo_m(:, np - np2 + 1:np), pyz_halo_p, pyz_wrk3d, wrk2d)
+                                    pyz_halo_m(:, np - np2 + 1:np), pyz_halo_p, pyz_wrk3d, wrk_split)
 
         case (OPR_P2_P1)
             call FDM_MPISplit_Solve(ny*nz, nx, der2_split_x, result, &
-                                    pyz_halo_m(:, np - np2 + 1:np), pyz_halo_p, tmp1, wrk2d)
+                                    pyz_halo_m(:, np - np2 + 1:np), pyz_halo_p, tmp1, wrk_split)
             call FDM_MPISplit_Solve(ny*nz, nx, der1_split_x, result, &
-                                    pyz_halo_m(:, np - np1 + 1:np), pyz_halo_p, pyz_wrk3d, wrk2d)
+                                    pyz_halo_m(:, np - np1 + 1:np), pyz_halo_p, pyz_wrk3d, wrk_split)
 
         case (OPR_P1)
             call FDM_MPISplit_Solve(ny*nz, nx, der1_split_x, result, &
-                                    pyz_halo_m(:, np - np1 + 1:np), pyz_halo_p, pyz_wrk3d, wrk2d)
+                                    pyz_halo_m(:, np - np1 + 1:np), pyz_halo_p, pyz_wrk3d, wrk_split)
 
         end select
 
@@ -555,17 +561,17 @@ contains
         select case (type)
         case (OPR_P2)
             call FDM_MPISplit_Solve(nx*nz, ny, der2_split_y, result, &
-                                    pxz_halo_m(:, np - np2 + 1:np), pxz_halo_p, pxz_wrk3d, wrk2d)
+                                    pxz_halo_m(:, np - np2 + 1:np), pxz_halo_p, pxz_wrk3d, wrk_split)
 
         case (OPR_P2_P1)
             call FDM_MPISplit_Solve(nx*nz, ny, der2_split_y, result, &
-                                    pxz_halo_m(:, np - np2 + 1:np), pxz_halo_p, tmp1, wrk2d)
+                                    pxz_halo_m(:, np - np2 + 1:np), pxz_halo_p, tmp1, wrk_split)
             call FDM_MPISplit_Solve(nx*nz, ny, der1_split_y, result, &
-                                    pxz_halo_m(:, np - np1 + 1:np), pxz_halo_p, pxz_wrk3d, wrk2d)
+                                    pxz_halo_m(:, np - np1 + 1:np), pxz_halo_p, pxz_wrk3d, wrk_split)
 
         case (OPR_P1)
             call FDM_MPISplit_Solve(nx*nz, ny, der1_split_y, result, &
-                                    pxz_halo_m(:, np - np1 + 1:np), pxz_halo_p, pxz_wrk3d, wrk2d)
+                                    pxz_halo_m(:, np - np1 + 1:np), pxz_halo_p, pxz_wrk3d, wrk_split)
 
         end select
 

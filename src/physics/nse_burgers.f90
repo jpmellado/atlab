@@ -189,7 +189,7 @@ contains
         ! Setting procedure pointers
 #ifdef USE_MPI
         if (ims_npro_i > 1) then
-            NSE_Burgers_X => NSE_Burgers_X_Parallel
+            NSE_Burgers_X => NSE_Burgers_X_MPITranspose
         else
 #endif
             NSE_Burgers_X => NSE_Burgers_X_Serial
@@ -199,7 +199,7 @@ contains
 
 #ifdef USE_MPI
         if (ims_npro_j > 1) then
-            NSE_Burgers_Y => NSE_Burgers_Y_Parallel
+            NSE_Burgers_Y => NSE_Burgers_Y_MPITranspose
         else
 #endif
             NSE_Burgers_Y => NSE_Burgers_Y_Serial
@@ -254,7 +254,7 @@ contains
     !########################################################################
     !########################################################################
 #ifdef USE_MPI
-    subroutine NSE_Burgers_X_Parallel(is, nx, ny, nz, s, result, tmp1, u_t)
+    subroutine NSE_Burgers_X_MPITranspose(is, nx, ny, nz, s, result, tmp1, u_t)
         integer, intent(in) :: is                       ! scalar index; if 0, then velocity
         integer(wi), intent(in) :: nx, ny, nz
         real(wp), intent(in) :: s(nx*ny*nz)
@@ -298,7 +298,7 @@ contains
         call TLabMPI_Trp_ExecI_Backward(wrk3d, result, tmpi_plan_dx)
 
         return
-    end subroutine NSE_Burgers_X_Parallel
+    end subroutine NSE_Burgers_X_MPITranspose
 #endif
 
     !########################################################################
@@ -349,7 +349,7 @@ contains
     !########################################################################
     !########################################################################
 #ifdef USE_MPI
-    subroutine NSE_Burgers_Y_Parallel(is, nx, ny, nz, s, result, tmp1, u_t)
+    subroutine NSE_Burgers_Y_MPITranspose(is, nx, ny, nz, s, result, tmp1, u_t)
         integer, intent(in) :: is                       ! scalar index; if 0, then velocity
         integer(wi), intent(in) :: nx, ny, nz
         real(wp), intent(in) :: s(nx*ny*nz)
@@ -392,7 +392,7 @@ contains
 #endif
 
         return
-    end subroutine NSE_Burgers_Y_Parallel
+    end subroutine NSE_Burgers_Y_MPITranspose
 #endif
 
     !########################################################################

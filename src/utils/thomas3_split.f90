@@ -13,11 +13,11 @@ module Thomas3_Split
     private
 
     public :: Thomas3_Split_Initialize
-    ! public :: Thomas3_Split_Solve_Serial
-    public :: Thomas3_Split_Solve_Serial2
+    ! public :: Thomas3_Split_Solve_Serial_Old
+    public :: Thomas3_Split_Solve_Serial
 #ifdef USE_MPI
-    ! public :: Thomas3_Split_Solve_MPI
-    public :: Thomas3_Split_Solve_MPI2
+    ! public :: Thomas3_Split_Solve_MPI_Old
+    public :: Thomas3_Split_Solve_MPI
 #endif
 
     type, public :: thomas3_split_dt
@@ -194,96 +194,7 @@ contains
 
     !########################################################################
     !########################################################################
-    ! subroutine Thomas3_Split_Solve_Serial(split, f)
-    !     type(thomas3_split_dt), intent(in) :: split(:)
-    !     type(data_dt), intent(inout) :: f(:)
-
-    !     integer(wi) n, nsize, nlines
-    !     integer(wi) m
-    !     integer(wi) k, nblocks, k_plus_1
-    !     real(wp), allocatable :: tmp(:), xp(:, :), alpha(:, :), alpha_0(:, :)
-
-    !     !########################################################################
-    !     nblocks = size(split)
-    !     nlines = size(f(1)%p, 1)
-
-    !     ! Solving block system Am in each block
-    !     ! this part involves lhs and could be out of this routine.
-    !     ! this routine is then called Thomas3_Split_Reduction
-    !     do k = 1, nblocks                       ! loop over blocks
-    !         ! nsize = split(k)%nmax - split(k)%nmin + 1
-    !         nsize = size(f(k)%p, 2)
-    !         call Thomas3_Solve(nsize, nlines, &
-    !                            split(k)%lhs(:, 1), split(k)%lhs(:, 2), split(k)%lhs(:, 3), f(k)%p(:, :))
-    !     end do
-
-    !     ! -------------------------------------------------------------------
-    !     ! Reduction step
-
-    !     ! pass x(:,1) to previous block
-    !     allocate (xp(nlines, nblocks))
-    !     do k = nblocks, 1, -1                   ! loop over blocks
-    !         k_plus_1 = mod(k + nblocks, nblocks) + 1
-    !         xp(:, k) = f(k_plus_1)%p(:, 1)      ! solution at left boundary of block k+1
-    !     end do
-
-    !     allocate (tmp(nlines))
-    !     allocate (alpha(nlines, nblocks))       ! the idea is that each block needs only one alpha
-    !     allocate (alpha_0(nlines, nblocks))     ! the idea is that each block needs only one alpha
-
-    !     do k = nblocks, 1, -1                   ! loop over blocks
-    !         m = k
-    !         ! nsize = split(k)%nmax - split(k)%nmin + 1
-    !         nsize = size(f(k)%p, 2)
-    !         alpha(:, k) = split(m)%alpha(1)*f(k)%p(:, nsize) + split(m)%alpha(2)*xp(:, k)
-
-    !         if (k <= nblocks - 2) then          ! the last 2 have no beta correction
-    !             tmp(:) = alpha(:, m + 1)        ! this info comes from block k+1
-    !             alpha(:, k) = alpha(:, k) + split(k)%beta*tmp(:)
-    !         end if
-
-    !         if (k <= nblocks - 1) then          ! update solution
-    !             ! send alpha_k to all PEs with larger rank
-    !             do m = k, nblocks
-    !                 ! nsize = split(m)%nmax - split(m)%nmin + 1
-    !                 nsize = size(f(m)%p, 2)
-    !                 do n = 1, nsize
-    !                     f(m)%p(:, n) = f(m)%p(:, n) + alpha(:, k)*split(m)%z(n, k)
-    !                 end do
-    !             end do
-    !         end if
-
-    !         if (split(k)%circulant) then        ! accumulate alpha_0
-    !             if (k <= nblocks - 1) then
-    !                 tmp(:) = alpha_0(:, k + 1)  ! this info comes from block k+1
-    !                 alpha_0(:, k) = tmp(:) + split(k)%gamma*alpha(:, k)
-    !             else
-    !                 alpha_0(:, k) = alpha(:, k)
-    !             end if
-    !         end if
-
-    !     end do
-
-    !     if (split(nblocks)%circulant) then
-    !         ! broadcast alpha_0(:) from block 1 into tmp of all ranks
-    !         tmp(:) = alpha_0(:, 1)
-    !         do k = nblocks, 1, -1               ! loop over blocks
-    !             ! nsize = split(k)%nmax - split(k)%nmin + 1
-    !             nsize = size(f(k)%p, 2)
-    !             do n = 1, nsize
-    !                 f(k)%p(:, n) = f(k)%p(:, n) + tmp(:)*split(k)%z(n, nblocks)
-    !             end do
-    !         end do
-    !     end if
-
-    !     deallocate (tmp, xp, alpha, alpha_0)
-
-    !     return
-    ! end subroutine Thomas3_Split_Solve_Serial
-
-    !########################################################################
-    !########################################################################
-    subroutine Thomas3_Split_Solve_Serial2(split, f)
+    subroutine Thomas3_Split_Solve_Serial(split, f)
         type(thomas3_split_dt), intent(in) :: split(:)
         type(data_dt), intent(inout) :: f(:)
 
@@ -345,12 +256,199 @@ contains
         deallocate (xp, alpha)
 
         return
-    end subroutine Thomas3_Split_Solve_Serial2
+    end subroutine Thomas3_Split_Solve_Serial
 
 #ifdef USE_MPI
     !########################################################################
     !########################################################################
-!     subroutine Thomas3_Split_Solve_MPI(split, f, alphas, tmp)
+    subroutine Thomas3_Split_Solve_MPI(split, f, alpha, tmp)
+        use mpi_f08
+
+        type(thomas3_split_dt), intent(in) :: split
+        real(wp), intent(inout) :: f(:, :)
+        real(wp), intent(inout) :: alpha(:)         ! auxiliary memory space for local alpha
+        real(wp), intent(inout) :: tmp(:, :)        ! auxiliary memory space for all alphas
+
+        integer(wi) n, nsize, nlines
+        integer(wi) m
+        integer(wi) k, nblocks
+
+        integer ims_err
+        integer source, dest, tag
+        type(MPI_Request), allocatable :: request(:)
+        ! integer l, index, count
+        ! logical flag
+
+        !########################################################################
+        nblocks = split%n_ranks
+        nlines = size(f, 1)
+        nsize = size(f, 2)              ! Assume all blocks have same size
+
+        if (allocated(request)) deallocate (request)
+        allocate (request(2*split%n_ranks))
+
+        !########################################################################
+        ! Solving block system Am in each block
+        call Thomas3_Solve(nsize, nlines, &
+                           split%lhs(:, 1), split%lhs(:, 2), split%lhs(:, 3), f(:, :))
+
+        !########################################################################
+        ! Reduction step
+        ! Assume circulant matrix and need alpha_0
+
+        ! -------------------------------------------------------------------
+        ! pass x(:,1) to previous block and calculate local coefficient
+#define xp(j) alpha(j)
+
+        dest = mod(split%rank - 1 + split%n_ranks, split%n_ranks)
+        source = mod(split%rank + 1, split%n_ranks)
+        tag = 0
+        call MPI_ISend(f(:, 1), nlines, MPI_REAL8, dest, tag, &
+                       split%communicator, request(1), ims_err)
+        call MPI_IRecv(xp(:), nlines, MPI_REAL8, source, tag, &
+                       split%communicator, request(2), ims_err)
+        call MPI_Wait(request(2), MPI_STATUS_IGNORE, ims_err)
+        alpha(:) = split%alpha(1)*f(:, nsize) + split%alpha(2)*xp(:)
+
+#undef xp
+
+        ! -------------------------------------------------------------------
+        ! Distribute coefficients
+        call MPI_Allgather(alpha, nlines, MPI_REAL8, &
+                           tmp, nlines, MPI_REAL8, split%communicator, ims_err)
+
+        ! Update solution
+        do m = 1, nblocks
+            do n = 1, nsize
+                f(:, n) = f(:, n) + tmp(:, m)*split%y(n, m)
+            end do
+        end do
+
+        ! I tried the nonblocking version below, but the previous one is faster...
+
+        ! l = split%n_ranks
+        ! do dest = 0, split%n_ranks - 1
+        !     l = l + 1
+        !     call MPI_ISend(alpha, nlines, MPI_REAL8, dest, 0, &
+        !                    split%communicator, request(l), ims_err)
+        ! end do
+
+        ! l = 0
+        ! do source = 0, split%n_ranks - 1
+        !     l = l + 1
+        !     call MPI_IRecv(tmp(:, source + 1), nlines, MPI_REAL8, source, 0, &
+        !                    split%communicator, request(l), ims_err)
+        ! end do
+
+        ! count = 0
+        ! do while (count /= split%n_ranks)
+        !     call MPI_Testany(split%n_ranks, request(:), index, flag, MPI_STATUS_IGNORE, ims_err)
+        !     if (flag) then
+        !         do n = 1, nsize
+        !             f(:, n) = f(:, n) + tmp(:, index)*split%y(n, index)
+        !         end do
+        !         count = count + 1
+        !     end if
+        ! end do
+
+        return
+    end subroutine Thomas3_Split_Solve_MPI
+#endif
+
+end module Thomas3_Split
+
+!########################################################################
+!########################################################################
+! subroutine Thomas3_Split_Solve_Serial_Old(split, f)
+!     type(thomas3_split_dt), intent(in) :: split(:)
+!     type(data_dt), intent(inout) :: f(:)
+
+!     integer(wi) n, nsize, nlines
+!     integer(wi) m
+!     integer(wi) k, nblocks, k_plus_1
+!     real(wp), allocatable :: tmp(:), xp(:, :), alpha(:, :), alpha_0(:, :)
+
+!     !########################################################################
+!     nblocks = size(split)
+!     nlines = size(f(1)%p, 1)
+
+!     ! Solving block system Am in each block
+!     ! this part involves lhs and could be out of this routine.
+!     ! this routine is then called Thomas3_Split_Reduction
+!     do k = 1, nblocks                       ! loop over blocks
+!         ! nsize = split(k)%nmax - split(k)%nmin + 1
+!         nsize = size(f(k)%p, 2)
+!         call Thomas3_Solve(nsize, nlines, &
+!                            split(k)%lhs(:, 1), split(k)%lhs(:, 2), split(k)%lhs(:, 3), f(k)%p(:, :))
+!     end do
+
+!     ! -------------------------------------------------------------------
+!     ! Reduction step
+
+!     ! pass x(:,1) to previous block
+!     allocate (xp(nlines, nblocks))
+!     do k = nblocks, 1, -1                   ! loop over blocks
+!         k_plus_1 = mod(k + nblocks, nblocks) + 1
+!         xp(:, k) = f(k_plus_1)%p(:, 1)      ! solution at left boundary of block k+1
+!     end do
+
+!     allocate (tmp(nlines))
+!     allocate (alpha(nlines, nblocks))       ! the idea is that each block needs only one alpha
+!     allocate (alpha_0(nlines, nblocks))     ! the idea is that each block needs only one alpha
+
+!     do k = nblocks, 1, -1                   ! loop over blocks
+!         m = k
+!         ! nsize = split(k)%nmax - split(k)%nmin + 1
+!         nsize = size(f(k)%p, 2)
+!         alpha(:, k) = split(m)%alpha(1)*f(k)%p(:, nsize) + split(m)%alpha(2)*xp(:, k)
+
+!         if (k <= nblocks - 2) then          ! the last 2 have no beta correction
+!             tmp(:) = alpha(:, m + 1)        ! this info comes from block k+1
+!             alpha(:, k) = alpha(:, k) + split(k)%beta*tmp(:)
+!         end if
+
+!         if (k <= nblocks - 1) then          ! update solution
+!             ! send alpha_k to all PEs with larger rank
+!             do m = k, nblocks
+!                 ! nsize = split(m)%nmax - split(m)%nmin + 1
+!                 nsize = size(f(m)%p, 2)
+!                 do n = 1, nsize
+!                     f(m)%p(:, n) = f(m)%p(:, n) + alpha(:, k)*split(m)%z(n, k)
+!                 end do
+!             end do
+!         end if
+
+!         if (split(k)%circulant) then        ! accumulate alpha_0
+!             if (k <= nblocks - 1) then
+!                 tmp(:) = alpha_0(:, k + 1)  ! this info comes from block k+1
+!                 alpha_0(:, k) = tmp(:) + split(k)%gamma*alpha(:, k)
+!             else
+!                 alpha_0(:, k) = alpha(:, k)
+!             end if
+!         end if
+
+!     end do
+
+!     if (split(nblocks)%circulant) then
+!         ! broadcast alpha_0(:) from block 1 into tmp of all ranks
+!         tmp(:) = alpha_0(:, 1)
+!         do k = nblocks, 1, -1               ! loop over blocks
+!             ! nsize = split(k)%nmax - split(k)%nmin + 1
+!             nsize = size(f(k)%p, 2)
+!             do n = 1, nsize
+!                 f(k)%p(:, n) = f(k)%p(:, n) + tmp(:)*split(k)%z(n, nblocks)
+!             end do
+!         end do
+!     end if
+
+!     deallocate (tmp, xp, alpha, alpha_0)
+
+!     return
+! end subroutine Thomas3_Split_Solve_Serial_Old
+
+!########################################################################
+!########################################################################
+!     subroutine Thomas3_Split_Solve_MPI_Old(split, f, alphas, tmp)
 !         use mpi_f08
 
 !         type(thomas3_split_dt), intent(in) :: split
@@ -465,102 +563,6 @@ contains
 !         ! end if
 
 !         return
-!     end subroutine Thomas3_Split_Solve_MPI
+!     end subroutine Thomas3_Split_Solve_MPI_Old
 
-    !########################################################################
-    !########################################################################
-    subroutine Thomas3_Split_Solve_MPI2(split, f, alpha, tmp)
-        use mpi_f08
-
-        type(thomas3_split_dt), intent(in) :: split
-        real(wp), intent(inout) :: f(:, :)
-        real(wp), intent(inout) :: alpha(:)         ! auxiliary memory space for local alpha
-        real(wp), intent(inout) :: tmp(:, :)        ! auxiliary memory space for all alphas
-
-        integer(wi) n, nsize, nlines
-        integer(wi) m
-        integer(wi) k, nblocks
-
-        integer ims_err
-        integer source, dest, tag
-        type(MPI_Request), allocatable :: request(:)
-        ! integer l, index, count
-        ! logical flag
-
-        !########################################################################
-        nblocks = split%n_ranks
-        nlines = size(f, 1)
-        nsize = size(f, 2)              ! Assume all blocks have same size
-
-        if (allocated(request)) deallocate (request)
-        allocate (request(2*split%n_ranks))
-
-        !########################################################################
-        ! Solving block system Am in each block
-        call Thomas3_Solve(nsize, nlines, &
-                           split%lhs(:, 1), split%lhs(:, 2), split%lhs(:, 3), f(:, :))
-
-        !########################################################################
-        ! Reduction step
-        ! Assume circulant matrix and need alpha_0
-
-        ! -------------------------------------------------------------------
-        ! pass x(:,1) to previous block and calculate local coefficient
-#define xp(j) alpha(j)
-
-        dest = mod(split%rank - 1 + split%n_ranks, split%n_ranks)
-        source = mod(split%rank + 1, split%n_ranks)
-        tag = 0
-        call MPI_ISend(f(:, 1), nlines, MPI_REAL8, dest, tag, &
-                       split%communicator, request(1), ims_err)
-        call MPI_IRecv(xp(:), nlines, MPI_REAL8, source, tag, &
-                       split%communicator, request(2), ims_err)
-        call MPI_Wait(request(2), MPI_STATUS_IGNORE, ims_err)
-        alpha(:) = split%alpha(1)*f(:, nsize) + split%alpha(2)*xp(:)
-
-#undef xp
-
-        ! -------------------------------------------------------------------
-        ! Distribute coefficients
-        call MPI_Allgather(alpha, nlines, MPI_REAL8, &
-                           tmp, nlines, MPI_REAL8, split%communicator, ims_err)
-
-        ! Update solution
-        do m = 1, nblocks
-            do n = 1, nsize
-                f(:, n) = f(:, n) + tmp(:, m)*split%y(n, m)
-            end do
-        end do
-
-        ! I tried the nonblocking version below, but the previous one is faster...
-
-        ! l = split%n_ranks
-        ! do dest = 0, split%n_ranks - 1
-        !     l = l + 1
-        !     call MPI_ISend(alpha, nlines, MPI_REAL8, dest, 0, &
-        !                    split%communicator, request(l), ims_err)
-        ! end do
-
-        ! l = 0
-        ! do source = 0, split%n_ranks - 1
-        !     l = l + 1
-        !     call MPI_IRecv(tmp(:, source + 1), nlines, MPI_REAL8, source, 0, &
-        !                    split%communicator, request(l), ims_err)
-        ! end do
-
-        ! count = 0
-        ! do while (count /= split%n_ranks)
-        !     call MPI_Testany(split%n_ranks, request(:), index, flag, MPI_STATUS_IGNORE, ims_err)
-        !     if (flag) then
-        !         do n = 1, nsize
-        !             f(:, n) = f(:, n) + tmp(:, index)*split%y(n, index)
-        !         end do
-        !         count = count + 1
-        !     end if
-        ! end do
-
-        return
-    end subroutine Thomas3_Split_Solve_MPI2
-#endif
-
-end module Thomas3_Split
+! end module Thomas3_Split

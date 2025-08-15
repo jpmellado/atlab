@@ -55,6 +55,7 @@ contains
         use TLab_Constants, only: efile
 #ifdef USE_MPI
         use TLab_Memory, only: imax, jmax, kmax
+        use TLab_Memory, only: TLab_Allocate_Real
 #endif
         use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
 
@@ -70,7 +71,7 @@ contains
         integer, parameter :: TYPE_SPLIT = 2
 
 #ifdef USE_MPI
-        integer np
+        integer np, idummy
 #endif
 
         ! #######################################################################
@@ -148,8 +149,10 @@ contains
             pyz_halo_p(1:jmax*kmax, 1:np) => halo_p(1:jmax*kmax*np)
             pxz_halo_p(1:imax*kmax, 1:np) => halo_p(1:imax*kmax*np)
 
-            allocate (wrk_split(max(imax*kmax*(ims_npro_j + 1), jmax*kmax*(ims_npro_i + 1))))
-        end if
+            ! allocate (wrk_split(max(imax*kmax*(ims_npro_j + 1), jmax*kmax*(ims_npro_i + 1))))
+            idummy = max(imax*kmax*(ims_npro_j + 1), jmax*kmax*(ims_npro_i + 1))
+            call TLab_Allocate_Real(__FILE__, wrk_split, [idummy], 'wrk-split')
+    end if
 
 #endif
 

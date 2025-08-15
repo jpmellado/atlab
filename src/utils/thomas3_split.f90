@@ -245,10 +245,18 @@ contains
                 mmax = nblocks - 1
             end if
 
-            do m = 1, mmax
-                do n = 1, nsize
-                    f(k)%p(:, n) = f(k)%p(:, n) + alpha(:, m)*split(k)%y(n, m)
-                end do
+            ! do m = 1, mmax
+            !     do n = 1, nsize
+            !         f(k)%p(:, n) = f(k)%p(:, n) + alpha(:, m)*split(k)%y(n, m)
+            !     end do
+            ! end do
+            m = k
+            do n = 1, nsize
+                f(k)%p(:, n) = f(k)%p(:, n) + alpha(:, m)*split(k)%y(n, m)
+            end do
+            m = mod(k - 2 + nblocks, nblocks) + 1
+            do n = 1, nsize
+                f(k)%p(:, n) = f(k)%p(:, n) + alpha(:, m)*split(k)%y(n, m)
             end do
 
         end do
@@ -303,26 +311,49 @@ contains
         dest = mod(split%rank - 1 + split%n_ranks, split%n_ranks)
         source = mod(split%rank + 1, split%n_ranks)
         tag = 0
-        call MPI_ISend(f(:, 1), nlines, MPI_REAL8, dest, tag, &
-                       split%communicator, request(1), ims_err)
-        call MPI_IRecv(xp(:), nlines, MPI_REAL8, source, tag, &
-                       split%communicator, request(2), ims_err)
-        call MPI_Wait(request(2), MPI_STATUS_IGNORE, ims_err)
+        ! call MPI_ISend(f(:, 1), nlines, MPI_REAL8, dest, tag, &
+        !                split%communicator, request(1), ims_err)
+        ! call MPI_IRecv(xp(:), nlines, MPI_REAL8, source, tag, &
+        !                split%communicator, request(2), ims_err)
+        ! call MPI_Wait(request(2), MPI_STATUS_IGNORE, ims_err)
+        ! It might be that we get too fast to the block below and f(:,1) is modified
+        call MPI_Sendrecv(f(:, 1), nlines, MPI_REAL8, dest, tag, &
+                          xp(:), nlines, MPI_REAL8, source, tag, &
+                          split%communicator, MPI_STATUS_IGNORE, ims_err)
         alpha(:) = split%alpha(1)*f(:, nsize) + split%alpha(2)*xp(:)
 
 #undef xp
 
         ! -------------------------------------------------------------------
-        ! Distribute coefficients
-        call MPI_Allgather(alpha, nlines, MPI_REAL8, &
-                           tmp, nlines, MPI_REAL8, split%communicator, ims_err)
+        ! Truncated algorithm
+        ! Pass alpha to following block
+        dest = mod(split%rank + 1, split%n_ranks)
+        source = mod(split%rank - 1 + split%n_ranks, split%n_ranks)
+        tag = 1
+        call MPI_ISend(alpha, nlines, MPI_REAL8, dest, tag, &
+                       split%communicator, request(1), ims_err)
+        call MPI_IRecv(tmp(:, 1), nlines, MPI_REAL8, source, tag, &
+                       split%communicator, request(2), ims_err)
+        call MPI_Wait(request(2), MPI_STATUS_IGNORE, ims_err)
 
         ! Update solution
-        do m = 1, nblocks
-            do n = 1, nsize
-                f(:, n) = f(:, n) + tmp(:, m)*split%y(n, m)
-            end do
+        do n = 1, nsize
+            f(:, n) = f(:, n) + alpha(:)*split%y(n, split%block_id) &
+                      + tmp(:, 1)*split%y(n, source + 1)
         end do
+
+        ! -------------------------------------------------------------------
+        ! Full algorithm
+        ! Distribute coefficients
+        ! call MPI_Allgather(alpha, nlines, MPI_REAL8, &
+        !                    tmp, nlines, MPI_REAL8, split%communicator, ims_err)
+
+        ! ! Update solution
+        ! do m = 1, nblocks
+        !     do n = 1, nsize
+        !         f(:, n) = f(:, n) + tmp(:, m)*split%y(n, m)
+        !     end do
+        ! end do
 
         ! I tried the nonblocking version below, but the previous one is faster...
 

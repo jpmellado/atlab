@@ -149,7 +149,7 @@ contains
         real(wp), intent(out) :: halo_p(:)      ! plus, coming from right/east processor
 
         ! type(MPI_Status) status
-        type(MPI_Status) status(2)
+        ! type(MPI_Status) status(2)
         type(MPI_Request) request(4)
         integer(wi) :: counts, disp
         integer source, dest
@@ -195,7 +195,8 @@ contains
         call MPI_IRecv(halo_m, counts, MPI_REAL8, source, 1, &
                        ims_comm_x, request(4), ims_err)
 
-        call MPI_Waitall(2, request(3:4), status(1:2), ims_err)
+        !    call MPI_Waitall(2, request(3:4), status(1:2), ims_err)
+        call MPI_Waitall(2, request(3:4), MPI_STATUSES_IGNORE, ims_err)
 
         return
     end subroutine TLabMPI_Halos_X
@@ -210,7 +211,7 @@ contains
         real(wp), intent(out) :: halo_p(:)      ! plus, coming from right/east processor
 
         ! type(MPI_Status) status
-        type(MPI_Status) status(2)
+        ! type(MPI_Status) status(2)
         type(MPI_Request) request(4)
         integer(wi) :: counts, disp
         integer source, dest
@@ -256,7 +257,8 @@ contains
         call MPI_IRecv(halo_m, counts, MPI_REAL8, source, 1, &
                        ims_comm_y, request(4), ims_err)
 
-        call MPI_Waitall(2, request(3:4), status(1:2), ims_err)
+        ! call MPI_Waitall(2, request(3:4), status(1:2), ims_err)
+        call MPI_Waitall(2, request(3:4), MPI_STATUSES_IGNORE, ims_err)
 
         return
     end subroutine TLabMPI_Halos_Y

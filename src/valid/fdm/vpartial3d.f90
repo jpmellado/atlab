@@ -8,7 +8,7 @@ program VPARTIAL3D
     use TLab_Arrays
 #ifdef USE_MPI
     use mpi_f08
-    use TLabMPI_VARS, only: ims_err, ims_pro, ims_offset_i, ims_offset_j
+    use TLabMPI_VARS !, only: ims_err, ims_pro, ims_offset_i, ims_offset_j
     use TLabMPI_PROCS, only: TLabMPI_Initialize
     use TLabMPI_Transpose, only: TLabMPI_Trp_Initialize
 #endif
@@ -77,6 +77,15 @@ program VPARTIAL3D
 
 #ifdef USE_MPI
     idsp = ims_offset_i; jdsp = ims_offset_j
+    ! testing
+    if (ims_pro_i == 7) then
+        do i = 1, imax
+            print *, i, der1_split_x%thomas3%y(i, :)
+            ! print *, i, der2_split_x%thomas3%y(i, :)
+        end do
+    end if
+    call MPI_BARRIER(MPI_COMM_WORLD, ims_err)
+    !
 #else
     idsp = 0; jdsp = 0
 #endif

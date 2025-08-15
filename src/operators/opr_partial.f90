@@ -40,8 +40,8 @@ module OPR_Partial
     procedure(OPR_Partial_dt), pointer :: OPR_Partial_X, OPR_Partial_Y
 
 #ifdef USE_MPI
-    type(fdm_derivative_split_dt) :: der1_split_x, der2_split_x
-    type(fdm_derivative_split_dt) :: der1_split_y, der2_split_y
+    type(fdm_derivative_split_dt), public, protected :: der1_split_x, der2_split_x
+    type(fdm_derivative_split_dt), public, protected :: der1_split_y, der2_split_y
     real(wp), allocatable, target :: halo_m(:), halo_p(:)
     real(wp), pointer :: pyz_halo_m(:, :) => null(), pyz_halo_p(:, :) => null()
     real(wp), pointer :: pxz_halo_m(:, :) => null(), pxz_halo_p(:, :) => null()

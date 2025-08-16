@@ -9,6 +9,7 @@ module OPR_Partial
     use TLabMPI_Transpose
     use FDM_Derivative_MPISplit
 #endif
+    use TLab_Grid, only: x, y, z
     use FDM, only: g
     use FDM_Derivative, only: FDM_Der1_Solve, FDM_Der2_Solve
     use Thomas3_Split
@@ -43,9 +44,13 @@ module OPR_Partial
     type(fdm_derivative_split_dt), public, protected :: der1_split_x, der2_split_x
     type(fdm_derivative_split_dt), public, protected :: der1_split_y, der2_split_y
     real(wp), allocatable, target :: halo_m(:), halo_p(:)
-    real(wp), pointer :: pyz_halo_m(:, :) => null(), pyz_halo_p(:, :) => null()
-    real(wp), pointer :: pxz_halo_m(:, :) => null(), pxz_halo_p(:, :) => null()
-    real(wp), allocatable :: wrk_split(:)
+    real(wp), pointer, public :: pyz_halo_m(:, :) => null(), pyz_halo_p(:, :) => null()
+    real(wp), pointer, public :: pxz_halo_m(:, :) => null(), pxz_halo_p(:, :) => null()
+
+    integer, public :: der_mode_i, der_mode_j
+    integer, parameter, public :: TYPE_TRANSPOSE = 1
+    integer, parameter, public :: TYPE_SPLIT = 2
+
 #endif
 
 contains
@@ -62,18 +67,15 @@ contains
         character(len=*), intent(in) :: inifile
 
         ! -----------------------------------------------------------------------
+#ifdef USE_MPI
         character(len=32) bakfile, block
         character(len=128) eStr
         character(len=512) sRes
 
-        integer der_mode_i, der_mode_j
-        integer, parameter :: TYPE_TRANSPOSE = 1
-        integer, parameter :: TYPE_SPLIT = 2
-
-#ifdef USE_MPI
         integer np, idummy
 #endif
 
+#ifdef USE_MPI
         ! #######################################################################
         ! Read data
         bakfile = trim(adjustl(inifile))//'.bak'
@@ -96,6 +98,7 @@ contains
             call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Wrong DerivativeModeJ option.')
             call TLab_Stop(DNS_ERROR_OPTION)
         end if
+#endif
 
         ! ###################################################################
         ! Setting procedure pointers
@@ -148,11 +151,7 @@ contains
             allocate (halo_p(max(imax*kmax, jmax*kmax)*np))
             pyz_halo_p(1:jmax*kmax, 1:np) => halo_p(1:jmax*kmax*np)
             pxz_halo_p(1:imax*kmax, 1:np) => halo_p(1:imax*kmax*np)
-
-            ! allocate (wrk_split(max(imax*kmax*(ims_npro_j + 1), jmax*kmax*(ims_npro_i + 1))))
-            idummy = max(imax*kmax*(ims_npro_j + 1), jmax*kmax*(ims_npro_i + 1))
-            call TLab_Allocate_Real(__FILE__, wrk_split, [idummy], 'wrk-split')
-    end if
+        end if
 
 #endif
 
@@ -173,7 +172,7 @@ contains
         integer ibc_loc
 
         ! ###################################################################
-        if (g(1)%size == 1) then ! Set to zero in 2D case
+        if (x%size == 1) then ! Set to zero in 2D case
             result = 0.0_wp
             if (present(tmp1)) tmp1 = 0.0_wp
             return
@@ -242,7 +241,7 @@ contains
         integer ibc_loc
 
         ! ###################################################################
-        if (g(1)%size == 1) then ! Set to zero in 2D case
+        if (x%size == 1) then ! Set to zero in 2D case
             result = 0.0_wp
             if (present(tmp1)) tmp1 = 0.0_wp
             return
@@ -308,7 +307,7 @@ contains
     !########################################################################
     subroutine OPR_Partial_X_MPISplit(type, nx, ny, nz, u, result, tmp1, ibc)
         use TLabMPI_PROCS, only: TLabMPI_Halos_X
-        use TLab_Pointers_2D, only: pyz_wrk3d
+        ! use TLab_Pointers_2D, only: pyz_wrk3d
         integer(wi), intent(in) :: type                         ! OPR_P1, OPR_P2, OPR_P2_P1
         integer(wi), intent(in) :: nx, ny, nz
         real(wp), intent(in) :: u(nx*ny*nz)
@@ -320,7 +319,7 @@ contains
         integer np, np1, np2
 
         ! ###################################################################
-        if (g(1)%size == 1) then ! Set to zero in 2D case
+        if (x%size == 1) then ! Set to zero in 2D case
             result = 0.0_wp
             if (present(tmp1)) tmp1 = 0.0_wp
             return
@@ -342,17 +341,17 @@ contains
         select case (type)
         case (OPR_P2)
             call FDM_MPISplit_Solve(ny*nz, nx, der2_split_x, result, &
-                                    pyz_halo_m(:, np - np2 + 1:np), pyz_halo_p, pyz_wrk3d, wrk_split)
+                                    pyz_halo_m(:, np - np2 + 1:np), pyz_halo_p, wrk3d, wrk2d)
 
         case (OPR_P2_P1)
             call FDM_MPISplit_Solve(ny*nz, nx, der2_split_x, result, &
-                                    pyz_halo_m(:, np - np2 + 1:np), pyz_halo_p, tmp1, wrk_split)
+                                    pyz_halo_m(:, np - np2 + 1:np), pyz_halo_p, tmp1, wrk2d)
             call FDM_MPISplit_Solve(ny*nz, nx, der1_split_x, result, &
-                                    pyz_halo_m(:, np - np1 + 1:np), pyz_halo_p, pyz_wrk3d, wrk_split)
+                                    pyz_halo_m(:, np - np1 + 1:np), pyz_halo_p, wrk3d, wrk2d)
 
         case (OPR_P1)
             call FDM_MPISplit_Solve(ny*nz, nx, der1_split_x, result, &
-                                    pyz_halo_m(:, np - np1 + 1:np), pyz_halo_p, pyz_wrk3d, wrk_split)
+                                    pyz_halo_m(:, np - np1 + 1:np), pyz_halo_p, wrk3d, wrk2d)
 
         end select
 
@@ -393,7 +392,7 @@ contains
         integer ibc_loc
 
         ! ###################################################################
-        if (g(2)%size == 1) then ! Set to zero in 2D case
+        if (y%size == 1) then ! Set to zero in 2D case
             result = 0.0_wp
             if (present(tmp1)) tmp1 = 0.0_wp
             return
@@ -464,7 +463,7 @@ contains
         integer ibc_loc
 
         ! ###################################################################
-        if (g(2)%size == 1) then ! Set to zero in 2D case
+        if (y%size == 1) then ! Set to zero in 2D case
             result = 0.0_wp
             if (present(tmp1)) tmp1 = 0.0_wp
             return
@@ -542,7 +541,7 @@ contains
         integer np, np1, np2
 
         ! ###################################################################
-        if (g(2)%size == 1) then ! Set to zero in 2D case
+        if (y%size == 1) then ! Set to zero in 2D case
             result = 0.0_wp
             if (present(tmp1)) tmp1 = 0.0_wp
             return
@@ -564,17 +563,17 @@ contains
         select case (type)
         case (OPR_P2)
             call FDM_MPISplit_Solve(nx*nz, ny, der2_split_y, result, &
-                                    pxz_halo_m(:, np - np2 + 1:np), pxz_halo_p, pxz_wrk3d, wrk_split)
+                                    pxz_halo_m(:, np - np2 + 1:np), pxz_halo_p, pxz_wrk3d, wrk2d)
 
         case (OPR_P2_P1)
             call FDM_MPISplit_Solve(nx*nz, ny, der2_split_y, result, &
-                                    pxz_halo_m(:, np - np2 + 1:np), pxz_halo_p, tmp1, wrk_split)
+                                    pxz_halo_m(:, np - np2 + 1:np), pxz_halo_p, tmp1, wrk2d)
             call FDM_MPISplit_Solve(nx*nz, ny, der1_split_y, result, &
-                                    pxz_halo_m(:, np - np1 + 1:np), pxz_halo_p, pxz_wrk3d, wrk_split)
+                                    pxz_halo_m(:, np - np1 + 1:np), pxz_halo_p, pxz_wrk3d, wrk2d)
 
         case (OPR_P1)
             call FDM_MPISplit_Solve(nx*nz, ny, der1_split_y, result, &
-                                    pxz_halo_m(:, np - np1 + 1:np), pxz_halo_p, pxz_wrk3d, wrk_split)
+                                    pxz_halo_m(:, np - np1 + 1:np), pxz_halo_p, pxz_wrk3d, wrk2d)
 
         end select
 
@@ -615,7 +614,7 @@ contains
         integer ibc_loc
 
         ! ###################################################################
-        if (g(3)%size == 1) then
+        if (z%size == 1) then
             result = 0.0_wp
             if (present(tmp1)) tmp1 = 0.0_wp
             return

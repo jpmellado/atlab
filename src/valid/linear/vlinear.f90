@@ -142,10 +142,8 @@ program vLinear
     u_loc(:, :) = f(:, :)   ! Each processor will only see its part of the array
 
     ! Solve and reduce
-    ! allocate (wrk2d(nlines, 4))
-    ! call Thomas3_Split_Solve_MPI_Old(split_mpi, u_loc(1:nlines, split_mpi%nmin:split_mpi%nmax),  wrk2d(:, 1:2), wrk2d(:, 3:4))
-    allocate (wrk2d(nlines, 1 + nblocks))
-    call Thomas3_Split_Solve_MPI(split_mpi, u_loc(1:nlines, split_mpi%nmin:split_mpi%nmax), wrk2d(:, 1), wrk2d(:, 2:))
+    allocate (wrk2d(nlines, 2))
+    call Thomas3_Split_Solve_MPI(split_mpi, u_loc(1:nlines, split_mpi%nmin:split_mpi%nmax), wrk2d(:, 1), wrk2d(:, 2))
 
     ! each processor checks its part
     call check(u_loc(1:nlines, split_mpi%nmin:split_mpi%nmax), u(1:nlines, split_mpi%nmin:split_mpi%nmax))

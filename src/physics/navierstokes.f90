@@ -145,7 +145,7 @@ contains
         ! scratch arrays
         inb_wrk1d = 18
 
-        inb_wrk2d = 4
+        inb_wrk2d = 3
 
         return
     end subroutine NavierStokes_Initialize_Parameters

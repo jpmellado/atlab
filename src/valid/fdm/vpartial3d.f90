@@ -8,11 +8,11 @@ program VPARTIAL3D
     use TLab_Arrays
 #ifdef USE_MPI
     use mpi_f08
-    use TLabMPI_VARS !, only: ims_err, ims_pro, ims_offset_i, ims_offset_j
+    use TLabMPI_VARS 
     use TLabMPI_PROCS, only: TLabMPI_Initialize
     use TLabMPI_Transpose, only: TLabMPI_Trp_Initialize
 #endif
-    use FDM, only: FDM_Initialize, FDM_CreatePlan, g
+    use FDM, only: FDM_Initialize, FDM_CreatePlan
     use FDM_Derivative, only: FDM_COM4_DIRECT, FDM_COM6_JACOBIAN
     use NavierStokes, only: NavierStokes_Initialize_Parameters
     use TLab_Grid
@@ -25,7 +25,7 @@ program VPARTIAL3D
     real(wp), dimension(:, :, :), pointer :: a, b, c, d, e, f
     real(wp), dimension(:, :, :), pointer :: u, du1_a, du2_a, du1_n, du2_n
 
-    integer(wi) i, bcs(2, 2), idsp, jdsp
+    integer(wi) i, idsp, jdsp
     integer(wi) type_of_problem
     real(wp) wk, x_0!, params(0)
 
@@ -65,8 +65,6 @@ program VPARTIAL3D
     f(1:imax, 1:jmax, 1:kmax) => txc(1:imax*jmax*kmax, 8)
 
     call OPR_Partial_Initialize(ifile)
-
-    bcs = 0
 
     type_of_problem = 1     ! 1. and 2. order derivative
 

@@ -12,6 +12,10 @@ FILE(GLOB sourcefiles "fdm/vpartial3d.f90")
 add_executable(vpartial3d.x ${sourcefiles})
 target_link_libraries(vpartial3d.x physics operators finitedifferences ${LEVEL1_LIBS} ${LIBS})
 
+FILE(GLOB sourcefiles "burgers/vburgers.f90")
+add_executable(vburgers.x ${sourcefiles})
+target_link_libraries(vburgers.x physics operators thermodynamics finitedifferences ${LEVEL1_LIBS} ${LIBS})
+
 FILE(GLOB sourcefiles "fdm/vintegral.f90")
 add_executable(vintegral.x ${sourcefiles})
 target_link_libraries(vintegral.x physics operators finitedifferences ${LEVEL1_LIBS} ${LIBS})
@@ -19,10 +23,6 @@ target_link_libraries(vintegral.x physics operators finitedifferences ${LEVEL1_L
 FILE(GLOB sourcefiles "elliptic/velliptic.f90")
 add_executable(velliptic.x ${sourcefiles})
 target_link_libraries(velliptic.x physics operators finitedifferences ${LEVEL1_LIBS} ${LIBS})
-
-# FILE(GLOB sourcefiles "burgers/*.f90")
-# add_executable(vburgers.x ${sourcefiles})
-# target_link_libraries(vburgers.x physics mappings operators thermodynamics filters finitedifferences ${LEVEL1_LIBS} ${LIBS})
 
 # FILE(GLOB sourcefiles "interpol/*.f90")
 # add_executable(vinterpol.x ${sourcefiles})

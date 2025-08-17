@@ -110,8 +110,8 @@ contains
         integer(wi), intent(in) :: nsize                    ! local size of the system
         type(fdm_derivative_split_dt), intent(in) :: gSplit
         real(wp), intent(in) :: u(nlines, nsize)
-        real(wp), intent(in) :: u_halo_m(nlines, nsize)
-        real(wp), intent(in) :: u_halo_p(nlines, nsize)
+        real(wp), intent(in) :: u_halo_m(:, :)
+        real(wp), intent(in) :: u_halo_p(:, :)
         real(wp), intent(out) :: result(nlines, nsize)      ! derivative of u
         real(wp), intent(inout) :: wrk2d(nlines, 2)
 

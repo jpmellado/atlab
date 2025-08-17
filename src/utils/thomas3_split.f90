@@ -311,11 +311,14 @@ contains
         dest = mod(split%rank + 1, split%n_ranks)
         source = mod(split%rank - 1 + split%n_ranks, split%n_ranks)
         tag = 1
-        call MPI_ISend(alpha, nlines, MPI_REAL8, dest, tag, &
-                       split%communicator, request(1), ims_err)
-        call MPI_IRecv(tmp, nlines, MPI_REAL8, source, tag, &
-                       split%communicator, request(2), ims_err)
-        call MPI_Wait(request(2), MPI_STATUS_IGNORE, ims_err)
+        ! call MPI_ISend(alpha, nlines, MPI_REAL8, dest, tag, &
+        !                split%communicator, request(1), ims_err)
+        ! call MPI_IRecv(tmp, nlines, MPI_REAL8, source, tag, &
+        !                split%communicator, request(2), ims_err)
+        ! call MPI_Wait(request(2), MPI_STATUS_IGNORE, ims_err)
+        call MPI_Sendrecv(alpha, nlines, MPI_REAL8, dest, tag, &
+                          tmp, nlines, MPI_REAL8, source, tag, &
+                          split%communicator, MPI_STATUS_IGNORE, ims_err)
 
         ! Update solution
         do n = 1, nsize

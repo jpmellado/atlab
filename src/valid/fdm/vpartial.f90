@@ -1,7 +1,7 @@
 program VPARTIAL
     use TLab_Constants, only: wp, wi, pi_wp
     use TLab_Constants, only: BCS_DD, BCS_DN, BCS_ND, BCS_NN, BCS_NONE, BCS_MIN, BCS_MAX, BCS_BOTH
-    use TLab_Memory, only: imax, jmax, kmax, isize_field, isize_wrk1d, inb_wrk1d, isize_wrk2d, inb_wrk2d, isize_wrk3d, inb_txc, isize_txc_field
+    use TLab_Memory, only: imax, jmax, kmax, isize_field, isize_wrk1d, isize_wrk2d, isize_wrk3d, inb_txc, isize_txc_field
     use TLab_WorkFlow, only: TLab_Write_ASCII
     use TLab_Memory, only: TLab_Initialize_Memory, TLab_Allocate_Real
     use TLab_Arrays, only: wrk2d, txc
@@ -53,8 +53,7 @@ program VPARTIAL
     isize_wrk3d = isize_txc_field
     isize_wrk1d = kmax
     isize_wrk2d = max(imax*jmax, max(imax*kmax, jmax*kmax))
-    inb_wrk1d = 20
-    inb_wrk2d = 3
+
     inb_txc = 9
 
     call TLab_Initialize_Memory(__FILE__)
@@ -243,7 +242,7 @@ program VPARTIAL
                 case (3)
                     call Thomas3_LU(nsize, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3))
                 case (5)
-              call Thomas5_LU(nsize, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3), g%der1%lu(nmin:nmax, 4), g%der1%lu(nmin:nmax, 5))
+             call Thomas5_LU(nsize, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3), g%der1%lu(nmin:nmax, 4), g%der1%lu(nmin:nmax, 5))
                 end select
 
                 du1_n(:, 1) = u(:, 1)           ! boundary condition
@@ -339,7 +338,7 @@ program VPARTIAL
                 case (3)
                     call Thomas3_LU(nsize, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3))
                 case (5)
-              call Thomas5_LU(nsize, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3), g%der1%lu(nmin:nmax, 4), g%der1%lu(nmin:nmax, 5))
+             call Thomas5_LU(nsize, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3), g%der1%lu(nmin:nmax, 4), g%der1%lu(nmin:nmax, 5))
                 end select
 
                 select case (g%der1%nb_diag(2))

@@ -83,7 +83,7 @@ contains
         block = 'Parallel'
         eStr = __FILE__//'. '//trim(adjustl(block))//'. '
 
-        call ScanFile_Char(bakfile, inifile, block, 'DerivativeModeI', 'split', sRes)
+        call ScanFile_Char(bakfile, inifile, block, 'DerivativeModeI', 'transpose', sRes)
         if (trim(adjustl(sRes)) == 'transpose') then; der_mode_i = TYPE_TRANSPOSE
         elseif (trim(adjustl(sRes)) == 'split') then; der_mode_i = TYPE_SPLIT
         else
@@ -91,7 +91,7 @@ contains
             call TLab_Stop(DNS_ERROR_OPTION)
         end if
 
-        call ScanFile_Char(bakfile, inifile, block, 'DerivativeModeJ', 'split', sRes)
+        call ScanFile_Char(bakfile, inifile, block, 'DerivativeModeJ', 'transpose', sRes)
         if (trim(adjustl(sRes)) == 'transpose') then; der_mode_j = TYPE_TRANSPOSE
         elseif (trim(adjustl(sRes)) == 'split') then; der_mode_j = TYPE_SPLIT
         else

@@ -3,7 +3,7 @@ program VPARTIAL3D
     use TLab_Constants, only: gfile, ifile
     use TLab_Time, only: itime
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Start
-    use TLab_Memory, only: imax, jmax, kmax, inb_txc, inb_wrk1d, inb_wrk2d
+    use TLab_Memory, only: imax, jmax, kmax, inb_txc
     use TLab_Memory, only: TLab_Initialize_Memory
     use TLab_Arrays
 #ifdef USE_MPI
@@ -40,10 +40,6 @@ program VPARTIAL3D
 
     call TLab_Grid_Read(gfile, x, y, z)
     call FDM_Initialize(ifile)
-
-    ! call NavierStokes_Initialize_Parameters(ifile)
-    inb_wrk1d = 18
-    inb_wrk2d = 4
 
     inb_txc = 8
 

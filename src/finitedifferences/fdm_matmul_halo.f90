@@ -3,10 +3,87 @@ module FDM_MatMul_Halo
     implicit none
     private
 
+    public :: MatMul_Halo_3d_antisym
+    public :: MatMul_Halo_3d_sym
     public :: MatMul_Halo_5d_antisym
+    public :: MatMul_Halo_5d_sym
+    ! public :: MatMul_Halo_7d_antisym
     public :: MatMul_Halo_7d_sym
 
 contains
+    !########################################################################
+    !########################################################################
+    subroutine MatMul_Halo_3d_antisym(rhs, u, u_halo_m, u_halo_p, f)
+        real(wp), intent(in) :: rhs(:)              ! diagonals of B
+        real(wp), intent(in) :: u(:, :)             ! vector u
+        real(wp), intent(in) :: u_halo_m(:, :)      ! minus, coming from left
+        real(wp), intent(in) :: u_halo_p(:, :)      ! plus, coming from right
+        real(wp), intent(out) :: f(:, :)            ! vector f = B u
+
+        ! -------------------------------------------------------------------
+        integer(wi) n, nx
+
+        ! #######################################################################
+        nx = size(f, 2)
+
+        ! -------------------------------------------------------------------
+        ! Halo left
+        n = 1
+        f(:, n) = u(:, n + 1) - u_halo_m(:, 1)
+
+        ! -------------------------------------------------------------------
+        ! Interior points
+        do n = 2, nx - 1
+            f(:, n) = u(:, n + 1) - u(:, n - 1)
+        end do
+
+        ! -------------------------------------------------------------------
+        ! Halo right
+        n = nx
+        f(:, n) = u_halo_p(:, 1) - u(:, n - 1)
+
+        return
+    end subroutine MatMul_Halo_3d_antisym
+
+    !########################################################################
+    !########################################################################
+    subroutine MatMul_Halo_3d_sym(rhs, u, u_halo_m, u_halo_p, f)
+        real(wp), intent(in) :: rhs(:)              ! diagonals of B
+        real(wp), intent(in) :: u(:, :)             ! vector u
+        real(wp), intent(in) :: u_halo_m(:, :)      ! minus, coming from left
+        real(wp), intent(in) :: u_halo_p(:, :)      ! plus, coming from right
+        real(wp), intent(out) :: f(:, :)            ! vector f = B u
+
+        ! -------------------------------------------------------------------
+        integer(wi) n, nx
+        real(wp) r2_loc     ! center diagonal
+
+        ! #######################################################################
+        nx = size(f, 2)
+        r2_loc = rhs(2)
+
+        ! -------------------------------------------------------------------
+        ! Halo left
+        n = 1
+        f(:, n) = r2_loc*u(:, n) &
+                  + u(:, n + 1) + u_halo_m(:, 1)
+
+        ! -------------------------------------------------------------------
+        ! Interior points
+        do n = 2, nx - 1
+            f(:, n) = r2_loc*u(:, n) &
+                      + u(:, n + 1) + u(:, n - 1)
+        end do
+
+        ! -------------------------------------------------------------------
+        ! Halo right
+        n = nx
+        f(:, n) = r2_loc*u(:, n) &
+                  + u_halo_p(:, 1) + u(:, n - 1)
+
+        return
+    end subroutine MatMul_Halo_3d_sym
+
     !########################################################################
     !########################################################################
     subroutine MatMul_Halo_5d_antisym(rhs, u, u_halo_m, u_halo_p, f)
@@ -53,6 +130,60 @@ contains
 
         return
     end subroutine MatMul_Halo_5d_antisym
+
+    !########################################################################
+    !########################################################################
+    subroutine MatMul_Halo_5d_sym(rhs, u, u_halo_m, u_halo_p, f)
+        real(wp), intent(in) :: rhs(:)              ! diagonals of B
+        real(wp), intent(in) :: u(:, :)             ! vector u
+        real(wp), intent(in) :: u_halo_m(:, :)      ! minus, coming from left
+        real(wp), intent(in) :: u_halo_p(:, :)      ! plus, coming from right
+        real(wp), intent(out) :: f(:, :)            ! vector f = B u
+
+        ! -------------------------------------------------------------------
+        integer(wi) n, nx
+        real(wp) r3_loc     ! center diagonal
+        real(wp) r5_loc     ! 2. upper-diagonal
+
+        ! #######################################################################
+        nx = size(f, 2)
+        r5_loc = rhs(5)
+        r3_loc = rhs(3)
+
+        ! -------------------------------------------------------------------
+        ! Halo left
+        n = 1
+        f(:, n) = r3_loc*u(:, n) &
+                  + u(:, n + 1) + u_halo_m(:, 2) &
+                  + r5_loc*(u(:, n + 2) + u_halo_m(:, 1))
+
+        n = 2
+        f(:, n) = r3_loc*u(:, n) &
+                  + u(:, n + 1) + u(:, n - 1) &
+                  + r5_loc*(u(:, n + 2) + u_halo_m(:, 2))
+
+        ! -------------------------------------------------------------------
+        ! Interior points
+        do n = 3, nx - 2
+            f(:, n) = r3_loc*u(:, n) &
+                      + u(:, n + 1) + u(:, n - 1) &
+                      + r5_loc*(u(:, n + 2) + u(:, n - 2))
+        end do
+
+        ! -------------------------------------------------------------------
+        ! Halo right
+        n = nx - 1
+        f(:, n) = r3_loc*u(:, n) &
+                  + u(:, n + 1) + u(:, n - 1) &
+                  + r5_loc*(u_halo_p(:, 1) + u(:, n - 2))
+
+        n = nx
+        f(:, n) = r3_loc*u(:, n) &
+                  + u_halo_p(:, 1) + u(:, n - 1) &
+                  + r5_loc*(u_halo_p(:, 2) + u(:, n - 2))
+
+        return
+    end subroutine MatMul_Halo_5d_sym
 
     !########################################################################
     !########################################################################

@@ -13,10 +13,8 @@ module Thomas3_Split
     private
 
     public :: Thomas3_Split_Initialize
-    ! public :: Thomas3_Split_Solve_Serial_Old
     public :: Thomas3_Split_Solve_Serial
 #ifdef USE_MPI
-    ! public :: Thomas3_Split_Solve_MPI_Old
     public :: Thomas3_Split_Solve_MPI
 #endif
 
@@ -266,15 +264,11 @@ contains
 
         integer ims_err
         integer source, dest, tag
-        type(MPI_Request), allocatable :: request(:)
 
         !########################################################################
         nblocks = split%n_ranks
         nlines = size(f, 1)
         nsize = size(f, 2)              ! Assume all blocks have same size
-
-        if (allocated(request)) deallocate (request)
-        allocate (request(2*split%n_ranks))
 
         !########################################################################
         ! Solving block system Am in each block
@@ -292,12 +286,6 @@ contains
         dest = mod(split%rank - 1 + split%n_ranks, split%n_ranks)
         source = mod(split%rank + 1, split%n_ranks)
         tag = 0
-        ! call MPI_ISend(f(:, 1), nlines, MPI_REAL8, dest, tag, &
-        !                split%communicator, request(1), ims_err)
-        ! call MPI_IRecv(xp(:), nlines, MPI_REAL8, source, tag, &
-        !                split%communicator, request(2), ims_err)
-        ! call MPI_Wait(request(2), MPI_STATUS_IGNORE, ims_err)
-        ! It might be that we get too fast to the block below and f(:,1) is modified
         call MPI_Sendrecv(f(:, 1), nlines, MPI_REAL8, dest, tag, &
                           xp(:), nlines, MPI_REAL8, source, tag, &
                           split%communicator, MPI_STATUS_IGNORE, ims_err)
@@ -311,11 +299,6 @@ contains
         dest = mod(split%rank + 1, split%n_ranks)
         source = mod(split%rank - 1 + split%n_ranks, split%n_ranks)
         tag = 1
-        ! call MPI_ISend(alpha, nlines, MPI_REAL8, dest, tag, &
-        !                split%communicator, request(1), ims_err)
-        ! call MPI_IRecv(tmp, nlines, MPI_REAL8, source, tag, &
-        !                split%communicator, request(2), ims_err)
-        ! call MPI_Wait(request(2), MPI_STATUS_IGNORE, ims_err)
         call MPI_Sendrecv(alpha, nlines, MPI_REAL8, dest, tag, &
                           tmp, nlines, MPI_REAL8, source, tag, &
                           split%communicator, MPI_STATUS_IGNORE, ims_err)

@@ -81,12 +81,13 @@ contains
                                       gSplit%thomas3)
 
         select case (g%nb_diag(2))
-            ! case (3)
-            !     if (order == 1) gSplit%matmul => MatMul_Halo_3d_antisym
+        case (3)
+            if (order == 1) gSplit%matmul => MatMul_Halo_3d_antisym
+            if (order == 2) gSplit%matmul => MatMul_Halo_3d_sym
 
         case (5)
             if (order == 1) gSplit%matmul => MatMul_Halo_5d_antisym
-            ! if (order == 2) gSplit%matmul => MatMul_Halo_5d_sym
+            if (order == 2) gSplit%matmul => MatMul_Halo_5d_sym
 
         case (7)
             ! if (order == 1) gSplit%matmul => MatMul_Halo_7d_antisym

@@ -130,7 +130,7 @@ module TLab_Memory
     integer(wi), public :: inb_scal_array       ! >= inb_scal, # of prognostic and diagnostic 3d scal arrays
 
     ! auxiliary arrays
-    integer(wi), public :: isize_wrk1d = 0, inb_wrk1d = 18       ! 1D scratch arrays
+    integer(wi), public :: isize_wrk1d = 0, inb_wrk1d = 6       ! 1D scratch arrays
     !                                                             default value can be changed in tools as necessary.
     integer(wi), public :: isize_wrk2d = 0, inb_wrk2d = 3       ! 2D scratch arrays
     !                                                             default value can be changed in tools as necessary.

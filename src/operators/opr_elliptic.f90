@@ -74,7 +74,7 @@ module OPR_Elliptic
     real(wp), allocatable :: lambda(:, :)
 
     complex(wp), pointer :: c_tmp1(:) => null(), c_tmp2(:) => null()
-    real(wp), pointer :: p_wrk3d(:, :, :) => null()
+    real(wp), pointer :: p_wrk3d_loc(:, :, :) => null()
 
 contains
     ! #######################################################################
@@ -274,7 +274,7 @@ contains
         ! #######################################################################
         call c_f_pointer(c_loc(tmp1), c_tmp1, shape=[isize_txc_field/2])
         call c_f_pointer(c_loc(tmp2), c_tmp2, shape=[isize_txc_field/2])
-        p_wrk3d(1:2*nz, 1:nx/2 + 1, 1:ny) => wrk3d(1:isize_txc_field)
+        p_wrk3d_loc(1:2*nz, 1:nx/2 + 1, 1:ny) => wrk3d(1:isize_txc_field)
 
         ! #######################################################################
         ! Construct forcing term in Fourier space, \hat{f}
@@ -288,7 +288,7 @@ contains
         ! Solve FDE \hat{p}''-\lambda \hat{p} = \hat{f}
 #define f(k,i,j) tmp1(k,i,j)
 #define u(k,i,j) tmp2(k,i,j)
-#define v(k,i,j) p_wrk3d(k,i,j)
+#define v(k,i,j) p_wrk3d_loc(k,i,j)
 
         ! Solve for each (kx,ky) a system of 1 complex equation as 2 independent real equations
         do j = 1, ny
@@ -322,7 +322,7 @@ contains
         ! Transform solution to physical space
         call OPR_Fourier_XY_Backward(c_tmp2, p(:, 1, 1), c_tmp1)
 
-        nullify (c_tmp1, c_tmp2, p_wrk3d)
+        nullify (c_tmp1, c_tmp2, p_wrk3d_loc)
 #undef f
 #undef v
 #undef u
@@ -344,7 +344,7 @@ contains
         ! #######################################################################
         call c_f_pointer(c_loc(tmp1), c_tmp1, shape=[isize_txc_field/2])
         call c_f_pointer(c_loc(tmp2), c_tmp2, shape=[isize_txc_field/2])
-        p_wrk3d(1:2*nz, 1:nx/2 + 1, 1:ny) => wrk3d(1:isize_txc_field)
+        p_wrk3d_loc(1:2*nz, 1:nx/2 + 1, 1:ny) => wrk3d(1:isize_txc_field)
 
         ! #######################################################################
         ! Construct forcing term in Fourier space, \hat{f}
@@ -385,7 +385,7 @@ contains
         ! Transform solution to physical space
         call OPR_Fourier_XY_Backward(c_tmp2, p(:, 1, 1), c_tmp1)
 
-        nullify (c_tmp1, c_tmp2, p_wrk3d)
+        nullify (c_tmp1, c_tmp2, p_wrk3d_loc)
 #undef f
 #undef u
 
@@ -416,7 +416,7 @@ contains
         ! #######################################################################
         call c_f_pointer(c_loc(tmp1), c_tmp1, shape=[isize_txc_field/2])
         call c_f_pointer(c_loc(tmp2), c_tmp2, shape=[isize_txc_field/2])
-        p_wrk3d(1:2*nz, 1:nx/2 + 1, 1:ny) => wrk3d(1:isize_txc_field)
+        p_wrk3d_loc(1:2*nz, 1:nx/2 + 1, 1:ny) => wrk3d(1:isize_txc_field)
 
         ! #######################################################################
         ! Construct forcing term in Fourier space, \hat{f}
@@ -430,7 +430,7 @@ contains
         ! Solve FDE (\hat{p}')'-(\lambda+\alpha) \hat{p} = \hat{f}
 #define f(k,i,j) tmp1(k,i,j)
 #define u(k,i,j) tmp2(k,i,j)
-#define v(k,i,j) p_wrk3d(k,i,j)
+#define v(k,i,j) p_wrk3d_loc(k,i,j)
 
         ! Solve for each (kx,ky) a system of 1 complex equation as 2 independent real equations
         do i = 1, i_max
@@ -461,7 +461,7 @@ contains
         ! Transform solution to physical space
         call OPR_Fourier_XY_Backward(c_tmp2, a(:, 1, 1), c_tmp1)
 
-        nullify (c_tmp1, c_tmp2, p_wrk3d)
+        nullify (c_tmp1, c_tmp2, p_wrk3d_loc)
 #undef f
 #undef v
 #undef u
@@ -484,7 +484,7 @@ contains
         ! #######################################################################
         call c_f_pointer(c_loc(tmp1), c_tmp1, shape=[isize_txc_field/2])
         call c_f_pointer(c_loc(tmp2), c_tmp2, shape=[isize_txc_field/2])
-        p_wrk3d(1:2*nz, 1:nx/2 + 1, 1:ny) => wrk3d(1:isize_txc_field)
+        p_wrk3d_loc(1:2*nz, 1:nx/2 + 1, 1:ny) => wrk3d(1:isize_txc_field)
 
         ! #######################################################################
         ! Construct forcing term in Fourier space, \hat{f}
@@ -515,7 +515,7 @@ contains
         ! Transform solution to physical space
         call OPR_Fourier_XY_Backward(c_tmp2, a(:, 1, 1), c_tmp1)
 
-        nullify (c_tmp1, c_tmp2, p_wrk3d)
+        nullify (c_tmp1, c_tmp2, p_wrk3d_loc)
 #undef f
 #undef u
 

@@ -4,9 +4,9 @@
 !# viscous term explicit: 9 2nd order + 9 1st order derivatives.
 !# Pressure term requires 3 1st order derivatives
 !#
-!# It is written such that u and w transposes are calculated first for the
-!# Ox and Oy momentum equations, stored in tmp5 and tmp6 and then used as needed.
-!# This saves 2 MPI transpositions.
+!# It is written such that u and v transposes are calculated first for the
+!# Ox and Oy momentum equations, stored in tmp4 and tmp5 and then used as needed.
+!# This saves 2 transpositions.
 !# Includes the scalar to benefit from the same reduction
 !#
 !########################################################################
@@ -14,7 +14,7 @@ subroutine NSE_Anelastic()
     use TLab_Constants, only: wp, wi, BCS_NN
     use TLab_Memory, only: imax, jmax, kmax, inb_flow, inb_scal
     use TLab_Arrays, only: s
-    use TLab_Pointers, only: u, v, w, tmp1, tmp2, tmp3, tmp4, tmp5, tmp6, tmp7, tmp8
+    use TLab_Pointers, only: u, v, w, tmp1, tmp2, tmp3, tmp4, tmp5, tmp6, tmp7
     use DNS_Arrays
     use TimeMarching, only: dte, remove_divergence
     use Thermo_Anelastic, only: rbackground, ribackground, Thermo_Anelastic_Weight_InPlace
@@ -50,30 +50,30 @@ subroutine NSE_Anelastic()
     ! #######################################################################
     ! Diffusion and advection terms
     ! #######################################################################
-    ! Diagonal terms and transposed velocity arrays
-    call NSE_Burgers_X(0, imax, jmax, kmax, u, tmp1, tmp4) ! store u transposed in tmp4
-    call NSE_Burgers_Y(0, imax, jmax, kmax, v, tmp2, tmp5) ! store v transposed in tmp5
-    call NSE_Burgers_Z(0, imax, jmax, kmax, w, tmp3, w)
+    ! Diagonal terms in horizontal directions and transposed velocity arrays
+    call NSE_Burgers_X(0, imax, jmax, kmax, u, tmp1, tmp4)                      ! store u transposed in tmp4
+    call NSE_Burgers_Y(0, imax, jmax, kmax, v, tmp2, tmp5)                      ! store v transposed in tmp5
 
     ! Ox momentum equation
-    call NSE_Burgers_Y(0, imax, jmax, kmax, u, tmp6, tmp8, tmp5) ! tmp5 contains v transposed
-    call NSE_Burgers_Z(0, imax, jmax, kmax, u, tmp7, w)
-    hq(:, 1) = hq(:, 1) + tmp1(:) + tmp6(:) + tmp7(:)
+    call NSE_Burgers_Y(0, imax, jmax, kmax, u, tmp6, tmp7, tmp5)                ! tmp5 contains v transposed
+    call NSE_Burgers_Z(0, imax, jmax, kmax, u, tmp3, w)
+    hq(:, 1) = hq(:, 1) + tmp1(:) + tmp6(:) + tmp3(:)
 
     ! Oy momentum equation
-    call NSE_Burgers_X(0, imax, jmax, kmax, v, tmp6, tmp8, tmp4) ! tmp4 contains u transposed
-    call NSE_Burgers_Z(0, imax, jmax, kmax, v, tmp7, w)
-    hq(:, 2) = hq(:, 2) + tmp2(:) + tmp6(:) + tmp7(:)
+    call NSE_Burgers_X(0, imax, jmax, kmax, v, tmp6, tmp7, tmp4)                ! tmp4 contains u transposed
+    call NSE_Burgers_Z(0, imax, jmax, kmax, v, tmp3, w)
+    hq(:, 2) = hq(:, 2) + tmp6(:) + tmp2(:) + tmp3(:)
 
     ! Oz momentum equation
-    call NSE_Burgers_X(0, imax, jmax, kmax, w, tmp6, tmp8, tmp4) ! tmp4 contains u transposed
-    call NSE_Burgers_Y(0, imax, jmax, kmax, w, tmp7, tmp8, tmp5) ! tmp5 contains v transposed
-    hq(:, 3) = hq(:, 3) + tmp3(:) + tmp6(:) + tmp7(:)
+    call NSE_Burgers_X(0, imax, jmax, kmax, w, tmp1, tmp6, tmp4)                ! tmp4 contains u transposed
+    call NSE_Burgers_Y(0, imax, jmax, kmax, w, tmp2, tmp6, tmp5)                ! tmp5 contains v transposed
+    call NSE_Burgers_Z(0, imax, jmax, kmax, w, tmp3, w)
+    hq(:, 3) = hq(:, 3) + tmp1(:) + tmp2(:) + tmp3(:)
 
     ! Scalar equations
     do is = 1, inb_scal
-        call NSE_Burgers_X(is, imax, jmax, kmax, s(:, is), tmp1, tmp8, tmp4) ! tmp4 contains u transposed
-        call NSE_Burgers_Y(is, imax, jmax, kmax, s(:, is), tmp2, tmp8, tmp5) ! tmp5 contains v transposed
+        call NSE_Burgers_X(is, imax, jmax, kmax, s(:, is), tmp1, tmp6, tmp4)    ! tmp4 contains u transposed
+        call NSE_Burgers_Y(is, imax, jmax, kmax, s(:, is), tmp2, tmp6, tmp5)    ! tmp5 contains v transposed
         call NSE_Burgers_Z(is, imax, jmax, kmax, s(:, is), tmp3, w)
         hs(:, is) = hs(:, is) + tmp1(:) + tmp2(:) + tmp3(:)
 

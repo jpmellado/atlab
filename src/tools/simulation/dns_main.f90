@@ -29,7 +29,6 @@ program DNS
     use OPR_Fourier, only: OPR_Fourier_Initialize
     use OPR_Elliptic, only: OPR_Elliptic_Initialize
     use NSE_Burgers, only: NSE_Burgers_Initialize
-    ! use OPR_FILTERS
     use DNS_LOCAL
     use DNS_Control
     use TimeMarching
@@ -85,18 +84,12 @@ program DNS
 
     ! call PLANES_INITIALIZE()
 
-    ! call OPR_Filter_Initialize_Parameters(ifile)
-    ! do ig = 1, 3
-    !     call OPR_FILTER_INITIALIZE(g(ig), FilterDomain(ig))
-    !     call OPR_FILTER_INITIALIZE(g(ig), PressureFilter(ig))
-    ! end do
-
     ! ###################################################################
     ! Initialize fields
     ! ###################################################################
     itime = nitera_first
 
-    visc_stop = visc ! Value read in ifile
+    visc_stop = visc        ! Value read in ifile
 
     if (scal_on) then
         write (fname, *) nitera_first; fname = trim(adjustl(tag_scal))//trim(adjustl(fname))
@@ -105,7 +98,8 @@ program DNS
 
     write (fname, *) nitera_first; fname = trim(adjustl(tag_flow))//trim(adjustl(fname))
     call IO_Read_Fields(fname, imax, jmax, kmax, itime, inb_flow, 0, q, params(1:2))
-    rtime = params(1); visc = params(2)
+    rtime = params(1)
+    visc = params(2)        ! Value read in restart file
 
     call TLab_Diagnostic(imax, jmax, kmax, s)  ! Initialize diagnostic thermodynamic quantities
 
@@ -136,8 +130,8 @@ program DNS
     ! ###################################################################
     call BCS_Initialize(ifile)
 
-    call Buffer_Initialize(ifile)!q, s, txc)
-
+    call Buffer_Initialize(ifile)
+    
     ! ###################################################################
     ! Initialize time marching scheme
     ! ###################################################################
@@ -159,12 +153,10 @@ program DNS
     do
         if (itime >= nitera_last) exit
         if (int(logs_data(1)) /= 0) exit
+
         call TMarch_RungeKutta()
         itime = itime + 1
         rtime = rtime + dtime
-        ! if (mod(itime - nitera_first, nitera_filter) == 0) then
-        !     call DNS_FILTER()
-        ! end if
 
         if (flag_viscosity) then                ! Change viscosity if necessary
             visc = visc + visc_rate*dtime

@@ -3,7 +3,7 @@
 ! Matrix splitting
 
 module Thomas3_Split
-    use TLab_Constants, only: wp, wi, small_wp, efile
+    use TLab_Constants, only: wp, wi, small_wp, roundoff_wp, efile, lfile
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
 #ifdef USE_MPI
     use mpi_f08, only: MPI_Comm
@@ -31,7 +31,7 @@ module Thomas3_Split
         real(wp) :: alpha(2) = [0.0_wp, 0.0_wp]
     end type thomas3_split_dt
 
-    type, public :: data_dt                     ! for testing algorithm in serial
+    type, public :: data_dt                     ! for validating the algorithm in serial
         real(wp), pointer :: p(:, :)
     end type data_dt
 
@@ -45,13 +45,14 @@ contains
 
         ! -------------------------------------------------------------------
         integer nblocks, m, k
-        integer(wi) nsize
+        integer(wi) n, nsize
         integer(wi) p, p_plus_1
+        character(len=32) str
 
         real(wp), allocatable :: aloc(:), bloc(:), cloc(:), zloc(:)
         real(wp) alpha_0(2), alpha(2)
         real(wp) delta
-        real(wp) alpha_previous(2), beta_previous, gamma_loc
+        real(wp) alpha_previous(2), beta_loc, gamma_loc
 
         !########################################################################
         nblocks = size(points)
@@ -93,6 +94,14 @@ contains
                 split%alpha(1:2) = alpha_0(1:2)
             end if
             split%y(:, m) = zloc(split%nmin:split%nmax)
+
+            ! Calculate decay length
+            do n = 2, nsize
+                if (abs(zloc(n)/zloc(1)) < roundoff_wp) exit
+                ! print *, abs(zloc(n)/zloc(1))
+            end do
+            write (str, *) n
+            call TLab_Write_ASCII(lfile, 'Decay to round-off in splitting algorithm in '//trim(adjustl(str))//' indexes.')
         end if
 
         do m = 1, nblocks - 1       ! loop over remaining coefficients
@@ -103,7 +112,6 @@ contains
 
             if (split%block_id == m) then
                 split%alpha(1:2) = alpha(1:2)
-                ! split%gamma = alpha_0(1)*zloc(nsize) + alpha_0(2)*zloc(1)
             end if
 
             split%y(:, m) = zloc(split%nmin:split%nmax)
@@ -114,8 +122,8 @@ contains
             if (m > 1) then
                 p = points(m - 1)
                 p_plus_1 = p + 1
-                beta_previous = alpha_previous(1)*zloc(p) + alpha_previous(2)*zloc(p_plus_1)
-                split%y(:, m) = split%y(:, m) + beta_previous*split%y(:, m - 1)
+                beta_loc = alpha_previous(1)*zloc(p) + alpha_previous(2)*zloc(p_plus_1)
+                split%y(:, m) = split%y(:, m) + beta_loc*split%y(:, m - 1)
             end if
             alpha_previous(:) = alpha(:)
 

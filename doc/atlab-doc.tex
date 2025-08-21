@@ -12,7 +12,7 @@
 % \usepackage{longtable}
 % \usepackage{multirow}
 % \usepackage{booktabs}
-% \usepackage[pdfborder={0 0 0}]{hyperref}
+\usepackage[pdfborder={0 0 0}]{hyperref}
 % \usepackage{float}
 
 % \usepackage{titlesec}
@@ -42,6 +42,36 @@
 
 \fancyhead[LE,LO]{\footnotesize\leftmark}
 \fancyhead[RE,RO]{}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\def\pst{\partial_t}
+\def\psk{\partial_k}
+
+\def\Re{\mathrm{Re}}
+\def\Pr{\mathrm{Pr}}
+\def\Sc{\mathrm{Sc}}
+\def\Fr{\mathrm{Fr}}
+\def\Ro{\mathrm{Ro}}
+% \def\Le{\mathrm{Le}}
+% \def\Ma{\mathrm{Ma}}
+% \def\Da{\mathrm{Da}}
+
+\def\j{\mathbf{j}}
+\def\e{\mathbf{e}}
+
+\def\bg{_\mathrm{bg}}
+\def\ss{_\mathrm{s}}
+\def\sc{_\mathrm{c}}
+
+\newcommand{\pt}[2] {\partial_{#2}{#1}}
+\newcommand{\ptp}[2]{\partial_{#2}\left(#1\right)}
+% \newcommand{\ptp}[1]{\partial_t\left(#1\right)}
+% \newcommand{\pjp}[1]{\partial_j\left(#1\right)}
+\newcommand{\dvp}[1]{\nabla\negmedspace\cdot\negthinspace\left(#1\right)}
+\newcommand{\dv} [1]{\nabla\negmedspace\cdot\negthinspace#1}
+\newcommand{\avr}[1]{\overline{#1}}
+\newcommand{\avf}[1]{\widetilde{#1}}
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \begin{document}
@@ -74,8 +104,14 @@ Last, the main documentation is the code itself and the examples. This document 
 % \include{bcs}
 % \include{code}
 % \include{grid}
-% \include{postprocessing}
+\include{postprocessing}
 
+\part{Technical Guide}
+% \include{numerical}
+\include{memory}
+% \include{decomposition}
+% \include{scaling}
+\include{profiling}
 
 \backmatter
 \bibliographystyle{plainnat}

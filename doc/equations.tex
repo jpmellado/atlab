@@ -1,23 +1,3 @@
-\def\pt{\partial_t}
-\def\psi{\partial_i}
-\def\pk{\partial_k}
-
-\def\Re{\mathrm{Re}}
-\def\Pr{\mathrm{Pr}}
-\def\Sc{\mathrm{Sc}}
-\def\Fr{\mathrm{Fr}}
-\def\Ro{\mathrm{Ro}}
-% \def\Le{\mathrm{Le}}
-% \def\Ma{\mathrm{Ma}}
-% \def\Da{\mathrm{Da}}
-
-\def\j{\mathbf{j}}
-\def\e{\mathbf{e}}
-
-\def\ref{_\mathrm{bg}}
-\def\ss{_\mathrm{s}}
-\def\sc{_\mathrm{c}}
-
 \chapter{Governing equations}\label{sec:equations}
 
 The code is build to solve the sets of equations described in this section as efficiently as possible. These sets of equations aim to be general enough to cover several problems. The consequence is that one needs to map the particular problem to one of these generic cases, and identify the appropriate values of the parameters and defining functions (for instance, $\Re$ or $b^e$). Certain knowledge of the equations is therefore advantageous.
@@ -30,9 +10,9 @@ The code is build to solve the sets of equations described in this section as ef
 Dynamics and thermodynamics are at most coupled by the buoyancy field, and thermodynamics is not necessary (but can still be used). We consider the momentum equation and the evolution equations for an arbitrary number of scalar fields in the following form:
 \begin{subequations}
     \begin{align}
-        &\pt v_i = -v_k\pk v_i + \pk\left(\Re^{-1} \nu \pk v_i\right) -\psi p'
+        &\pst v_i = -v_k\psk v_i + \psk\left(\Re^{-1} \nu \psk v_i\right) -\partial_i p'
         +\Fr^{-1} g_i\,b +\Ro^{-1}\,\epsilon_{ijk} f_k\,v_k\;, &&i =1,2,3 \\
-        &\pt s_i  = -v_k\pk s_i +\pk \left[(\Re\Sc_i)^{-1} \nu \pk s_i -\pk (\j_i)_k\right] + \omega_i \;, &&i = 1,\ldots\,n
+        &\pst s_i  = -v_k\psk s_i +\psk \left[(\Re\Sc_i)^{-1} \nu \psk s_i -\psk (\j_i)_k\right] + \omega_i \;, &&i = 1,\ldots\,n
     \end{align}
 \end{subequations}
 The dynamic variables in these equations are  nondimensionalized by $\rho_0$, $U_0$ and $L_0$. The parameters $\Re$, $\Sc$, $\Fr$ and $\Ro$ need to be provided.
@@ -48,11 +28,11 @@ These fields are defined in terms of the scalars $s_k$ by functions $\nu^e(s_k)$
 \end{itemize}
 Mass conservation,
 \begin{equation}
-    \pk v_k=0\;,
+    \psk v_k=0\;,
 \end{equation}
 is imposed in terms of the pressure-Poisson equation
 \begin{equation}
-    \nabla^2 p'=\pk(\ldots)
+    \nabla^2 p'=\psk(\ldots)
 \end{equation}
 with the boundary conditions that result from particularizing the momentum equation at the top and bottom boundaries. Details can be found in \cite{mellado2012factorization}.
 
@@ -64,22 +44,22 @@ A dimensional formulation can be considered by substituting the parameters \text
 
 Dynamics and thermodynamics are coupled by the density. The momentum equation is formulated in terms of the dynamic pressure and the density:
 \begin{equation}
-    \pt v_i = -v_k\pk v_i + \rho\ref^{-1}\pk\left(\Re^{-1} \mu \pk v_i\right) -\rho\ref^{-1}\psi p'
-        +\Fr^{-1} g_i(1-\rho/\rho\ref)+\Ro^{-1}\,\epsilon_{ijk} f_k\,v_k\;.
+    \pst v_i = -v_k\psk v_i + \rho\bg^{-1}\psk\left(\Re^{-1} \mu \psk v_i\right) -\rho\bg^{-1}\partial_i p'
+        +\Fr^{-1} g_i(1-\rho/\rho\bg)+\Ro^{-1}\,\epsilon_{ijk} f_k\,v_k\;.
 \end{equation}
 The evolution equations for the scalars read:
 \begin{equation}
-    \pt s_i  = -v_k\pk s_i +\rho\ref^{-1}\pk \left[(\Re\Sc_i)^{-1} \mu \pk s_i -\pk (\j_i)_k\right] + \omega_i \;, \qquad i = 1,\ldots\,n
+    \pst s_i  = -v_k\psk s_i +\rho\bg^{-1}\psk \left[(\Re\Sc_i)^{-1} \mu \psk s_i -\psk (\j_i)_k\right] + \omega_i \;, \qquad i = 1,\ldots\,n
 \end{equation}
 Symbols are as explained in the Boussinesq case. The scalar field $\mu$ represents the dynamic viscosity. In the simplest case, it is equal to 1.
 \par
 Mass conservation,
 \begin{equation}
-    \pk (\rho\ref v_k)=0\;,
+    \psk (\rho\bg v_k)=0\;,
 \end{equation}
 is imposed in terms of the pressure-Poisson equation
 \begin{equation}
-    \nabla^2 p'=\pk(\rho\ref \ldots)
+    \nabla^2 p'=\psk(\rho\bg \ldots)
 \end{equation}
 with the boundary conditions that result from particularizing the momentum equation at the top and bottom boundaries
 
@@ -87,7 +67,7 @@ with the boundary conditions that result from particularizing the momentum equat
 
 Dynamics and thermodynamics are fully coupled. The pressure in the momentum equation is the thermodynamic pressure. Mass conservation is expressed in terms of the evolution equation
 \begin{equation}
-    \pt \rho = -\pk(\rho v_k) 
+    \pst \rho = -\psk(\rho v_k) 
 \end{equation}
 instead of a solenoidal constraint.
 
@@ -130,7 +110,7 @@ In this case of a multi-species, a dimensional formulation can be considered by 
 \subsection{Anelastic}
 The thermal equation of state is implemented as
 \begin{equation}
-    p\ref = \rho R T \;.
+    p\bg = \rho R T \;.
 \end{equation}
 The thermodynamic variables are nondimensionalized by $\rho_0$, $T_0$ and $R_0$, such that $p_0=\rho_0R_0T_0$. The default reference values are $p_0=10^5$~Pa and $T_0=298$~K. Thermal energy variables are normalized with $c_{p0}T_0$, where $c_{p0}$ is a reference specific heat capacity at constant pressure.
 
@@ -148,14 +128,14 @@ is a nondimensional scale height, or the inverse of a nondimensional gravity, to
 \end{equation}
 a conversion factor between gas constants and heat capacities (thermal equation of state and caloric equation of state). We refer to it in the code as \texttt{GRATIO}. 
 
-The background profiles $\{\rho\ref,\, p\ref,\, T\ref,\, \zeta_{i,\mathrm{ref}}\}$ correspond to a state of thermodynamic and hydrostatic equilibrium. The code solves the system of equations
+The background profiles $\{\rho\bg,\, p\bg,\, T\bg,\, \zeta_{i,\mathrm{ref}}\}$ correspond to a state of thermodynamic and hydrostatic equilibrium. The code solves the system of equations
 \begin{subequations}
     \begin{align}
-        &\partial_3\,p\ref=-H^{-1}\, g_3\,\rho\ref\;,\qquad p\ref|_{x_3=x_{3,0}}=p_{\mathrm{bg},0}\;,\\
-        &p\ref  = \rho\ref R\ref T\ref \;.
+        &\partial_3\,p\bg=-H^{-1}\, g_3\,\rho\bg\;,\qquad p\bg|_{x_3=x_{3,0}}=p_{\mathrm{bg},0}\;,\\
+        &p\bg  = \rho\bg R\bg T\bg \;.
     \end{align}
 \end{subequations}
-$\mathbf{g}$ is defined opposite to the gravitational acceleration (the problem is formulated in terms of the buoyancy). The two equations above relate 4 thermodynamic variables and we need two additional constraints. Typically, we impose the background profile of static energy (enthalpy plus potential energy) and the composition. If there is only one species, then $R\ref=1$ and we only need one additional constraint. 
+$\mathbf{g}$ is defined opposite to the gravitational acceleration (the problem is formulated in terms of the buoyancy). The two equations above relate 4 thermodynamic variables and we need two additional constraints. Typically, we impose the background profile of static energy (enthalpy plus potential energy) and the composition. If there is only one species, then $R\bg=1$ and we only need one additional constraint. 
 
 Currently implemented only for air-water mixtures. In this case, the first scalar is the energy variable and the remaining scalars are the composition (e.g., total water specific humidity and liquid water specific humidity).
 

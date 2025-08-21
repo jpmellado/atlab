@@ -24,7 +24,7 @@ PRJS=\
      Case65
 #     Case28 \
 
-FILES=avg* grid* flow* scal* tlab.log tlab.err tlab.war tlab.ini.bak dns.out part* traj* main.* field.* figure1.pdf
+FILES=avg* grid* flow* scal* tlab.log tlab.err tlab.war tlab.ini.bak dns.out part* traj* main.* field.* figure1.pdf gmon.out
 
 PROCS=4
 MPIRUN="mpirun -np  $(PROCS)"

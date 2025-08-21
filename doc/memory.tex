@@ -1,0 +1,31 @@
+\chapter{Memory management}
+
+See file \texttt{base/tlab\_memory}.
+
+Main arrays are allocated during initialization. Intermediate variables are to be stored in \texttt{tmp} and not in scratch arrays. Scratch arrays can always be used in low level procedures (e.g., \texttt{finitedifferences}), and it is better not to use them in high level procedures (e.g., \texttt{operators}).
+
+\begin{table}[!h]
+    \footnotesize
+    \renewcommand{\arraystretch}{1.2}
+    \centering
+    \rowcolors{1}{white}{gray!25}
+    \begin{tabular}{lll}
+        \hline
+        array & size & content \\
+        \hline
+        \texttt{x}      & number of points in $Ox$  & $x$-coordinate information        \\
+        \texttt{y}      & number of points in $Oy$  & $y$-coordinate information        \\
+        \texttt{z}      & number of points in $Oz$  & $z$-coordinate information        \\
+        \texttt{g}      & number of points in each direction $\times$ number of arrays for numerics           &  finite differences information        \\
+        \texttt{q}      & number of points $\times$ number of flow fields                           & flow variables        \\
+        \texttt{s}      & number of points $\times$ number of scalar fields                         & scalar variables      \\
+        \texttt{txc}    & extended number of points $\times$ number of temporary fields             & temporary variables   \\
+        \texttt{wrk3d}  & extended number of points                                                 & scratch               \\
+        \texttt{wrk2d}  & maximum number of points in 2D planes $\times$ number of scratch planes   & scratch               \\
+        \texttt{wrk1d}  & maximum number of points in 1D lines $\times$ number of scratch lines     & scratch               \\
+        \hline
+    \end{tabular}
+    \caption{Main arrays and their sizes in terms of the number of points. The first 4 are derived types.}
+\end{table}
+
+Pointers are also defined during initialization to access these memory spaces with arrays of different shape and even different type, more specifically, complex type needed in Fourier decomposition. See corresponding procedures in \texttt{base/tlab\_memory}.

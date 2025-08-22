@@ -3,7 +3,8 @@
 ! Matrix splitting
 
 module Thomas3_Split
-    use TLab_Constants, only: wp, wi, small_wp, roundoff_wp, efile, lfile
+    use TLab_Constants, only: wp, wi, small_wp, roundoff_wp
+    use TLab_Constants, only: efile, lfile, fmt_r
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
 #ifdef USE_MPI
     use mpi_f08, only: MPI_Comm
@@ -95,13 +96,15 @@ contains
             end if
             split%y(:, m) = zloc(split%nmin:split%nmax)
 
-            ! Calculate decay length
+            ! Calculate decay index
             do n = 2, nsize
                 if (abs(zloc(n)/zloc(1)) < roundoff_wp) exit
-                ! print *, abs(zloc(n)/zloc(1))
+                ! print *, n, abs(zloc(n)/zloc(1))
             end do
             write (str, *) n
             call TLab_Write_ASCII(lfile, 'Decay to round-off in splitting algorithm in '//trim(adjustl(str))//' indexes.')
+            write (str, fmt_r) abs(zloc(split%nmax - split%nmin + 1)/zloc(1))
+            call TLab_Write_ASCII(lfile, 'Truncation error in splitting algorithm equal to '//trim(adjustl(str))//'.')
         end if
 
         do m = 1, nblocks - 1       ! loop over remaining coefficients

@@ -1,7 +1,7 @@
 #include "tlab_error.h"
 
 module FDM_Derivative
-    use TLab_Constants, only: wp, wi, pi_wp, efile, wfile
+    use TLab_Constants, only: wp, wi, pi_wp, lfile
     use TLab_Constants, only: BCS_DD, BCS_ND, BCS_DN, BCS_NN, BCS_NONE, BCS_PERIODIC
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
     use Thomas3
@@ -38,14 +38,14 @@ module FDM_Derivative
     ! public :: FDM_Der2_CreateSystem
     public :: FDM_Der2_Solve
 
-    integer, parameter, public :: FDM_COM4_JACOBIAN = 4
-    integer, parameter, public :: FDM_COM6_JACOBIAN_PENTA = 5
-    integer, parameter, public :: FDM_COM6_JACOBIAN = 6
-    integer, parameter, public :: FDM_COM6_JACOBIAN_HYPER = 7
-    integer, parameter, public :: FDM_COM8_JACOBIAN = 8
+    integer, parameter, public :: FDM_COM4_JACOBIAN = 1
+    integer, parameter, public :: FDM_COM6_JACOBIAN = 2
+    integer, parameter, public :: FDM_COM6_JACOBIAN_HYPER = 3
+    integer, parameter, public :: FDM_COM6_JACOBIAN_PENTA = 4
 
-    integer, parameter, public :: FDM_COM6_DIRECT = 16
-    integer, parameter, public :: FDM_COM4_DIRECT = 17
+    integer, parameter, public :: FDM_COM4_DIRECT = 11
+    integer, parameter, public :: FDM_COM6_DIRECT = 12
+    integer, parameter, public :: FDM_COM6_DIRECT_HYPER = 13
 
     ! -----------------------------------------------------------------------
     abstract interface
@@ -178,7 +178,7 @@ contains
         case (FDM_COM4_JACOBIAN)
             call FDM_C1N4_Jacobian(g%size, dx, g%lhs, g%rhs, g%nb_diag, coef, periodic)
 
-        case (FDM_COM6_JACOBIAN, FDM_COM6_JACOBIAN_HYPER)
+        case (FDM_COM6_JACOBIAN)
             call FDM_C1N6_Jacobian(g%size, dx, g%lhs, g%rhs, g%nb_diag, coef, periodic)
 
         case (FDM_COM6_JACOBIAN_PENTA)
@@ -320,7 +320,7 @@ contains
 
         ! -------------------------------------------------------------------
         ! Procedure pointers to matrix multiplication to calculate the right-hand side
-        if (any([FDM_COM4_DIRECT, FDM_COM6_DIRECT] == g%mode_fdm)) then
+        if (any([FDM_COM4_DIRECT, FDM_COM6_DIRECT, FDM_COM6_DIRECT_HYPER] == g%mode_fdm)) then
             select case (g%nb_diag(2))
             case (5)
                 g%matmul => MatMul_5d
@@ -371,7 +371,7 @@ contains
             call FDM_C2N4_Jacobian(g%size, dx, g%lhs, g%rhs, g%nb_diag, coef, periodic)
             if (.not. uniform) g%need_1der = .true.
 
-        case (FDM_COM6_JACOBIAN, FDM_COM6_JACOBIAN_PENTA)
+        case (FDM_COM6_JACOBIAN)
             call FDM_C2N6_Jacobian(g%size, dx, g%lhs, g%rhs, g%nb_diag, coef, periodic)
             if (.not. uniform) g%need_1der = .true.
 
@@ -384,6 +384,11 @@ contains
             g%need_1der = .false.
 
         case (FDM_COM6_DIRECT)
+            call FDM_C2N6_Direct(g%size, x, g%lhs, g%rhs, g%nb_diag)
+            g%need_1der = .false.
+
+        case (FDM_COM6_DIRECT_HYPER)
+            call TLab_Write_ASCII(lfile, 'Direct, hyper-diffusive scheme undeveloped, use standard one.')
             call FDM_C2N6_Direct(g%size, x, g%lhs, g%rhs, g%nb_diag)
             g%need_1der = .false.
 

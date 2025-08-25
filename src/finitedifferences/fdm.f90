@@ -57,7 +57,7 @@ contains
         call TLab_Write_ASCII(bakfile, '#')
         call TLab_Write_ASCII(bakfile, '#['//trim(adjustl(block))//']')
         call TLab_Write_ASCII(bakfile, '#SchemeDerivative1=<CompactJacobian4/CompactJacobian6/CompactJacobian6Penta/CompactDirect4/CompactDirect6>')
-        call TLab_Write_ASCII(bakfile, '#SchemeDerivative2=<CompactJacobian4/CompactJacobian6/CompactJacobian6Hyper/CompactDirect4/CompactDirect6>')
+call TLab_Write_ASCII(bakfile, '#SchemeDerivative2=<CompactJacobian4/CompactJacobian6/CompactJacobian6Hyper/CompactDirect4/CompactDirect6/CompactDirect6Hyper>')
 
         call ScanFile_Char(bakfile, inifile, block, 'SchemeDerivative1', 'compactjacobian6', sRes)
         if (trim(adjustl(sRes)) == 'compactjacobian4') then; g(1:3)%der1%mode_fdm = FDM_COM4_JACOBIAN; 
@@ -76,6 +76,7 @@ contains
         elseif (trim(adjustl(sRes)) == 'compactjacobian6hyper') then; g(1:3)%der2%mode_fdm = FDM_COM6_JACOBIAN_HYPER; 
         elseif (trim(adjustl(sRes)) == 'compactdirect4') then; g(1:3)%der2%mode_fdm = FDM_COM4_DIRECT; 
         elseif (trim(adjustl(sRes)) == 'compactdirect6') then; g(1:3)%der2%mode_fdm = FDM_COM6_DIRECT; 
+        elseif (trim(adjustl(sRes)) == 'compactdirect6hyper') then; g(1:3)%der2%mode_fdm = FDM_COM6_DIRECT_HYPER; 
         else
             call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Wrong SchemeDerivative2 option.')
             call TLab_Stop(DNS_ERROR_OPTION)
@@ -129,7 +130,7 @@ contains
         x%periodic = g(1)%periodic
         y%periodic = g(2)%periodic
         z%periodic = g(3)%periodic
-        
+
         !########################################################################
         ! Initializing fdm plan for derivatives
         call FDM_CreatePlan(x, g(1))
@@ -148,7 +149,6 @@ contains
     ! ###################################################################
     subroutine FDM_CreatePlan(x, g, locScale)
         type(grid_dt) :: x
-        ! real(wp), intent(in) :: nodes(:)                            ! positions of the grid nodes
         type(fdm_dt), intent(inout) :: g                            ! fdm plan for derivatives
         real(wp), intent(in), optional :: locScale                  ! for consistency check
 
@@ -158,12 +158,16 @@ contains
         ! ###################################################################
         ! Consistency check
         ! ###################################################################
-        if (g%periodic .and. g%der1%mode_fdm == FDM_COM4_DIRECT) g%der1%mode_fdm = FDM_COM4_JACOBIAN        ! they are the same for uniform grids.
-        if (g%periodic .and. g%der1%mode_fdm == FDM_COM6_DIRECT) g%der1%mode_fdm = FDM_COM6_JACOBIAN        ! they are the same for uniform grids.
-        if (g%periodic .and. g%der2%mode_fdm == FDM_COM4_DIRECT) g%der2%mode_fdm = FDM_COM4_JACOBIAN        ! they are the same for uniform grids.
-        if (g%periodic .and. g%der2%mode_fdm == FDM_COM6_DIRECT) g%der2%mode_fdm = FDM_COM6_JACOBIAN_HYPER  ! they are the same for uniform grids.
+        if (g%uniform) then                ! they are the same for uniform grids
+            if (g%der1%mode_fdm == FDM_COM4_DIRECT) g%der1%mode_fdm = FDM_COM4_JACOBIAN
+            if (g%der1%mode_fdm == FDM_COM6_DIRECT) g%der1%mode_fdm = FDM_COM6_JACOBIAN
 
-        g%size = x%size !size(nodes)
+            if (g%der2%mode_fdm == FDM_COM4_DIRECT) g%der2%mode_fdm = FDM_COM4_JACOBIAN
+            if (g%der2%mode_fdm == FDM_COM6_DIRECT) g%der2%mode_fdm = FDM_COM6_JACOBIAN
+            if (g%der2%mode_fdm == FDM_COM6_DIRECT_HYPER) g%der2%mode_fdm = FDM_COM6_JACOBIAN_HYPER
+
+        end if
+        g%size = x%size
 
         if (g%size > 1) then
             g%scale = x%nodes(g%size) - x%nodes(1)

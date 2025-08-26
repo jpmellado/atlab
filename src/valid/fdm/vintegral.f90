@@ -21,9 +21,20 @@ program VINTEGRAL
     real(wp) :: lambda, wk, x_0
     integer(wi) :: test_type, ibc, ib, im
 
-    integer :: bcs_cases(4), fdm_cases(5)
+    integer :: bcs_cases(4)
+    integer :: fdm_cases(5) = [FDM_COM4_JACOBIAN, &
+                               FDM_COM6_JACOBIAN, &
+                               FDM_COM6_JACOBIAN_PENTA, &
+                               FDM_COM4_DIRECT, &
+                               FDM_COM6_DIRECT]
+    character(len=32) :: fdm_names(5) = [character(len=32) :: &
+                                         'Jacobian 4', &
+                                         'Jacobian 6', &
+                                         'Jacobian 6 penta-diagonal', &
+                                         'Direct 4', &
+                                         'Direct 6']
+
     real(wp), allocatable :: bcs(:, :), si(:, :)
-    character(len=32) :: fdm_names(5)
 
     type(grid_dt) :: x
     type(fdm_dt) :: g
@@ -33,7 +44,7 @@ program VINTEGRAL
     ! Initialize
     imax = 2
     jmax = 3
-    kmax = 256
+    kmax = 768
     len = imax*jmax
 
     x%size = kmax
@@ -77,10 +88,14 @@ program VINTEGRAL
         do i = 1, kmax
             x%nodes(i) = real(i - 1, wp)/real(kmax - 1, wp)*x%scale
         end do
-        ! open (21, file='y.dat')
+        ! open (21, file='z.dat')
         ! do i = 1, kmax
         !     read (21, *) x%nodes(i)
         ! end do
+        ! ! wrk1d(1:kmax, 1) = x%nodes(1:kmax)  ! reverse
+        ! ! do i = 1, kmax
+        ! !     x%nodes(i) = x%nodes(kmax) - wrk1d(kmax - i + 1, 1)
+        ! ! end do
         ! close (21)
     end if
 
@@ -92,7 +107,7 @@ program VINTEGRAL
 
     ! ###################################################################
     ! Define the function f and analytic derivatives
-    x_0 = 0.75_wp
+    x_0 = 0.01_wp
     wk = 1.0_wp
 
     do i = 1, kmax
@@ -101,10 +116,10 @@ program VINTEGRAL
         ! du1_a(:, i) = (2.0_wp*pi_wp/g%scale*wk) &
         !               *cos(2.0_wp*pi_wp/g%scale*wk*g%nodes(i))! + pi_wp/4.0_wp)
         ! Gaussian
-        u(:, i) = exp(-(g%nodes(i) - x_0*g%scale)**2/(2.0_wp*(g%scale/wk)**2))
-        du1_a(:, i) = -(g%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*u(:, i)
-        du2_a(:, i) = -(g%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*du1_a(:, i) &
-                      - 1.0_wp/(g%scale/wk)**2*u(:, i)
+        ! u(:, i) = exp(-(g%nodes(i) - x_0*g%scale)**2/(2.0_wp*(g%scale/wk)**2))
+        ! du1_a(:, i) = -(g%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*u(:, i)
+        ! du2_a(:, i) = -(g%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*du1_a(:, i) &
+        !               - 1.0_wp/(g%scale/wk)**2*u(:, i)
         ! exponential
         ! u(:, i) = exp(-g%nodes(i)*wk)
         ! du1_a(:, i) = -wk*u(:, i)
@@ -112,8 +127,8 @@ program VINTEGRAL
         ! u(:, i) = max(0.0_wp, (g%nodes(i) - g%nodes(kmax/2))*x_0)
         ! du1_a(:, i) = (1.0_wp + sign(1.0_wp, g%nodes(i) - g%nodes(kmax/2)))*0.5_wp*x_0
         ! tanh
-        ! u(:, i) = x_0*log(1.0_wp + exp((g%nodes(i) - g%nodes(kmax/2))/x_0))
-        ! du1_a(:, i) = 0.5_wp*(1.0_wp + tanh(0.5_wp*(g%nodes(i) - g%nodes(kmax/2))/x_0))
+        u(:, i) = x_0*log(1.0_wp + exp((g%nodes(i) - g%nodes(kmax/2))/x_0))
+        du1_a(:, i) = 0.5_wp*(1.0_wp + tanh(0.5_wp*(g%nodes(i) - g%nodes(kmax/2))/x_0))
         ! Polynomial
         ! dummy = 4.0_wp
         ! u(:, i) = ((g%scale - g%nodes(i))/wk)**dummy
@@ -122,6 +137,14 @@ program VINTEGRAL
         ! u(i) = 0.0_wp
         ! du1_a(i) = 0.0_wp
     end do
+
+    ! open (21, file='f.dat')
+    ! do i = 1, kmax
+    !     read (21, *) du1_a(1, i)
+    !     du1_a(2:, i) = du1_a(1, i)
+    ! end do
+    ! close (21)
+    ! u = 0.0_wp
 
     ! ###################################################################
     ! First order equation
@@ -132,16 +155,9 @@ program VINTEGRAL
         write (*, *) 'Eigenvalue ?'
         read (*, *) lambda
 
-        fdm_cases(1:5) = [FDM_COM4_JACOBIAN, FDM_COM6_JACOBIAN, FDM_COM6_JACOBIAN_PENTA, FDM_COM4_DIRECT, FDM_COM6_DIRECT]
-        im = 0
-        im = im + 1; fdm_names(im) = 'Jacobian 4'
-        im = im + 1; fdm_names(im) = 'Jacobian 6'
-        im = im + 1; fdm_names(im) = 'Jacobian 6, penta-diagonal'
-        im = im + 1; fdm_names(im) = 'Direct 4'
-        im = im + 1; fdm_names(im) = 'Direct 6'
         bcs_cases(1:2) = [BCS_MIN, BCS_MAX]
 
-        do im = 1, 5 !size(fdm_cases)
+        do im = 1, size(fdm_cases)
             print *, new_line('a'), fdm_names(im)
 
             g%der1%mode_fdm = fdm_cases(im)
@@ -340,13 +356,9 @@ program VINTEGRAL
         write (*, *) 'Eigenvalue ?'
         read (*, *) lambda
 
-        fdm_cases(1:5) = [FDM_COM4_JACOBIAN, FDM_COM6_JACOBIAN, FDM_COM6_JACOBIAN_PENTA, FDM_COM4_DIRECT, FDM_COM6_DIRECT]
-        fdm_names(1:2) = ['1. order, Jacobian 4', '1. order, Jacobian 6']
-        fdm_names(3) = '1. order, Jacobian 6 Penta'
-        fdm_names(4:5) = ['1. order, Direct 4', '1. order, Direct 6']
         bcs_cases(1:2) = [BCS_MIN, BCS_MAX]
 
-        do im = 1, 5 !size(fdm_cases)
+        do im = 1, size(fdm_cases)
             print *, new_line('a'), fdm_names(im)
 
             g%der1%mode_fdm = fdm_cases(im)

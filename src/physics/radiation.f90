@@ -225,8 +225,10 @@ contains
             end if
             if (present(flux_up)) then
                 call IR_RTE1_OnlyLiquid(nx*ny, nz, fdmi, source, ibc, flux_down, flux_up)
+                ! call IR_RTE1_OnlyLiquid_UpwardFirst(nx*ny, nz, fdmi, source, ibc, flux_down, flux_up)
             else
                 call IR_RTE1_OnlyLiquid(nx*ny, nz, fdmi, source, ibc)
+                ! call IR_RTE1_OnlyLiquid_UpwardFirst(nx*ny, nz, fdmi, source, ibc)
             end if
 
             ! -----------------------------------------------------------------------
@@ -313,7 +315,7 @@ contains
         ! #######################################################################
         ! calculate f_j = exp(-tau(z, zmax)/\mu)
         p_tau(:, ny) = 0.0_wp                                   ! boundary condition
-        call FDM_Int1_Solve(nlines, fdmi(BCS_MAX), fdmi(BCS_MAX)%rhs, a_source, p_tau, wrk2d)         ! recall this gives the negative of the integral
+        call FDM_Int1_Solve(nlines, fdmi(BCS_MAX), fdmi(BCS_MAX)%rhs, a_source, p_tau, wrk2d)       ! recall this gives the negative of the integral
         ! call Int_Trapezoidal_f(a_source, z%nodes(:), p_tau, BCS_MAX)
         ! call Int_Simpson_Biased_f(a_source, z%nodes(:), p_tau, BCS_MAX)
         do j = ny, 1, -1
@@ -344,6 +346,51 @@ contains
 
         return
     end subroutine IR_RTE1_OnlyLiquid
+
+    !########################################################################
+    ! Solve radiative transfer equation along 1 direction
+    !########################################################################
+    subroutine IR_RTE1_OnlyLiquid_UpwardFirst(nlines, ny, fdmi, a_source, ibc, flux_down, flux_up)
+        integer(wi), intent(in) :: nlines, ny
+        type(fdm_integral_dt), intent(in) :: fdmi(2)
+        real(wp), intent(inout) :: a_source(nlines, ny)         ! input as bulk absorption coefficent, output as source
+        integer :: ibc                                          ! boundary condition: top, down, both
+        real(wp), intent(out), optional :: flux_down(nlines, ny), flux_up(nlines, ny)
+
+        ! -----------------------------------------------------------------------
+        integer(wi) j
+
+        ! #######################################################################
+        ! calculate f_j = exp(-tau(0, z)/\mu)
+        p_tau(:, 1) = 0.0_wp                                   ! boundary condition
+        call FDM_Int1_Solve(nlines, fdmi(BCS_MIN), fdmi(BCS_MIN)%rhs, a_source, p_tau, wrk2d)
+        do j = 1, ny
+            p_tau(:, j) = exp(-p_tau(:, j))
+        end do
+
+        ! Calculate heating rate
+        if (ibc == BCS_BOTH) then
+            do j = ny, 1, -1
+                a_source(:, j) = a_source(:, j)*(p_tau(:, ny)/p_tau(:, j)*bcs_ht(1:nlines) &    ! downward flux
+                                                 + p_tau(:, j)*bcs_hb(1:nlines))                ! upward flux
+            end do
+        else
+            do j = ny, 1, -1
+                a_source(:, j) = a_source(:, j)*p_tau(:, ny)/p_tau(:, j)*bcs_ht(1:nlines)       ! only downward
+            end do
+        end if
+
+        ! Calculate flux, if necessary
+        if (present(flux_up)) then
+            do j = ny, 1, -1
+                flux_down(:, j) = bcs_ht(1:nlines)*p_tau(:, ny)/p_tau(:, j)                     ! downward flux
+                flux_up(:, j) = bcs_hb(1:nlines)*p_tau(:, j)                                    ! upward flux
+            end do
+
+        end if
+
+        return
+    end subroutine IR_RTE1_OnlyLiquid_UpwardFirst
 
     !########################################################################
     !########################################################################

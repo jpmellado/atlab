@@ -38,6 +38,8 @@ module FDM_Derivative
     ! public :: FDM_Der2_CreateSystem
     public :: FDM_Der2_Solve
 
+    integer, parameter, public :: FDM_NONE = 0
+
     integer, parameter, public :: FDM_COM4_JACOBIAN = 1
     integer, parameter, public :: FDM_COM6_JACOBIAN = 2
     integer, parameter, public :: FDM_COM6_JACOBIAN_HYPER = 3

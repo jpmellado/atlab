@@ -1,14 +1,15 @@
+#include "tlab_error.h"
+
 ! Split the routines into the ones that are initialized and the ones that not?
-! If not initialized, you can enter with any jmax, but the periodic directions need to be the global ones because of OPR_Fourier.
+! If not initialized, you can enter with any kmax, but the periodic directions need to be the global ones because of OPR_Fourier.
 module OPR_Elliptic
     use TLab_Constants, only: wp, wi
     use TLab_Constants, only: BCS_DD, BCS_DN, BCS_ND, BCS_NN, BCS_NONE, BCS_MIN, BCS_MAX, BCS_BOTH
-    use TLab_Constants, only: lfile
+    use TLab_Constants, only: efile
     use TLab_Memory, only: TLab_Allocate_Real
     use TLab_Memory, only: imax, jmax, kmax, isize_txc_field
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, stagger_on
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
     use TLab_Arrays, only: wrk1d, wrk2d, wrk3d
-    use TLab_Pointers_C, only: c_wrk3d
     use TLab_Grid, only: x, y, z
 #ifdef USE_MPI
     use TLabMPI_VARS, only: ims_offset_i, ims_offset_j, ims_pro_i
@@ -81,7 +82,7 @@ contains
     ! #######################################################################
     subroutine OPR_Elliptic_Initialize(inifile)
         use FDM, only: g, FDM_CreatePlan
-        use FDM_Derivative, only: FDM_COM4_DIRECT, FDM_COM6_DIRECT
+        use FDM_Derivative, only: FDM_NONE, FDM_COM4_JACOBIAN, FDM_COM6_JACOBIAN, FDM_COM4_DIRECT, FDM_COM6_DIRECT
 
         character(len=*), intent(in) :: inifile
 
@@ -104,18 +105,29 @@ contains
 
         imode_elliptic = TYPE_FACTORIZE                 ! default is the finite-difference method used for the derivatives
         fdm_loc%der1%mode_fdm = g(3)%der1%mode_fdm      ! to impose zero divergence down to round-off error in the interior points
-        fdm_loc%der2%mode_fdm = g(3)%der2%mode_fdm
+        ! fdm_loc%der2%mode_fdm = FDM_NONE
+        fdm_loc%der2%mode_fdm = g(3)%der2%mode_fdm      ! I still need it in FDM_CreatePlan
 
         call ScanFile_Char(bakfile, inifile, block, 'SchemeElliptic', 'void', sRes)
-        if (trim(adjustl(sRes)) == 'compactdirect4') then
+        ! call ScanFile_Char(bakfile, inifile, block, 'SchemeElliptic', 'compactdirect6', sRes)
+        select case (trim(adjustl(sRes)))
+        case ('void')
+        case ('compactjacobian4')
+            imode_elliptic = TYPE_FACTORIZE
+            fdm_loc%der1%mode_fdm = FDM_COM4_JACOBIAN
+        case ('compactjacobian6')
+            imode_elliptic = TYPE_FACTORIZE
+            fdm_loc%der1%mode_fdm = FDM_COM6_JACOBIAN
+        case ('compactdirect4')
             imode_elliptic = TYPE_DIRECT
-            fdm_loc%der1%mode_fdm = FDM_COM4_DIRECT
             fdm_loc%der2%mode_fdm = FDM_COM4_DIRECT
-        else if (trim(adjustl(sRes)) == 'compactdirect6') then
+        case ('compactdirect6')
             imode_elliptic = TYPE_DIRECT
-            fdm_loc%der1%mode_fdm = FDM_COM6_DIRECT
             fdm_loc%der2%mode_fdm = FDM_COM6_DIRECT
-        end if
+        case default
+            call TLab_Write_ASCII(efile, __FILE__//'. Undeveloped SchemeElliptic.')
+            call TLab_Stop(DNS_ERROR_OPTION)
+        end select
 
         ! ###################################################################
         ! Initializing

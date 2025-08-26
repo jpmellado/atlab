@@ -281,7 +281,7 @@ contains
 
                 ! Locating the points where the maximum dilatation occurs
                 wrk3d = -txc(:, 1)
-                loc_max(1:imax, 1:kmax, 1:kmax) => wrk3d(1:imax*jmax*kmax)
+                loc_max(1:imax, 1:jmax, 1:kmax) => wrk3d(1:imax*jmax*kmax)
 
                 dummy = maxval(wrk3d)
                 if (abs(dummy) > bound_d%max) then

@@ -7,6 +7,7 @@ module Radiation
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
     use TLab_Memory, only: TLab_Allocate_Real
     use TLab_Grid, only: z
+    use FDM, only: fdm_Int0
     use FDM_Integral, only: FDM_Int1_Solve, fdm_integral_dt
     use NavierStokes, only: nse_eqns, DNS_EQNS_ANELASTIC
     use Thermo_Base, only: imixture, MIXT_TYPE_AIRWATER
@@ -191,10 +192,9 @@ contains
 
     !########################################################################
     !########################################################################
-    subroutine Radiation_Infrared_Z(localProps, nx, ny, nz, fdmi, s, source, b, tmp1, tmp2, flux_down, flux_up)
+    subroutine Radiation_Infrared_Z(localProps, nx, ny, nz, s, source, b, tmp1, tmp2, flux_down, flux_up)
         type(infrared_dt), intent(in) :: localProps
         integer(wi), intent(in) :: nx, ny, nz
-        type(fdm_integral_dt), intent(in) :: fdmi(2)
         real(wp), intent(in) :: s(nx*ny*nz, *)
         real(wp), intent(out) :: source(nx*ny*nz)               ! heating rate, also used for absorption coefficient below
         real(wp), intent(inout) :: b(nx*ny*nz)                  ! emission function
@@ -224,11 +224,11 @@ contains
                 bcs_hb = localProps%bcs_b(1)                ! upward flux at domain bottom
             end if
             if (present(flux_up)) then
-                call IR_RTE1_OnlyLiquid(nx*ny, nz, fdmi, source, ibc, flux_down, flux_up)
-                ! call IR_RTE1_OnlyLiquid_UpwardFirst(nx*ny, nz, fdmi, source, ibc, flux_down, flux_up)
+                call IR_RTE1_OnlyLiquid(nx*ny, nz, fdm_Int0, source, ibc, flux_down, flux_up)
+                ! call IR_RTE1_OnlyLiquid_UpwardFirst(nx*ny, nz, fdm_Int0, source, ibc, flux_down, flux_up)
             else
-                call IR_RTE1_OnlyLiquid(nx*ny, nz, fdmi, source, ibc)
-                ! call IR_RTE1_OnlyLiquid_UpwardFirst(nx*ny, nz, fdmi, source, ibc)
+                call IR_RTE1_OnlyLiquid(nx*ny, nz, fdm_Int0, source, ibc)
+                ! call IR_RTE1_OnlyLiquid_UpwardFirst(nx*ny, nz, fdm_Int0, source, ibc)
             end if
 
             ! -----------------------------------------------------------------------
@@ -248,12 +248,12 @@ contains
             bcs_ht = localProps%bcs_t(1)                ! downward flux at domain top
             epsilon = infraredProps%bcs_b(1)            ! surface emmisivity at the bottom of the domain
             if (present(flux_up)) then
-                call IR_RTE1_Global(nx*ny, nz, fdmi, source, b, flux_down, flux_up)
+                call IR_RTE1_Global(nx*ny, nz, fdm_Int0, source, b, flux_down, flux_up)
             else
-                call IR_RTE1_Global(nx*ny, nz, fdmi, source, b, tmp1, tmp2)
+                call IR_RTE1_Global(nx*ny, nz, fdm_Int0, source, b, tmp1, tmp2)
             end if
-            ! call IR_RTE1_Local(localProps, nx*ny, nz, fdmi, source, b, flux_down, tmp2, flux_up)
-            ! call IR_RTE1_Incremental(localProps, nx*ny, nz, fdmi, source, b, flux_down, flux_up)
+            ! call IR_RTE1_Local(localProps, nx*ny, nz, fdm_Int0, source, b, flux_down, tmp2, flux_up)
+            ! call IR_RTE1_Incremental(localProps, nx*ny, nz, fdm_Int0, source, b, flux_down, flux_up)
 
             ! -----------------------------------------------------------------------
         case (TYPE_IR_BAND)
@@ -280,7 +280,7 @@ contains
                 ! solve radiative transfer equation
                 bcs_ht(1:nx*ny) = localProps%bcs_t(iband)   ! downward flux at domain top
                 epsilon = infraredProps%bcs_b(1)            ! surface emmisivity at the bottom of the domain
-                call IR_RTE1_Global(nx*ny, nz, fdmi, p_source, b, tmp1, tmp2)
+                call IR_RTE1_Global(nx*ny, nz, fdm_Int0, p_source, b, tmp1, tmp2)
                 ! call IR_RTE1_Local()
                 ! call IR_RTE1_Incremental()
 

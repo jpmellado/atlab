@@ -58,8 +58,7 @@ contains
     !# System normalized s.t. 1. upper-diagonal in B is 1 (except at boundaries)
     !#
     !########################################################################
-    subroutine FDM_Int1_Initialize(x, g, lambda, ibc, fdmi)
-        real(wp), intent(in) :: x(:)                    ! node positions
+    subroutine FDM_Int1_Initialize(g, lambda, ibc, fdmi)
         type(fdm_derivative_dt), intent(in) :: g        ! derivative plan to be inverted
         real(wp), intent(in) :: lambda                  ! system constant
         integer, intent(in) :: ibc                      ! type of boundary condition
@@ -69,7 +68,7 @@ contains
         integer(wi) nx, nd
 
         !########################################################################
-        call FDM_Int1_CreateSystem(x, g, lambda, ibc, fdmi)
+        call FDM_Int1_CreateSystem(g, lambda, ibc, fdmi)
 
         ! LU decomposition
         nx = size(fdmi%lhs, 1)              ! # of grid points
@@ -91,8 +90,7 @@ contains
 
     !########################################################################
     !########################################################################
-    subroutine FDM_Int1_CreateSystem(x, g, lambda, ibc, fdmi)
-        real(wp), intent(in) :: x(:)                    ! node positions
+    subroutine FDM_Int1_CreateSystem(g, lambda, ibc, fdmi)
         type(fdm_derivative_dt), intent(in) :: g        ! derivative plan to be inverted
         real(wp), intent(in) :: lambda                  ! system constant
         integer, intent(in) :: ibc                      ! type of boundary condition

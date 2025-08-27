@@ -211,10 +211,10 @@ contains
                         lambda(i, j) = g(1)%der1%mwn(iglobal)**2.0
                     end if
 
-                    call FDM_Int1_Initialize(fdm_loc%nodes(:), fdm_loc%der1, &
+                    call FDM_Int1_Initialize(fdm_loc%der1, &
                                              sqrt(lambda(i, j)), BCS_MIN, fdm_int1(BCS_MIN, i, j))
 
-                    call FDM_Int1_Initialize(fdm_loc%nodes(:), fdm_loc%der1, &
+                    call FDM_Int1_Initialize(fdm_loc%der1, &
                                              -sqrt(lambda(i, j)), BCS_MAX, fdm_int1(BCS_MAX, i, j))
 
                     if (any(i_sing == i) .and. any(j_sing == j)) then
@@ -450,10 +450,10 @@ contains
                 bcs(1:2, 1) = f(1:2, i, j)                  ! bottom boundary conditions
                 bcs(1:2, 2) = f(2*nz - 1:2*nz, i, j)        ! top boundary conditions
 
-                call FDM_Int1_Initialize(fdm_loc%nodes(:), fdm_loc%der1, &
+                call FDM_Int1_Initialize(fdm_loc%der1, &
                                          sqrt(lambda(i, j) - alpha), BCS_MIN, fdm_int1_loc(BCS_MIN))
 
-                call FDM_Int1_Initialize(fdm_loc%nodes(:), fdm_loc%der1, &
+                call FDM_Int1_Initialize(fdm_loc%der1, &
                                          -sqrt(lambda(i, j) - alpha), BCS_MAX, fdm_int1_loc(BCS_MAX))
 
                 select case (ibc)

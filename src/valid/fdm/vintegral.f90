@@ -102,8 +102,8 @@ program VINTEGRAL
     g%der1%mode_fdm = FDM_COM6_JACOBIAN     ! default
     g%der2%mode_fdm = g%der1%mode_fdm
     call FDM_CreatePlan(x, g)
-    call FDM_Int1_Initialize(x%nodes, g%der1, 0.0_wp, BCS_MIN, fdmi(BCS_MIN))
-    call FDM_Int1_Initialize(x%nodes, g%der1, 0.0_wp, BCS_MAX, fdmi(BCS_MAX))
+    call FDM_Int1_Initialize(g%der1, 0.0_wp, BCS_MIN, fdmi(BCS_MIN))
+    call FDM_Int1_Initialize(g%der1, 0.0_wp, BCS_MAX, fdmi(BCS_MAX))
 
     ! ###################################################################
     ! Define the function f and analytic derivatives
@@ -172,7 +172,7 @@ program VINTEGRAL
                 ibc = bcs_cases(ib)
                 print *, new_line('a'), 'Bcs case ', ibc
 
-                call FDM_Int1_Initialize(g%nodes(:), g%der1, lambda, ibc, fdmi(ib))
+                call FDM_Int1_Initialize(g%der1, lambda, ibc, fdmi(ib))
 
                 ! bcs
                 select case (ibc)
@@ -253,8 +253,8 @@ program VINTEGRAL
         write (*, *) 'Eigenvalue ?'
         read (*, *) lambda
 
-        call FDM_Int1_Initialize(g%nodes(:), g%der1, lambda, BCS_MIN, fdmi(BCS_MIN))
-        call FDM_Int1_Initialize(g%nodes(:), g%der1, -lambda, BCS_MAX, fdmi(BCS_MAX))
+        call FDM_Int1_Initialize(g%der1, lambda, BCS_MIN, fdmi(BCS_MIN))
+        call FDM_Int1_Initialize(g%der1, -lambda, BCS_MAX, fdmi(BCS_MAX))
 
         allocate (bcs(len, 2))
         ! call random_seed()
@@ -369,9 +369,9 @@ program VINTEGRAL
                 ibc = bcs_cases(ib)
                 print *, new_line('a'), 'Bcs case ', ibc
 
-                call FDM_Int1_CreateSystem(g%nodes(:), g%der1, 0.0_wp, ibc, fdmi(ib))
+                call FDM_Int1_CreateSystem(g%der1, 0.0_wp, ibc, fdmi(ib))
 
-                call FDM_Int1_CreateSystem(g%nodes(:), g%der1, 1.0_wp, ibc, fdmi_test(ib))
+                call FDM_Int1_CreateSystem(g%der1, 1.0_wp, ibc, fdmi_test(ib))
 
                 call check(fdmi(ib)%rhs, fdmi_test(ib)%rhs, 'integral.dat')
                 ! print*,fdmi(ib)%rhs_b
@@ -380,7 +380,7 @@ program VINTEGRAL
                 ! print*,fdmi_test(ib)%rhs_t
 
                 ! checking linearity in lhs
-                call FDM_Int1_CreateSystem(g%nodes(:), g%der1, lambda, fdmi(ib)%bc, fdmi_test_lambda(ib))
+                call FDM_Int1_CreateSystem(g%der1, lambda, fdmi(ib)%bc, fdmi_test_lambda(ib))
 
                 call check(fdmi(ib)%lhs + lambda*(fdmi_test(ib)%lhs - fdmi(ib)%lhs), &
                            fdmi_test_lambda(ib)%lhs, 'integral.dat')

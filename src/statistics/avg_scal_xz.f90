@@ -20,7 +20,6 @@ subroutine AVG_SCAL_XZ(is, q, s, s_local, dsdx, dsdy, dsdz, tmp1, tmp2, tmp3, me
     use TLab_Pointers_3D, only: p_wrk3d, u, v, w
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
     use TLab_Grid, only: z
-    use FDM, only: fdm_Int0
     use OPR_Partial
     use NavierStokes
     use Thermo_Anelastic, only: ribackground, Thermo_Anelastic_Weight_InPlace
@@ -457,7 +456,7 @@ subroutine AVG_SCAL_XZ(is, q, s, s_local, dsdx, dsdy, dsdz, tmp1, tmp2, tmp3, me
     iv = ig(1) + offset_sources - 1
     tmp1 = 0.0_wp                               ! Accumulating sources in tmp1
     if (infraredProps%active(is)) then          ! Radiation source in tmp1
-        call Radiation_Infrared_Z(infraredProps, imax, jmax, kmax, fdm_Int0, s, tmp1, tmp2, tmp3, dsdx, dsdy, dsdz)
+        call Radiation_Infrared_Z(infraredProps, imax, jmax, kmax, s, tmp1, tmp2, tmp3, dsdx, dsdy, dsdz)
         if (nse_eqns == DNS_EQNS_ANELASTIC) then
             call Thermo_Anelastic_Weight_InPlace(imax, jmax, kmax, ribackground, tmp1)
         end if

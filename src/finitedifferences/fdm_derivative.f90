@@ -287,7 +287,7 @@ contains
     ! ###################################################################
     subroutine FDM_Der2_Initialize(x, dx, g, periodic, uniform)
         real(wp), intent(in) :: x(:)                    ! node positions
-        real(wp), intent(inout) :: dx(:, :)             ! Jacobians
+        real(wp), intent(in) :: dx(:, :)                ! Jacobians
         type(fdm_derivative_dt), intent(inout) :: g     ! fdm plan for 2. order derivative
         logical, intent(in) :: periodic, uniform
 
@@ -343,7 +343,7 @@ contains
     ! ###################################################################
     subroutine FDM_Der2_CreateSystem(x, dx, g, periodic, uniform)
         real(wp), intent(in) :: x(:)                    ! node positions
-        real(wp), intent(inout) :: dx(:, :)             ! Jacobians
+        real(wp), intent(in) :: dx(:, :)                ! Jacobians
         type(fdm_derivative_dt), intent(inout) :: g     ! fdm plan for 2. order derivative
         logical, intent(in) :: periodic, uniform
 

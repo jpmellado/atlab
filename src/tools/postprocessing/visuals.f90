@@ -17,7 +17,6 @@ program VISUALS
     use IO_Fields
     use TLab_Grid
     use FDM, only: FDM_Initialize
-    use FDM, only: fdm_Int0
     use NavierStokes!, only: NavierStokes_Initialize_Parameters
     use Thermodynamics, only: Thermo_Initialize
     use TLab_Background, only: TLab_Initialize_Background
@@ -571,7 +570,7 @@ program VISUALS
                 do is = 1, inb_scal
                     if (infraredProps%active(is)) then
                         write (str, *) is; plot_file = 'Infrared'//trim(adjustl(str))//time_str(1:MaskSize)
-                        call Radiation_Infrared_Z(infraredProps, imax, jmax, kmax, fdm_Int0, s, &
+                        call Radiation_Infrared_Z(infraredProps, imax, jmax, kmax, s, &
                                                   txc(:, 1), txc(:, 2), txc(:, 3), txc(:, 4), txc(:, 5), txc(:, 6))
                         if (nse_eqns == DNS_EQNS_ANELASTIC) then
                             call Thermo_Anelastic_Weight_InPlace(imax, jmax, kmax, ribackground, txc(:, 1))

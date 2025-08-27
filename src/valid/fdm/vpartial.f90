@@ -19,19 +19,30 @@ program VPARTIAL
 
     implicit none
 
-    integer(wi) :: i, l, len
+    integer(wi) :: i, l, nlines
 
     real(wp), dimension(:, :), pointer :: u
     real(wp), dimension(:, :), pointer :: du1_a, du1_b, du1_c, du1_n
     real(wp), dimension(:, :), pointer :: du2_a, du2_n1, du2_n2, du2_n3
     real(wp) :: wk, x_0, coef(5)!, dummy
-    integer(wi) :: test_type, ibc, ip, ic, ndr, idr, ndl, idl, im
+    integer(wi) :: test_type, ibc, ip, ic, ndr, idr, ndl, idl, im, ip2
     integer(wi) :: nmin, nmax, nsize
     real(wp) rhsr_b(5, 0:7), rhsr_t(0:4, 8)
 
-    integer, parameter :: i1 = 1
-    integer :: bcs_cases(4), fdm_cases(5)
-    character(len=32) :: fdm_names(5)
+    real(wp), allocatable :: w(:, :), z(:, :)         ! for case 5
+
+    integer :: bcs_cases(4)
+    integer :: fdm_cases(5) = [FDM_COM4_JACOBIAN, &
+                               FDM_COM6_JACOBIAN, &
+                               FDM_COM6_JACOBIAN_PENTA, &
+                               FDM_COM4_DIRECT, &
+                               FDM_COM6_DIRECT]
+    character(len=32) :: fdm_names(5) = [character(len=32) :: &
+                                         'Jacobian 4', &
+                                         'Jacobian 6', &
+                                         'Jacobian 6 penta-diagonal', &
+                                         'Direct 4', &
+                                         'Direct 6']
 
     type(grid_dt) :: x
     type(fdm_dt) g
@@ -41,7 +52,7 @@ program VPARTIAL
     imax = 2
     jmax = 3
     kmax = 256
-    len = imax*jmax
+    nlines = imax*jmax
 
     x%size = kmax
     x%scale = 1.0_wp
@@ -58,21 +69,24 @@ program VPARTIAL
 
     call TLab_Initialize_Memory(__FILE__)
 
-    u(1:len, 1:kmax) => txc(1:imax*jmax*kmax, 1)
+    u(1:nlines, 1:kmax) => txc(1:imax*jmax*kmax, 1)
 
-    du1_a(1:len, 1:kmax) => txc(1:imax*jmax*kmax, 2)
-    du1_b(1:len, 1:kmax) => txc(1:imax*jmax*kmax, 3)
-    du1_c(1:len, 1:kmax) => txc(1:imax*jmax*kmax, 4)
-    du1_n(1:len, 1:kmax) => txc(1:imax*jmax*kmax, 5)
-    du2_a(1:len, 1:kmax) => txc(1:imax*jmax*kmax, 6)
-    du2_n1(1:len, 1:kmax) => txc(1:imax*jmax*kmax, 7)
-    du2_n2(1:len, 1:kmax) => txc(1:imax*jmax*kmax, 8)
-    du2_n3(1:len, 1:kmax) => txc(1:imax*jmax*kmax, 9)
+    du1_a(1:nlines, 1:kmax) => txc(1:imax*jmax*kmax, 2)
+    du1_b(1:nlines, 1:kmax) => txc(1:imax*jmax*kmax, 3)
+    du1_c(1:nlines, 1:kmax) => txc(1:imax*jmax*kmax, 4)
+    du1_n(1:nlines, 1:kmax) => txc(1:imax*jmax*kmax, 5)
+    du2_a(1:nlines, 1:kmax) => txc(1:imax*jmax*kmax, 6)
+    du2_n1(1:nlines, 1:kmax) => txc(1:imax*jmax*kmax, 7)
+    du2_n2(1:nlines, 1:kmax) => txc(1:imax*jmax*kmax, 8)
+    du2_n3(1:nlines, 1:kmax) => txc(1:imax*jmax*kmax, 9)
+
+    allocate (w(1, kmax), z(1, kmax))
 
     print *, '1. First-order derivative.'
     print *, '2. Second-order derivative.'
     print *, '3. Reduction routines.'
     print *, '4. Boundary conditions.'
+    print *, '5. Boundary conditions decomposition.'
     read (*, *) test_type
 
 !  ###################################################################
@@ -143,21 +157,13 @@ program VPARTIAL
     ! ###################################################################
     select case (test_type)
     case (1)
-        fdm_cases(1:5) = [FDM_COM4_JACOBIAN, FDM_COM6_JACOBIAN, FDM_COM6_JACOBIAN_PENTA, FDM_COM4_DIRECT, FDM_COM6_DIRECT]
-        im = 0
-        im = im + 1; fdm_names(im) = 'Jacobian 4'
-        im = im + 1; fdm_names(im) = 'Jacobian 6'
-        im = im + 1; fdm_names(im) = 'Jacobian 6, penta-diagonal'
-        im = im + 1; fdm_names(im) = 'Direct 4'
-        im = im + 1; fdm_names(im) = 'Direct 6'
-
-        do im = 1, 5 !size(fdm_cases)
+        do im = 1, size(fdm_cases)
             print *, new_line('a'), fdm_names(im)
 
             g%der1%mode_fdm = fdm_cases(im)
             call FDM_CreatePlan(x, g)
 
-            call FDM_Der1_Solve(len, BCS_NONE, g%der1, g%der1%lu, u, du1_n, wrk2d)
+            call FDM_Der1_Solve(nlines, BCS_NONE, g%der1, g%der1%lu, u, du1_n, wrk2d)
 
             call check(u, du1_a, du1_n, 'partial.dat')
 
@@ -167,23 +173,17 @@ program VPARTIAL
         ! Second-order derivative
         ! ###################################################################
     case (2)
-        fdm_cases(1:5) = [FDM_COM4_JACOBIAN, FDM_COM6_JACOBIAN, FDM_COM6_JACOBIAN_HYPER, FDM_COM4_DIRECT, FDM_COM6_DIRECT]
-        im = 0
-        im = im + 1; fdm_names(im) = 'Jacobian 4'
-        im = im + 1; fdm_names(im) = 'Jacobian 6'
-        im = im + 1; fdm_names(im) = 'Jacobian 6, hyper-diffusive'
-        im = im + 1; fdm_names(im) = 'Direct 4'
-        im = im + 1; fdm_names(im) = 'Direct 6'
+        fdm_cases(3) = FDM_COM6_JACOBIAN_HYPER
+        fdm_names(3) = 'Jacobian 6, hyper-diffusive'
 
-        do im = 1, 5 !size(fdm_cases)
+        do im = 1, size(fdm_cases)
             print *, new_line('a'), fdm_names(im)
 
-            g%der1%mode_fdm = fdm_cases(im)
             g%der2%mode_fdm = fdm_cases(im)
             call FDM_CreatePlan(x, g)
 
-            call FDM_Der1_Solve(len, BCS_NONE, g%der1, g%der1%lu, u, du1_n, wrk2d)  ! I need du1_n in Jacobian formulation
-            call FDM_Der2_Solve(len, g%der2, g%der2%lu, u, du2_n1, du1_n, wrk2d)
+            call FDM_Der1_Solve(nlines, BCS_NONE, g%der1, g%der1%lu, u, du1_n, wrk2d)  ! I need du1_n in Jacobian formulation
+            call FDM_Der2_Solve(nlines, g%der2, g%der2%lu, u, du2_n1, du1_n, wrk2d)
 
             call check(u, du2_a, du2_n1, 'partial.dat')
 
@@ -193,13 +193,8 @@ program VPARTIAL
         !   Testing the reduction routines
         ! ###################################################################
     case (3)
-        fdm_cases(1:3) = [FDM_COM4_JACOBIAN, FDM_COM6_JACOBIAN, FDM_COM6_JACOBIAN_PENTA]
-        im = 0
-        im = im + 1; fdm_names(im) = 'Jacobian 4'
-        im = im + 1; fdm_names(im) = 'Jacobian 6'
-        im = im + 1; fdm_names(im) = 'Jacobian 6, penta-diagonal'
-
         bcs_cases(1:3) = [BCS_MIN, BCS_MAX, BCS_BOTH]
+
         do ip = 1, 3
             ibc = bcs_cases(ip)
             print *, new_line('a'), 'Bcs case ', ibc
@@ -261,9 +256,9 @@ program VPARTIAL
 
                 select case (g%der1%nb_diag(1))
                 case (3)
-                    call Thomas3_Solve(nsize, len, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3), du1_n(:, nmin:nmax))
+                    call Thomas3_Solve(nsize, nlines, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3), du1_n(:, nmin:nmax))
                 case (5)
-        call Thomas5_Solve(nsize, len, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3), g%der1%lu(nmin:nmax, 4), g%der1%lu(nmin:nmax, 5), du1_n(:, nmin:nmax))
+        call Thomas5_Solve(nsize, nlines, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3), g%der1%lu(nmin:nmax, 4), g%der1%lu(nmin:nmax, 5), du1_n(:, nmin:nmax))
                 end select
 
                 if (any([BCS_MIN, BCS_BOTH] == ibc)) then
@@ -290,13 +285,8 @@ program VPARTIAL
         ! Boundary conditions
         ! ###################################################################
     case (4)
-        fdm_cases(1:3) = [FDM_COM4_JACOBIAN, FDM_COM6_JACOBIAN, FDM_COM6_JACOBIAN_PENTA]
-        im = 0
-        im = im + 1; fdm_names(im) = 'Jacobian 4'
-        im = im + 1; fdm_names(im) = 'Jacobian 6'
-        im = im + 1; fdm_names(im) = 'Jacobian 6, penta-diagonal'
-
         bcs_cases(1:4) = [BCS_DD, BCS_ND, BCS_DN, BCS_NN]
+
         do ip = 1, 4
             ibc = bcs_cases(ip)
             print *, new_line('a'), 'Bcs case ', ibc
@@ -355,29 +345,83 @@ program VPARTIAL
 
                 select case (g%der1%nb_diag(1))
                 case (3)
-                    call Thomas3_Solve(nsize, len, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3), du1_n(:, nmin:nmax))
+                    call Thomas3_Solve(nsize, nlines, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3), du1_n(:, nmin:nmax))
                 case (5)
-        call Thomas5_Solve(nsize, len, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3), g%der1%lu(nmin:nmax, 4), g%der1%lu(nmin:nmax, 5), du1_n(:, nmin:nmax))
+        call Thomas5_Solve(nsize, nlines, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3), g%der1%lu(nmin:nmax, 4), g%der1%lu(nmin:nmax, 5), du1_n(:, nmin:nmax))
                 end select
 
                 call check(u(:, nmin:nmax), du1_a(:, nmin:nmax), du1_n(:, nmin:nmax), 'partial.dat')
                 if (any([BCS_ND, BCS_NN] == ibc)) then
                     do ic = 1, idl - 1
-                        wrk2d(1:len, 1) = wrk2d(1:len, 1) + g%der1%lu(1, idl + ic)*du1_n(:, 1 + ic)
+                        wrk2d(1:nlines, 1) = wrk2d(1:nlines, 1) + g%der1%lu(1, idl + ic)*du1_n(:, 1 + ic)
                     end do
                     print *, u(:, 1)
-                    print *, wrk2d(1:len, 1)
+                    print *, wrk2d(1:nlines, 1)
                 end if
                 if (any([BCS_DN, BCS_NN] == ibc)) then
                     do ic = 1, idl - 1
-                        wrk2d(1:len, 2) = wrk2d(1:len, 2) + g%der1%lu(kmax, idl - ic)*du1_n(:, kmax - ic)
+                        wrk2d(1:nlines, 2) = wrk2d(1:nlines, 2) + g%der1%lu(kmax, idl - ic)*du1_n(:, kmax - ic)
                     end do
                     print *, u(:, kmax)
-                    print *, wrk2d(1:len, 2)
+                    print *, wrk2d(1:nlines, 2)
                 end if
 
             end do
 
+        end do
+
+        ! ###################################################################
+        ! Decomposition of Neumann boundary condition
+        ! ###################################################################
+    case (5)
+        bcs_cases(1:3) = [BCS_MIN, BCS_MAX, BCS_BOTH]
+        
+        do im = 2, 2!size(fdm_cases)
+            g%der1%mode_fdm = fdm_cases(im)
+            print *, fdm_names(im)
+
+            g%der1%mode_fdm = fdm_cases(im)
+            call FDM_CreatePlan(x, g)
+
+            do ip = 1, 3
+                ibc = bcs_cases(ip)
+                print *, new_line('a'), 'Bcs case ', ibc
+
+                i = 1
+                w = 0.0_wp; w(1, i) = 1.0_wp
+                z = 0.0_wp; z(1, i) = 1.0_wp
+
+                nmin = 1
+                nmax = g%size
+                if (any([BCS_ND, BCS_NN] == ibc)) then
+                    z(1, 1) = w(1, 1)
+                    nmin = nmin + 1
+                end if
+                if (any([BCS_DN, BCS_NN] == ibc)) then
+                    z(1, kmax) = w(1, kmax)
+                    nmax = nmax - 1
+                end if
+                nsize = nmax - nmin + 1
+
+                ! call FDM_Der1_Solve(1, ibc, g%der1, g%der1%lu, w, z, wrk2d)
+                call g%der1%matmul(g%der1%rhs, w, z, ibc, g%der1%rhs_b, g%der1%rhs_t)
+
+                ip2 = ibc*5
+                select case (g%der1%nb_diag(1))
+                case (3)
+                    call Thomas3_Solve(nsize, 1, g%der1%lu(nmin:, ip2 + 1), g%der1%lu(nmin:, ip2 + 2), g%der1%lu(nmin:, ip2 + 3), &
+                                       z(:, nmin:))
+                case (5)
+                    print *, 'undeveloped'
+                    ! call Thomas5_Solve(nsize, nlines, lu1(nmin:, ip + 1), lu1(nmin:, ip + 2), lu1(nmin:, ip + 3), lu1(nmin:, ip + 4), lu1(nmin:, ip + 5), &
+                    !                    result(:, nmin:))
+                end select
+
+                do i = 1, kmax !nmin, nmax
+                    print *, i, z(1, i)
+                end do
+
+            end do
         end do
 
     end select
@@ -412,7 +456,7 @@ contains
             close (20)
         end if
 
-        write (*, *) 'Solution L2-norm ...........:', sqrt(g%jac(1, 1)*dummy)/real(len, wp)
+        write (*, *) 'Solution L2-norm ...........:', sqrt(g%jac(1, 1)*dummy)/real(nlines, wp)
         if (dummy == 0.0_wp) return
         write (*, *) 'Relative Error L2-norm .....:', sqrt(g%jac(1, 1)*error_l2)/maxval(abs(du1_a))
         write (*, *) 'Relative Error Linf-norm ...:', error_max/maxval(abs(du1_a))

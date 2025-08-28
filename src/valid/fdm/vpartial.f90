@@ -25,7 +25,7 @@ program VPARTIAL
     real(wp), dimension(:, :), pointer :: du1_a, du1_b, du1_c, du1_n
     real(wp), dimension(:, :), pointer :: du2_a, du2_n1, du2_n2, du2_n3
     real(wp) :: wk, x_0, coef(5)!, dummy
-    integer(wi) :: test_type, ibc, ip, ic, ndr, idr, ndl, idl, im, ip2
+    integer(wi) :: test_type, ibc, ip, ic, ndr, idr, ndl, idl, im, ib, ip2
     integer(wi) :: nmin, nmax, nsize
     real(wp) rhsr_b(5, 0:7), rhsr_t(0:4, 8)
 
@@ -47,8 +47,8 @@ program VPARTIAL
     type(grid_dt) :: x
     type(fdm_dt) g
 
-! ###################################################################
-! Initialize
+    ! ###################################################################
+    ! Initialize
     imax = 2
     jmax = 3
     kmax = 256
@@ -89,7 +89,7 @@ program VPARTIAL
     print *, '5. Boundary conditions decomposition.'
     read (*, *) test_type
 
-!  ###################################################################
+    !  ###################################################################
     if (x%periodic) then
         do i = 1, kmax
             x%nodes(i) = real(i - 1, wp)/real(kmax, wp)*x%scale
@@ -113,18 +113,18 @@ program VPARTIAL
     ndr = g%der1%nb_diag(2)
     ndl = g%der1%nb_diag(1)
 
-! ###################################################################
-! Define the function and analytic derivatives
+    ! ###################################################################
+    ! Define the function and analytic derivatives
     x_0 = 0.75_wp
     wk = 1.0_wp
 
     do i = 1, kmax
         ! single-mode
-        u(:, i) = 1.0_wp + sin(2.0_wp*pi_wp/g%scale*wk*g%nodes(i)) ! + pi_wp/4.0_wp)
+        u(:, i) = 1.0_wp + sin(2.0_wp*pi_wp/g%scale*wk*(g%nodes(i) - x_0*x%scale)) ! + pi_wp/4.0_wp)
         du1_a(:, i) = (2.0_wp*pi_wp/g%scale*wk) &
-                      *cos(2.0_wp*pi_wp/g%scale*wk*g%nodes(i))! + pi_wp/4.0_wp)
+                      *cos(2.0_wp*pi_wp/g%scale*wk*(g%nodes(i) - x_0*x%scale))! + pi_wp/4.0_wp)
         du2_a(:, i) = -(2.0_wp*pi_wp/g%scale*wk)**2.0_wp &
-                      *sin(2.0_wp*pi_wp/g%scale*wk*g%nodes(i))! + pi_wp/4.0_wp)
+                      *sin(2.0_wp*pi_wp/g%scale*wk*(g%nodes(i) - x_0*x%scale))! + pi_wp/4.0_wp)
         ! ! Gaussian
         ! u(:, i) = exp(-(g%nodes(i) - x_0*g%scale)**2/(2.0_wp*(g%scale/wk)**2))
         ! du1_a(:, i) = -(g%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*u(:, i)
@@ -237,7 +237,7 @@ program VPARTIAL
                 case (3)
                     call Thomas3_LU(nsize, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3))
                 case (5)
-             call Thomas5_LU(nsize, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3), g%der1%lu(nmin:nmax, 4), g%der1%lu(nmin:nmax, 5))
+   call Thomas5_LU(nsize, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3), g%der1%lu(nmin:nmax, 4), g%der1%lu(nmin:nmax, 5))
                 end select
 
                 du1_n(:, 1) = u(:, 1)           ! boundary condition
@@ -258,7 +258,7 @@ program VPARTIAL
                 case (3)
                     call Thomas3_Solve(nsize, nlines, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3), du1_n(:, nmin:nmax))
                 case (5)
-        call Thomas5_Solve(nsize, nlines, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3), g%der1%lu(nmin:nmax, 4), g%der1%lu(nmin:nmax, 5), du1_n(:, nmin:nmax))
+                    call Thomas5_Solve(nsize, nlines, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3), g%der1%lu(nmin:nmax, 4), g%der1%lu(nmin:nmax, 5), du1_n(:, nmin:nmax))
                 end select
 
                 if (any([BCS_MIN, BCS_BOTH] == ibc)) then
@@ -287,95 +287,87 @@ program VPARTIAL
     case (4)
         bcs_cases(1:4) = [BCS_DD, BCS_ND, BCS_DN, BCS_NN]
 
-        do ip = 1, 4
-            ibc = bcs_cases(ip)
-            print *, new_line('a'), 'Bcs case ', ibc
+#define bcs_hb(i) wrk2d(i,1)
+#define bcs_ht(i) wrk2d(i,2)
 
-            nmin = 1
-            nmax = g%size
-            if (any([BCS_ND, BCS_NN] == ibc)) then
-                nmin = nmin + 1
-            end if
-            if (any([BCS_DN, BCS_NN] == ibc)) then
-                nmax = nmax - 1
-            end if
-            nsize = nmax - nmin + 1
+        do im = 1, size(fdm_cases)
+            g%der1%mode_fdm = fdm_cases(im)
+            print *, new_line('a'), fdm_names(im)
 
-            du1_n(:, 1) = du1_a(:, 1)
-            du1_n(:, kmax) = du1_a(:, kmax)
+            g%der1%mode_fdm = fdm_cases(im)
+            call FDM_CreatePlan(x, g)
 
-            do im = 1, 3
-                g%der1%mode_fdm = fdm_cases(im)
-                print *, fdm_names(im)
+            do ib = 1, 4
+                ibc = bcs_cases(ib)
+                print *, new_line('a'), 'Bcs case ', ibc
 
-                select case (g%der1%mode_fdm)
-                case (FDM_COM4_JACOBIAN)
-                    call FDM_C1N4_Jacobian(kmax, g%jac, g%der1%lu, g%der1%rhs, g%der1%nb_diag, coef, g%periodic)
+                nmin = 1; nmax = g%size
+                if (any([BCS_ND, BCS_NN] == ibc)) then
+                    du1_n(:, 1) = du1_a(:, 1)
+                    nmin = nmin + 1
+                end if
+                if (any([BCS_DN, BCS_NN] == ibc)) then
+                    du1_n(:, kmax) = du1_a(:, kmax)
+                    nmax = nmax - 1
+                end if
+                nsize = nmax - nmin + 1
 
-                case (FDM_COM6_JACOBIAN)
-                    call FDM_C1N6_Jacobian(kmax, g%jac, g%der1%lu, g%der1%rhs, g%der1%nb_diag, coef, g%periodic)
+                ! -------------------------------------------------------------------
+                ! Calculate RHS in system of equations A u' = B u
+                call g%der1%matmul(g%der1%rhs, u, du1_n, ibc, g%der1%rhs_b, g%der1%rhs_t, bcs_hb(:), bcs_ht(:))
 
-                case (FDM_COM6_JACOBIAN_PENTA)
-                    call FDM_C1N6_Jacobian_Penta(kmax, g%jac, g%der1%lu, g%der1%rhs, g%der1%nb_diag, coef, g%periodic)
-
-                end select
-                idl = g%der1%nb_diag(1)/2 + 1
-                idr = g%der1%nb_diag(2)/2 + 1
-
-                call FDM_BCS_Neumann(ibc, g%der1%lu(:, 1:g%der1%nb_diag(1)), g%der1%rhs(:, 1:g%der1%nb_diag(2)), g%der1%rhs_b, g%der1%rhs_t)
+                ! -------------------------------------------------------------------
+                ! Solve for u' in system of equations A u' = B u
+                ip = ibc*5
 
                 select case (g%der1%nb_diag(1))
                 case (3)
-                    call Thomas3_LU(nsize, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3))
+                    call Thomas3_Solve(nsize, nlines, &
+                                       g%der1%lu(nmin:nmax, ip + 1), &
+                                       g%der1%lu(nmin:nmax, ip + 2), &
+                                       g%der1%lu(nmin:nmax, ip + 3), &
+                                       du1_n(:, nmin:nmax))
                 case (5)
-             call Thomas5_LU(nsize, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3), g%der1%lu(nmin:nmax, 4), g%der1%lu(nmin:nmax, 5))
-                end select
-
-                select case (g%der1%nb_diag(2))
-                case (3)
-                    call MatMul_3d_antisym(g%der1%rhs(:, 1:3), u, du1_n, &
-                                           ibc, rhs_b=g%der1%rhs_b, bcs_b=wrk2d(:, 1), rhs_t=g%der1%rhs_t, bcs_t=wrk2d(:, 2))
-                case (5)
-                    call MatMul_5d_antisym(g%der1%rhs(:, 1:5), u, du1_n, &
-                                           ibc, rhs_b=g%der1%rhs_b, bcs_b=wrk2d(:, 1), rhs_t=g%der1%rhs_t, bcs_t=wrk2d(:, 2))
-                case (7)
-                    call MatMul_7d_antisym(g%der1%rhs(:, 1:7), u, du1_n, &
-                                           ibc, rhs_b=g%der1%rhs_b, bcs_b=wrk2d(:, 1), rhs_t=g%der1%rhs_t, bcs_t=wrk2d(:, 2))
-                end select
-
-                select case (g%der1%nb_diag(1))
-                case (3)
-                    call Thomas3_Solve(nsize, nlines, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3), du1_n(:, nmin:nmax))
-                case (5)
-        call Thomas5_Solve(nsize, nlines, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3), g%der1%lu(nmin:nmax, 4), g%der1%lu(nmin:nmax, 5), du1_n(:, nmin:nmax))
+                    call Thomas5_Solve(nsize, nlines, &
+                                       g%der1%lu(nmin:nmax, ip + 1), &
+                                       g%der1%lu(nmin:nmax, ip + 2), &
+                                       g%der1%lu(nmin:nmax, ip + 3), &
+                                       g%der1%lu(nmin:nmax, ip + 4), &
+                                       g%der1%lu(nmin:nmax, ip + 5), &
+                                       du1_n(:, nmin:nmax))
                 end select
 
                 call check(u(:, nmin:nmax), du1_a(:, nmin:nmax), du1_n(:, nmin:nmax), 'partial.dat')
+
+                idl = g%der1%nb_diag(1)/2 + 1
                 if (any([BCS_ND, BCS_NN] == ibc)) then
                     do ic = 1, idl - 1
-                        wrk2d(1:nlines, 1) = wrk2d(1:nlines, 1) + g%der1%lu(1, idl + ic)*du1_n(:, 1 + ic)
+                        bcs_hb(1:nlines) = bcs_hb(1:nlines) + g%der1%lu(1, ip + idl + ic)*du1_n(:, 1 + ic)
                     end do
                     print *, u(:, 1)
-                    print *, wrk2d(1:nlines, 1)
+                    print *, bcs_hb(1:nlines)
                 end if
                 if (any([BCS_DN, BCS_NN] == ibc)) then
                     do ic = 1, idl - 1
-                        wrk2d(1:nlines, 2) = wrk2d(1:nlines, 2) + g%der1%lu(kmax, idl - ic)*du1_n(:, kmax - ic)
+                        bcs_ht(1:nlines) = bcs_ht(1:nlines) + g%der1%lu(kmax, ip + idl - ic)*du1_n(:, kmax - ic)
                     end do
                     print *, u(:, kmax)
-                    print *, wrk2d(1:nlines, 2)
+                    print *, bcs_ht(1:nlines)
                 end if
 
             end do
 
         end do
 
+#undef bcs_hb
+#undef bcs_ht
+
         ! ###################################################################
         ! Decomposition of Neumann boundary condition
         ! ###################################################################
     case (5)
         bcs_cases(1:3) = [BCS_MIN, BCS_MAX, BCS_BOTH]
-        
+
         do im = 2, 2!size(fdm_cases)
             g%der1%mode_fdm = fdm_cases(im)
             print *, fdm_names(im)

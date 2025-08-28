@@ -1,7 +1,7 @@
 #include "tlab_error.h"
 
 module FDM_Derivative
-    use TLab_Constants, only: wp, wi, pi_wp, efile, wfile
+    use TLab_Constants, only: wp, wi, pi_wp, lfile
     use TLab_Constants, only: BCS_DD, BCS_ND, BCS_DN, BCS_NN, BCS_NONE, BCS_PERIODIC
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
     use Thomas3
@@ -30,6 +30,26 @@ module FDM_Derivative
         procedure(matmul_interface), pointer, nopass :: matmul  ! matrix multiplication to calculate the right-hand side
     end type fdm_derivative_dt
 
+    public :: FDM_Der1_Initialize
+    ! public :: FDM_Der1_CreateSystem
+    public :: FDM_Der1_Solve
+
+    public :: FDM_Der2_Initialize
+    ! public :: FDM_Der2_CreateSystem
+    public :: FDM_Der2_Solve
+
+    integer, parameter, public :: FDM_NONE = 0
+
+    integer, parameter, public :: FDM_COM4_JACOBIAN = 1
+    integer, parameter, public :: FDM_COM6_JACOBIAN = 2
+    integer, parameter, public :: FDM_COM6_JACOBIAN_HYPER = 3
+    integer, parameter, public :: FDM_COM6_JACOBIAN_PENTA = 4
+
+    integer, parameter, public :: FDM_COM4_DIRECT = 11
+    integer, parameter, public :: FDM_COM6_DIRECT = 12
+    integer, parameter, public :: FDM_COM6_DIRECT_HYPER = 13
+
+    ! -----------------------------------------------------------------------
     abstract interface
         subroutine matmul_interface(rhs, u, f, ibc, rhs_b, rhs_t, bcs_b, bcs_t)
             use TLab_Constants, only: wp
@@ -41,23 +61,6 @@ module FDM_Derivative
             real(wp), intent(out), optional :: bcs_b(:), bcs_t(:)
         end subroutine
     end interface
-
-    public :: FDM_Der1_Initialize
-    ! public :: FDM_Der1_CreateSystem
-    public :: FDM_Der1_Solve
-
-    public :: FDM_Der2_Initialize
-    ! public :: FDM_Der2_CreateSystem
-    public :: FDM_Der2_Solve
-
-    integer, parameter, public :: FDM_COM4_JACOBIAN = 4
-    integer, parameter, public :: FDM_COM6_JACOBIAN_PENTA = 5
-    integer, parameter, public :: FDM_COM6_JACOBIAN = 6
-    integer, parameter, public :: FDM_COM6_JACOBIAN_HYPER = 7
-    integer, parameter, public :: FDM_COM8_JACOBIAN = 8
-
-    integer, parameter, public :: FDM_COM6_DIRECT = 16
-    integer, parameter, public :: FDM_COM4_DIRECT = 17
 
 contains
     ! ###################################################################
@@ -177,7 +180,7 @@ contains
         case (FDM_COM4_JACOBIAN)
             call FDM_C1N4_Jacobian(g%size, dx, g%lhs, g%rhs, g%nb_diag, coef, periodic)
 
-        case (FDM_COM6_JACOBIAN, FDM_COM6_JACOBIAN_HYPER)
+        case (FDM_COM6_JACOBIAN)
             call FDM_C1N6_Jacobian(g%size, dx, g%lhs, g%rhs, g%nb_diag, coef, periodic)
 
         case (FDM_COM6_JACOBIAN_PENTA)
@@ -262,7 +265,7 @@ contains
                 call Thomas3C_SMW_Solve(lu1(:, 1), lu1(:, 2), lu1(:, 3), lu1(:, 4), result, wrk2d)
             case (5)
                 call Thomas5C_SMW_Solve(g%size, nlines, lu1(:, 1), lu1(:, 2), lu1(:, 3), lu1(:, 4), lu1(:, 5), lu1(:, 6), lu1(:, 7), &
-                                    result)
+                                        result)
             end select
 
         else
@@ -284,7 +287,7 @@ contains
     ! ###################################################################
     subroutine FDM_Der2_Initialize(x, dx, g, periodic, uniform)
         real(wp), intent(in) :: x(:)                    ! node positions
-        real(wp), intent(inout) :: dx(:, :)             ! Jacobians
+        real(wp), intent(in) :: dx(:, :)                ! Jacobians
         type(fdm_derivative_dt), intent(inout) :: g     ! fdm plan for 2. order derivative
         logical, intent(in) :: periodic, uniform
 
@@ -319,7 +322,7 @@ contains
 
         ! -------------------------------------------------------------------
         ! Procedure pointers to matrix multiplication to calculate the right-hand side
-        if (any([FDM_COM4_DIRECT, FDM_COM6_DIRECT] == g%mode_fdm)) then
+        if (any([FDM_COM4_DIRECT, FDM_COM6_DIRECT, FDM_COM6_DIRECT_HYPER] == g%mode_fdm)) then
             select case (g%nb_diag(2))
             case (5)
                 g%matmul => MatMul_5d
@@ -340,7 +343,7 @@ contains
     ! ###################################################################
     subroutine FDM_Der2_CreateSystem(x, dx, g, periodic, uniform)
         real(wp), intent(in) :: x(:)                    ! node positions
-        real(wp), intent(inout) :: dx(:, :)             ! Jacobians
+        real(wp), intent(in) :: dx(:, :)                ! Jacobians
         type(fdm_derivative_dt), intent(inout) :: g     ! fdm plan for 2. order derivative
         logical, intent(in) :: periodic, uniform
 
@@ -370,7 +373,7 @@ contains
             call FDM_C2N4_Jacobian(g%size, dx, g%lhs, g%rhs, g%nb_diag, coef, periodic)
             if (.not. uniform) g%need_1der = .true.
 
-        case (FDM_COM6_JACOBIAN, FDM_COM6_JACOBIAN_PENTA)
+        case (FDM_COM6_JACOBIAN)
             call FDM_C2N6_Jacobian(g%size, dx, g%lhs, g%rhs, g%nb_diag, coef, periodic)
             if (.not. uniform) g%need_1der = .true.
 
@@ -383,6 +386,11 @@ contains
             g%need_1der = .false.
 
         case (FDM_COM6_DIRECT)
+            call FDM_C2N6_Direct(g%size, x, g%lhs, g%rhs, g%nb_diag)
+            g%need_1der = .false.
+
+        case (FDM_COM6_DIRECT_HYPER)
+            call TLab_Write_ASCII(lfile, 'Direct, hyper-diffusive scheme undeveloped, use standard one.')
             call FDM_C2N6_Direct(g%size, x, g%lhs, g%rhs, g%nb_diag)
             g%need_1der = .false.
 

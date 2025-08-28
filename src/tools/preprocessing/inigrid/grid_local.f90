@@ -121,7 +121,7 @@ contains
         fdm_loc%der1%mode_fdm = FDM_COM6_JACOBIAN
         fdm_loc%der2%mode_fdm = FDM_COM6_JACOBIAN
         call FDM_CreatePlan(x_loc, fdm_loc)
-        call FDM_Int1_Initialize(x, fdm_loc%der1, 0.0_wp, BCS_MIN, fdmi)
+        call FDM_Int1_Initialize(fdm_loc%der1, 0.0_wp, BCS_MIN, fdmi)
         ! x(1) is already set
         call FDM_Int1_Solve(1, fdmi, fdmi%rhs, rhs(:), result(:), aux)
         x(:) = result(:)

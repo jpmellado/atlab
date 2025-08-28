@@ -26,10 +26,10 @@ module DNS_LOCAL
     integer :: nitera_stats     ! Iteration step to check-point: save statistical data
     integer :: nitera_pln       ! Iteration step to save planes
     integer :: nitera_filter    ! Iteration step for domain filter, if any
-    integer :: nitera_log           ! Iteration step for data logger with simulation information
+    integer :: nitera_log       ! Iteration step for data logger with simulation information
 
-    real(wp) :: nruntime_sec     ! Maximum runtime of the simulation in seconds
-    real(wp) :: wall_time        ! Actual elapsed time during the simulation in seconds
+    real(wp) :: nruntime_sec    ! Maximum runtime of the simulation in seconds
+    real(wp) :: wall_time       ! Actual elapsed time during the simulation in seconds
     integer :: start_clock      ! Starting time of the simulation on the system
 
     ! Variable viscosity
@@ -118,7 +118,7 @@ contains
         ! -------------------------------------------------------------------
         ! Array sizes
         ! -------------------------------------------------------------------
-        inb_txc = 9
+        inb_txc = 7
 
         return
     end subroutine DNS_Initialize_Parameters

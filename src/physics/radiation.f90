@@ -7,6 +7,7 @@ module Radiation
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
     use TLab_Memory, only: TLab_Allocate_Real
     use TLab_Grid, only: z
+    use FDM, only: fdm_Int0
     use FDM_Integral, only: FDM_Int1_Solve, fdm_integral_dt
     use NavierStokes, only: nse_eqns, DNS_EQNS_ANELASTIC
     use Thermo_Base, only: imixture, MIXT_TYPE_AIRWATER
@@ -191,10 +192,9 @@ contains
 
     !########################################################################
     !########################################################################
-    subroutine Radiation_Infrared_Z(localProps, nx, ny, nz, fdmi, s, source, b, tmp1, tmp2, flux_down, flux_up)
+    subroutine Radiation_Infrared_Z(localProps, nx, ny, nz, s, source, b, tmp1, tmp2, flux_down, flux_up)
         type(infrared_dt), intent(in) :: localProps
         integer(wi), intent(in) :: nx, ny, nz
-        type(fdm_integral_dt), intent(in) :: fdmi(2)
         real(wp), intent(in) :: s(nx*ny*nz, *)
         real(wp), intent(out) :: source(nx*ny*nz)               ! heating rate, also used for absorption coefficient below
         real(wp), intent(inout) :: b(nx*ny*nz)                  ! emission function
@@ -224,9 +224,11 @@ contains
                 bcs_hb = localProps%bcs_b(1)                ! upward flux at domain bottom
             end if
             if (present(flux_up)) then
-                call IR_RTE1_OnlyLiquid(nx*ny, nz, fdmi, source, ibc, flux_down, flux_up)
+                call IR_RTE1_OnlyLiquid(nx*ny, nz, fdm_Int0, source, ibc, flux_down, flux_up)
+                ! call IR_RTE1_OnlyLiquid_UpwardFirst(nx*ny, nz, fdm_Int0, source, ibc, flux_down, flux_up)
             else
-                call IR_RTE1_OnlyLiquid(nx*ny, nz, fdmi, source, ibc)
+                call IR_RTE1_OnlyLiquid(nx*ny, nz, fdm_Int0, source, ibc)
+                ! call IR_RTE1_OnlyLiquid_UpwardFirst(nx*ny, nz, fdm_Int0, source, ibc)
             end if
 
             ! -----------------------------------------------------------------------
@@ -246,12 +248,12 @@ contains
             bcs_ht = localProps%bcs_t(1)                ! downward flux at domain top
             epsilon = infraredProps%bcs_b(1)            ! surface emmisivity at the bottom of the domain
             if (present(flux_up)) then
-                call IR_RTE1_Global(nx*ny, nz, fdmi, source, b, flux_down, flux_up)
+                call IR_RTE1_Global(nx*ny, nz, fdm_Int0, source, b, flux_down, flux_up)
             else
-                call IR_RTE1_Global(nx*ny, nz, fdmi, source, b, tmp1, tmp2)
+                call IR_RTE1_Global(nx*ny, nz, fdm_Int0, source, b, tmp1, tmp2)
             end if
-            ! call IR_RTE1_Local(localProps, nx*ny, nz, fdmi, source, b, flux_down, tmp2, flux_up)
-            ! call IR_RTE1_Incremental(localProps, nx*ny, nz, fdmi, source, b, flux_down, flux_up)
+            ! call IR_RTE1_Local(localProps, nx*ny, nz, fdm_Int0, source, b, flux_down, tmp2, flux_up)
+            ! call IR_RTE1_Incremental(localProps, nx*ny, nz, fdm_Int0, source, b, flux_down, flux_up)
 
             ! -----------------------------------------------------------------------
         case (TYPE_IR_BAND)
@@ -278,7 +280,7 @@ contains
                 ! solve radiative transfer equation
                 bcs_ht(1:nx*ny) = localProps%bcs_t(iband)   ! downward flux at domain top
                 epsilon = infraredProps%bcs_b(1)            ! surface emmisivity at the bottom of the domain
-                call IR_RTE1_Global(nx*ny, nz, fdmi, p_source, b, tmp1, tmp2)
+                call IR_RTE1_Global(nx*ny, nz, fdm_Int0, p_source, b, tmp1, tmp2)
                 ! call IR_RTE1_Local()
                 ! call IR_RTE1_Incremental()
 
@@ -313,7 +315,7 @@ contains
         ! #######################################################################
         ! calculate f_j = exp(-tau(z, zmax)/\mu)
         p_tau(:, ny) = 0.0_wp                                   ! boundary condition
-        call FDM_Int1_Solve(nlines, fdmi(BCS_MAX), fdmi(BCS_MAX)%rhs, a_source, p_tau, wrk2d)         ! recall this gives the negative of the integral
+        call FDM_Int1_Solve(nlines, fdmi(BCS_MAX), fdmi(BCS_MAX)%rhs, a_source, p_tau, wrk2d)       ! recall this gives the negative of the integral
         ! call Int_Trapezoidal_f(a_source, z%nodes(:), p_tau, BCS_MAX)
         ! call Int_Simpson_Biased_f(a_source, z%nodes(:), p_tau, BCS_MAX)
         do j = ny, 1, -1
@@ -344,6 +346,51 @@ contains
 
         return
     end subroutine IR_RTE1_OnlyLiquid
+
+    !########################################################################
+    ! Solve radiative transfer equation along 1 direction
+    !########################################################################
+    subroutine IR_RTE1_OnlyLiquid_UpwardFirst(nlines, ny, fdmi, a_source, ibc, flux_down, flux_up)
+        integer(wi), intent(in) :: nlines, ny
+        type(fdm_integral_dt), intent(in) :: fdmi(2)
+        real(wp), intent(inout) :: a_source(nlines, ny)         ! input as bulk absorption coefficent, output as source
+        integer :: ibc                                          ! boundary condition: top, down, both
+        real(wp), intent(out), optional :: flux_down(nlines, ny), flux_up(nlines, ny)
+
+        ! -----------------------------------------------------------------------
+        integer(wi) j
+
+        ! #######################################################################
+        ! calculate f_j = exp(-tau(0, z)/\mu)
+        p_tau(:, 1) = 0.0_wp                                   ! boundary condition
+        call FDM_Int1_Solve(nlines, fdmi(BCS_MIN), fdmi(BCS_MIN)%rhs, a_source, p_tau, wrk2d)
+        do j = 1, ny
+            p_tau(:, j) = exp(-p_tau(:, j))
+        end do
+
+        ! Calculate heating rate
+        if (ibc == BCS_BOTH) then
+            do j = ny, 1, -1
+                a_source(:, j) = a_source(:, j)*(p_tau(:, ny)/p_tau(:, j)*bcs_ht(1:nlines) &    ! downward flux
+                                                 + p_tau(:, j)*bcs_hb(1:nlines))                ! upward flux
+            end do
+        else
+            do j = ny, 1, -1
+                a_source(:, j) = a_source(:, j)*p_tau(:, ny)/p_tau(:, j)*bcs_ht(1:nlines)       ! only downward
+            end do
+        end if
+
+        ! Calculate flux, if necessary
+        if (present(flux_up)) then
+            do j = ny, 1, -1
+                flux_down(:, j) = bcs_ht(1:nlines)*p_tau(:, ny)/p_tau(:, j)                     ! downward flux
+                flux_up(:, j) = bcs_hb(1:nlines)*p_tau(:, j)                                    ! upward flux
+            end do
+
+        end if
+
+        return
+    end subroutine IR_RTE1_OnlyLiquid_UpwardFirst
 
     !########################################################################
     !########################################################################

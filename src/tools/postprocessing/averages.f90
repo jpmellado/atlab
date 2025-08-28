@@ -107,7 +107,7 @@ program AVERAGES
     ! #######################################################################
     call TLab_Initialize_Memory(__FILE__)
 
-    call OPR_Partial_Initialize()
+    call OPR_Partial_Initialize(ifile)
     call OPR_Fourier_Initialize()
     call OPR_Elliptic_Initialize(ifile)
     call OPR_Check()

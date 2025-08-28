@@ -12,8 +12,6 @@ module TimeMarching
     use TLab_Constants, only: efile, wfile, wp, wi, big_wp
     use TLab_WorkFlow, only: flow_on, scal_on
     use TLab_Memory, only: imax, jmax, kmax, isize_field
-    use TLab_Memory, only: isize_wrk1d, isize_wrk2d, isize_wrk3d
-    use TLab_Memory, only: isize_txc_field
     use TLab_Time, only: rtime
     use TLab_Memory, only: inb_flow, inb_scal
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
@@ -175,22 +173,22 @@ contains
         case (RKM_EXP4)             ! Runge-Kutta explicit 4th order 5 stages from Carpenter & Kennedy 1994
             rkm_endstep = 5
 
-            kdt(1) = 1432997174477.0_wp/9575080441755.0_wp  !C_1432997174477_R/C_9575080441755_R
-            kdt(2) = 5161836677717.0_wp/13612068292357.0_wp !C_5161836677717_R/C_13612068292357_R
-            kdt(3) = 1720146321549.0_wp/2090206949498.0_wp  !C_1720146321549_R/C_2090206949498_R
-            kdt(4) = 3134564353537.0_wp/4481467310338.0_wp  !C_3134564353537_R/C_4481467310338_R
-            kdt(5) = 2277821191437.0_wp/14882151754819.0_wp !C_2277821191437_R/C_14882151754819_R
+            kdt(1) = 1432997174477.0_wp/9575080441755.0_wp
+            kdt(2) = 5161836677717.0_wp/13612068292357.0_wp
+            kdt(3) = 1720146321549.0_wp/2090206949498.0_wp
+            kdt(4) = 3134564353537.0_wp/4481467310338.0_wp
+            kdt(5) = 2277821191437.0_wp/14882151754819.0_wp
 
             ktime(1) = 0.0_wp
-            ktime(2) = kdt(1) !C_1432997174477_R/C_9575080441755_R
-            ktime(3) = 2526269341429.0_wp/6820363962896.0_wp !C_2526269341429_R/C_6820363962896_R
-            ktime(4) = 2006345519317.0_wp/3224310063776.0_wp !C_2006345519317_R/C_3224310063776_R
-            ktime(5) = 2802321613138.0_wp/2924317926251.0_wp !C_2802321613138_R/C_2924317926251_R
+            ktime(2) = kdt(1)
+            ktime(3) = 2526269341429.0_wp/6820363962896.0_wp
+            ktime(4) = 2006345519317.0_wp/3224310063776.0_wp
+            ktime(5) = 2802321613138.0_wp/2924317926251.0_wp
 
-            kco(1) = -567301805773.0_wp/1357537059087.0_wp     !C_567301805773_R/C_1357537059087_R
-            kco(2) = -2404267990393.0_wp/2016746695238.0_wp    !C_2404267990393_R/C_2016746695238_R
-            kco(3) = -3550918686646.0_wp/2091501179385.0_wp    !C_3550918686646_R/C_2091501179385_R
-            kco(4) = -1275806237668.0_wp/842570457699.0_wp     !C_1275806237668_R/C_842570457699_R
+            kco(1) = -567301805773.0_wp/1357537059087.0_wp
+            kco(2) = -2404267990393.0_wp/2016746695238.0_wp
+            kco(3) = -3550918686646.0_wp/2091501179385.0_wp
+            kco(4) = -1275806237668.0_wp/842570457699.0_wp
 
         case (RKM_IMP3_DIFFUSION)   ! Runge-Kutta semi-implicit 3th order from Spalart, Moser & Rogers (1991)
             rkm_endstep = 3
@@ -598,216 +596,6 @@ contains
 
         return
     end subroutine TMarch_Substep_Boussinesq_Implicit
-
-    ! !########################################################################
-    ! !########################################################################
-    !     subroutine TMarch_SUBSTEP_COMPRESSIBLE()
-    !         use TLab_Arrays
-    !         use TLab_Pointers
-    !         use THERMO_CALORIC, only: THERMO_GAMMA
-    !         use Thermodynamics, only: CRATIO_INV
-    !         use DNS_Arrays
-    !         use BOUNDARY_BUFFER
-    !         use BoundaryConditions, only: BcsDrift
-    !         use BCS_COMPRESSIBLE
-
-    !         ! -------------------------------------------------------------------
-    !         real(wp) rho_ratio, dt_rho_ratio, prefactor, M2_max
-    !         integer(wi) inb_scal_loc
-
-    !         ! ###################################################################
-    !         ! Evaluate standard RHS of equations
-    !         ! global formulation
-    !         ! ###################################################################
-    !         if (nse_eqns == DNS_EQNS_COMPRESSIBLE .and. &
-    !             nse_advection == EQNS_SKEWSYMMETRIC .and. &
-    !             nse_viscous == EQNS_EXPLICIT .and. &
-    !             nse_diffusion == EQNS_EXPLICIT) then
-    !             call RHS_FLOW_GLOBAL_2()
-
-    !             do is = 1, inb_scal
-    !                 call RHS_SCAL_GLOBAL_2(is)
-    !             end do
-
-    !         else
-    !             ! ###################################################################
-    !             ! Evaluate standard RHS of equations
-    !             ! split formulation
-    !             ! ###################################################################
-    !             if (nse_advection == EQNS_DIVERGENCE) then
-    !                 call RHS_FLOW_EULER_DIVERGENCE()
-    !                 do is = 1, inb_scal
-    !                     call RHS_SCAL_EULER_DIVERGENCE()
-    !                 end do
-
-    !             else if (nse_advection == EQNS_SKEWSYMMETRIC) then
-    !                 call RHS_FLOW_EULER_SKEWSYMMETRIC()
-    !                 do is = 1, inb_scal
-    !                     call RHS_SCAL_EULER_SKEWSYMMETRIC(is)
-    !                 end do
-    !             end if
-
-    !             if (nse_viscous == EQNS_DIVERGENCE) then
-    !                 call RHS_FLOW_VISCOUS_DIVERGENCE()
-
-    !             else if (nse_viscous == EQNS_EXPLICIT) then
-    !                 call RHS_FLOW_VISCOUS_EXPLICIT()
-
-    !             end if
-
-    !             if (nse_diffusion == EQNS_DIVERGENCE) then
-    !                 ! diffusion transport of enthalpy is accumulated in txc5:7 and used in RHS_FLOW_CONDUCTION
-    !                 txc(:, 5:7) = 0.0_wp
-    !                 do is = 1, inb_scal
-    !                     ! Check this routine for the airwater case
-    !                     call RHS_SCAL_DIFFUSION_DIVERGENCE(is)
-    !                 end do
-    !                 call RHS_FLOW_CONDUCTION_DIVERGENCE()
-
-    !             else if (nse_diffusion == EQNS_EXPLICIT) then
-    !                 do is = 1, inb_scal
-    !                     call RHS_SCAL_DIFFUSION_EXPLICIT(is)
-    !                 end do
-    !                 call RHS_FLOW_CONDUCTION_EXPLICIT()
-
-    !             end if
-
-    !         end if
-
-    !         ! ###################################################################
-    !         ! Impose boundary conditions
-    !         ! Temperature array T is used as auxiliary array because it is no
-    !         ! longer used until the fields are updated
-    !         ! ###################################################################
-    ! #define GAMMA_LOC(i) txc(i,6)
-    ! #define AUX_LOC(i)   T(i)
-
-    !         call THERMO_GAMMA(imax*jmax*kmax, s, T, GAMMA_LOC(:))
-
-    !         ! Maximum Mach for Poinsot & Lele reference pressure BC
-    !         if (BcsDrift) then
-    !             M2_max = 0.0_wp
-    !             do i = 1, isize_field
-    !                 dummy = (u(i)*u(i) + v(i)*v(i) + w(i)*w(i))*rho(i)/(GAMMA_LOC(i)*p(i))
-    !                 M2_max = max(M2_max, dummy)
-    !             end do
-    ! #ifdef USE_MPI
-    !             call MPI_ALLREDUCE(M2_max, dummy, 1, MPI_REAL8, MPI_MAX, MPI_COMM_WORLD, ims_err)
-    !             M2_max = dummy
-    ! #endif
-    !         end if
-
-    !         if (.not. y%periodic) then
-    !             call BCS_Y(isize_field, M2_max, rho, u, v, w, p, GAMMA_LOC(1), s, &
-    !                                 hq(1, 5), hq(1, 1), hq(1, 2), hq(1, 3), hq(1, 4), hs, &
-    !                                 txc(1, 1), txc(1, 2), txc(1, 3), txc(1, 4), txc(1, 5), AUX_LOC(:))
-    !         end if
-
-    !         if (.not. x%periodic) then
-    !             call BCS_X(isize_field, M2_max, etime, rho, u, v, w, p, GAMMA_LOC(1), s, &
-    !                                 hq(1, 5), hq(1, 1), hq(1, 2), hq(1, 3), hq(1, 4), hs, txc, AUX_LOC(:))
-    !         end if
-
-    ! #undef GAMMA_LOC
-    ! #undef AUX_LOC
-
-    !         ! ###################################################################
-    !         ! Impose buffer zone as relaxation terms
-    !         ! ###################################################################
-    !         if (BuffType == DNS_BUFFER_RELAX .or. BuffType == DNS_BUFFER_BOTH) then
-    !             call BOUNDARY_BUFFER_RELAX_FLOW()
-    !             call BOUNDARY_BUFFER_RELAX_SCAL()
-    !         end if
-
-    !         ! ###################################################################
-    !         ! Perform the time stepping
-    !         ! ###################################################################
-    !         rho_ratio = 1.0_wp
-    !         prefactor = CRATIO_INV*0.5_wp
-
-    !         if (flow_on) then
-    !             if (scal_on) then; inb_scal_loc = inb_scal
-    !             else; inb_scal_loc = 0
-    !             end if
-
-    !             ! -------------------------------------------------------------------
-    !             ! Total energy formulation
-    !             ! -------------------------------------------------------------------
-    !             if (nse_eqns == DNS_EQNS_TOTAL) then
-    ! !$omp parallel default( shared ) private( i, is, rho_ratio, dt_rho_ratio )
-    ! !$omp do
-    !                 do i = 1, isize_field
-    !                     rho_ratio = rho(i)
-    !                     rho(i) = rho(i) + dte*hq(i, 5)
-    !                     rho_ratio = rho_ratio/rho(i)
-    !                     dt_rho_ratio = dte/rho(i)
-
-    !                     e(i) = rho_ratio*(e(i) + prefactor*(u(i)*u(i) + v(i)*v(i) + w(i)*w(i))) &
-    !                            + dt_rho_ratio*hq(i, 4)
-
-    !                     u(i) = rho_ratio*u(i) + dt_rho_ratio*hq(i, 1)
-    !                     v(i) = rho_ratio*v(i) + dt_rho_ratio*hq(i, 2)
-    !                     w(i) = rho_ratio*w(i) + dt_rho_ratio*hq(i, 3)
-
-    !                     e(i) = e(i) - prefactor*(u(i)*u(i) + v(i)*v(i) + w(i)*w(i))
-
-    !                     do is = 1, inb_scal_loc
-    !                         s(i, is) = rho_ratio*s(i, is) + dt_rho_ratio*hs(i, is)
-    !                     end do
-    !                 end do
-    ! !$omp end do
-    ! !$omp end parallel
-
-    !                 ! -------------------------------------------------------------------
-    !                 ! Internal energy formulation
-    !                 ! -------------------------------------------------------------------
-    !             else if (nse_eqns == DNS_EQNS_COMPRESSIBLE) then
-    ! !$omp parallel default( shared ) private( i, is, rho_ratio, dt_rho_ratio )
-    ! !$omp do
-    !                 do i = 1, isize_field
-    !                     rho_ratio = rho(i)
-    !                     rho(i) = rho(i) + dte*hq(i, 5)
-    !                     rho_ratio = rho_ratio/rho(i)
-    !                     dt_rho_ratio = dte/rho(i)
-
-    !                     e(i) = rho_ratio*e(i) + dt_rho_ratio*hq(i, 4)
-    !                     u(i) = rho_ratio*u(i) + dt_rho_ratio*hq(i, 1)
-    !                     v(i) = rho_ratio*v(i) + dt_rho_ratio*hq(i, 2)
-    !                     w(i) = rho_ratio*w(i) + dt_rho_ratio*hq(i, 3)
-
-    !                     do is = 1, inb_scal_loc
-    !                         s(i, is) = rho_ratio*s(i, is) + dt_rho_ratio*hs(i, is)
-    !                     end do
-    !                 end do
-    ! !$omp end do
-    ! !$omp end parallel
-
-    !             end if
-
-    !         else
-    !             if (scal_on) then
-    !                 do is = 1, inb_scal
-    ! !$omp parallel default( shared ) private( i, dt_rho_ratio )
-    ! !$omp do
-    !                     do i = 1, isize_field
-    !                         dt_rho_ratio = dte/rho(i)
-    !                         s(i, is) = rho_ratio*s(i, is) + dt_rho_ratio*hs(i, is)
-    !                     end do
-    ! !$omp end do
-    ! !$omp end parallel
-    !                 end do
-    !             end if
-    !         end if
-
-    !         ! ###################################################################
-    !         ! Impose buffer zone as filter
-    !         ! ###################################################################
-    !         if (BuffType == DNS_BUFFER_FILTER .or. BuffType == DNS_BUFFER_BOTH) then
-    !             call BOUNDARY_BUFFER_FILTER(rho, u, v, w, e, s, txc(1, 1), txc(1, 2), txc(1, 3), txc(1, 4), txc(1, 5))
-    !         end if
-
-    !         return
-    !     end subroutine TMarch_SUBSTEP_COMPRESSIBLE
 
     !     !########################################################################
     !     !########################################################################

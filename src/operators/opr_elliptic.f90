@@ -1,14 +1,15 @@
+#include "tlab_error.h"
+
 ! Split the routines into the ones that are initialized and the ones that not?
-! If not initialized, you can enter with any jmax, but the periodic directions need to be the global ones because of OPR_Fourier.
+! If not initialized, you can enter with any kmax, but the periodic directions need to be the global ones because of OPR_Fourier.
 module OPR_Elliptic
     use TLab_Constants, only: wp, wi
     use TLab_Constants, only: BCS_DD, BCS_DN, BCS_ND, BCS_NN, BCS_NONE, BCS_MIN, BCS_MAX, BCS_BOTH
-    use TLab_Constants, only: lfile
+    use TLab_Constants, only: efile
     use TLab_Memory, only: TLab_Allocate_Real
     use TLab_Memory, only: imax, jmax, kmax, isize_txc_field
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, stagger_on
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
     use TLab_Arrays, only: wrk1d, wrk2d, wrk3d
-    use TLab_Pointers_C, only: c_wrk3d
     use TLab_Grid, only: x, y, z
 #ifdef USE_MPI
     use TLabMPI_VARS, only: ims_offset_i, ims_offset_j, ims_pro_i
@@ -74,14 +75,14 @@ module OPR_Elliptic
     real(wp), allocatable :: lambda(:, :)
 
     complex(wp), pointer :: c_tmp1(:) => null(), c_tmp2(:) => null()
-    real(wp), pointer :: p_wrk3d(:, :, :) => null()
+    real(wp), pointer :: p_wrk3d_loc(:, :, :) => null()
 
 contains
     ! #######################################################################
     ! #######################################################################
     subroutine OPR_Elliptic_Initialize(inifile)
         use FDM, only: g, FDM_CreatePlan
-        use FDM_Derivative, only: FDM_COM4_DIRECT, FDM_COM6_DIRECT
+        use FDM_Derivative, only: FDM_NONE, FDM_COM4_JACOBIAN, FDM_COM6_JACOBIAN, FDM_COM4_DIRECT, FDM_COM6_DIRECT
 
         character(len=*), intent(in) :: inifile
 
@@ -104,18 +105,29 @@ contains
 
         imode_elliptic = TYPE_FACTORIZE                 ! default is the finite-difference method used for the derivatives
         fdm_loc%der1%mode_fdm = g(3)%der1%mode_fdm      ! to impose zero divergence down to round-off error in the interior points
-        fdm_loc%der2%mode_fdm = g(3)%der2%mode_fdm
+        ! fdm_loc%der2%mode_fdm = FDM_NONE
+        fdm_loc%der2%mode_fdm = g(3)%der2%mode_fdm      ! I still need it in FDM_CreatePlan
 
         call ScanFile_Char(bakfile, inifile, block, 'SchemeElliptic', 'void', sRes)
-        if (trim(adjustl(sRes)) == 'compactdirect4') then
+        ! call ScanFile_Char(bakfile, inifile, block, 'SchemeElliptic', 'compactdirect6', sRes)
+        select case (trim(adjustl(sRes)))
+        case ('void')
+        case ('compactjacobian4')
+            imode_elliptic = TYPE_FACTORIZE
+            fdm_loc%der1%mode_fdm = FDM_COM4_JACOBIAN
+        case ('compactjacobian6')
+            imode_elliptic = TYPE_FACTORIZE
+            fdm_loc%der1%mode_fdm = FDM_COM6_JACOBIAN
+        case ('compactdirect4')
             imode_elliptic = TYPE_DIRECT
-            fdm_loc%der1%mode_fdm = FDM_COM4_DIRECT
             fdm_loc%der2%mode_fdm = FDM_COM4_DIRECT
-        else if (trim(adjustl(sRes)) == 'compactdirect6') then
+        case ('compactdirect6')
             imode_elliptic = TYPE_DIRECT
-            fdm_loc%der1%mode_fdm = FDM_COM6_DIRECT
             fdm_loc%der2%mode_fdm = FDM_COM6_DIRECT
-        end if
+        case default
+            call TLab_Write_ASCII(efile, __FILE__//'. Undeveloped SchemeElliptic.')
+            call TLab_Stop(DNS_ERROR_OPTION)
+        end select
 
         ! ###################################################################
         ! Initializing
@@ -199,10 +211,10 @@ contains
                         lambda(i, j) = g(1)%der1%mwn(iglobal)**2.0
                     end if
 
-                    call FDM_Int1_Initialize(fdm_loc%nodes(:), fdm_loc%der1, &
+                    call FDM_Int1_Initialize(fdm_loc%der1, &
                                              sqrt(lambda(i, j)), BCS_MIN, fdm_int1(BCS_MIN, i, j))
 
-                    call FDM_Int1_Initialize(fdm_loc%nodes(:), fdm_loc%der1, &
+                    call FDM_Int1_Initialize(fdm_loc%der1, &
                                              -sqrt(lambda(i, j)), BCS_MAX, fdm_int1(BCS_MAX, i, j))
 
                     if (any(i_sing == i) .and. any(j_sing == j)) then
@@ -274,7 +286,7 @@ contains
         ! #######################################################################
         call c_f_pointer(c_loc(tmp1), c_tmp1, shape=[isize_txc_field/2])
         call c_f_pointer(c_loc(tmp2), c_tmp2, shape=[isize_txc_field/2])
-        p_wrk3d(1:2*nz, 1:nx/2 + 1, 1:ny) => wrk3d(1:isize_txc_field)
+        p_wrk3d_loc(1:2*nz, 1:nx/2 + 1, 1:ny) => wrk3d(1:isize_txc_field)
 
         ! #######################################################################
         ! Construct forcing term in Fourier space, \hat{f}
@@ -288,7 +300,7 @@ contains
         ! Solve FDE \hat{p}''-\lambda \hat{p} = \hat{f}
 #define f(k,i,j) tmp1(k,i,j)
 #define u(k,i,j) tmp2(k,i,j)
-#define v(k,i,j) p_wrk3d(k,i,j)
+#define v(k,i,j) p_wrk3d_loc(k,i,j)
 
         ! Solve for each (kx,ky) a system of 1 complex equation as 2 independent real equations
         do j = 1, ny
@@ -322,7 +334,7 @@ contains
         ! Transform solution to physical space
         call OPR_Fourier_XY_Backward(c_tmp2, p(:, 1, 1), c_tmp1)
 
-        nullify (c_tmp1, c_tmp2, p_wrk3d)
+        nullify (c_tmp1, c_tmp2, p_wrk3d_loc)
 #undef f
 #undef v
 #undef u
@@ -344,7 +356,7 @@ contains
         ! #######################################################################
         call c_f_pointer(c_loc(tmp1), c_tmp1, shape=[isize_txc_field/2])
         call c_f_pointer(c_loc(tmp2), c_tmp2, shape=[isize_txc_field/2])
-        p_wrk3d(1:2*nz, 1:nx/2 + 1, 1:ny) => wrk3d(1:isize_txc_field)
+        p_wrk3d_loc(1:2*nz, 1:nx/2 + 1, 1:ny) => wrk3d(1:isize_txc_field)
 
         ! #######################################################################
         ! Construct forcing term in Fourier space, \hat{f}
@@ -385,7 +397,7 @@ contains
         ! Transform solution to physical space
         call OPR_Fourier_XY_Backward(c_tmp2, p(:, 1, 1), c_tmp1)
 
-        nullify (c_tmp1, c_tmp2, p_wrk3d)
+        nullify (c_tmp1, c_tmp2, p_wrk3d_loc)
 #undef f
 #undef u
 
@@ -416,7 +428,7 @@ contains
         ! #######################################################################
         call c_f_pointer(c_loc(tmp1), c_tmp1, shape=[isize_txc_field/2])
         call c_f_pointer(c_loc(tmp2), c_tmp2, shape=[isize_txc_field/2])
-        p_wrk3d(1:2*nz, 1:nx/2 + 1, 1:ny) => wrk3d(1:isize_txc_field)
+        p_wrk3d_loc(1:2*nz, 1:nx/2 + 1, 1:ny) => wrk3d(1:isize_txc_field)
 
         ! #######################################################################
         ! Construct forcing term in Fourier space, \hat{f}
@@ -430,7 +442,7 @@ contains
         ! Solve FDE (\hat{p}')'-(\lambda+\alpha) \hat{p} = \hat{f}
 #define f(k,i,j) tmp1(k,i,j)
 #define u(k,i,j) tmp2(k,i,j)
-#define v(k,i,j) p_wrk3d(k,i,j)
+#define v(k,i,j) p_wrk3d_loc(k,i,j)
 
         ! Solve for each (kx,ky) a system of 1 complex equation as 2 independent real equations
         do i = 1, i_max
@@ -438,10 +450,10 @@ contains
                 bcs(1:2, 1) = f(1:2, i, j)                  ! bottom boundary conditions
                 bcs(1:2, 2) = f(2*nz - 1:2*nz, i, j)        ! top boundary conditions
 
-                call FDM_Int1_Initialize(fdm_loc%nodes(:), fdm_loc%der1, &
+                call FDM_Int1_Initialize(fdm_loc%der1, &
                                          sqrt(lambda(i, j) - alpha), BCS_MIN, fdm_int1_loc(BCS_MIN))
 
-                call FDM_Int1_Initialize(fdm_loc%nodes(:), fdm_loc%der1, &
+                call FDM_Int1_Initialize(fdm_loc%der1, &
                                          -sqrt(lambda(i, j) - alpha), BCS_MAX, fdm_int1_loc(BCS_MAX))
 
                 select case (ibc)
@@ -461,7 +473,7 @@ contains
         ! Transform solution to physical space
         call OPR_Fourier_XY_Backward(c_tmp2, a(:, 1, 1), c_tmp1)
 
-        nullify (c_tmp1, c_tmp2, p_wrk3d)
+        nullify (c_tmp1, c_tmp2, p_wrk3d_loc)
 #undef f
 #undef v
 #undef u
@@ -484,7 +496,7 @@ contains
         ! #######################################################################
         call c_f_pointer(c_loc(tmp1), c_tmp1, shape=[isize_txc_field/2])
         call c_f_pointer(c_loc(tmp2), c_tmp2, shape=[isize_txc_field/2])
-        p_wrk3d(1:2*nz, 1:nx/2 + 1, 1:ny) => wrk3d(1:isize_txc_field)
+        p_wrk3d_loc(1:2*nz, 1:nx/2 + 1, 1:ny) => wrk3d(1:isize_txc_field)
 
         ! #######################################################################
         ! Construct forcing term in Fourier space, \hat{f}
@@ -515,7 +527,7 @@ contains
         ! Transform solution to physical space
         call OPR_Fourier_XY_Backward(c_tmp2, a(:, 1, 1), c_tmp1)
 
-        nullify (c_tmp1, c_tmp2, p_wrk3d)
+        nullify (c_tmp1, c_tmp2, p_wrk3d_loc)
 #undef f
 #undef u
 

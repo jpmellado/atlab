@@ -884,6 +884,12 @@ subroutine AVG_FLOW_XZ(q, s, dudx, dudy, dudz, dvdx, dvdy, dvdz, dwdx, dwdy, dwd
     ! -------------------------------------------------------------------
     ! Dilatation fluctuation
     p_wrk3d = dudx + dvdy + dwdz
+    ! if (nse_eqns == DNS_EQNS_ANELASTIC) then
+    !     call OPR_Partial_Z(OPR_P1, 1, 1, kmax, rbackground, aux(1))
+    !     do k = 1, kmax
+    !         p_wrk3d(:, :, k) = p_wrk3d(:, :, k)*rbackground(k) + w(:, :, k)*aux(k)
+    !     end do
+    ! end if
     do k = 1, kmax
         p_wrk3d(:, :, k) = (p_wrk3d(:, :, k) - rW_z(k))*(p_wrk3d(:, :, k) - rW_z(k))
     end do

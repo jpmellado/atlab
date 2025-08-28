@@ -1,0 +1,94 @@
+\chapter{Numerical Algorithms}\label{sec:numerics}
+
+The system of equations is written as
+\begin{subequations}
+    \begin{align}
+        &\pst \q = \mathbf{F}_q(\q,\,\s,\,t) \;,\\
+        &\pst \s = \mathbf{F}_s(\q,\,\s,\,t) \;.
+    \end{align}
+\end{subequations}
+where $\q$ and $\s$ are the vector vectors of flow and scalar prognostic variables. For the incompressible formulations, we have
+\begin{subequations}
+    \begin{align}
+        &\q = (u_1,\,u_2,\,u_3)^T \;,\\
+        &\s = (s_1,\,s_2,\,\ldots)^T\;.
+    \end{align}
+\end{subequations}
+The code uses the method of lines, so that the algorithm is a combination of different spatial operators that calculate the right-hand side of the equations and a time marching scheme. 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Spatial operators}
+
+Spatial operators are based on finite difference methods (FDM). There are two levels of routines. The low-level libraries contain the basic algorithms and are explained in this section. It consists of the FDM kernel library {\tt finitedifferences} and three-dimensional operators library {\tt operators}. The high-level library {\tt mappings} is composed of routines that are just a combination of the low-level routines.
+
+\subsection{Derivatives}\label{sec:fdm}
+
+See file {\tt operators/opr\_partial}. 
+
+Spatial derivatives are calculated using fourth- or sixth-order compact Pad\'{e} schemes as described by \cite{lele1992compact} and \cite{lamballais2011straightforward} for uniform grids and extended by \cite{shukla2005derivation} for non-uniform grids. The kernels of the specific algorithms are in the library {\tt finitedifferences}.
+
+
+\subsection{Fourier transform}
+
+See file {\tt operators/opr\_fourier}. 
+
+It is based on the FFTW library \citep{frigo2005design}.
+
+% The sequence of transformations is $Ox\rightarrow Oy\rightarrow Oz$. The transformed field contains the Nyquist frequency, so it needs an array {\tt(imax\_total/2+1)}$\times${\tt jmax\_total}$\times${\tt kmax\_total} of complex numbers.
+
+% Given the scalar field $s$, the power spectral density $\{E_0,\,E_1,\,\ldots,\,E_{N/2}\}$ is normalized such that
+% \begin{equation}
+% \langle s^2\rangle = E_0+2\sum_0^{N/2-1}E_n+E_{N/2} \;.
+% \end{equation}
+% The mean value is typically removed, such that the left-hand side is $s^2_\text{rms}$. The Nyquist frequency energy content $E_{N/2}$ is not written to disk, only the $N/2$ values $\{E_0,\,E_1,\,\ldots,\,E_{N/2-1}\}$.
+
+\subsection{Poisson equation}
+
+See file {\tt operators/opr\_elliptic}. 
+
+Given the scalar field $s$, obtain the scalar field $f$ such that
+\begin{equation}
+  \nabla^2 f= s \;,
+\end{equation}
+complemented with appropriate boundary conditions.  The current version only handles cases with periodic boundary conditions along $Ox$ and $Oy$. It performs a Fourier decomposition along these two directions, to obtain the a set of finite difference equations along $Oz$ of the form
+\begin{equation}
+  \delta_x \delta_x \mathbf{f}|_j - (\lambda_1/h)^2\mathbf{f}|_j=\mathbf{s}|_j
+  \;,\qquad j=2,\ldots,n-1 \;,
+\end{equation}
+$\lambda_1\in\mathbb{R}$, where boundary conditions need to be provided at $j=1$ and $j=n$.  The algorithm is described in \cite{mellado2012factorization}. We can also consider the case in which the second-order derivative is implemented in terms of the $\delta_{xx}$ FDM operator, not only the $\delta_x\delta_x$ FDM operator. These routines are in the source file {\tt operators/opr\_odes}.
+
+\subsection{Helmholtz equation}
+\label{sec:helmholtz}
+
+See file {\tt operators/opr\_elliptic}. 
+
+Given the scalar field $s$, obtain the scalar field $f$ such that
+\begin{equation}
+\nabla^2 f + \alpha f= s \;,
+\end{equation}
+complemented with appropriate boundary conditions. The current version only handles cases with periodic boundary conditions along $Ox$ and $Oy$. The algorithm is similar to that used for the Poisson equation. It performs a Fourier decomposition along these two directions, to obtain the a set of finite difference equations along $Oz$ of the form
+\begin{equation}
+  \delta_x \delta_x \mathbf{f}|_j - (\lambda_2/h^2-\alpha)\mathbf{f}|_j=\mathbf{s}|_j
+  \;,\qquad j=2,\ldots,n-1 \;,
+\end{equation}
+$\lambda_2\in\mathbb{R}$, where boundary conditions need to be provided at $j=1$ and $j=n$.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Time marching schemes}
+
+See file {\tt tools/simulation/timemarching}. 
+
+The time advancement is based on Runge-Kutta methods (RKM).
+
+\subsection{Explicit schemes}
+
+We can use three- or five-stages, low-storage RKM that gives third- or fourth-order accurate temporal integration, respectively \citep{williamson1980low,carpenter1994fourth}. The stability properties for the biased finite difference schemes are considered in \cite{carpenter1993stability}. The incompressible formulation follows \cite{williamson1980low}.
+
+\subsection{Implicit schemes}
+
+An implicit treatment of the diffusive terms in the incompressible case follows \cite{spalart1991spectral}. TBD.
+
+% The dissipation and dispersion error maps corresponding to the third-order implicit Runge-Kutta scheme are shown in figure~\ref{fig:rkm3implicit}. The algorithm is unconditionally stable but we need to control accuracy of the diffusion operator for which it is used. The reference value $\textrm{CFL}_d=1.7$ as it gets most of the eigenvalues within the 1\%-error region.
+

@@ -32,7 +32,6 @@ contains
     subroutine NavierStokes_Initialize_Parameters(inifile)
         use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
         use TLab_Memory, only: inb_flow, inb_flow_array, inb_scal, inb_scal_array
-        use TLab_Memory, only: inb_wrk1d, inb_wrk2d
         ! use Thermodynamics, only: mach
 
         character(len=*), intent(in) :: inifile
@@ -141,11 +140,6 @@ contains
 
         inb_scal_array = inb_scal ! Default is that q/s arrays contain only the prognostic variables;
         !                           can be changed in Thermo_Initialize(ifile)
-
-        ! scratch arrays
-        inb_wrk1d = 18
-
-        inb_wrk2d = 3
 
         return
     end subroutine NavierStokes_Initialize_Parameters

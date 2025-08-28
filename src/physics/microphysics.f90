@@ -161,7 +161,6 @@ contains
 !########################################################################
     subroutine Microphysics_Sedimentation_Z(locProps, nx, ny, nz, is, s, source, tmp1, flux)
         use Thermo_Anelastic, only: rbackground, Thermo_Anelastic_Weight_OutPlace, Thermo_Anelastic_StaticL
-        use FDM, only: fdm_dt
         type(microphysics_dt), intent(in) :: locProps
         integer(wi), intent(in) :: nx, ny, nz, is
         real(wp), intent(in) :: s(nx*ny*nz, inb_scal_array)

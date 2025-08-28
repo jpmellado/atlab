@@ -4,7 +4,8 @@
 ! LU factorization stage with unit diagonal in L
 
 module Thomas3
-    use TLab_Constants, only: wp, wi, small_wp, efile
+    use TLab_Constants, only: wp, wi, small_wp !, roundoff_wp
+    use TLab_Constants, only: efile!, lfile
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
     implicit none
     private
@@ -12,6 +13,8 @@ module Thomas3
     public :: Thomas3_LU, Thomas3_Solve
     public :: Thomas3C_LU, Thomas3C_Solve           ! circulant systems (periodic boundary conditions)
     public :: Thomas3C_SMW_LU, Thomas3C_SMW_Solve
+
+    ! integer(wi) :: n_smw_decay
 
 contains
     ! #######################################################################
@@ -184,7 +187,7 @@ contains
     ! Using Sherman-Morrison-Woodbury formula
     ! Adapted from 10.1016/j.camwa.2011.12.044
     ! Marginally slower because one more call to memory for array f, but clearer
-    
+
     subroutine Thomas3C_SMW_LU(a, b, c, z)
         real(wp), intent(inout) :: a(:), b(:), c(:)
         real(wp), intent(out) :: z(:)
@@ -192,6 +195,7 @@ contains
         ! -------------------------------------------------------------------
         integer(wi) nmax
         real(wp) a1, cn, m
+        ! character(len=32) str
 
         ! ###################################################################
         nmax = size(a)
@@ -223,6 +227,15 @@ contains
         c(nmax) = -cn/m
         a(1) = -a1/m
 
+        ! ! -------------------------------------------------------------------
+        ! ! Calculate decay index
+        ! do n_smw_decay = 2, nmax
+        !     if (abs(z(n_smw_decay)/z(1)) < roundoff_wp) exit
+        !     ! print *, abs(z(n_smw_decay)/z(1)
+        ! end do
+        ! write (str, *) n_smw_decay
+        ! call TLab_Write_ASCII(lfile, 'Decay to round-off in SMW algorithm in '//trim(adjustl(str))//' indexes.')
+
         return
     end subroutine Thomas3C_SMW_LU
 
@@ -245,6 +258,13 @@ contains
         do n = 1, nmax
             f(:, n) = f(:, n) + wrk(:)*z(n)
         end do
+
+        ! This would save time in the serial case, but we are interested in the parallel case
+        ! n_smw_decay = 64
+        ! do n = 1, min(nmax/2, n_smw_decay)
+        !     f(:, n) = f(:, n) + wrk(:)*z(n)
+        !     f(:, nmax - n + 1) = f(:, nmax - n + 1) + wrk(:)*z(nmax - n + 1)
+        ! end do
 
         return
     end subroutine Thomas3C_SMW_Solve

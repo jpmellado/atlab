@@ -4,7 +4,6 @@
 module TLab_Sources
     use TLab_Constants, only: wp, wi, small_wp
     use TLab_Memory, only: imax, jmax, kmax, isize_field, inb_scal, inb_scal_array
-    use FDM, only: fdm_Int0
     use NavierStokes, only: nse_eqns, DNS_EQNS_BOUSSINESQ, DNS_EQNS_ANELASTIC
     use Thermo_Anelastic, only: ribackground, Thermo_Anelastic_Buoyancy, Thermo_Anelastic_Weight_Add
     use Gravity, only: gravityProps, Gravity_Source
@@ -84,7 +83,7 @@ contains
             ! -----------------------------------------------------------------------
             ! Radiation
             if (infraredProps%active(is)) then
-                call Radiation_Infrared_Z(infraredProps, imax, jmax, kmax, fdm_Int0, s, tmp1, tmp2, tmp3, tmp4)
+                call Radiation_Infrared_Z(infraredProps, imax, jmax, kmax, s, tmp1, tmp2, tmp3, tmp4)
 
                 if (nse_eqns == DNS_EQNS_ANELASTIC) then
                     call Thermo_Anelastic_Weight_Add(imax, jmax, kmax, ribackground, tmp1, hs(:, is))

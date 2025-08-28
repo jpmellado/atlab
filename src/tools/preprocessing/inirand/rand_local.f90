@@ -17,10 +17,10 @@ module RAND_LOCAL
     type(distributions_dt) :: psd
     type(distributions_dt) :: pdf
     real(wp) :: ucov(6)
-    integer(wi) :: seed          ! Random number generator
 
     ! -------------------------------------------------------------------
     integer(wi) i
+    integer(wi) :: seed_ref          ! Random number generator
 
 contains
 
@@ -35,6 +35,8 @@ contains
 
         integer(wi) :: idummy
         real(wp) :: rdummy(6)
+        integer :: nseed
+        integer, allocatable :: seed(:)
 
         ! ###################################################################
         bakfile = trim(adjustl(inifile))//'.bak'
@@ -49,12 +51,6 @@ contains
         call TLab_Write_ASCII(bakfile, '#Distribution=<none/uniform/gaussian>')
         call TLab_Write_ASCII(bakfile, '#Covariance=<Rxx,Ryy,Rzz,Rxy,Rxz,Ryz>')
         call TLab_Write_ASCII(bakfile, '#Seed=<random seed>')
-
-        call ScanFile_Int(bakfile, inifile, block, 'Seed', '7', seed)
-#ifdef USE_MPI
-        seed = seed + ims_pro         ! seed for random generator
-#endif
-        seed = -abs(seed)
 
         call ScanFile_Char(bakfile, inifile, block, 'Spectrum', 'quartic', sRes)
         if (trim(adjustl(sRes)) == 'none') then; psd%type = TYPE_DF_NONE
@@ -102,15 +98,33 @@ contains
 ! WRITE(sRes,'(3E11.4)') ucov(4), ucov(2), ucov(6); CALL TLab_Write_ASCII(bakfile,sRes)
 ! WRITE(sRes,'(3E11.4)') ucov(5), ucov(6), ucov(3); CALL TLab_Write_ASCII(bakfile,sRes)
 
-        ! ###################################################################
-        ! Initialization of array sizes
-        ! ###################################################################
+        ! -------------------------------------------------------------------
+        ! call ScanFile_Int(bakfile, inifile, block, 'Seed', '13579', seed_ref)
+        call ScanFile_Int(bakfile, inifile, block, 'Seed', '7', seed_ref)
+#ifdef USE_MPI
+        seed_ref = seed_ref + ims_pro
+#endif
+        seed_ref = -abs(seed_ref)
+
+        ! random number initialization for repeatability; to be checked 
+        ! from https://masuday.github.io/fortran_tutorial/random.html
+        call random_seed(size=nseed)
+        allocate (seed(nseed))
+        ! call random_seed(get=seed)
+        ! print *, seed
+        seed(:) = seed_ref
+        call random_seed(put=seed)
+        deallocate (seed)
+
+! ###################################################################
+! Initialization of array sizes
+! ###################################################################
         inb_txc = 3
 
         return
     end subroutine Inirand_Initialize_Parameters
 
-    ! ###################################################################
+! ###################################################################
     subroutine RAND_FIELD(variance, a, tmp1, tmp2, tmp3)
         use, intrinsic :: iso_c_binding, only: c_f_pointer, c_loc
 
@@ -128,13 +142,13 @@ contains
         select case (pdf%type)
         case (TYPE_DF_UNIFORM)
             do i = 1, isize_field
-                tmp2(i) = RAN0(seed) - 0.5_wp
+                tmp2(i) = RAN0(seed_ref) - 0.5_wp
             end do
+            ! call random_number(tmp2(1:isize_field))
 
         case (TYPE_DF_GAUSSIAN)
             do i = 1, isize_field
-                tmp2(i) = RANG(0.0_wp, 1.0_wp, seed)
-                ! tmp2(i) = 1.0_wp
+                tmp2(i) = RANG(0.0_wp, 1.0_wp, seed_ref)
             end do
 
         end select
@@ -147,8 +161,9 @@ contains
                 call OPR_Fourier_SetPSD(imax, jmax, kmax, c_tmp1, psd)
             else
                 do i = 1, isize_txc_field
-                    tmp3(i) = RAN0(seed)
+                    tmp3(i) = RAN0(seed_ref)
                 end do
+                ! call random_number(tmp2)
                 call OPR_Fourier_SetPSD(imax, jmax, kmax, c_tmp1, psd, locPhase=tmp3)
             end if
             call OPR_Fourier_Backward(c_tmp1, tmp2, c_tmp3)

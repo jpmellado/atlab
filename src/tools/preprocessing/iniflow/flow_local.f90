@@ -5,7 +5,7 @@ module FLOW_LOCAL
     use TLab_Constants, only: efile, lfile, wfile, tag_flow
     use TLab_Constants, only: BCS_DD, BCS_DN, BCS_ND, BCS_NN
     use TLab_Memory, only: imax, jmax, kmax, isize_field
-    use TLab_Memory, only: inb_wrk2d, inb_txc
+    use TLab_Memory, only: inb_txc
     use TLab_Time, only: itime!, rtime
     use TLab_Pointers_3D, only: p_wrk1d, p_wrk2d
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
@@ -149,8 +149,6 @@ contains
         ! ###################################################################
         ! Initialization of array sizes
         ! ###################################################################
-        inb_wrk2d = max(inb_wrk2d, 3)
-
         inb_txc = 2
         if (flag_u /= PERT_NONE) inb_txc = max(inb_txc, 8)
 

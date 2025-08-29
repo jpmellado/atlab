@@ -385,21 +385,10 @@ program VPARTIAL
                 print *, new_line('a'), 'Bcs case ', ibc
 
                 ! truncated version
-                call FDM_Der1_Neumann_Initialize(BCS_ND, g%der1, c_b(:), c_t(:), wrk1d(1, 3), wrk1d(1, 4))
-                call FDM_Der1_Neumann_Initialize(BCS_DN, g%der1, c_b(:), c_t(:), wrk1d(1, 3), wrk1d(1, 4))
-
-                if (any([BCS_ND, BCS_NN] == ibc)) then
-                    do nmax = 2, g%size
-                        if (abs(c_b(nmax)/c_b(1)) < roundoff_wp) exit
-                    end do
-                    ! print *, nmax
-                end if
-                if (any([BCS_DN, BCS_NN] == ibc)) then
-                    do nmax = 2, g%size
-                        if (abs(c_t(g%size - nmax + 1)/c_t(g%size)) < roundoff_wp) exit
-                    end do
-                    ! print *, nmax
-                end if
+                call FDM_Der1_NeumannMin_Initialize(g%der1, c_b(:), wrk1d(1, 3), wrk1d(1, 4), nmax)
+                ! print *, nmax
+                call FDM_Der1_NeumannMax_Initialize(g%der1, c_t(:), wrk1d(1, 3), wrk1d(1, 4), nmax)
+                ! print *, nmax
 
                 if (any([BCS_ND, BCS_NN] == ibc)) then
                     bcs_hb(1:nlines) = du1_a(:, 1)*c_b(1)

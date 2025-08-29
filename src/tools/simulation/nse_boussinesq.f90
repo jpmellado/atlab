@@ -147,10 +147,10 @@ subroutine NSE_Boussinesq()
             !                        BcsScalKmin%ref(:, :, is), BcsScalKmax%ref(:, :, is), tmp1)
         end if
 
-        if (BcsScalJmin%type(is) /= DNS_SFC_STATIC .or. &
-            BcsScalKmax%type(is) /= DNS_SFC_STATIC) then
-            call BCS_SURFACE_Z(is, s, hs, tmp1, tmp2)
-        end if
+        ! if (BcsScalKmin%type(is) /= DNS_SFC_STATIC .or. &
+        !     BcsScalKmax%type(is) /= DNS_SFC_STATIC) then
+        !     call BCS_SURFACE_Z(is, s, hs, tmp1, tmp2)
+        ! end if
 
         p_hs(:, :, 1, is) = BcsScalKmin%ref(:, :, is)
         p_hs(:, :, kmax, is) = BcsScalKmax%ref(:, :, is)

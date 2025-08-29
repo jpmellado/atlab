@@ -72,7 +72,7 @@ contains
         character(len=128) eStr
         character(len=512) sRes
 
-        integer np, idummy
+        integer np !, idummy
 #endif
 
 #ifdef USE_MPI

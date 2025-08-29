@@ -135,14 +135,14 @@ contains
         ! Interactive Boundary conditions
         ! -------------------------------------------------------------------
         do is = 1, inb_scal
-            if (BcsScalJmin%type(is) /= DNS_BCS_DIRICHLET .and. &
-                BcsScalJmin%SfcType(is) /= DNS_SFC_STATIC) then
+            if (BcsScalKmin%type(is) /= DNS_BCS_DIRICHLET .and. &
+                BcsScalKmin%SfcType(is) /= DNS_SFC_STATIC) then
                 call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Interactive BC at kmin not implemented for non-Dirichlet BC')
                 call TLab_Stop(DNS_ERROR_JBC)
             end if
-            if (BcsScalJmax%type(is) /= DNS_BCS_DIRICHLET .and. &
-                BcsScalJmax%SfcType(is) /= DNS_SFC_STATIC) then
-                write (*, *) BcsScalJmax%type(is), BcsScalJmax%SfcType(is), BcsScalJmax%cpl(is)
+            if (BcsScalKmax%type(is) /= DNS_BCS_DIRICHLET .and. &
+                BcsScalKmax%SfcType(is) /= DNS_SFC_STATIC) then
+                write (*, *) BcsScalKmax%type(is), BcsScalKmax%SfcType(is), BcsScalKmax%cpl(is)
                 call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Interactive BC at kmax not implemented for non-Dirichlet BC')
                 call TLab_Stop(DNS_ERROR_JBC)
             end if
@@ -168,21 +168,14 @@ contains
             allocate (BcsScalKmax%ref(imax, jmax, inb_scal_array + 1))
 
             ! -------------------------------------------------------------------
+            ! Using only truncated versions because typical decay index is 30-40
             allocate (c_b(kmax), c_t(kmax))
 
-            call FDM_Der1_Neumann_Initialize(BCS_ND, g(3)%der1, c_b(:), c_t(:), wrk1d(1, 1), wrk1d(1, 2))
-            do k_bcs_b = 2, kmax
-                if (abs(c_b(k_bcs_b)/c_b(1)) < roundoff_wp) exit
-            end do
-            k_bcs_b = min(k_bcs_b, kmax)
+            call FDM_Der1_NeumannMin_Initialize(g(3)%der1, c_b(:), wrk1d(1, 1), wrk1d(1, 2), k_bcs_b)
             write (str, *) k_bcs_b
             call TLab_Write_ASCII(lfile, 'Decay to round-off in bottom Neumann condition in '//trim(adjustl(str))//' indexes.')
 
-            call FDM_Der1_Neumann_Initialize(BCS_DN, g(3)%der1, c_b(:), c_t(:), wrk1d(1, 1), wrk1d(1, 2))
-            do k_bcs_t = 2, kmax
-                if (abs(c_t(kmax - k_bcs_t + 1)/c_t(kmax)) < roundoff_wp) exit
-            end do
-            k_bcs_t = min(k_bcs_t, kmax)
+            call FDM_Der1_NeumannMax_Initialize(g(3)%der1, c_t(:), wrk1d(1, 1), wrk1d(1, 2), k_bcs_t)
             write (str, *) k_bcs_t
             call TLab_Write_ASCII(lfile, 'Decay to round-off in top Neumann condition in '//trim(adjustl(str))//' indexes.')
 
@@ -198,11 +191,11 @@ contains
     !# Calculate the boundary values of a field s.t. the normal derivative is zero
     !# see valid/fdm
     subroutine BCS_Neumann_Z(ibc, nlines, nz, u, bcs_hb, bcs_ht)
-        integer(wi), intent(in) :: ibc     ! BCs at jmin/jmax: 1, for Neumann/-
-        !                                                   2, for -      /Neumann
-        !                                                   3, for Neumann/Neumann
+        integer(wi), intent(in) :: ibc     ! BCs at Kmin/Kmax: 1, for Neumann/-
+        !                                                      2, for -      /Neumann
+        !                                                      3, for Neumann/Neumann
         integer(wi) nlines, nz
-        real(wp), intent(in) :: u(nlines, nz)            ! they are transposed below
+        real(wp), intent(in) :: u(nlines, nz)
         real(wp), intent(out) :: bcs_hb(nlines), bcs_ht(nlines)
 
         integer k
@@ -227,7 +220,7 @@ contains
     ! !# Calculate the boundary values of a field s.t. the normal derivative is zero
     ! !# Routine format extracted from OPR_Partial_Y
     ! subroutine BCS_Neumann_Z_Old(ibc, nx, ny, nz, u, bcs_hb, bcs_ht, tmp1)
-    !     integer(wi), intent(in) :: ibc     ! BCs at jmin/jmax: 1, for Neumann/-
+    !     integer(wi), intent(in) :: ibc     ! BCs at jmin/Kmax: 1, for Neumann/-
     !     !                                                   2, for -      /Neumann
     !     !                                                   3, for Neumann/Neumann
     !     integer(wi) nx, ny, nz
@@ -317,12 +310,12 @@ contains
         nxy = imax*jmax
 
         ! vertical derivative of scalar for flux at the boundaries
-        call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, s(:, is), tmp1)
+        call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, s(:, is), tmp1)
 
         ! ------------------------------------------------------------
         ! Bottom Boundary
         ! ------------------------------------------------------------
-        if (BcsScalJmin%SfcType(is) == DNS_SFC_LINEAR) then
+        if (BcsScalKmin%SfcType(is) == DNS_SFC_LINEAR) then
             hfx => aux(:, :, 1)
             hfx_anom => aux(:, :, 2)
             ip = 1
@@ -331,22 +324,22 @@ contains
             end do
             hfx_avg = diff*AVG1V2D(imax, jmax, kmax, 1, 1, tmp1)
             hfx_anom = hfx - hfx_avg
-            BcsScalJmin%ref(:, :, is) = BcsScalJmin%ref(:, :, is) + BcsScalJmin%cpl(is)*hfx_anom
+            BcsScalKmin%ref(:, :, is) = BcsScalKmin%ref(:, :, is) + BcsScalKmin%cpl(is)*hfx_anom
         end if
 
         ! ------------------------------------------------------------
         ! Top Boundary
         ! ------------------------------------------------------------
-        if (BcsScalJmax%SfcType(is) == DNS_SFC_LINEAR) then
+        if (BcsScalKmax%SfcType(is) == DNS_SFC_LINEAR) then
             hfx => aux(:, :, 3)
             hfx_anom => aux(:, :, 4)
-            ip = imax*(jmax - 1) + 1
+            ip = imax*(Kmax - 1) + 1
             do k = 1, kmax; ! Calculate the surface flux
                 hfx(:, k) = -diff*tmp1(ip:ip + imax - 1); ip = ip + nxy; 
             end do
-            hfx_avg = diff*AVG1V2D(imax, jmax, kmax, 1, 1, tmp1)
+            hfx_avg = diff*AVG1V2D(imax, Kmax, kmax, 1, 1, tmp1)
             hfx_anom = hfx - hfx_avg
-            BcsScalJmax%ref(:, :, is) = BcsScalJmax%ref(:, :, is) + BcsScalJmax%cpl(is)*hfx_anom
+            BcsScalKmax%ref(:, :, is) = BcsScalKmax%ref(:, :, is) + BcsScalKmax%cpl(is)*hfx_anom
         end if
 
 #ifdef TRACE_ON

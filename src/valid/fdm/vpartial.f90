@@ -1,16 +1,15 @@
 program VPARTIAL
-    use TLab_Constants, only: wp, wi, pi_wp
+    use TLab_Constants, only: wp, wi, pi_wp, roundoff_wp
     use TLab_Constants, only: BCS_DD, BCS_DN, BCS_ND, BCS_NN, BCS_NONE, BCS_MIN, BCS_MAX, BCS_BOTH
     use TLab_Memory, only: imax, jmax, kmax, isize_field, isize_wrk1d, isize_wrk2d, isize_wrk3d, inb_txc, isize_txc_field
     use TLab_WorkFlow, only: TLab_Write_ASCII
     use TLab_Memory, only: TLab_Initialize_Memory, TLab_Allocate_Real
-    use TLab_Arrays, only: wrk2d, txc
+    use TLab_Arrays, only: wrk1d, wrk2d, txc
     use TLab_Grid, only: grid_dt
     use Thomas3
     use Thomas5
     use FDM, only: fdm_dt, FDM_CreatePlan
-    use FDM_Derivative, only: FDM_Der1_Solve, FDM_Der2_Solve
-    use FDM_Derivative, only: FDM_COM4_JACOBIAN, FDM_COM6_JACOBIAN, FDM_COM6_JACOBIAN_PENTA, FDM_COM6_JACOBIAN_HYPER, FDM_COM4_DIRECT, FDM_COM6_DIRECT
+    use FDM_Derivative
     use FDM_ComX_Direct
     use FDM_Base
     use FDM_MatMul
@@ -25,11 +24,11 @@ program VPARTIAL
     real(wp), dimension(:, :), pointer :: du1_a, du1_b, du1_c, du1_n
     real(wp), dimension(:, :), pointer :: du2_a, du2_n1, du2_n2, du2_n3
     real(wp) :: wk, x_0, coef(5)!, dummy
-    integer(wi) :: test_type, ibc, ip, ic, ndr, idr, ndl, idl, im, ib, ip2
+    integer(wi) :: test_type, ibc, ip, ic, ndr, idr, ndl, idl, im, ib
     integer(wi) :: nmin, nmax, nsize
     real(wp) rhsr_b(5, 0:7), rhsr_t(0:4, 8)
 
-    real(wp), allocatable :: w(:, :), z(:, :)         ! for case 5
+    real(wp), allocatable :: c(:)         ! for case 5
 
     integer :: bcs_cases(4)
     integer :: fdm_cases(5) = [FDM_COM4_JACOBIAN, &
@@ -80,7 +79,7 @@ program VPARTIAL
     du2_n2(1:nlines, 1:kmax) => txc(1:imax*jmax*kmax, 8)
     du2_n3(1:nlines, 1:kmax) => txc(1:imax*jmax*kmax, 9)
 
-    allocate (w(1, kmax), z(1, kmax))
+    allocate (c(kmax))
 
     print *, '1. First-order derivative.'
     print *, '2. Second-order derivative.'
@@ -237,7 +236,7 @@ program VPARTIAL
                 case (3)
                     call Thomas3_LU(nsize, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3))
                 case (5)
-   call Thomas5_LU(nsize, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3), g%der1%lu(nmin:nmax, 4), g%der1%lu(nmin:nmax, 5))
+             call Thomas5_LU(nsize, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3), g%der1%lu(nmin:nmax, 4), g%der1%lu(nmin:nmax, 5))
                 end select
 
                 du1_n(:, 1) = u(:, 1)           ! boundary condition
@@ -368,53 +367,99 @@ program VPARTIAL
     case (5)
         bcs_cases(1:3) = [BCS_MIN, BCS_MAX, BCS_BOTH]
 
-        do im = 2, 2!size(fdm_cases)
+#define bcs_hb(i) wrk2d(i,1)
+#define bcs_ht(i) wrk2d(i,2)
+
+#define c_b(i) wrk1d(i,1)
+#define c_t(i) wrk1d(i,2)
+
+        do im = 1, size(fdm_cases)
             g%der1%mode_fdm = fdm_cases(im)
-            print *, fdm_names(im)
+            print *, new_line('a'), fdm_names(im)
 
             g%der1%mode_fdm = fdm_cases(im)
             call FDM_CreatePlan(x, g)
 
-            do ip = 1, 3
-                ibc = bcs_cases(ip)
+            do ib = 1, 3
+                ibc = bcs_cases(ib)
                 print *, new_line('a'), 'Bcs case ', ibc
 
-                i = 1
-                w = 0.0_wp; w(1, i) = 1.0_wp
-                z = 0.0_wp; z(1, i) = 1.0_wp
+                ! truncated version
+                call FDM_Der1_Neumann_Initialize(BCS_ND, g%der1, c_b(:), c_t(:), wrk1d(1, 3), wrk1d(1, 4))
+                call FDM_Der1_Neumann_Initialize(BCS_DN, g%der1, c_b(:), c_t(:), wrk1d(1, 3), wrk1d(1, 4))
 
-                nmin = 1
-                nmax = g%size
                 if (any([BCS_ND, BCS_NN] == ibc)) then
-                    z(1, 1) = w(1, 1)
-                    nmin = nmin + 1
+                    do nmax = 2, g%size
+                        if (abs(c_b(nmax)/c_b(1)) < roundoff_wp) exit
+                    end do
+                    ! print *, nmax
                 end if
                 if (any([BCS_DN, BCS_NN] == ibc)) then
-                    z(1, kmax) = w(1, kmax)
-                    nmax = nmax - 1
+                    do nmax = 2, g%size
+                        if (abs(c_t(g%size - nmax + 1)/c_t(g%size)) < roundoff_wp) exit
+                    end do
+                    ! print *, nmax
                 end if
-                nsize = nmax - nmin + 1
 
-                ! call FDM_Der1_Solve(1, ibc, g%der1, g%der1%lu, w, z, wrk2d)
-                call g%der1%matmul(g%der1%rhs, w, z, ibc, g%der1%rhs_b, g%der1%rhs_t)
+                if (any([BCS_ND, BCS_NN] == ibc)) then
+                    bcs_hb(1:nlines) = du1_a(:, 1)*c_b(1)
+                    do i = 2, nmax
+                        bcs_hb(1:nlines) = bcs_hb(1:nlines) + c_b(i)*u(:, i)
+                    end do
+                    write (*, *) 'Relative Error Linf-norm ...:', &
+                        maxval(abs(bcs_hb(1:nlines) - u(1:nlines, 1)))/maxval(abs(u(1:nlines, 1)))
+                end if
+                if (any([BCS_DN, BCS_NN] == ibc)) then
+                    bcs_ht(1:nlines) = du1_a(:, kmax)*c_t(kmax)
+                    do i = g%size - 1, g%size - nmax + 1, -1
+                        bcs_ht(1:nlines) = bcs_ht(1:nlines) + c_t(i)*u(:, i)
+                    end do
+                    write (*, *) 'Relative Error Linf-norm ...:', &
+                        maxval(abs(bcs_ht(1:nlines) - u(1:nlines, kmax)))/maxval(abs(u(1:nlines, kmax)))
+                end if
 
-                ip2 = ibc*5
-                select case (g%der1%nb_diag(1))
-                case (3)
-                    call Thomas3_Solve(nsize, 1, g%der1%lu(nmin:, ip2 + 1), g%der1%lu(nmin:, ip2 + 2), g%der1%lu(nmin:, ip2 + 3), &
-                                       z(:, nmin:))
-                case (5)
-                    print *, 'undeveloped'
-                    ! call Thomas5_Solve(nsize, nlines, lu1(nmin:, ip + 1), lu1(nmin:, ip + 2), lu1(nmin:, ip + 3), lu1(nmin:, ip + 4), lu1(nmin:, ip + 5), &
-                    !                    result(:, nmin:))
-                end select
+                ! full version
+                ! call FDM_Der1_Neumann_Initialize(ibc, g%der1, c_b(:), c_t(:), wrk1d(1, 3), wrk1d(1, 4))
 
-                do i = 1, kmax !nmin, nmax
-                    print *, i, z(1, i)
-                end do
+                ! nmin = 1; nmax = g%size
+                ! if (any([BCS_ND, BCS_NN] == ibc)) then
+                !     bcs_hb(1:nlines) = du1_a(:, 1)*c_b(1)
+                !     bcs_ht(1:nlines) = du1_a(:, 1)*c_t(1)           ! only used in BCS_NN
+                !     nmin = nmin + 1
+                ! end if
+                ! if (any([BCS_DN, BCS_NN] == ibc)) then
+                !     bcs_hb(1:nlines) = du1_a(:, kmax)*c_b(kmax)     ! only used in BCS_NN
+                !     bcs_ht(1:nlines) = du1_a(:, kmax)*c_t(kmax)
+                !     nmax = nmax - 1
+                ! end if
+
+                ! if (any([BCS_ND, BCS_NN] == ibc)) then
+                !     do i = nmin, nmax
+                !         bcs_hb(1:nlines) = bcs_hb(1:nlines) + c_b(i)*u(:, i)
+                !     end do
+                !     write (*, *) 'Relative Error Linf-norm ...:', &
+                !         maxval(abs(bcs_hb(1:nlines) - u(1:nlines, 1)))/maxval(abs(u(1:nlines, 1)))
+                !     ! print *, u(:, 1)
+                !     ! print *, bcs_hb(1:nlines)
+                ! end if
+                ! if (any([BCS_DN, BCS_NN] == ibc)) then
+                !     do i = nmax, nmin, -1
+                !         bcs_ht(1:nlines) = bcs_ht(1:nlines) + c_t(i)*u(:, i)
+                !     end do
+                !     write (*, *) 'Relative Error Linf-norm ...:', &
+                !         maxval(abs(bcs_ht(1:nlines) - u(1:nlines, kmax)))/maxval(abs(u(1:nlines, kmax)))
+                !     ! print *, u(:, kmax)
+                !     ! print *, bcs_ht(1:nlines)
+                ! end if
 
             end do
         end do
+
+#undef c_b
+#undef c_t
+
+#undef bcs_hb
+#undef bcs_ht
 
     end select
 

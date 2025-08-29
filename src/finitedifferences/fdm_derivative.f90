@@ -31,6 +31,7 @@ module FDM_Derivative
     end type fdm_derivative_dt
 
     public :: FDM_Der1_Initialize
+    public :: FDM_Der1_Neumann_Initialize
     ! public :: FDM_Der1_CreateSystem
     public :: FDM_Der1_Solve
 
@@ -292,6 +293,76 @@ contains
 
         return
     end subroutine FDM_Der1_Solve
+
+    ! ###################################################################
+    ! ###################################################################
+    ! Obtain coefficients to calculate boundary value in Neumann conditions
+    subroutine FDM_Der1_Neumann_Initialize(ibc, g, c_b, c_t, u, z)
+        integer, intent(in) :: ibc                          ! Boundary condition [BCS_DN, BCS_ND, BCS_NN]
+        type(fdm_derivative_dt), intent(in) :: g
+        real(wp), intent(out) :: c_b(g%size), c_t(g%size)   ! coefficients for bottom value and top value
+        real(wp), intent(inout) :: u(1, g%size)             ! Working arrays
+        real(wp), intent(inout) :: z(1, g%size)
+
+        ! -------------------------------------------------------------------
+        integer(wi) nmin, nmax, nsize, n, ip, idl, ic
+        real(wp) bcs_hb(1), bcs_ht(1)
+
+        ! ###################################################################
+        do n = 1, g%size
+            u(1, :) = 0.0_wp                ! Create delta-function forcing term
+            u(1, n) = 1.0_wp
+
+            nmin = 1; nmax = g%size
+            if (any([BCS_ND, BCS_NN] == ibc)) then
+                z(1, 1) = u(1, 1)
+                nmin = nmin + 1
+            end if
+            if (any([BCS_DN, BCS_NN] == ibc)) then
+                z(1, g%size) = u(1, g%size)
+                nmax = nmax - 1
+            end if
+            nsize = nmax - nmin + 1
+
+            ! -------------------------------------------------------------------
+            ! Calculate RHS in system of equations A u' = B u
+            call g%matmul(g%rhs, u, z, ibc, g%rhs_b, g%rhs_t, bcs_hb, bcs_ht)
+
+            ! -------------------------------------------------------------------
+            ! Solve for u' in system of equations A u' = B u
+            ip = ibc*5
+            select case (g%nb_diag(1))
+            case (3)
+                call Thomas3_Solve(nsize, 1, &
+                                   g%lu(nmin:nmax, ip + 1), &
+                                   g%lu(nmin:nmax, ip + 2), &
+                                   g%lu(nmin:nmax, ip + 3), &
+                                   z(:, nmin:nmax))
+            case (5)
+                call Thomas5_Solve(nsize, 1, &
+                                   g%lu(nmin:nmax, ip + 1), &
+                                   g%lu(nmin:nmax, ip + 2), &
+                                   g%lu(nmin:nmax, ip + 3), &
+                                   g%lu(nmin:nmax, ip + 4), &
+                                   g%lu(nmin:nmax, ip + 5), &
+                                   z(:, nmin:nmax))
+            end select
+
+            idl = g%nb_diag(1)/2 + 1
+            if (any([BCS_ND, BCS_NN] == ibc)) then
+                do ic = 1, idl - 1
+                    c_b(n) = bcs_hb(1) + g%lu(1, ip + idl + ic)*z(1, 1 + ic)
+                end do
+            end if
+            if (any([BCS_DN, BCS_NN] == ibc)) then
+                do ic = 1, idl - 1
+                    c_t(n) = bcs_ht(1) + g%lu(g%size, ip + idl - ic)*z(1, g%size - ic)
+                end do
+            end if
+        end do
+
+        return
+    end subroutine FDM_Der1_Neumann_Initialize
 
     ! ###################################################################
     ! ###################################################################

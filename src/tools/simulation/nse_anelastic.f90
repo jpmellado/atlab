@@ -131,8 +131,10 @@ subroutine NSE_Anelastic()
         if (BcsFlowKmin%type(iq) == DNS_BCS_Neumann) ibc = ibc + 1
         if (BcsFlowKmax%type(iq) == DNS_BCS_Neumann) ibc = ibc + 2
         if (ibc > 0) then
-            call BCS_Neumann_Z(ibc, imax, jmax, kmax, hq(:, iq), &
-                                        BcsFlowKmin%ref(:, :, iq), BcsFlowKmax%ref(:, :, iq), tmp1)
+            call BCS_Neumann_Z(ibc, imax*jmax, kmax, hq(:, iq), &
+                               BcsFlowKmin%ref(:, :, iq), BcsFlowKmax%ref(:, :, iq))
+            ! call BCS_Neumann_Z_Old(ibc, imax, jmax, kmax, hq(:, iq), &
+            !                             BcsFlowKmin%ref(:, :, iq), BcsFlowKmax%ref(:, :, iq), tmp1)
         end if
 
         p_hq(:, :, 1, iq) = BcsFlowKmin%ref(:, :, iq)
@@ -145,8 +147,10 @@ subroutine NSE_Anelastic()
         if (BcsScalKmin%type(is) == DNS_BCS_Neumann) ibc = ibc + 1
         if (BcsScalKmax%type(is) == DNS_BCS_Neumann) ibc = ibc + 2
         if (ibc > 0) then
-            call BCS_Neumann_Z(ibc, imax, jmax, kmax, hs(:, is), &
-                                        BcsScalKmin%ref(:, :, is), BcsScalKmax%ref(:, :, is), tmp1)
+            call BCS_Neumann_Z(ibc, imax*jmax, kmax, hs(:, is), &
+                               BcsScalKmin%ref(:, :, is), BcsScalKmax%ref(:, :, is))
+            ! call BCS_Neumann_Z_Old(ibc, imax, jmax, kmax, hs(:, is), &
+            !                        BcsScalKmin%ref(:, :, is), BcsScalKmax%ref(:, :, is), tmp1)
         end if
 
         if (BcsScalJmin%type(is) /= DNS_SFC_STATIC .or. &

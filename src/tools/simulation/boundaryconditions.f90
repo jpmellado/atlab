@@ -13,6 +13,7 @@ module BoundaryConditions
 
     public :: BCS_Initialize
     public :: BCS_Neumann_Z
+    ! public :: BCS_Neumann_Z_Old
     public :: BCS_SURFACE_Z
 
     type bcs_dt
@@ -30,12 +31,15 @@ module BoundaryConditions
     logical, public :: BcsDrift
 
     ! -------------------------------------------------------------------
-    integer(wi) nmin, nmax, nsize
+    ! integer(wi) nmin, nmax, nsize
 
     ! Boundary conditions
     integer, parameter, public :: DNS_BCS_NONE = 0
     integer, parameter, public :: DNS_BCS_DIRICHLET = 1
     integer, parameter, public :: DNS_BCS_Neumann = 2
+
+    real(wp), allocatable :: c_b(:), c_t(:)
+    integer :: k_bcs_b, k_bcs_t
 
     ! Surface Models
     integer, parameter, public :: DNS_SFC_STATIC = 0
@@ -45,13 +49,17 @@ contains
 ! ###################################################################
 ! ###################################################################
     subroutine BCS_Initialize(inifile)
+        use TLab_Constants, only: roundoff_wp
+        use TLab_Constants, only: lfile
         use TLab_Memory, only: imax, jmax, kmax, inb_flow_array, inb_scal_array, inb_scal
+        use TLab_Arrays, only: wrk1d
+        use FDM_Derivative
         use NavierStokes
 
         character*(*) inifile
 
         ! -------------------------------------------------------------------
-        character(len=32) bakfile, block
+        character(len=32) bakfile, block, str
         character(len=128) eStr
 
         integer is
@@ -74,7 +82,7 @@ contains
         call TLab_Write_ASCII(bakfile, '#ScalarSfcTypeKmax=<static/linear>')
         call TLab_Write_ASCII(bakfile, '#ScalarCouplingKmin=<value>')
         call TLab_Write_ASCII(bakfile, '#ScalarCouplingKmax=<value>')
-        
+
         ! -------------------------------------------------------------------
         ! Scalar terms (including surface model at vertical boundaries)
         ! -------------------------------------------------------------------
@@ -159,6 +167,25 @@ contains
             allocate (BcsScalKmin%ref(imax, jmax, inb_scal_array + 1))
             allocate (BcsScalKmax%ref(imax, jmax, inb_scal_array + 1))
 
+            ! -------------------------------------------------------------------
+            allocate (c_b(kmax), c_t(kmax))
+
+            call FDM_Der1_Neumann_Initialize(BCS_ND, g(3)%der1, c_b(:), c_t(:), wrk1d(1, 1), wrk1d(1, 2))
+            do k_bcs_b = 2, kmax
+                if (abs(c_b(k_bcs_b)/c_b(1)) < roundoff_wp) exit
+            end do
+            k_bcs_b = min(k_bcs_b, kmax)
+            write (str, *) k_bcs_b
+            call TLab_Write_ASCII(lfile, 'Decay to round-off in bottom Neumann condition in '//trim(adjustl(str))//' indexes.')
+
+            call FDM_Der1_Neumann_Initialize(BCS_DN, g(3)%der1, c_b(:), c_t(:), wrk1d(1, 1), wrk1d(1, 2))
+            do k_bcs_t = 2, kmax
+                if (abs(c_t(kmax - k_bcs_t + 1)/c_t(kmax)) < roundoff_wp) exit
+            end do
+            k_bcs_t = min(k_bcs_t, kmax)
+            write (str, *) k_bcs_t
+            call TLab_Write_ASCII(lfile, 'Decay to round-off in top Neumann condition in '//trim(adjustl(str))//' indexes.')
+
         case (DNS_EQNS_COMPRESSIBLE)
 
         end select
@@ -169,66 +196,95 @@ contains
     !########################################################################
     !########################################################################
     !# Calculate the boundary values of a field s.t. the normal derivative is zero
-    !# Routine format extracted from OPR_Partial_Y
-    subroutine BCS_Neumann_Z(ibc, nx, ny, nz, u, bcs_hb, bcs_ht, tmp1)
+    !# see valid/fdm
+    subroutine BCS_Neumann_Z(ibc, nlines, nz, u, bcs_hb, bcs_ht)
         integer(wi), intent(in) :: ibc     ! BCs at jmin/jmax: 1, for Neumann/-
         !                                                   2, for -      /Neumann
         !                                                   3, for Neumann/Neumann
-        integer(wi) nx, ny, nz
-        real(wp), intent(in) :: u(nx*ny, nz)            ! they are transposed below
-        real(wp), intent(inout) :: tmp1(nx*ny, nz)      ! they are transposed below
-        real(wp), intent(out) :: bcs_hb(nx*ny), bcs_ht(nx*ny)
+        integer(wi) nlines, nz
+        real(wp), intent(in) :: u(nlines, nz)            ! they are transposed below
+        real(wp), intent(out) :: bcs_hb(nlines), bcs_ht(nlines)
 
-        ! -------------------------------------------------------------------
-        integer(wi) ip, idl, ic
+        integer k
 
         ! ###################################################################
-        if (g(3)%size == 1) then ! Set to zero in 2D case
-            bcs_hb = 0.0_wp; bcs_ht = 0.0_wp
-            return
-        end if
-
-        ! ###################################################################
-        ip = ibc*5
-
-        nmin = 1; nmax = g(3)%size
         if (any([BCS_ND, BCS_NN] == ibc)) then
-            tmp1(:, 1) = 0.0_wp      ! homogeneous bcs
-            nmin = nmin + 1
-        end if
-        if (any([BCS_DN, BCS_NN] == ibc)) then
-            tmp1(:, nz) = 0.0_wp
-            nmax = nmax - 1
-        end if
-        nsize = nmax - nmin + 1
-
-        ! -------------------------------------------------------------------
-        ! Calculate RHS in system of equations A u' = B u
-        call g(3)%der1%matmul(g(3)%der1%rhs, u, tmp1, ibc, g(3)%der1%rhs_b, g(3)%der1%rhs_t, bcs_hb, bcs_ht)
-
-        ! -------------------------------------------------------------------
-        ! Solve for u' in system of equations A u' = B u
-        select case (g(3)%der1%nb_diag(1))
-        case (3)
-            call Thomas3_Solve(nsize, nx*ny, g(3)%der1%lu(nmin:nmax, ip + 1), g(3)%der1%lu(nmin:nmax, ip + 2), g(3)%der1%lu(nmin:nmax, ip + 3), tmp1(:, nmin:nmax))
-        case (5)
-                call Thomas5_Solve(nsize, nx*ny, g(3)%der1%lu(nmin:nmax, ip + 1), g(3)%der1%lu(nmin:nmax, ip + 2), g(3)%der1%lu(nmin:nmax, ip + 3), g(3)%der1%lu(nmin:nmax, ip + 4), g(3)%der1%lu(nmin:nmax, ip + 5), tmp1(:, nmin:nmax))
-        end select
-
-        idl = g(3)%der1%nb_diag(1)/2 + 1
-        if (any([BCS_ND, BCS_NN] == ibc)) then
-            do ic = 1, idl - 1
-                bcs_hb(:) = bcs_hb(:) + g(3)%der1%lu(1, ip + idl + ic)*tmp1(:, 1 + ic)
+            bcs_hb(:) = 0.0_wp                  ! zero derivative at the wall
+            do k = 2, k_bcs_b
+                bcs_hb(:) = bcs_hb(:) + c_b(k)*u(:, k)
             end do
         end if
         if (any([BCS_DN, BCS_NN] == ibc)) then
-            do ic = 1, idl - 1
-                bcs_ht(:) = bcs_ht(:) + g(3)%der1%lu(nz, ip + idl - ic)*tmp1(:, nz - ic)
+            bcs_ht(:) = 0.0_wp                  ! zero derivative at the wall
+            do k = nz - 1, nz - k_bcs_t + 1, -1
+                bcs_ht(:) = bcs_ht(:) + c_t(k)*u(:, k)
             end do
         end if
 
         return
     end subroutine BCS_Neumann_Z
+
+    ! !# Calculate the boundary values of a field s.t. the normal derivative is zero
+    ! !# Routine format extracted from OPR_Partial_Y
+    ! subroutine BCS_Neumann_Z_Old(ibc, nx, ny, nz, u, bcs_hb, bcs_ht, tmp1)
+    !     integer(wi), intent(in) :: ibc     ! BCs at jmin/jmax: 1, for Neumann/-
+    !     !                                                   2, for -      /Neumann
+    !     !                                                   3, for Neumann/Neumann
+    !     integer(wi) nx, ny, nz
+    !     real(wp), intent(in) :: u(nx*ny, nz)            ! they are transposed below
+    !     real(wp), intent(inout) :: tmp1(nx*ny, nz)      ! they are transposed below
+    !     real(wp), intent(out) :: bcs_hb(nx*ny), bcs_ht(nx*ny)
+
+    !     ! -------------------------------------------------------------------
+    !     integer(wi) ip, idl, ic
+
+    !     ! ###################################################################
+    !     if (g(3)%size == 1) then ! Set to zero in 2D case
+    !         bcs_hb = 0.0_wp; bcs_ht = 0.0_wp
+    !         return
+    !     end if
+
+    !     ! ###################################################################
+    !     ip = ibc*5
+
+    !     nmin = 1; nmax = g(3)%size
+    !     if (any([BCS_ND, BCS_NN] == ibc)) then
+    !         tmp1(:, 1) = 0.0_wp      ! homogeneous bcs
+    !         nmin = nmin + 1
+    !     end if
+    !     if (any([BCS_DN, BCS_NN] == ibc)) then
+    !         tmp1(:, nz) = 0.0_wp
+    !         nmax = nmax - 1
+    !     end if
+    !     nsize = nmax - nmin + 1
+
+    !     ! -------------------------------------------------------------------
+    !     ! Calculate RHS in system of equations A u' = B u
+    !     call g(3)%der1%matmul(g(3)%der1%rhs, u, tmp1, ibc, g(3)%der1%rhs_b, g(3)%der1%rhs_t, bcs_hb, bcs_ht)
+
+    !     ! -------------------------------------------------------------------
+    !     ! Solve for u' in system of equations A u' = B u
+    !     select case (g(3)%der1%nb_diag(1))
+    !     case (3)
+    !      call Thomas3_Solve(nsize, nx*ny, g(3)%der1%lu(nmin:nmax, ip + 1), g(3)%der1%lu(nmin:nmax, ip + 2), g(3)%der1%lu(nmin:nmax, ip + 3), tmp1(:, nmin:nmax))
+    !     case (5)
+    !             call Thomas5_Solve(nsize, nx*ny, g(3)%der1%lu(nmin:nmax, ip + 1), g(3)%der1%lu(nmin:nmax, ip + 2), g(3)%der1%lu(nmin:nmax, ip + 3), g(3)%der1%lu(nmin:nmax, ip + 4), g(3)%der1%lu(nmin:nmax, ip + 5), tmp1(:, nmin:nmax))
+    !     end select
+
+    !     idl = g(3)%der1%nb_diag(1)/2 + 1
+    !     if (any([BCS_ND, BCS_NN] == ibc)) then
+    !         do ic = 1, idl - 1
+    !             bcs_hb(:) = bcs_hb(:) + g(3)%der1%lu(1, ip + idl + ic)*tmp1(:, 1 + ic)
+    !         end do
+    !     end if
+    !     if (any([BCS_DN, BCS_NN] == ibc)) then
+    !         do ic = 1, idl - 1
+    !             bcs_ht(:) = bcs_ht(:) + g(3)%der1%lu(nz, ip + idl - ic)*tmp1(:, nz - ic)
+    !         end do
+    !     end if
+
+    !     return
+    ! end subroutine BCS_Neumann_Z_Old
 
     !########################################################################
     !########################################################################

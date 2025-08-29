@@ -22,7 +22,7 @@ module FDM_Derivative
         logical :: periodic = .false.
         logical :: need_1der = .false.              ! In nonuniform, Jacobian formulation, need 1. order derivative for the 2. order one
         integer nb_diag(2)                          ! # of left and right diagonals  (max 5/7)
-        real(wp) :: rhs_b(4, 0:7), rhs_t(0:4, 7)    ! Neumann boundary conditions, max. # of diagonals is 7, # rows is 7/2+1
+        real(wp) :: rhs_b(4 + 1, 0:7), rhs_t(0:4, 7)    ! Neumann boundary conditions, max. # of diagonals is 7, # rows is 7/2+1
         real(wp), allocatable :: lhs(:, :)          ! memory space for LHS
         real(wp), allocatable :: rhs(:, :)          ! memory space for RHS
         real(wp), allocatable :: mwn(:)             ! memory space for modified wavenumbers
@@ -88,6 +88,8 @@ contains
             allocate (g%lu(g%size, 5*4))          ! 4 bcs
         end if
         g%lu(:, :) = 0.0_wp
+        g%rhs_b(:, :) = 0.0_wp
+        g%rhs_t(:, :) = 0.0_wp
 
         if (periodic) then
             g%lu(:, 1:g%nb_diag(1)) = g%lhs(:, 1:g%nb_diag(1))
@@ -115,9 +117,17 @@ contains
 
                 select case (g%nb_diag(1))
                 case (3)
-                    call Thomas3_LU(nsize, g%lu(nmin:, ip + 1), g%lu(nmin:, ip + 2), g%lu(nmin:, ip + 3))
+                    call Thomas3_LU(nsize, &
+                                    g%lu(nmin:nmax, ip + 1), &
+                                    g%lu(nmin:nmax, ip + 2), &
+                                    g%lu(nmin:nmax, ip + 3))
                 case (5)
-                    call Thomas5_LU(nsize, g%lu(nmin:, ip + 1), g%lu(nmin:, ip + 2), g%lu(nmin:, ip + 3), g%lu(nmin:, ip + 4), g%lu(nmin:, ip + 5))
+                    call Thomas5_LU(nsize, &
+                                    g%lu(nmin:nmax, ip + 1), &
+                                    g%lu(nmin:nmax, ip + 2), &
+                                    g%lu(nmin:nmax, ip + 3), &
+                                    g%lu(nmin:nmax, ip + 4), &
+                                    g%lu(nmin:nmax, ip + 5))
                 end select
 
             end do

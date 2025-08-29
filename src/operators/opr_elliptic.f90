@@ -91,7 +91,7 @@ contains
         integer, parameter :: TYPE_FACTORIZE = 1
         integer, parameter :: TYPE_DIRECT = 2
 
-        integer(wi) :: ndl, ndr, nd !, idr
+        integer(wi) :: ndl, ndr, nd 
         character(len=32) bakfile, block
         character(len=512) sRes
 
@@ -105,6 +105,9 @@ contains
 
         imode_elliptic = TYPE_FACTORIZE                 ! default is the finite-difference method used for the derivatives
         fdm_loc%der1%mode_fdm = g(3)%der1%mode_fdm      ! to impose zero divergence down to round-off error in the interior points
+        !                                                 If factorize type, it needs to be equal to the scheme used to calculate 
+        !                                                 derivatives and thus Neumann boundary conditions, 
+        !                                                 because of the compatibility constraint in pressure-Poisson equation
         ! fdm_loc%der2%mode_fdm = FDM_NONE
         fdm_loc%der2%mode_fdm = g(3)%der2%mode_fdm      ! I still need it in FDM_CreatePlan
 
@@ -112,12 +115,6 @@ contains
         ! call ScanFile_Char(bakfile, inifile, block, 'SchemeElliptic', 'compactdirect6', sRes)
         select case (trim(adjustl(sRes)))
         case ('void')
-        case ('compactjacobian4')
-            imode_elliptic = TYPE_FACTORIZE
-            fdm_loc%der1%mode_fdm = FDM_COM4_JACOBIAN
-        case ('compactjacobian6')
-            imode_elliptic = TYPE_FACTORIZE
-            fdm_loc%der1%mode_fdm = FDM_COM6_JACOBIAN
         case ('compactdirect4')
             imode_elliptic = TYPE_DIRECT
             fdm_loc%der2%mode_fdm = FDM_COM4_DIRECT

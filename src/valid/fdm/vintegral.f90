@@ -414,7 +414,7 @@ contains
                     write (20, fmt_loc) g%nodes(i), u(l, i), w_n(l, i), u(l, i) - w_n(l, i)
                 end if
                 dummy = dummy + u(l, i)*u(l, i)
-                error_l2 = error_l2 + (u(l, i) - w_n(l, i))**2.0_wp
+                error_l2 = error_l2 + (u(l, i) - w_n(l, i))**2
                 error_max = max(error_max, abs(u(l, i) - w_n(l, i)))
             end do
         end do

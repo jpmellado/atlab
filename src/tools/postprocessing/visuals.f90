@@ -519,7 +519,7 @@ program VISUALS
                 call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, txc(:, 1), txc(:, 2))
                 call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, q(:, 1), txc(:, 3))
                 call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, q(:, 2), txc(:, 4))
-                txc(1:isize_field, 2) = abs(txc(1:isize_field, 2))/(txc(1:isize_field, 3)**2.0 + txc(1:isize_field, 4)**2.0 + small_wp)
+                txc(1:isize_field, 2) = abs(txc(1:isize_field, 2))/(txc(1:isize_field, 3)**2 + txc(1:isize_field, 4)**2 + small_wp)
                 call Write_Visuals(plot_file, txc(:, 2:2))
 
                 plot_file = 'Fwb'//time_str(1:MaskSize)     ! buoyancy flux along Oy

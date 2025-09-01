@@ -122,7 +122,7 @@ program VPARTIAL
         u(:, i) = 1.0_wp + sin(2.0_wp*pi_wp/g%scale*wk*(g%nodes(i) - x_0*x%scale)) ! + pi_wp/4.0_wp)
         du1_a(:, i) = (2.0_wp*pi_wp/g%scale*wk) &
                       *cos(2.0_wp*pi_wp/g%scale*wk*(g%nodes(i) - x_0*x%scale))! + pi_wp/4.0_wp)
-        du2_a(:, i) = -(2.0_wp*pi_wp/g%scale*wk)**2.0_wp &
+        du2_a(:, i) = -(2.0_wp*pi_wp/g%scale*wk)**2 &
                       *sin(2.0_wp*pi_wp/g%scale*wk*(g%nodes(i) - x_0*x%scale))! + pi_wp/4.0_wp)
         ! ! Gaussian
         ! u(:, i) = exp(-(g%nodes(i) - x_0*g%scale)**2/(2.0_wp*(g%scale/wk)**2))
@@ -474,7 +474,7 @@ contains
                     write (20, 1000) g%nodes(i), u(l, i), du_a(l, i), du_n(l, i), du_a(l, i) - du_n(l, i)
                 end if
                 dummy = dummy + du_a(l, i)*du_a(l, i)
-                error_l2 = error_l2 + (du_a(l, i) - du_n(l, i))**2.0_wp
+                error_l2 = error_l2 + (du_a(l, i) - du_n(l, i))**2
                 error_max = max(error_max, abs(du_a(l, i) - du_n(l, i)))
             end do
         end do

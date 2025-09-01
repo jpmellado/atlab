@@ -199,7 +199,7 @@ contains
             dxm1 = x(n) - x(n - 1)
             dxp1 = x(n + 1) - x(n)
             a = (2.0_wp - dxp1/dxm1)*(dxm1 + dxp1)*c16
-            b = (dxm1 + dxp1)**2.0_wp/(dxm1*dxp1)*(dxm1 + dxp1)*c16
+            b = (dxm1 + dxp1)**2/(dxm1*dxp1)*(dxm1 + dxp1)*c16
             c = (2.0_wp - dxm1/dxp1)*(dxm1 + dxp1)*c16
 
             result = result + a*u(:, n - 1) + b*u(:, n) + c*u(:, n + 1)

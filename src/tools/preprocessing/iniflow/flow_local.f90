@@ -364,7 +364,7 @@ contains
         case (PROFILE_PARABOLIC_SURFACE)
             ! Zero wall-parallel velocity for no-slip condition, multiply by parabolic again, f=f*f
             profs(:, 2) = 2.0_wp*profs(:, 2)*profs(:, 1)            ! Wall-parallel velocity
-            profs(:, 1) = profs(:, 1)**2.0_wp                       ! Wall-normal velocity
+            profs(:, 1) = profs(:, 1)**2                            ! Wall-normal velocity
 
         case (PROFILE_GAUSSIAN_SURFACE)
             ! Zero wall-normal derivative of wall-parallel velocity for free-slip and potentialvelocity mode, f=f*tanh

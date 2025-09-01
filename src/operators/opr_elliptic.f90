@@ -203,9 +203,9 @@ contains
                 case (TYPE_FACTORIZE)
                     ! Define \lambda based on modified wavenumbers (real)
                     if (y%size > 1) then
-                        lambda(i, j) = g(1)%der1%mwn(iglobal)**2.0 + g(2)%der1%mwn(jglobal)**2.0
+                        lambda(i, j) = g(1)%der1%mwn(iglobal)**2 + g(2)%der1%mwn(jglobal)**2
                     else
-                        lambda(i, j) = g(1)%der1%mwn(iglobal)**2.0
+                        lambda(i, j) = g(1)%der1%mwn(iglobal)**2
                     end if
 
                     call FDM_Int1_Initialize(fdm_loc%der1, &

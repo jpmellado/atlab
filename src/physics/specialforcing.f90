@@ -151,7 +151,7 @@ contains
             idsp = 0; jdsp = 0
 #endif
 
-            dummy(1) = 0.5_wp/envelope(4)**2.0_wp
+            dummy(1) = 0.5_wp/envelope(4)**2
             do k = 1, kmax
                 do j = 1, jmax
                     do i = 1, imax

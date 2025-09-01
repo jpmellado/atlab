@@ -175,7 +175,7 @@ contains
                     write (20, 1000) u(l, i), u_ref(l, i), u(l, i) - u_ref(l, i)
                 end if
                 dummy = dummy + u_ref(l, i)*u_ref(l, i)
-                error_l2 = error_l2 + (u_ref(l, i) - u(l, i))**2.0_wp
+                error_l2 = error_l2 + (u_ref(l, i) - u(l, i))**2
                 error_max = max(error_max, abs(u_ref(l, i) - u(l, i)))
             end do
         end do

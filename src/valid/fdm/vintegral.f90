@@ -165,7 +165,7 @@ program VINTEGRAL
             call FDM_CreatePlan(x, g)
 
             f = du1_a
-            ! call FDM_Der1_Solve(imax*jmax, BCS_NONE, g%der1, g%der1%lu, u, f, wrk2d)
+            ! call FDM_Der1_Solve(imax*jmax, g%der1, g%der1%lu, u, f, wrk2d)
             f = f + lambda*u
 
             do ib = 1, 2
@@ -188,7 +188,7 @@ program VINTEGRAL
 
                 ! check the calculation of the derivative at the boundary
                 print *, dw1_n(:, 1)
-                call FDM_Der1_Solve(imax*jmax, BCS_NONE, g%der1, g%der1%lu, w_n, dw1_n, wrk2d)
+                call FDM_Der1_Solve(imax*jmax, g%der1, g%der1%lu, w_n, dw1_n, wrk2d)
                 select case (ibc)
                 case (BCS_MIN)
                     print *, dw1_n(:, 1)
@@ -211,8 +211,8 @@ program VINTEGRAL
 
         ! f = du2_a
         ! du1_n = du1_a ! I need it for the boundary conditions
-        call FDM_Der1_Solve(imax*jmax, BCS_NONE, g%der1, g%der1%lu, u, du1_n, wrk2d)
-        call FDM_Der1_Solve(imax*jmax, BCS_NONE, g%der1, g%der1%lu, du1_n, du2_n, wrk2d)
+        call FDM_Der1_Solve(imax*jmax, g%der1, g%der1%lu, u, du1_n, wrk2d)
+        call FDM_Der1_Solve(imax*jmax, g%der1, g%der1%lu, du1_n, du2_n, wrk2d)
         ! call FDM_Der2_Solve(imax*jmax, g%du1_n%der2, g%der2%lu, u, du2_n, du1_n, wrk2d)
         f = du2_n
 
@@ -262,8 +262,8 @@ program VINTEGRAL
 
         ! f = du2_a - lambda*lambda*u
         ! du1_n = du1_a ! I need it for the boundary conditions
-        call FDM_Der1_Solve(imax*jmax, BCS_NONE, g%der1, g%der1%lu, u, du1_n, wrk2d)
-        call FDM_Der1_Solve(imax*jmax, BCS_NONE, g%der1, g%der1%lu, du1_n, du2_n, wrk2d)
+        call FDM_Der1_Solve(imax*jmax, g%der1, g%der1%lu, u, du1_n, wrk2d)
+        call FDM_Der1_Solve(imax*jmax, g%der1, g%der1%lu, du1_n, du2_n, wrk2d)
         ! call FDM_Der2_Solve(imax*jmax, g%der2, g%der2%lu, u, du2_n, du1_n, wrk2d)
         f = du2_n - lambda*lambda*u
 
@@ -316,8 +316,8 @@ program VINTEGRAL
 
         ! f = du2_a - lambda*u
         ! du1_n = du1_a ! I need it for the boundary conditions
-        call FDM_Der1_Solve(imax*jmax, BCS_NONE, g%der1, g%der1%lu, u, du1_n, wrk2d)
-        ! call FDM_Der1_Solve(imax*jmax, BCS_NONE, g%der1, g%der1%lu, du1_n, du2_n, wrk2d)
+        call FDM_Der1_Solve(imax*jmax, g%der1, g%der1%lu, u, du1_n, wrk2d)
+        ! call FDM_Der1_Solve(imax*jmax, g%der1, g%der1%lu, du1_n, du2_n, wrk2d)
         call FDM_Der2_Solve(imax*jmax, g%der2, g%der2%lu, u, du2_n, du1_n, wrk2d)
         f = du2_n - lambda*u
 

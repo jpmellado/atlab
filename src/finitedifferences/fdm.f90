@@ -212,7 +212,7 @@ call TLab_Write_ASCII(bakfile, '#SchemeDerivative2=<CompactJacobian4/CompactJaco
 
         ! Calculating derivative dxds into g%jac(:, 1)
         g%der1%periodic = .false.
-        call FDM_Der1_Solve(1, BCS_NONE, g%der1, g%der1%lu, x%nodes, g%jac(:, 1), g%jac(:, 2)) !g%jac(:, 2) is used as aux array...
+        call FDM_Der1_Solve(1, g%der1, g%der1%lu, x%nodes, g%jac(:, 1), g%jac(:, 2)) !g%jac(:, 2) is used as aux array...
 
         ! -------------------------------------------------------------------
         ! Actual grid; possibly nonuniform

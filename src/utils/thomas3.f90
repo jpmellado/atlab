@@ -1,7 +1,6 @@
 #include "tlab_error.h"
 
 ! Vectorized Thomas algorithm for tridiagonal systems
-! LU factorization stage with unit diagonal in L
 
 module Thomas3
     use TLab_Constants, only: wp, wi, small_wp !, roundoff_wp
@@ -10,7 +9,7 @@ module Thomas3
     implicit none
     private
 
-    public :: Thomas3_LU, Thomas3_Solve
+    public :: Thomas3_LU, Thomas3_Solve, Thomas3_BackSubstitution
     public :: Thomas3C_LU, Thomas3C_Solve           ! circulant systems (periodic boundary conditions)
     public :: Thomas3C_SMW_LU, Thomas3C_SMW_Solve
 
@@ -19,6 +18,9 @@ module Thomas3
 contains
     ! #######################################################################
     ! #######################################################################
+    ! LU factorization stage
+    ! L has subdiagonal a and diagonal 1
+    ! U has diagonal b and upperdiagonal c
     subroutine Thomas3_LU(nmax, a, b, c)
         integer(wi), intent(IN) :: nmax
         real(wp), dimension(nmax), intent(INOUT) :: a, b, c
@@ -55,17 +57,13 @@ contains
         ! ###################################################################
         if (len <= 0) return
 
-        ! -----------------------------------------------------------------------
-        ! Forward sweep
-        ! -----------------------------------------------------------------------
+        ! Forward elimination
         do n = 2, nmax
             dummy1 = a(n)
             f(:, n) = f(:, n) + dummy1*f(:, n - 1)
         end do
 
-        ! -----------------------------------------------------------------------
-        ! Backward sweep
-        ! -----------------------------------------------------------------------
+        ! Backward substitution
         dummy1 = b(nmax)
         f(:, nmax) = f(:, nmax)*dummy1
 
@@ -73,11 +71,38 @@ contains
             dummy1 = c(n)
             dummy2 = b(n)
             f(:, n) = dummy2*f(:, n) + dummy1*f(:, n + 1)
-
         end do
 
         return
     end subroutine Thomas3_Solve
+
+    ! #######################################################################
+    ! #######################################################################
+    subroutine Thomas3_BackSubstitution(nmax, len, b, c, f)
+        integer(wi), intent(in) :: nmax                         ! dimension of tridiagonal systems
+        integer(wi), intent(in) :: len                          ! number of systems to solve
+        real(wp), intent(in) :: b(nmax), c(nmax)                ! U matrix
+        real(wp), intent(inout) :: f(len, nmax)                 ! RHS and solution
+
+        ! -------------------------------------------------------------------
+        integer(wi) :: n
+        real(wp) :: dummy1, dummy2
+
+        ! ###################################################################
+        if (len <= 0) return
+
+        ! Backward substitution
+        dummy1 = b(nmax)
+        f(:, nmax) = f(:, nmax)*dummy1
+
+        do n = nmax - 1, 1, -1
+            dummy1 = c(n)
+            dummy2 = b(n)
+            f(:, n) = dummy2*f(:, n) + dummy1*f(:, n + 1)
+        end do
+
+        return
+    end subroutine Thomas3_BackSubstitution
 
     !########################################################################
     !########################################################################
@@ -145,9 +170,7 @@ contains
 
         if (len <= 0) return
 
-        ! -------------------------------------------------------------------
-        ! Forward sweep
-        ! -------------------------------------------------------------------
+        ! Forward elimination
         dummy1 = b(1)
         f(:, 1) = f(:, 1)*dummy1
 
@@ -167,9 +190,7 @@ contains
         dummy1 = b(nmax)
         f(:, nmax) = (f(:, nmax) - wrk(:))*dummy1
 
-        ! -------------------------------------------------------------------
-        ! Backward sweep
-        ! -------------------------------------------------------------------
+        ! Backward substitution
         dummy1 = e(nmax - 1)
         f(:, nmax - 1) = dummy1*f(:, nmax) + f(:, nmax - 1)
 

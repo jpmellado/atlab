@@ -601,7 +601,7 @@ contains
 
         ! ###################################################################
         ! dsdx: 1st derivative; result: 2nd derivative including diffusivity
-        call FDM_Der1_Solve(nlines, BCS_NONE, g%der1, g%der1%lu, s, dsdx, wrk2d)
+        call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, s, dsdx, wrk2d)
         call FDM_Der2_Solve(nlines, g%der2, lu2d, s, result, dsdx, wrk2d)
 
         if (rhoi%active) then

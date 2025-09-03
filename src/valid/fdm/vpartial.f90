@@ -83,9 +83,9 @@ program VPARTIAL
 
     print *, '1. First-order derivative.'
     print *, '2. Second-order derivative.'
-    print *, '3. Reduction routines.'
-    print *, '4. Boundary conditions.'
-    print *, '5. Boundary conditions decomposition.'
+    print *, '3. Boundary conditions.'
+    print *, '4. Neumann decomposition.'
+    print *, '5. Reduction routines.'
     read (*, *) test_type
 
     !  ###################################################################
@@ -162,7 +162,7 @@ program VPARTIAL
             g%der1%mode_fdm = fdm_cases(im)
             call FDM_CreatePlan(x, g)
 
-            call FDM_Der1_Solve(nlines, BCS_NONE, g%der1, g%der1%lu, u, du1_n, wrk2d)
+            call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, u, du1_n, wrk2d)
 
             call check(u, du1_a, du1_n, 'partial.dat')
 
@@ -181,7 +181,7 @@ program VPARTIAL
             g%der2%mode_fdm = fdm_cases(im)
             call FDM_CreatePlan(x, g)
 
-            call FDM_Der1_Solve(nlines, BCS_NONE, g%der1, g%der1%lu, u, du1_n, wrk2d)  ! I need du1_n in Jacobian formulation
+            call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, u, du1_n, wrk2d)  ! I need du1_n in Jacobian formulation
             call FDM_Der2_Solve(nlines, g%der2, g%der2%lu, u, du2_n1, du1_n, wrk2d)
 
             call check(u, du2_a, du2_n1, 'partial.dat')
@@ -189,9 +189,179 @@ program VPARTIAL
         end do
 
         ! ###################################################################
-        !   Testing the reduction routines
+        ! Boundary conditions
         ! ###################################################################
     case (3)
+        bcs_cases(1:4) = [BCS_DD, BCS_ND, BCS_DN, BCS_NN]
+
+#define bcs_hb(i) wrk2d(i,1)
+#define bcs_ht(i) wrk2d(i,2)
+
+        do im = 1, size(fdm_cases)
+            g%der1%mode_fdm = fdm_cases(im)
+            print *, new_line('a'), fdm_names(im)
+
+            g%der1%mode_fdm = fdm_cases(im)
+            call FDM_CreatePlan(x, g)
+
+            do ib = 1, 4
+                ibc = bcs_cases(ib)
+                print *, new_line('a'), 'Bcs case ', ibc
+
+                nmin = 1; nmax = g%size
+                if (any([BCS_ND, BCS_NN] == ibc)) then
+                    du1_n(:, 1) = du1_a(:, 1)
+                    nmin = nmin + 1
+                end if
+                if (any([BCS_DN, BCS_NN] == ibc)) then
+                    du1_n(:, kmax) = du1_a(:, kmax)
+                    nmax = nmax - 1
+                end if
+                nsize = nmax - nmin + 1
+
+                ! -------------------------------------------------------------------
+                ! Calculate RHS in system of equations A u' = B u
+                call g%der1%matmul(g%der1%rhs, u, du1_n, ibc, g%der1%rhs_b, g%der1%rhs_t, bcs_hb(:), bcs_ht(:))
+
+                ! -------------------------------------------------------------------
+                ! Solve for u' in system of equations A u' = B u
+                ip = ibc*5
+
+                select case (g%der1%nb_diag(1))
+                case (3)
+                    call Thomas3_Solve(nsize, nlines, &
+                                       g%der1%lu(nmin:nmax, ip + 1), &
+                                       g%der1%lu(nmin:nmax, ip + 2), &
+                                       g%der1%lu(nmin:nmax, ip + 3), &
+                                       du1_n(:, nmin:nmax))
+                case (5)
+                    call Thomas5_Solve(nsize, nlines, &
+                                       g%der1%lu(nmin:nmax, ip + 1), &
+                                       g%der1%lu(nmin:nmax, ip + 2), &
+                                       g%der1%lu(nmin:nmax, ip + 3), &
+                                       g%der1%lu(nmin:nmax, ip + 4), &
+                                       g%der1%lu(nmin:nmax, ip + 5), &
+                                       du1_n(:, nmin:nmax))
+                end select
+
+                call check(u(:, nmin:nmax), du1_a(:, nmin:nmax), du1_n(:, nmin:nmax), 'partial.dat')
+
+                idl = g%der1%nb_diag(1)/2 + 1
+                if (any([BCS_ND, BCS_NN] == ibc)) then
+                    do ic = 1, idl - 1
+                        bcs_hb(1:nlines) = bcs_hb(1:nlines) + g%der1%lu(1, ip + idl + ic)*du1_n(:, 1 + ic)
+                    end do
+                    print *, u(:, 1)
+                    print *, bcs_hb(1:nlines)
+                end if
+                if (any([BCS_DN, BCS_NN] == ibc)) then
+                    do ic = 1, idl - 1
+                        bcs_ht(1:nlines) = bcs_ht(1:nlines) + g%der1%lu(kmax, ip + idl - ic)*du1_n(:, kmax - ic)
+                    end do
+                    print *, u(:, kmax)
+                    print *, bcs_ht(1:nlines)
+                end if
+
+            end do
+
+        end do
+
+#undef bcs_hb
+#undef bcs_ht
+
+        ! ###################################################################
+        ! Decomposition of Neumann boundary condition
+        ! ###################################################################
+    case (4)
+        bcs_cases(1:3) = [BCS_MIN, BCS_MAX, BCS_BOTH]
+
+#define bcs_hb(i) wrk2d(i,1)
+#define bcs_ht(i) wrk2d(i,2)
+
+#define c_b(i) wrk1d(i,1)
+#define c_t(i) wrk1d(i,2)
+
+        do im = 1, size(fdm_cases)
+            g%der1%mode_fdm = fdm_cases(im)
+            print *, new_line('a'), fdm_names(im)
+
+            g%der1%mode_fdm = fdm_cases(im)
+            call FDM_CreatePlan(x, g)
+
+            do ib = 1, 3
+                ibc = bcs_cases(ib)
+                print *, new_line('a'), 'Bcs case ', ibc
+
+                ! truncated version
+                call FDM_Der1_NeumannMin_Initialize(g%der1, c_b(:), wrk1d(1, 3), wrk1d(1, 4), nmax)
+                ! print *, nmax
+                call FDM_Der1_NeumannMax_Initialize(g%der1, c_t(:), wrk1d(1, 3), wrk1d(1, 4), nmax)
+                ! print *, nmax
+
+                if (any([BCS_ND, BCS_NN] == ibc)) then
+                    bcs_hb(1:nlines) = du1_a(:, 1)*c_b(1)
+                    do i = 2, nmax
+                        bcs_hb(1:nlines) = bcs_hb(1:nlines) + c_b(i)*u(:, i)
+                    end do
+                    write (*, *) 'Relative Error Linf-norm ...:', &
+                        maxval(abs(bcs_hb(1:nlines) - u(1:nlines, 1)))/maxval(abs(u(1:nlines, 1)))
+                end if
+                if (any([BCS_DN, BCS_NN] == ibc)) then
+                    bcs_ht(1:nlines) = du1_a(:, kmax)*c_t(kmax)
+                    do i = g%size - 1, g%size - nmax + 1, -1
+                        bcs_ht(1:nlines) = bcs_ht(1:nlines) + c_t(i)*u(:, i)
+                    end do
+                    write (*, *) 'Relative Error Linf-norm ...:', &
+                        maxval(abs(bcs_ht(1:nlines) - u(1:nlines, kmax)))/maxval(abs(u(1:nlines, kmax)))
+                end if
+
+                ! full version
+                ! call FDM_Der1_Neumann_Initialize(ibc, g%der1, c_b(:), c_t(:), wrk1d(1, 3), wrk1d(1, 4))
+
+                ! nmin = 1; nmax = g%size
+                ! if (any([BCS_ND, BCS_NN] == ibc)) then
+                !     bcs_hb(1:nlines) = du1_a(:, 1)*c_b(1)
+                !     bcs_ht(1:nlines) = du1_a(:, 1)*c_t(1)           ! only used in BCS_NN
+                !     nmin = nmin + 1
+                ! end if
+                ! if (any([BCS_DN, BCS_NN] == ibc)) then
+                !     bcs_hb(1:nlines) = du1_a(:, kmax)*c_b(kmax)     ! only used in BCS_NN
+                !     bcs_ht(1:nlines) = du1_a(:, kmax)*c_t(kmax)
+                !     nmax = nmax - 1
+                ! end if
+
+                ! if (any([BCS_ND, BCS_NN] == ibc)) then
+                !     do i = nmin, nmax
+                !         bcs_hb(1:nlines) = bcs_hb(1:nlines) + c_b(i)*u(:, i)
+                !     end do
+                !     write (*, *) 'Relative Error Linf-norm ...:', &
+                !         maxval(abs(bcs_hb(1:nlines) - u(1:nlines, 1)))/maxval(abs(u(1:nlines, 1)))
+                !     ! print *, u(:, 1)
+                !     ! print *, bcs_hb(1:nlines)
+                ! end if
+                ! if (any([BCS_DN, BCS_NN] == ibc)) then
+                !     do i = nmax, nmin, -1
+                !         bcs_ht(1:nlines) = bcs_ht(1:nlines) + c_t(i)*u(:, i)
+                !     end do
+                !     write (*, *) 'Relative Error Linf-norm ...:', &
+                !         maxval(abs(bcs_ht(1:nlines) - u(1:nlines, kmax)))/maxval(abs(u(1:nlines, kmax)))
+                !     ! print *, u(:, kmax)
+                !     ! print *, bcs_ht(1:nlines)
+                ! end if
+
+            end do
+        end do
+
+#undef c_b
+#undef c_t
+
+#undef bcs_hb
+#undef bcs_ht
+
+        ! ###################################################################
+        !   Testing the reduction routines
+        ! ###################################################################
+    case (5)
         bcs_cases(1:3) = [BCS_MIN, BCS_MAX, BCS_BOTH]
 
         do ip = 1, 3
@@ -279,176 +449,6 @@ program VPARTIAL
             end do
 
         end do
-
-        ! ###################################################################
-        ! Boundary conditions
-        ! ###################################################################
-    case (4)
-        bcs_cases(1:4) = [BCS_DD, BCS_ND, BCS_DN, BCS_NN]
-
-#define bcs_hb(i) wrk2d(i,1)
-#define bcs_ht(i) wrk2d(i,2)
-
-        do im = 1, size(fdm_cases)
-            g%der1%mode_fdm = fdm_cases(im)
-            print *, new_line('a'), fdm_names(im)
-
-            g%der1%mode_fdm = fdm_cases(im)
-            call FDM_CreatePlan(x, g)
-
-            do ib = 1, 4
-                ibc = bcs_cases(ib)
-                print *, new_line('a'), 'Bcs case ', ibc
-
-                nmin = 1; nmax = g%size
-                if (any([BCS_ND, BCS_NN] == ibc)) then
-                    du1_n(:, 1) = du1_a(:, 1)
-                    nmin = nmin + 1
-                end if
-                if (any([BCS_DN, BCS_NN] == ibc)) then
-                    du1_n(:, kmax) = du1_a(:, kmax)
-                    nmax = nmax - 1
-                end if
-                nsize = nmax - nmin + 1
-
-                ! -------------------------------------------------------------------
-                ! Calculate RHS in system of equations A u' = B u
-                call g%der1%matmul(g%der1%rhs, u, du1_n, ibc, g%der1%rhs_b, g%der1%rhs_t, bcs_hb(:), bcs_ht(:))
-
-                ! -------------------------------------------------------------------
-                ! Solve for u' in system of equations A u' = B u
-                ip = ibc*5
-
-                select case (g%der1%nb_diag(1))
-                case (3)
-                    call Thomas3_Solve(nsize, nlines, &
-                                       g%der1%lu(nmin:nmax, ip + 1), &
-                                       g%der1%lu(nmin:nmax, ip + 2), &
-                                       g%der1%lu(nmin:nmax, ip + 3), &
-                                       du1_n(:, nmin:nmax))
-                case (5)
-                    call Thomas5_Solve(nsize, nlines, &
-                                       g%der1%lu(nmin:nmax, ip + 1), &
-                                       g%der1%lu(nmin:nmax, ip + 2), &
-                                       g%der1%lu(nmin:nmax, ip + 3), &
-                                       g%der1%lu(nmin:nmax, ip + 4), &
-                                       g%der1%lu(nmin:nmax, ip + 5), &
-                                       du1_n(:, nmin:nmax))
-                end select
-
-                call check(u(:, nmin:nmax), du1_a(:, nmin:nmax), du1_n(:, nmin:nmax), 'partial.dat')
-
-                idl = g%der1%nb_diag(1)/2 + 1
-                if (any([BCS_ND, BCS_NN] == ibc)) then
-                    do ic = 1, idl - 1
-                        bcs_hb(1:nlines) = bcs_hb(1:nlines) + g%der1%lu(1, ip + idl + ic)*du1_n(:, 1 + ic)
-                    end do
-                    print *, u(:, 1)
-                    print *, bcs_hb(1:nlines)
-                end if
-                if (any([BCS_DN, BCS_NN] == ibc)) then
-                    do ic = 1, idl - 1
-                        bcs_ht(1:nlines) = bcs_ht(1:nlines) + g%der1%lu(kmax, ip + idl - ic)*du1_n(:, kmax - ic)
-                    end do
-                    print *, u(:, kmax)
-                    print *, bcs_ht(1:nlines)
-                end if
-
-            end do
-
-        end do
-
-#undef bcs_hb
-#undef bcs_ht
-
-        ! ###################################################################
-        ! Decomposition of Neumann boundary condition
-        ! ###################################################################
-    case (5)
-        bcs_cases(1:3) = [BCS_MIN, BCS_MAX, BCS_BOTH]
-
-#define bcs_hb(i) wrk2d(i,1)
-#define bcs_ht(i) wrk2d(i,2)
-
-#define c_b(i) wrk1d(i,1)
-#define c_t(i) wrk1d(i,2)
-
-        do im = 1, size(fdm_cases)
-            g%der1%mode_fdm = fdm_cases(im)
-            print *, new_line('a'), fdm_names(im)
-
-            g%der1%mode_fdm = fdm_cases(im)
-            call FDM_CreatePlan(x, g)
-
-            do ib = 1, 3
-                ibc = bcs_cases(ib)
-                print *, new_line('a'), 'Bcs case ', ibc
-
-                ! truncated version
-                call FDM_Der1_NeumannMin_Initialize(g%der1, c_b(:), wrk1d(1, 3), wrk1d(1, 4), nmax)
-                ! print *, nmax
-                call FDM_Der1_NeumannMax_Initialize(g%der1, c_t(:), wrk1d(1, 3), wrk1d(1, 4), nmax)
-                ! print *, nmax
-
-                if (any([BCS_ND, BCS_NN] == ibc)) then
-                    bcs_hb(1:nlines) = du1_a(:, 1)*c_b(1)
-                    do i = 2, nmax
-                        bcs_hb(1:nlines) = bcs_hb(1:nlines) + c_b(i)*u(:, i)
-                    end do
-                    write (*, *) 'Relative Error Linf-norm ...:', &
-                        maxval(abs(bcs_hb(1:nlines) - u(1:nlines, 1)))/maxval(abs(u(1:nlines, 1)))
-                end if
-                if (any([BCS_DN, BCS_NN] == ibc)) then
-                    bcs_ht(1:nlines) = du1_a(:, kmax)*c_t(kmax)
-                    do i = g%size - 1, g%size - nmax + 1, -1
-                        bcs_ht(1:nlines) = bcs_ht(1:nlines) + c_t(i)*u(:, i)
-                    end do
-                    write (*, *) 'Relative Error Linf-norm ...:', &
-                        maxval(abs(bcs_ht(1:nlines) - u(1:nlines, kmax)))/maxval(abs(u(1:nlines, kmax)))
-                end if
-
-                ! full version
-                ! call FDM_Der1_Neumann_Initialize(ibc, g%der1, c_b(:), c_t(:), wrk1d(1, 3), wrk1d(1, 4))
-
-                ! nmin = 1; nmax = g%size
-                ! if (any([BCS_ND, BCS_NN] == ibc)) then
-                !     bcs_hb(1:nlines) = du1_a(:, 1)*c_b(1)
-                !     bcs_ht(1:nlines) = du1_a(:, 1)*c_t(1)           ! only used in BCS_NN
-                !     nmin = nmin + 1
-                ! end if
-                ! if (any([BCS_DN, BCS_NN] == ibc)) then
-                !     bcs_hb(1:nlines) = du1_a(:, kmax)*c_b(kmax)     ! only used in BCS_NN
-                !     bcs_ht(1:nlines) = du1_a(:, kmax)*c_t(kmax)
-                !     nmax = nmax - 1
-                ! end if
-
-                ! if (any([BCS_ND, BCS_NN] == ibc)) then
-                !     do i = nmin, nmax
-                !         bcs_hb(1:nlines) = bcs_hb(1:nlines) + c_b(i)*u(:, i)
-                !     end do
-                !     write (*, *) 'Relative Error Linf-norm ...:', &
-                !         maxval(abs(bcs_hb(1:nlines) - u(1:nlines, 1)))/maxval(abs(u(1:nlines, 1)))
-                !     ! print *, u(:, 1)
-                !     ! print *, bcs_hb(1:nlines)
-                ! end if
-                ! if (any([BCS_DN, BCS_NN] == ibc)) then
-                !     do i = nmax, nmin, -1
-                !         bcs_ht(1:nlines) = bcs_ht(1:nlines) + c_t(i)*u(:, i)
-                !     end do
-                !     write (*, *) 'Relative Error Linf-norm ...:', &
-                !         maxval(abs(bcs_ht(1:nlines) - u(1:nlines, kmax)))/maxval(abs(u(1:nlines, kmax)))
-                !     ! print *, u(:, kmax)
-                !     ! print *, bcs_ht(1:nlines)
-                ! end if
-
-            end do
-        end do
-
-#undef c_b
-#undef c_t
-
-#undef bcs_hb
-#undef bcs_ht
 
     end select
 

@@ -221,7 +221,8 @@ contains
 
         ! -------------------------------------------------------------------
         if (any([BCS_ND, BCS_NN] == ibc)) then
-            rhs_b(1:idr, 1:ndr) = rhs(1:idr, 1:ndr)
+            ! rhs_b(1:idr, 1:ndr) = rhs(1:idr, 1:ndr)
+            rhs_b(1:idr + 1, 1:ndr) = rhs(1:idr + 1, 1:ndr)
 
             dummy = 1.0_wp/rhs(1, idr)      ! normalize by r11
 
@@ -259,7 +260,8 @@ contains
         end if
 
         if (any([BCS_DN, BCS_NN] == ibc)) then
-            rhs_t(1:idr, 1:ndr) = rhs(nx - idr + 1:nx, 1:ndr)
+            ! rhs_t(1:idr, 1:ndr) = rhs(nx - idr + 1:nx, 1:ndr)
+            rhs_t(0:idr, 1:ndr) = rhs(nx - idr:nx, 1:ndr)
 
             dummy = 1.0_wp/rhs(nx, idr)     ! normalize by rnn
 

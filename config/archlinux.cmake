@@ -9,7 +9,8 @@ if ( ${BUILD_TYPE} STREQUAL "PARALLEL" ) # compiler for parallel build
     set(ENV{FC} mpif90)
     set(CMAKE_Fortran_COMPILER mpif90)
     set(USER_Fortran_FLAGS_RELEASE "-O3 -fconvert=little-endian -ffast-math -mtune=native -march=native")
-    #   set(USER_Fortran_FLAGS_RELEASE "-O0 -ggdb")
+    # set(USER_Fortran_FLAGS_RELEASE "-O0 -ggdb")
+    # set(USER_Fortran_FLAGS_RELEASE "-fconvert=little-endian -O0 -pg -ggdb -ffpe-summary=none")
     add_definitions(-DUSE_MPI -DUSE_MPI_IO)
     set(CMAKE_BUILD_TYPE RELEASE)
     
@@ -31,7 +32,6 @@ else() # compiler for serial build
         
     else()
         set(USER_Fortran_FLAGS_DEBUG "-fconvert=little-endian -O0 -ggdb -Wall -fbacktrace -ffpe-trap=invalid,zero,overflow")#,underflow,precision,denormal")
-        set(USER_Fortran_FLAGS_DEBUG "-fconvert=little-endian -O0 -ggdb -Wall -fbacktrace -ffpe-trap=invalid,zero,overflow")
         add_definitions(-D_DEBUG)
         set(CMAKE_BUILD_TYPE DEBUG)
         

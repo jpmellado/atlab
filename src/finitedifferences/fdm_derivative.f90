@@ -29,7 +29,6 @@ module FDM_Derivative
         real(wp), allocatable :: mwn(:)             ! memory space for modified wavenumbers
         !
         real(wp), allocatable :: lu(:, :)           ! memory space for LU decomposition
-        ! real(wp), allocatable :: linv_rhs(:, :)   ! memory space for extended rhs L^{-1}B for BCS_DD
         procedure(matmul_interface), pointer, nopass :: matmul  ! matrix multiplication to calculate the right-hand side
     end type fdm_derivative_dt
 

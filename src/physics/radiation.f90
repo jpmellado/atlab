@@ -544,7 +544,7 @@ contains
                 tmp2(:, k) = b(:, k)*p_flux_2
             end do
             call Int_Simpson_v(tmp2(:, j:ny), z%nodes(j:ny), flux_down(:, j))
-            ! call Int_Trapezoidal_v(tmp2(:, j:ny), g%nodes(j:ny), flux_down(:, j))
+            ! call Int_Trapezoidal_v(tmp2(:, j:ny), z%nodes(j:ny), flux_down(:, j))
             flux_down(:, j) = flux_down(:, j) + p_flux_1
         end do
 

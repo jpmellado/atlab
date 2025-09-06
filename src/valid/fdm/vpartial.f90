@@ -42,15 +42,15 @@ program VPARTIAL
                                          'Jacobian 6 penta-diagonal', &
                                          'Direct 4', &
                                          'Direct 6']
-
+    character(len=32) str
     type(grid_dt) :: x
     type(fdm_dt) g
 
     ! ###################################################################
     ! Initialize
-    imax = 2
-    jmax = 3
-    kmax = 256
+    imax = 1
+    jmax = 1
+    kmax = 96
     nlines = imax*jmax
 
     x%size = kmax
@@ -98,11 +98,15 @@ program VPARTIAL
         do i = 1, kmax
             x%nodes(i) = real(i - 1, wp)/real(kmax - 1, wp)*x%scale
         end do
-        ! open (21, file='y.dat')
+        open (21, file='z.dat')
+        do i = 1, kmax
+            read (21, *) x%nodes(i)
+        end do
+        ! wrk1d(1:kmax, 1) = x%nodes(1:kmax)  ! reverse
         ! do i = 1, kmax
-        !     read (21, *) x%nodes(i)
+        !     x%nodes(i) = x%nodes(kmax) - wrk1d(kmax - i + 1, 1)
         ! end do
-        ! close (21)
+        close (21)
     end if
 
     g%periodic = x%periodic
@@ -114,21 +118,21 @@ program VPARTIAL
 
     ! ###################################################################
     ! Define the function and analytic derivatives
-    x_0 = 0.75_wp
-    wk = 1.0_wp
+    x_0 = 0.1_wp
+    wk = 10.0_wp
 
     do i = 1, kmax
         ! single-mode
-        u(:, i) = 1.0_wp + sin(2.0_wp*pi_wp/g%scale*wk*(x%nodes(i) - x_0*x%scale)) ! + pi_wp/4.0_wp)
-        du1_a(:, i) = (2.0_wp*pi_wp/g%scale*wk) &
-                      *cos(2.0_wp*pi_wp/g%scale*wk*(x%nodes(i) - x_0*x%scale))! + pi_wp/4.0_wp)
-        du2_a(:, i) = -(2.0_wp*pi_wp/g%scale*wk)**2 &
-                      *sin(2.0_wp*pi_wp/g%scale*wk*(x%nodes(i) - x_0*x%scale))! + pi_wp/4.0_wp)
-        ! ! Gaussian
-        ! u(:, i) = exp(-(x%nodes(i) - x_0*g%scale)**2/(2.0_wp*(g%scale/wk)**2))
-        ! du1_a(:, i) = -(x%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*u(:, i)
-        ! du2_a(:, i) = -(x%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*du1_a(:, i) &
-        !               - 1.0_wp/(g%scale/wk)**2*u(:, i)
+        ! u(:, i) = 1.0_wp + sin(2.0_wp*pi_wp/g%scale*wk*(x%nodes(i) - x_0*x%scale)) ! + pi_wp/4.0_wp)
+        ! du1_a(:, i) = (2.0_wp*pi_wp/g%scale*wk) &
+        !               *cos(2.0_wp*pi_wp/g%scale*wk*(x%nodes(i) - x_0*x%scale))! + pi_wp/4.0_wp)
+        ! du2_a(:, i) = -(2.0_wp*pi_wp/g%scale*wk)**2 &
+        !               *sin(2.0_wp*pi_wp/g%scale*wk*(x%nodes(i) - x_0*x%scale))! + pi_wp/4.0_wp)
+        ! Gaussian
+        u(:, i) = exp(-(x%nodes(i) - x_0*g%scale)**2/(2.0_wp*(g%scale/wk)**2))
+        du1_a(:, i) = -(x%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*u(:, i)
+        du2_a(:, i) = -(x%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*du1_a(:, i) &
+                      - 1.0_wp/(g%scale/wk)**2*u(:, i)
         ! ! exponential
         ! u(:, i) = exp(-x%nodes(i)*wk)
         ! du1_a(:, i) = -wk*u(:, i)
@@ -164,7 +168,8 @@ program VPARTIAL
 
             call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, u, du1_n, wrk2d)
 
-            call check(u, du1_a, du1_n, 'partial.dat')
+            write (str,*) im
+            call check(u, du1_a, du1_n, 'partial-'//trim(adjustl(str))//'.dat')
 
         end do
 
@@ -197,7 +202,7 @@ program VPARTIAL
 #define bcs_hb(i) wrk2d(i,1)
 #define bcs_ht(i) wrk2d(i,2)
 
-        do im = 1, size(fdm_cases)
+        do im = 2, 5, 3!1, size(fdm_cases)
             g%der1%mode_fdm = fdm_cases(im)
             print *, new_line('a'), fdm_names(im)
 

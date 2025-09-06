@@ -42,7 +42,7 @@ contains
         ! #######################################################################
         ! Interior points according to Equations (14)
         do n = 2, nmax - 1
-            coef = coef_c1n4(x, n)                  ! if uniform, we should have ( 1/4 1 1/4 ) and ( -3/4 0 3/4 )/h
+            coef(1:6) = coef_c1n4(x, n)             ! if uniform, we should have ( 1/4 1 1/4 ) and ( -3/4 0 3/4 )/h
             ! print *, n, coef(1:3)
             ! print *, n, coef(4:6)*(x(2) - x(1))
 
@@ -68,9 +68,9 @@ contains
         ! print *, n, coef(1:2)
         ! print *, n, coef(3:5)*(x(2) - x(1))
 
-        dummy = 1.0_wp/coef(4)
+        dummy = 1.0_wp/coef(4)                      ! normalization not relevant
         lhs(n, [2, 1]) = coef(1:2)*dummy            ! am1, a
-        rhs(n, [2, 1, 3]) = coef(3:5)*dummy         ! b, bp1, bp2; bp2 is saved into rhs(3)
+        rhs(n, [2, 1, 3]) = coef(3:5)*dummy         ! bm2, bm1, b; bm2 is saved into rhs(3)
 
         ! do n = 1, 10 !nmax
         !     print *, n, lhs(n, :), rhs(n, :)
@@ -101,7 +101,7 @@ contains
         ! #######################################################################
         ! Interior points according to Equations (14)
         do n = 3, nmax - 2
-            coef = coef_c1n6(x, n)                  ! if uniform, we should have ( 1/3 1 1/3 ) and ( -1/36 -7/9 0 7/9 1/36 )/h
+            coef(1:8) = coef_c1n6(x, n)             ! if uniform, we should have ( 1/3 1 1/3 ) and ( -1/36 -7/9 0 7/9 1/36 )/h
             ! print *, n, coef(1:3)
             ! print *, n, coef(4:8)*(x(2) - x(1))
 
@@ -112,20 +112,24 @@ contains
         end do
 
         ! #######################################################################
-        ! Second/second-to-last points, tridiagonal 4th order (see above)
+        ! Second/second-to-last points, Equations (14) with appropriate I_m and I_n; see coef_c1n5_biased
         n = 2
-        coef(1:6) = coef_c1n4(x, n)                 ! if uniform, we should have ( 1/4 1 1/4 ) and ( -3/4 0 3/4 )/h
+        coef(1:7) = coef_c1n5_biased(x, n)          ! if uniform, we should have ( 1/6 1 1/2 ) and ( -5/9 -1/2 1 1/18 )/h
+        ! print *, n, coef(1:3)
+        ! print *, n, coef(4:7)*(x(2) - x(1))
 
         dummy = 1.0_wp/coef(6)                      ! normalize s.t. 1. upper-diagonal is 1
         lhs(n, 1:3) = coef(1:3)*dummy               ! am1, a, ap1
-        rhs(n, 2:4) = coef(4:6)*dummy               ! bm1, b, bp1
+        rhs(n, 2:5) = coef(4:7)*dummy               ! bm1, b, bp1, bp2
 
         n = nmax - 1
-        coef(1:6) = coef_c1n4(x, n)                 ! if uniform, we should have ( 1/4 1 1/4 ) and ( -3/4 0 3/4 )/h
+        coef(1:7) = coef_c1n5_biased(x, n, backwards=.true.)
+        ! print *, n, coef(1:3)
+        ! print *, n, coef(4:7)*(x(2) - x(1))
 
-        dummy = 1.0_wp/coef(6)                      ! normalize s.t. 1. upper-diagonal is 1
-        lhs(n, 1:3) = coef(1:3)*dummy               ! am1, a, ap1
-        rhs(n, 2:4) = coef(4:6)*dummy               ! bm1, b, bp1
+        dummy = 1.0_wp/coef(6)                      ! normalization not relevant
+        lhs(n, [3, 2, 1]) = coef(1:3)*dummy         ! am1, a, ap1
+        rhs(n, [4, 3, 2, 1]) = coef(4:7)*dummy      ! bm2, bm1, b, bp1
 
         ! #######################################################################
         ! Boundary points according to notes
@@ -145,7 +149,7 @@ contains
 
         dummy = 1.0_wp/coef(3)
         lhs(n, [2, 1]) = coef(1:2)*dummy            ! am1, a
-        rhs(n, [3, 2, 1]) = coef(3:5)*dummy         ! b, bp1, bp2
+        rhs(n, [3, 2, 1]) = coef(3:5)*dummy         ! bm2, bm1, b
 
         ! do n = 1, nmax
         !     print *, n, lhs(n, :)
@@ -182,12 +186,12 @@ contains
         a = 1.0_wp
         b = 2.0_wp*Pi_p(x, i, set_n)/Pi(x, i, set_n)
 
-        j = i - 1
+        j = set_n(1)
         dummy = Lag(x, i, j, set_n)**2*Pi_p(x, i, set_m)/Pi(x, j, set_m)
         am1 = dummy*(x(j) - x(i))
         bm1 = dummy*(1.0_wp + (x(j) - x(i))*(2.0*Lag_p(x, j, j, set_n) + Pi_p(x, j, set_m)/Pi(x, j, set_m)))
 
-        j = i + 1
+        j = set_n(2)
         dummy = Lag(x, i, j, set_n)**2*Pi_p(x, i, set_m)/Pi(x, j, set_m)
         ap1 = dummy*(x(j) - x(i))
         bp1 = dummy*(1.0_wp + (x(j) - x(i))*(2.0*Lag_p(x, j, j, set_n) + Pi_p(x, j, set_m)/Pi(x, j, set_m)))
@@ -273,23 +277,77 @@ contains
         a = 1.0_wp
         b = 2.0_wp*Pi_p(x, i, set_n)/Pi(x, i, set_n) + Lag_p(x, i, i, set_m)
 
-        j = i - 1
+        j = set_n(1)
         dummy = Lag(x, i, j, set_n)**2*Pi_p(x, i, set_m)/Pi(x, j, set_m)
         am1 = dummy*(x(j) - x(i))
         bm1 = dummy*(1.0_wp + (x(j) - x(i))*(2.0*Lag_p(x, j, j, set_n) + Pi_p(x, j, set_m)/Pi(x, j, set_m)))
 
-        j = i + 1
+        j = set_n(2)
         dummy = Lag(x, i, j, set_n)**2*Pi_p(x, i, set_m)/Pi(x, j, set_m)
         ap1 = dummy*(x(j) - x(i))
         bp1 = dummy*(1.0_wp + (x(j) - x(i))*(2.0*Lag_p(x, j, j, set_n) + Pi_p(x, j, set_m)/Pi(x, j, set_m)))
 
-        j = i - 2
+        j = set_m(1)
         bm2 = (Pi(x, i, set_n)/Pi(x, j, set_n))**2*Lag_p(x, i, j, set_m)
 
-        j = i + 2
+        j = set_m(3)
         bp2 = (Pi(x, i, set_n)/Pi(x, j, set_n))**2*Lag_p(x, i, j, set_m)
 
         coef = [am1, a, ap1, bm2, bm1, b, bp1, bp2]
+
+        return
+    end function
+
+    !########################################################################
+    ! am1 u'_i-1 + u'_i +ap1 u'_i+1 = bm1 u_i-1 +b u_i +bp1 u_i+1 +bp2 u_i+2
+    !
+    !         +       +             I_n = { i-1, i+1 }: set of points where the function and derivatives are given
+    !   ...---+---+---+---+---...
+    !             +       +         I_m = { i, i+2}: set of points where only the function is given.
+    !             i
+    !
+    ! Equation (14)
+    !########################################################################
+    function coef_c1n5_biased(x, i, backwards) result(coef)           ! Interval around i
+        real(wp), intent(in) :: x(:)
+        integer(wi), intent(in) :: i
+        logical, intent(in), optional :: backwards
+        real(wp) coef(7)
+
+        real(wp) am1, a, ap1                ! Left-hand side; for clarity below
+        real(wp) bm1, b, bp1, bp2           ! Right-hand side
+        integer(wi) set_n(2), set_m(2)      ! intervals
+        real(wp) dummy
+        integer(wi) j
+
+        if (present(backwards)) then
+            ! same as forwards, but changing the signs of the increments w.r.t. i
+            ! To understand it, e.g., define a new variable k = -j, where k is the
+            ! discrete variable moving around i
+            set_n = [i + 1, i - 1]
+            set_m = [i, i - 2]
+        else
+            set_n = [i - 1, i + 1]
+            set_m = [i, i + 2]
+        end if
+
+        a = 1.0_wp
+        b = 2.0_wp*Pi_p(x, i, set_n)/Pi(x, i, set_n) + Lag_p(x, i, i, set_m)
+
+        j = set_n(1)
+        dummy = Lag(x, i, j, set_n)**2*Pi_p(x, i, set_m)/Pi(x, j, set_m)
+        am1 = dummy*(x(j) - x(i))
+        bm1 = dummy*(1.0_wp + (x(j) - x(i))*(2.0*Lag_p(x, j, j, set_n) + Pi_p(x, j, set_m)/Pi(x, j, set_m)))
+
+        j = set_n(2)
+        dummy = Lag(x, i, j, set_n)**2*Pi_p(x, i, set_m)/Pi(x, j, set_m)
+        ap1 = dummy*(x(j) - x(i))
+        bp1 = dummy*(1.0_wp + (x(j) - x(i))*(2.0*Lag_p(x, j, j, set_n) + Pi_p(x, j, set_m)/Pi(x, j, set_m)))
+
+        j = set_m(2)
+        bp2 = (Pi(x, i, set_n)/Pi(x, j, set_n))**2*Lag_p(x, i, j, set_m)
+
+        coef = [am1, a, ap1, bm1, b, bp1, bp2]
 
         return
     end function

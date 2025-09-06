@@ -1,5 +1,8 @@
 !########################################################################
-!# Compact FDMs for non-uniform grids from Lele, JCP, 1992, using Jacobian
+!# Compact FDMs for non-uniform grids from 
+!# Lele (1992), JCP 103:16-42
+!# Carpenter et al (1993), JCP 108:272-295, who study the effect of boundary points on stability
+!# using Jacobian in case of nonuniform grids
 !#
 !# Maximum stencil size according to the form
 !#
@@ -45,7 +48,6 @@ contains
         logical, intent(in), optional :: periodic
 
         ! -------------------------------------------------------------------
-        ! real(wp) coef_bc1(6)
         real(wp) :: coef_bc1(2 + 2 + 1) = 0.0_wp    ! 2 lhs, 2 +1 rhs (1 additional point to the 3-diagonal rhs)
 
         ! #######################################################################
@@ -58,7 +60,7 @@ contains
         end if
 
         ! #######################################################################
-        ! Interior points according to Eq. 2.1.6 (b=0 with lpha=1/4), 4th order approximation
+        ! Interior points according to Eq. 2.1.6 (b=0 with alpha=1/4), 4th order approximation
         coef(1:2) = [0.25_wp, 0.0_wp]                                   ! a_1, a_2
         coef(3:5) = [0.75_wp, 0.0_wp, 0.0_wp]                           ! b_1, b_2, b_3
 
@@ -66,18 +68,13 @@ contains
             call Create_System_1der(dx, lhs, rhs, coef)
 
         else    ! biased at the boundaries
-            ! 3rd order, Eq. 4.1.3 with lpha=2
-            ! Eq. 27 in Carpenter et al, JCP, 108:272-295, 1993, who study the effect of boundary points on stability
+                ! 3rd order, Eq. 4.1.3 in Lele with alpha=2, Eq. 27 in Carpenter et al
             coef_bc1(1:2) = [2.0_wp, 0.0_wp]                            ! a_1, a_2
             coef_bc1(3:5) = [-2.5_wp, 2.0_wp, 0.5_wp]                   ! b_1, b_2, b_3, b_4
 
             call Create_System_1der(dx, lhs, rhs, coef, coef_bc1)
 
         end if
-
-        ! do n = 1, 10 !nx
-        !     print *, n, lhs(n, :), rhs(n, :)
-        ! end do
 
         return
     end subroutine FDM_C1N4_Jacobian
@@ -93,9 +90,8 @@ contains
         logical, intent(in), optional :: periodic
 
         ! -------------------------------------------------------------------
-        ! real(wp) coef_bc1(6), coef_bc2(6)
-        real(wp) :: coef_bc1(2 + 3 + 1) = 0.0_wp    ! 2 lhs, 3 +1 rhs (1 additional point to the 5-diagonal rhs)
-        real(wp) :: coef_bc2(2 + 4) = 0.0_wp        ! 2 lhs, 4 rhs
+        real(wp) :: coef_bc1(2 + 3 + 1) = 0.0_wp    ! 1. point, 2 lhs, 3 +1 rhs (1 additional point to the 5-diagonal rhs)
+        real(wp) :: coef_bc2(2 + 4) = 0.0_wp        ! 2. point, 2 lhs, 4 rhs
 
         ! #######################################################################
         nb_diag = [3, 5]
@@ -115,12 +111,11 @@ contains
             call Create_System_1der(dx, lhs, rhs, coef)
 
         else    ! biased at the boundaries
-            ! 3rd order, Eq. 4.1.3 in Lele, with alpha=2
-            ! Eq. 31 in Carpenter et al, JCP, 108:272-295, 1993, who study the effect of boundary points on stability
+                ! 3rd order, Eq. 4.1.3 in Lele with alpha=2, Eq. 27 in Carpenter et al
             coef_bc1(1:2) = [2.0_wp, 0.0_wp]                                    ! a_1, a_2
             coef_bc1(3:6) = [-2.5_wp, 2.0_wp, 0.5_wp, 0.0_wp]                   ! b_1, b_2, b_3, b_4
 
-            ! 5th order in Carpenter et al, JCP, 108:272-295, 1993, Eq. 95, who study the effect of boundary points on stability
+                ! 5th order, Eq. 93 in Carpenter et al
             coef_bc2(1:2) = [1.0_wp/6.0_wp, 0.5_wp]                             ! a_1, a_2
             coef_bc2(3:6) = [-5.0_wp/9.0_wp, -0.5_wp, 1.0_wp, 1.0_wp/18.0_wp]   ! b_1, b_2, b_3, b_4
             ! 4th order, Eq. 2.1.6 with alpha=1/4.

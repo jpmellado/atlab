@@ -17,7 +17,7 @@ program vLinSys
     integer, allocatable :: seed(:)
 
     character(len=32) str
-    logical, parameter :: periodic = .false.
+    logical, parameter :: circulant = .false.
 
     ! ###################################################################
     ! random number initialization for reproducibility
@@ -34,10 +34,9 @@ program vLinSys
     deallocate (seed)
 
     ! ###################################################################
-    ! generate system
-    call random_number(lhs)
-
-    call random_number(u)
+    ! generate random data for f = Au
+    call random_number(lhs)     ! diagonals in matrix A
+    call random_number(u)       ! solution u
 
     ! ###################################################################
     nd = 3
@@ -45,7 +44,9 @@ program vLinSys
     ! -------------------------------------------------------------------
     print *, new_line('a'), 'Solve biased triadiagonal system'
 
-    call matmul(lhs(:, 1:nd), u, f, periodic=.false.)
+    ! compute forcing
+    call matmul(lhs(:, 1:nd), u, f, circulant=.false.)
+
     lhs_loc(:, 1:nd) = lhs(:, 1:nd)
     call Thomas3_FactorLU(nsize, lhs_loc(:, 1), lhs_loc(:, 2), lhs_loc(:, 3))
     call Thomas3_SolveLU(nsize, nlines, lhs_loc(:, 1), lhs_loc(:, 2), lhs_loc(:, 3), f)
@@ -56,9 +57,11 @@ program vLinSys
     call check(f, u, 'linsys-'//trim(adjustl(str))//'.dat')
 
     ! -------------------------------------------------------------------
-    print *, new_line('a'), 'Solve periodic triadiagonal system'
+    print *, new_line('a'), 'Solve circulant triadiagonal system'
 
-    call matmul(lhs(:, 1:nd), u, f, periodic=.true.)
+    ! compute forcing
+    call matmul(lhs(:, 1:nd), u, f, circulant=.true.)
+
     lhs_loc(:, 1:nd) = lhs(:, 1:nd)
     call Thomas3C_SMW_LU(lhs_loc(:, 1), &
                          lhs_loc(:, 2), &
@@ -78,7 +81,9 @@ program vLinSys
     ! -------------------------------------------------------------------
     print *, new_line('a'), 'Solve biased pentadiagonal system'
 
-    call matmul(lhs(:, 1:nd), u, f, periodic=.false.)
+    ! compute forcing
+    call matmul(lhs(:, 1:nd), u, f, circulant=.false.)
+
     lhs_loc(:, 1:nd) = lhs(:, 1:nd)
     call Thomas5_FactorLU(nsize, &
                           lhs_loc(:, 1), &
@@ -97,9 +102,17 @@ program vLinSys
     call check(f, u, 'linsys-'//trim(adjustl(str))//'.dat')
 
     ! -------------------------------------------------------------------
-    print *, new_line('a'), 'Solve periodic pentadiagonal system'
+    print *, new_line('a'), 'Solve circulant pentadiagonal system'
 
-    call matmul(lhs(:, 1:nd), u, f, periodic=.true.)
+    ! compute forcing
+    ! lhs(:, 1) = 1.4629948364887945e-003
+    ! lhs(:, 2) = 9.0361445783137314e-003
+    ! lhs(:, 3) = 1.6135972461273688e-002
+    ! lhs(:, 4) = 9.0361445783132474e-003
+    ! lhs(:, 5) = 1.4629948364888149e-003
+
+    call matmul(lhs(:, 1:nd), u, f, circulant=.true.)
+
     lhs_loc(:, 1:nd) = lhs(:, 1:nd)
     call Thomas5C_SMW_LU(nsize, &
                          lhs_loc(:, 1), &
@@ -125,11 +138,11 @@ program vLinSys
 
     ! ###################################################################
 contains
-    subroutine matmul(lhs, u, f, periodic)
+    subroutine matmul(lhs, u, f, circulant)
         real(wp), intent(in) :: lhs(:, :)
         real(wp), intent(in) :: u(:, :)
         real(wp), intent(out) :: f(:, :)
-        logical, intent(in) :: periodic
+        logical, intent(in) :: circulant
 
         integer(wi) nsize, n
         integer(wi) ndl, idl, ic
@@ -145,11 +158,12 @@ contains
                 f(:, n) = f(:, n) + &
                           lhs(n, idl + ic)*u(:, n + ic)
                 if (n - ic >= 1) then
+                    ! print *, n, ic, idl - ic, n - ic
                     f(:, n) = f(:, n) + &
                               lhs(n, idl - ic)*u(:, n - ic)
                 else
-                    if (periodic) then
-                        print *, n, ic, idl - ic, mod(n - ic + nsize - 1, nsize) + 1
+                    if (circulant) then
+                        ! print *, n, ic, idl - ic, mod(n - ic + nsize - 1, nsize) + 1
                         f(:, n) = f(:, n) + &
                                   lhs(n, idl - ic)*u(:, mod(n - ic + nsize - 1, nsize) + 1)
                     end if
@@ -174,11 +188,12 @@ contains
                 f(:, n) = f(:, n) + &
                           lhs(n, idl - ic)*u(:, n - ic)
                 if (n + ic <= nsize) then
+                    ! print *, n, ic, idl + ic, n + ic
                     f(:, n) = f(:, n) + &
                               lhs(n, idl + ic)*u(:, n + ic)
                 else
-                    if (periodic) then
-                        print *, n, ic, idl + ic, mod(n + ic, nsize)
+                    if (circulant) then
+                        ! print *, n, ic, idl + ic, mod(n + ic, nsize)
                         f(:, n) = f(:, n) + &
                                   lhs(n, idl + ic)*u(:, mod(n + ic, nsize))
                     end if

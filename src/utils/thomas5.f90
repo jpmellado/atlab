@@ -131,14 +131,14 @@ contains
         c(nmax) = c(nmax) - a(1)
         d(nmax - 1) = d(nmax - 1) - b(1)
 
-        ! Set off-digonal entries to zero for A1
-        a(1) = 0.0_wp
-        a(2) = 0.0_wp
-        b(1) = 0.0_wp
+        ! ! Set off-diagonal entries to zero for A1
+        ! a(1) = 0.0_wp
+        ! a(2) = 0.0_wp
+        ! b(1) = 0.0_wp
 
-        d(nmax) = 0.0_wp
-        e(nmax) = 0.0_wp
-        e(nmax - 1) = 0.0_wp
+        ! d(nmax) = 0.0_wp
+        ! e(nmax) = 0.0_wp
+        ! e(nmax - 1) = 0.0_wp
 
         ! Regular forward step for A1
         call Thomas5_FactorLU(nmax, a, b, c, d, e)

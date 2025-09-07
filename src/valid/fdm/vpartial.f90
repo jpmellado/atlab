@@ -202,7 +202,7 @@ program VPARTIAL
 #define bcs_hb(i) wrk2d(i,1)
 #define bcs_ht(i) wrk2d(i,2)
 
-        do im = 2, 5, 3!1, size(fdm_cases)
+        do im = 1, size(fdm_cases)
             g%der1%mode_fdm = fdm_cases(im)
             print *, new_line('a'), fdm_names(im)
 
@@ -234,13 +234,13 @@ program VPARTIAL
 
                 select case (g%der1%nb_diag(1))
                 case (3)
-                    call Thomas3_Solve(nsize, nlines, &
+                    call Thomas3_SolveLU(nsize, nlines, &
                                        g%der1%lu(nmin:nmax, ip + 1), &
                                        g%der1%lu(nmin:nmax, ip + 2), &
                                        g%der1%lu(nmin:nmax, ip + 3), &
                                        du1_n(:, nmin:nmax))
                 case (5)
-                    call Thomas5_Solve(nsize, nlines, &
+                    call Thomas5_SolveLU(nsize, nlines, &
                                        g%der1%lu(nmin:nmax, ip + 1), &
                                        g%der1%lu(nmin:nmax, ip + 2), &
                                        g%der1%lu(nmin:nmax, ip + 3), &
@@ -409,9 +409,9 @@ program VPARTIAL
 
                 select case (g%der1%nb_diag(1))
                 case (3)
-                    call Thomas3_LU(nsize, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3))
+                    call Thomas3_FactorLU(nsize, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3))
                 case (5)
-             call Thomas5_LU(nsize, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3), g%der1%lu(nmin:nmax, 4), g%der1%lu(nmin:nmax, 5))
+             call Thomas5_FactorLU(nsize, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3), g%der1%lu(nmin:nmax, 4), g%der1%lu(nmin:nmax, 5))
                 end select
 
                 du1_n(:, 1) = u(:, 1)           ! boundary condition
@@ -430,9 +430,9 @@ program VPARTIAL
 
                 select case (g%der1%nb_diag(1))
                 case (3)
-                    call Thomas3_Solve(nsize, nlines, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3), du1_n(:, nmin:nmax))
+                    call Thomas3_SolveLU(nsize, nlines, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3), du1_n(:, nmin:nmax))
                 case (5)
-                    call Thomas5_Solve(nsize, nlines, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3), g%der1%lu(nmin:nmax, 4), g%der1%lu(nmin:nmax, 5), du1_n(:, nmin:nmax))
+                    call Thomas5_SolveLU(nsize, nlines, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3), g%der1%lu(nmin:nmax, 4), g%der1%lu(nmin:nmax, 5), du1_n(:, nmin:nmax))
                 end select
 
                 if (any([BCS_MIN, BCS_BOTH] == ibc)) then

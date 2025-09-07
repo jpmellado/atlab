@@ -9,27 +9,24 @@ module Thomas5
     implicit none
     private
 
-    public :: Thomas5_LU, Thomas5_Solve
+    public :: Thomas5_FactorLU, Thomas5_SolveLU
     public :: Thomas5C_SMW_LU, Thomas5C_SMW_Solve   ! circulant systems (periodic boundary conditions)
 
 contains
     ! #######################################################################
     ! #######################################################################
-    subroutine Thomas5_LU(nmax, a, b, c, d, e)
+    subroutine Thomas5_FactorLU(nmax, a, b, c, d, e)
         integer(wi) nmax
-        real(wp), dimension(nmax), intent(INOUT) :: a, b, c, d, e
+        real(wp), intent(inout) :: a(nmax), b(nmax), c(nmax), d(nmax), e(nmax)
 
         ! -----------------------------------------------------------------------
         integer(wi) n
 
         ! #######################################################################
-        !   a(1) = 1.0_wp ! padding
-        !   b(1) = 1.0_wp ! padding
-
-        !   a(2) = 1.0_wp ! padding
-        b(2) = b(2)/c(1)
-        c(2) = c(2) - b(2)*d(1)
-        d(2) = d(2) - b(2)*e(1)
+        n = 2
+        b(n) = b(n)/c(n - 1)
+        c(n) = c(n) - b(n)*d(n - 1)
+        d(n) = d(n) - b(n)*e(n - 1)
 
         do n = 3, nmax - 1
             a(n) = a(n)/c(n - 2)
@@ -37,13 +34,11 @@ contains
             c(n) = c(n) - b(n)*d(n - 1) - a(n)*e(n - 2)
             d(n) = d(n) - b(n)*e(n - 1)
         end do
-        !   e(n-1) = 1.0_wp ! padding
 
-        a(nmax) = a(nmax)/c(nmax - 2)
-        b(nmax) = (b(nmax) - a(nmax)*d(nmax - 2))/c(nmax - 1)
-        c(nmax) = c(nmax) - b(nmax)*d(nmax - 1) - a(nmax)*e(nmax - 2)
-        !   d(nmax) = 1.0_wp ! padding
-        !   e(nmax) = 1.0_wp ! padding
+        n = nmax
+        a(n) = a(n)/c(n - 2)
+        b(n) = (b(n) - a(n)*d(n - 2))/c(n - 1)
+        c(n) = c(n) - b(n)*d(n - 1) - a(n)*e(n - 2)
 
         ! Final operations
         a(3:) = -a(3:)
@@ -53,23 +48,21 @@ contains
         e(:nmax - 2) = -e(:nmax - 2)*c(:nmax - 2)
 
         return
-    end subroutine Thomas5_LU
+    end subroutine Thomas5_FactorLU
 
     ! #######################################################################
     ! #######################################################################
-    subroutine Thomas5_Solve(nmax, len, a, b, c, d, e, f)
+    subroutine Thomas5_SolveLU(nmax, len, a, b, c, d, e, f)
         integer(wi) nmax, len
-        real(wp), dimension(nmax), intent(IN) :: a, b, c, d, e
-        real(wp), dimension(len, nmax), intent(INOUT) :: f
+        real(wp), intent(in) :: a(nmax), b(nmax), c(nmax), d(nmax), e(nmax)
+        real(wp), intent(inout) :: f(len, nmax)
 
         ! -----------------------------------------------------------------------
         integer(wi) n
         real(wp) :: dummy1, dummy2
 
         ! #######################################################################
-        ! -----------------------------------------------------------------------
         ! Solve Ly=f, forward elimination
-        ! -----------------------------------------------------------------------
         n = 2
         f(:, n) = f(:, n) + f(:, n - 1)*b(2)
 
@@ -77,9 +70,7 @@ contains
             f(:, n) = f(:, n) + f(:, n - 1)*b(n) + f(:, n - 2)*a(n)
         end do
 
-        ! -----------------------------------------------------------------------
         ! Solve Ux=y, backward substitution
-        ! -----------------------------------------------------------------------
         n = nmax
         f(:, n) = f(:, n)*c(n)
 
@@ -94,7 +85,7 @@ contains
         end do
 
         return
-    end subroutine Thomas5_Solve
+    end subroutine Thomas5_SolveLU
 
     !########################################################################
     !#
@@ -114,9 +105,9 @@ contains
     ! LU factorization stage
     ! #######################################################################
     subroutine Thomas5C_SMW_LU(nmax, a, b, c, d, e, f, g)
-        integer(wi), intent(IN) :: nmax
-        real(wp), dimension(nmax), intent(INOUT) :: a, b, c, d, e ! Diagonals
-        real(wp), dimension(nmax), intent(INOUT) :: f, g       ! Additional (u1,u2)
+        integer(wi), intent(in) :: nmax
+        real(wp), intent(inout) :: a(nmax), b(nmax), c(nmax), d(nmax), e(nmax) ! Diagonals
+        real(wp), intent(out) :: f(nmax), g(nmax)       ! Additional (u1,u2)
 
         ! -----------------------------------------------------------------------
         real(wp) :: a0, b0, en, dn
@@ -150,7 +141,7 @@ contains
         e(nmax - 1) = 0.0_wp
 
         ! Regular forward step for A1
-        call Thomas5_LU(nmax, a, b, c, d, e)
+        call Thomas5_FactorLU(nmax, a, b, c, d, e)
 
         ! Save cyclic entries again
         a(1) = a0 ! upper-right corner
@@ -167,8 +158,8 @@ contains
         g(nmax) = 1.0_wp
 
         ! Regular backward step for u1, u2
-        call Thomas5_Solve(nmax, 1, a, b, c, d, e, f)
-        call Thomas5_Solve(nmax, 1, a, b, c, d, e, g)
+        call Thomas5_SolveLU(nmax, 1, a, b, c, d, e, f)
+        call Thomas5_SolveLU(nmax, 1, a, b, c, d, e, g)
 
         ! Compute entries of matrix M[2x2] once
         m1 = e(nmax)*f(1) + a(1)*f(nmax - 1) + b(1)*f(nmax) + 1.0_wp
@@ -202,7 +193,7 @@ contains
         ! #######################################################################
 
         ! Regular backward step for rhs
-        call Thomas5_Solve(nmax, len, a, b, c, d, e, frc)
+        call Thomas5_SolveLU(nmax, len, a, b, c, d, e, frc)
 
         ! Compute entries of matrix m[2x2]
         m1 = e(nmax)*f(1) + a(1)*f(nmax - 1) + b(1)*f(nmax) + 1.0_wp
@@ -252,7 +243,7 @@ end module Thomas5
 ! ! #######################################################################
 ! ! LU factorization stage
 ! ! #######################################################################
-! subroutine Thomas5_LU2(nmax, a, b, c, d, e)
+! subroutine Thomas5_FactorLU2(nmax, a, b, c, d, e)
 !     use TLab_Constants, only: wp, wi
 
 !     implicit none
@@ -305,12 +296,12 @@ end module Thomas5
 !     e(:nmax - 2) = -e(:nmax - 2)
 
 !     return
-! end subroutine Thomas5_LU2
+! end subroutine Thomas5_FactorLU2
 
 ! ! #######################################################################
 ! ! Backward substitution step in the Thomas algorith
 ! ! #######################################################################
-! subroutine Thomas5_Solve2(nmax, len, a, b, c, d, e, f)
+! subroutine Thomas5_SolveLU2(nmax, len, a, b, c, d, e, f)
 !     use TLab_Constants, only: wp, wi
 
 !     implicit none
@@ -351,4 +342,4 @@ end module Thomas5
 !     end do
 
 !     return
-! end subroutine Thomas5_Solve2
+! end subroutine Thomas5_SolveLU2

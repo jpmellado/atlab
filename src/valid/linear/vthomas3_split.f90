@@ -1,4 +1,4 @@
-program vLinear
+program vThomas3_Split
     use TLab_Constants, only: wp, wi, BCS_NONE
     use Thomas3
     use Thomas3_Split
@@ -93,8 +93,8 @@ program vLinear
             call Thomas3C_SMW_LU(lhs_loc(:, 1), lhs_loc(:, 2), lhs_loc(:, 3), z)
             call Thomas3C_SMW_Solve(lhs_loc(:, 1), lhs_loc(:, 2), lhs_loc(:, 3), z, u_loc, wrk)
         else
-            call Thomas3_LU(nsize, lhs_loc(:, 1), lhs_loc(:, 2), lhs_loc(:, 3))
-            call Thomas3_Solve(nsize, nlines, lhs_loc(:, 1), lhs_loc(:, 2), lhs_loc(:, 3), u_loc)
+            call Thomas3_FactorLU(nsize, lhs_loc(:, 1), lhs_loc(:, 2), lhs_loc(:, 3))
+            call Thomas3_SolveLU(nsize, nlines, lhs_loc(:, 1), lhs_loc(:, 2), lhs_loc(:, 3), u_loc)
         end if
 
         call check(u_loc, u, 'linear.dat')
@@ -192,4 +192,4 @@ contains
 1000    format(5(1x, e12.5))
     end subroutine check
 
-end program vLinear
+end program vThomas3_Split

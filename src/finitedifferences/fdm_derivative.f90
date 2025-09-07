@@ -108,7 +108,14 @@ contains
                 ! call Thomas3C_LU(g%lu(:, 1), g%lu(:, 2), g%lu(:, 3), g%lu(:, 4), g%lu(:, 5))
                 call Thomas3C_SMW_LU(g%lu(:, 1), g%lu(:, 2), g%lu(:, 3), g%lu(:, 4))
             case (5)
-                call Thomas5C_SMW_LU(g%size, g%lu(:, 1), g%lu(:, 2), g%lu(:, 3), g%lu(:, 4), g%lu(:, 5), g%lu(:, 6), g%lu(:, 7))
+                call Thomas5C_SMW_LU(g%size, &
+                                     g%lu(:, 1), &
+                                     g%lu(:, 2), &
+                                     g%lu(:, 3), &
+                                     g%lu(:, 4), &
+                                     g%lu(:, 5), &
+                                     g%lu(:, 6), &
+                                     g%lu(:, 7))
             end select
 
         else                            ! biased,  different BCs
@@ -126,17 +133,17 @@ contains
 
                 select case (ndl)
                 case (3)
-                    call Thomas3_LU(nsize, &
-                                    g%lu(nmin:nmax, ip + 1), &
-                                    g%lu(nmin:nmax, ip + 2), &
-                                    g%lu(nmin:nmax, ip + 3))
+                    call Thomas3_FactorLU(nsize, &
+                                          g%lu(nmin:nmax, ip + 1), &
+                                          g%lu(nmin:nmax, ip + 2), &
+                                          g%lu(nmin:nmax, ip + 3))
                 case (5)
-                    call Thomas5_LU(nsize, &
-                                    g%lu(nmin:nmax, ip + 1), &
-                                    g%lu(nmin:nmax, ip + 2), &
-                                    g%lu(nmin:nmax, ip + 3), &
-                                    g%lu(nmin:nmax, ip + 4), &
-                                    g%lu(nmin:nmax, ip + 5))
+                    call Thomas5_FactorLU(nsize, &
+                                          g%lu(nmin:nmax, ip + 1), &
+                                          g%lu(nmin:nmax, ip + 2), &
+                                          g%lu(nmin:nmax, ip + 3), &
+                                          g%lu(nmin:nmax, ip + 4), &
+                                          g%lu(nmin:nmax, ip + 5))
                 end select
 
             end do
@@ -302,17 +309,17 @@ contains
 
             select case (g%nb_diag(1))
             case (3)
-                call Thomas3_Solve(nsize, nlines, &
-                                   lu1(nmin:, ip + 1), &
-                                   lu1(nmin:, ip + 2), &
-                                   lu1(nmin:, ip + 3), result(:, nmin:))
+                call Thomas3_SolveLU(nsize, nlines, &
+                                     lu1(nmin:, ip + 1), &
+                                     lu1(nmin:, ip + 2), &
+                                     lu1(nmin:, ip + 3), result(:, nmin:))
             case (5)
-                call Thomas5_Solve(nsize, nlines, &
-                                   lu1(nmin:, ip + 1), &
-                                   lu1(nmin:, ip + 2), &
-                                   lu1(nmin:, ip + 3), &
-                                   lu1(nmin:, ip + 4), &
-                                   lu1(nmin:, ip + 5), result(:, nmin:))
+                call Thomas5_SolveLU(nsize, nlines, &
+                                     lu1(nmin:, ip + 1), &
+                                     lu1(nmin:, ip + 2), &
+                                     lu1(nmin:, ip + 3), &
+                                     lu1(nmin:, ip + 4), &
+                                     lu1(nmin:, ip + 5), result(:, nmin:))
             end select
 
         end if
@@ -362,19 +369,19 @@ contains
             ip = ibc*5
             select case (ndl)
             case (3)
-                call Thomas3_Solve(nsize, 1, &
-                                   g%lu(nmin:nmax, ip + 1), &
-                                   g%lu(nmin:nmax, ip + 2), &
-                                   g%lu(nmin:nmax, ip + 3), &
-                                   z(:, nmin:nmax))
+                call Thomas3_SolveLU(nsize, 1, &
+                                     g%lu(nmin:nmax, ip + 1), &
+                                     g%lu(nmin:nmax, ip + 2), &
+                                     g%lu(nmin:nmax, ip + 3), &
+                                     z(:, nmin:nmax))
             case (5)
-                call Thomas5_Solve(nsize, 1, &
-                                   g%lu(nmin:nmax, ip + 1), &
-                                   g%lu(nmin:nmax, ip + 2), &
-                                   g%lu(nmin:nmax, ip + 3), &
-                                   g%lu(nmin:nmax, ip + 4), &
-                                   g%lu(nmin:nmax, ip + 5), &
-                                   z(:, nmin:nmax))
+                call Thomas5_SolveLU(nsize, 1, &
+                                     g%lu(nmin:nmax, ip + 1), &
+                                     g%lu(nmin:nmax, ip + 2), &
+                                     g%lu(nmin:nmax, ip + 3), &
+                                     g%lu(nmin:nmax, ip + 4), &
+                                     g%lu(nmin:nmax, ip + 5), &
+                                     z(:, nmin:nmax))
             end select
 
             idl = ndl/2 + 1
@@ -436,19 +443,19 @@ contains
             ip = ibc*5
             select case (ndl)
             case (3)
-                call Thomas3_Solve(nsize, 1, &
-                                   g%lu(nmin:nmax, ip + 1), &
-                                   g%lu(nmin:nmax, ip + 2), &
-                                   g%lu(nmin:nmax, ip + 3), &
-                                   z(:, nmin:nmax))
+                call Thomas3_SolveLU(nsize, 1, &
+                                     g%lu(nmin:nmax, ip + 1), &
+                                     g%lu(nmin:nmax, ip + 2), &
+                                     g%lu(nmin:nmax, ip + 3), &
+                                     z(:, nmin:nmax))
             case (5)
-                call Thomas5_Solve(nsize, 1, &
-                                   g%lu(nmin:nmax, ip + 1), &
-                                   g%lu(nmin:nmax, ip + 2), &
-                                   g%lu(nmin:nmax, ip + 3), &
-                                   g%lu(nmin:nmax, ip + 4), &
-                                   g%lu(nmin:nmax, ip + 5), &
-                                   z(:, nmin:nmax))
+                call Thomas5_SolveLU(nsize, 1, &
+                                     g%lu(nmin:nmax, ip + 1), &
+                                     g%lu(nmin:nmax, ip + 2), &
+                                     g%lu(nmin:nmax, ip + 3), &
+                                     g%lu(nmin:nmax, ip + 4), &
+                                     g%lu(nmin:nmax, ip + 5), &
+                                     z(:, nmin:nmax))
             end select
 
             do ic = 1, idl - 1
@@ -505,19 +512,19 @@ contains
             ip = ibc*5
             select case (ndl)
             case (3)
-                call Thomas3_Solve(nsize, 1, &
-                                   g%lu(nmin:nmax, ip + 1), &
-                                   g%lu(nmin:nmax, ip + 2), &
-                                   g%lu(nmin:nmax, ip + 3), &
-                                   z(:, nmin:nmax))
+                call Thomas3_SolveLU(nsize, 1, &
+                                     g%lu(nmin:nmax, ip + 1), &
+                                     g%lu(nmin:nmax, ip + 2), &
+                                     g%lu(nmin:nmax, ip + 3), &
+                                     z(:, nmin:nmax))
             case (5)
-                call Thomas5_Solve(nsize, 1, &
-                                   g%lu(nmin:nmax, ip + 1), &
-                                   g%lu(nmin:nmax, ip + 2), &
-                                   g%lu(nmin:nmax, ip + 3), &
-                                   g%lu(nmin:nmax, ip + 4), &
-                                   g%lu(nmin:nmax, ip + 5), &
-                                   z(:, nmin:nmax))
+                call Thomas5_SolveLU(nsize, 1, &
+                                     g%lu(nmin:nmax, ip + 1), &
+                                     g%lu(nmin:nmax, ip + 2), &
+                                     g%lu(nmin:nmax, ip + 3), &
+                                     g%lu(nmin:nmax, ip + 4), &
+                                     g%lu(nmin:nmax, ip + 5), &
+                                     z(:, nmin:nmax))
             end select
 
             do ic = 1, idl - 1
@@ -572,10 +579,10 @@ contains
         else
             select case (ndl)
             case (3)
-                call Thomas3_LU(g%size, &
-                                g%lu(:, 1), &
-                                g%lu(:, 2), &
-                                g%lu(:, 3))
+                call Thomas3_FactorLU(g%size, &
+                                      g%lu(:, 1), &
+                                      g%lu(:, 2), &
+                                      g%lu(:, 3))
             end select
 
         end if
@@ -721,10 +728,10 @@ contains
         else
             select case (g%nb_diag(1))
             case (3)
-                call Thomas3_Solve(g%size, nlines, &
-                                   lu(:, 1), &
-                                   lu(:, 2), &
-                                   lu(:, 3), result)
+                call Thomas3_SolveLU(g%size, nlines, &
+                                     lu(:, 1), &
+                                     lu(:, 2), &
+                                     lu(:, 3), result)
             end select
         end if
 

@@ -259,9 +259,9 @@ contains
     !     ! Solve for u' in system of equations A u' = B u
     !     select case (g(3)%der1%nb_diag(1))
     !     case (3)
-    !      call Thomas3_Solve(nsize, nx*ny, g(3)%der1%lu(nmin:nmax, ip + 1), g(3)%der1%lu(nmin:nmax, ip + 2), g(3)%der1%lu(nmin:nmax, ip + 3), tmp1(:, nmin:nmax))
+    !      call Thomas3_SolveLU(nsize, nx*ny, g(3)%der1%lu(nmin:nmax, ip + 1), g(3)%der1%lu(nmin:nmax, ip + 2), g(3)%der1%lu(nmin:nmax, ip + 3), tmp1(:, nmin:nmax))
     !     case (5)
-    !             call Thomas5_Solve(nsize, nx*ny, g(3)%der1%lu(nmin:nmax, ip + 1), g(3)%der1%lu(nmin:nmax, ip + 2), g(3)%der1%lu(nmin:nmax, ip + 3), g(3)%der1%lu(nmin:nmax, ip + 4), g(3)%der1%lu(nmin:nmax, ip + 5), tmp1(:, nmin:nmax))
+    !             call Thomas5_SolveLU(nsize, nx*ny, g(3)%der1%lu(nmin:nmax, ip + 1), g(3)%der1%lu(nmin:nmax, ip + 2), g(3)%der1%lu(nmin:nmax, ip + 3), g(3)%der1%lu(nmin:nmax, ip + 4), g(3)%der1%lu(nmin:nmax, ip + 5), tmp1(:, nmin:nmax))
     !     end select
 
     !     idl = g(3)%der1%nb_diag(1)/2 + 1

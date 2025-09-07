@@ -7,12 +7,12 @@ module Thomas7
     implicit none
     private
 
-    public :: Thomas7_LU, Thomas7_Solve
+    public :: Thomas7_FactorLU, Thomas7_SolveLU
 
 contains
     ! #######################################################################
     ! #######################################################################
-    subroutine Thomas7_LU(nmax, a, b, c, d, e, f, g)
+    subroutine Thomas7_FactorLU(nmax, a, b, c, d, e, f, g)
         integer(wi) nmax
         real(wp), dimension(nmax), intent(INOUT) :: a, b, c, d, e, f, g
 
@@ -23,7 +23,7 @@ contains
         g(1) = g(1)/d(1)
         f(1) = f(1)/d(1)
         e(1) = e(1)/d(1)
-        c(1) = 1.0_wp/d(1) ! padding, and used in Thomas7_Solve to normalize 1st eqn.
+        c(1) = 1.0_wp/d(1) ! padding, and used in Thomas7_SolveLU to normalize 1st eqn.
         !   b(1) = 1.0_wp      ! padding
         !   a(1) = 1.0_wp      ! padding
         d(1) = 1.0_wp
@@ -80,12 +80,12 @@ contains
         g(:nmax - 3) = -g(:nmax - 3)
 
         return
-    end subroutine Thomas7_LU
+    end subroutine Thomas7_FactorLU
 
     ! #######################################################################
     ! Backward substitution step in the Thomas algorithm
     ! #######################################################################
-    subroutine Thomas7_Solve(nmax, len, a, b, c, d, e, f, g, frc)
+    subroutine Thomas7_SolveLU(nmax, len, a, b, c, d, e, f, g, frc)
         integer(wi) nmax, len
         real(wp), dimension(nmax), intent(IN) :: a, b, c, d, e, f, g
         real(wp), dimension(len, nmax), intent(INOUT) :: frc
@@ -98,7 +98,7 @@ contains
         ! -----------------------------------------------------------------------
         ! Solve Ly=frc, forward
         ! -----------------------------------------------------------------------
-        frc(:, 1) = frc(:, 1)*c(1) ! Normalize first eqn. See Thomas7_LU
+        frc(:, 1) = frc(:, 1)*c(1) ! Normalize first eqn. See Thomas7_FactorLU
         frc(:, 2) = frc(:, 2) + frc(:, 1)*c(2)
         frc(:, 3) = frc(:, 3) + frc(:, 2)*c(3) + frc(:, 1)*b(3)
 
@@ -129,6 +129,6 @@ contains
         end do
 
         return
-    end subroutine Thomas7_Solve
+    end subroutine Thomas7_SolveLU
 
 end module Thomas7

@@ -174,11 +174,12 @@ contains
 
         ! #######################################################################
         ! Assumes compatible problem, i.e., bcs_n -bcs_1 = int f
-        bcs(:, 1) = 0.0_wp
         ! Written in terms of the Dirichlet/Neumann problem
+        ! bcs(:, 1) = 0.0_wp
         ! call OPR_ODE2_Factorize_DN_Sing(nlines, fdmi, u, f, bcs, v, wrk1d, wrk2d)
         !
         ! Written in terms of the Neumann/Dirichlet problem
+        bcs(:, 2) = 0.0_wp
         call OPR_ODE2_Factorize_ND_Sing(nlines, fdmi, u, f, bcs, v, wrk1d, wrk2d)
         ! this is needed for the direct compact fdm schemes, otherwise it becomes unstable.
         ! I think it is because grid refinement is often at the bottom boundary,

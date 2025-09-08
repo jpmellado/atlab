@@ -101,6 +101,7 @@ program VINTEGRAL
     end if
 
     g%der1%mode_fdm = FDM_COM6_JACOBIAN     ! default
+    ! g%der1%mode_fdm = FDM_COM4_DIRECT     ! default
     g%der2%mode_fdm = g%der1%mode_fdm
     call FDM_CreatePlan(x, g)
     call FDM_Int1_Initialize(g%der1, 0.0_wp, BCS_MIN, fdmi(BCS_MIN))
@@ -190,7 +191,7 @@ program VINTEGRAL
 
                 ! check the calculation of the derivative at the boundary
                 print *, dw1_n(:, 1)
-                call FDM_Der1_Solve(imax*jmax, g%der1, g%der1%lu, w_n, dw1_n, wrk2d)
+                call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, w_n, dw1_n, wrk2d)
                 select case (ibc)
                 case (BCS_MIN)
                     print *, dw1_n(:, 1)
@@ -207,15 +208,18 @@ program VINTEGRAL
         ! ###################################################################
     case (2)
         allocate (bcs(nlines, 2))
-        do i = kmax, 1, -1     ! set the lower value to zero, which is assumed in BCS_NN
+        do i = kmax, 1, -1      ! set the lower value to zero, which is assumed in BCS_NN
             u(:, i) = u(:, i) - u(:, 1)
+        end do
+        do i = 1, kmax          ! set the upper value to zero, which is assumed in BCS_NN
+            u(:, i) = u(:, i) - u(:, kmax)
         end do
 
         ! f = du2_a
         ! du1_n = du1_a ! I need it for the boundary conditions
-        call FDM_Der1_Solve(imax*jmax, g%der1, g%der1%lu, u, du1_n, wrk2d)
-        call FDM_Der1_Solve(imax*jmax, g%der1, g%der1%lu, du1_n, du2_n, wrk2d)
-        ! call FDM_Der2_Solve(imax*jmax, g%du1_n%der2, g%der2%lu, u, du2_n, du1_n, wrk2d)
+        call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, u, du1_n, wrk2d)
+        call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, du1_n, du2_n, wrk2d)
+        ! call FDM_Der2_Solve(nlines, g%du1_n%der2, g%der2%lu, u, du2_n, du1_n, wrk2d)
         f = du2_n
 
         bcs_cases(1:4) = [BCS_DD, BCS_DN, BCS_ND, BCS_NN]
@@ -243,7 +247,8 @@ program VINTEGRAL
                 call OPR_ODE2_Factorize_NN_Sing(nlines, fdmi, w_n, f, bcs, dw1_n, wrk1d, wrk2d)
             end select
 
-            call check(u, w_n, 'integral.dat')
+            write (str, *) ib
+            call check(u, w_n, 'integral-'//trim(adjustl(str))//'.dat')
             call check(du1_n, dw1_n)
 
         end do
@@ -264,9 +269,9 @@ program VINTEGRAL
 
         ! f = du2_a - lambda*lambda*u
         ! du1_n = du1_a ! I need it for the boundary conditions
-        call FDM_Der1_Solve(imax*jmax, g%der1, g%der1%lu, u, du1_n, wrk2d)
-        call FDM_Der1_Solve(imax*jmax, g%der1, g%der1%lu, du1_n, du2_n, wrk2d)
-        ! call FDM_Der2_Solve(imax*jmax, g%der2, g%der2%lu, u, du2_n, du1_n, wrk2d)
+        call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, u, du1_n, wrk2d)
+        call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, du1_n, du2_n, wrk2d)
+        ! call FDM_Der2_Solve(nlines, g%der2, g%der2%lu, u, du2_n, du1_n, wrk2d)
         f = du2_n - lambda*lambda*u
 
         bcs_cases(1:2) = [BCS_DD, BCS_NN]!, BCS_DN, BCS_ND]
@@ -294,7 +299,8 @@ program VINTEGRAL
                 call OPR_ODE2_Factorize_NN(nlines, fdmi, fdmi(BCS_MIN)%rhs, fdmi(BCS_MAX)%rhs, w_n, f, bcs, dw1_n, wrk1d, wrk2d)
             end select
 
-            call check(u, w_n, 'integral.dat')
+            write (str, *) im
+            call check(u, w_n, 'integral-'//trim(adjustl(str))//'.dat')
             call check(du1_n, dw1_n)
 
         end do
@@ -318,9 +324,9 @@ program VINTEGRAL
 
         ! f = du2_a - lambda*u
         ! du1_n = du1_a ! I need it for the boundary conditions
-        call FDM_Der1_Solve(imax*jmax, g%der1, g%der1%lu, u, du1_n, wrk2d)
-        ! call FDM_Der1_Solve(imax*jmax, g%der1, g%der1%lu, du1_n, du2_n, wrk2d)
-        call FDM_Der2_Solve(imax*jmax, g%der2, g%der2%lu, u, du2_n, du1_n, wrk2d)
+        call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, u, du1_n, wrk2d)
+        ! call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, du1_n, du2_n, wrk2d)
+        call FDM_Der2_Solve(nlines, g%der2, g%der2%lu, u, du2_n, du1_n, wrk2d)
         f = du2_n - lambda*u
 
         bcs_cases(1:4) = [BCS_DD, BCS_NN, BCS_DN, BCS_ND]
@@ -347,7 +353,9 @@ program VINTEGRAL
             call FDM_Int2_Initialize(x%nodes(:), g%der2, lambda, ibc, fdmi(2))
 
             call FDM_Int2_Solve(nlines, fdmi(2), fdmi(2)%rhs, f, w_n, wrk2d)
-            call check(u, w_n, 'integral.dat')
+
+            write (str, *) im
+            call check(u, w_n, 'integral-'//trim(adjustl(str))//'.dat')
 
         end do
 

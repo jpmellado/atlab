@@ -166,7 +166,7 @@ program VINTEGRAL
             call FDM_CreatePlan(x, g)
 
             f = du1_a
-            ! call FDM_Der1_Solve(imax*jmax, g%der1, g%der1%lu, u, f, wrk2d)
+            ! call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, u, f, wrk2d)
             f = f + lambda*u
 
             do ib = 1, 2

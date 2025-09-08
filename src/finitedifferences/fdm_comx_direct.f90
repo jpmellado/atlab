@@ -33,7 +33,7 @@ contains
 
         ! -------------------------------------------------------------------
         real(wp) dummy
-        real(wp) coef(6)
+        real(wp) coef(3 + 3)
         integer(wi) n
 
         ! #######################################################################
@@ -59,7 +59,7 @@ contains
         ! print *, n, coef(1:2)
         ! print *, n, coef(3:5)*(x(2) - x(1))
 
-        dummy = 1.0_wp/coef(4)
+        dummy = 1.0_wp/coef(4)                      ! normalize s.t. 1. upper-diagonal is 1
         lhs(n, 2:3) = coef(1:2)*dummy               ! a, ap1
         rhs(n, [2, 3, 1]) = coef(3:5)*dummy         ! b, bp1, bp2; bp2 is saved into rhs(1)
 
@@ -68,7 +68,7 @@ contains
         ! print *, n, coef(1:2)
         ! print *, n, coef(3:5)*(x(2) - x(1))
 
-        dummy = 1.0_wp/coef(4)                      ! normalization not relevant
+        dummy = 1.0_wp/coef(4)                      ! normalization not relevant; symmetric wrt to n = 1
         lhs(n, [2, 1]) = coef(1:2)*dummy            ! am1, a
         rhs(n, [2, 1, 3]) = coef(3:5)*dummy         ! bm2, bm1, b; bm2 is saved into rhs(3)
 
@@ -90,7 +90,7 @@ contains
         integer(wi), intent(out) :: nb_diag(2)  ! # diagonals in LHS and RHS
 
         real(wp) dummy
-        real(wp) coef(8)
+        real(wp) coef(3 + 5)
         integer(wi) n
 
         nb_diag = [3, 5]
@@ -133,23 +133,41 @@ contains
 
         ! #######################################################################
         ! Boundary points according to notes
-        n = 1
-        coef(1:5) = coef_c1n3_biased(x, n)          ! if uniform, we should have ( 1 2 ) and ( -2.5 2 0.5 )/h
-        ! print *, n, coef(1:2)
-        ! print *, n, coef(3:5)*(x(2) - x(1))
+        ! n = 1
+        ! coef(1:5) = coef_c1n3_biased(x, n)          ! if uniform, we should have ( 1 2 ) and ( -2.5 2 0.5 )/h
+        ! ! print *, n, coef(1:2)
+        ! ! print *, n, coef(3:5)*(x(2) - x(1))
 
-        dummy = 1.0_wp/coef(3)
+        ! dummy = 1.0_wp/coef(4)
+        ! lhs(n, 2:3) = coef(1:2)*dummy               ! a, ap1
+        ! rhs(n, 3:5) = coef(3:5)*dummy               ! b, bp1, bp2
+
+        ! n = nmax
+        ! coef(1:5) = coef_c1n3_biased(x, n, backwards=.true.)
+        ! ! print *, n, coef(1:2)
+        ! ! print *, n, coef(3:5)*(x(2) - x(1))
+
+        ! dummy = 1.0_wp/coef(4)
+        ! lhs(n, [2, 1]) = coef(1:2)*dummy            ! am1, a
+        ! rhs(n, [3, 2, 1]) = coef(3:5)*dummy         ! bm2, bm1, b
+
+        n = 1
+        coef(1:6) = coef_c1n4_biased(x, n)
+        ! print *, n, coef(1:2)
+        ! print *, n, coef(3:6)*(x(2) - x(1))
+
+        dummy = 1.0_wp/coef(4)
         lhs(n, 2:3) = coef(1:2)*dummy               ! a, ap1
-        rhs(n, 3:5) = coef(3:5)*dummy               ! b, bp1, bp2
+        rhs(n, [3, 4, 5, 1]) = coef(3:6)*dummy      ! b, bp1, bp2, bp3; bp3 is saved into rhs(1)
 
         n = nmax
-        coef(1:5) = coef_c1n3_biased(x, n, backwards=.true.)
+        coef(1:6) = coef_c1n4_biased(x, n, backwards=.true.)
         ! print *, n, coef(1:2)
         ! print *, n, coef(3:5)*(x(2) - x(1))
 
-        dummy = 1.0_wp/coef(3)
+        dummy = 1.0_wp/coef(4)
         lhs(n, [2, 1]) = coef(1:2)*dummy            ! am1, a
-        rhs(n, [3, 2, 1]) = coef(3:5)*dummy         ! bm2, bm1, b
+        rhs(n, [3, 2, 1, 5]) = coef(3:6)*dummy      ! bm3, bm2, bm1, b; bm3 is saved into rhs(5)
 
         ! do n = 1, nmax
         !     print *, n, lhs(n, :)
@@ -172,7 +190,7 @@ contains
     function coef_c1n4(x, i) result(coef)           ! Interval around i
         real(wp), intent(in) :: x(:)
         integer(wi), intent(in) :: i
-        real(wp) coef(6)
+        real(wp) coef(3 + 3)
 
         real(wp) am1, a, ap1                ! Left-hand side; for clarity below
         real(wp) bm1, b, bp1                ! Right-hand side
@@ -215,7 +233,7 @@ contains
         real(wp), intent(in) :: x(:)
         integer(wi), intent(in) :: i
         logical, intent(in), optional :: backwards
-        real(wp) coef(5)
+        real(wp) coef(2 + 3)
 
         real(wp) a1, a2                     ! Left-hand side; for clarity below
         real(wp) b1, b2, b3                 ! Right-hand side
@@ -263,7 +281,7 @@ contains
     function coef_c1n6(x, i) result(coef)           ! Interval around i
         real(wp), intent(in) :: x(:)
         integer(wi), intent(in) :: i
-        real(wp) coef(8)
+        real(wp) coef(3 + 5)
 
         real(wp) am1, a, ap1                ! Left-hand side; for clarity below
         real(wp) bm2, bm1, b, bp1, bp2      ! Right-hand side
@@ -299,6 +317,58 @@ contains
     end function
 
     !########################################################################
+    ! u'_1 +a2 u'_2 = b1 u_1 +b2 u_2 +b3 u_3
+    !
+    !             +             I_n = { i+1 }: set of points where the function and derivatives are given
+    !   ...---+---+---+---+...
+    !         +       +   +     I_m = { i, i+2, i+3 }: set of points where only the function is given.
+    !         i
+    !
+    ! See notes
+    !########################################################################
+    function coef_c1n4_biased(x, i, backwards) result(coef)           ! Interval around i
+        real(wp), intent(in) :: x(:)
+        integer(wi), intent(in) :: i
+        logical, intent(in), optional :: backwards
+        real(wp) coef(2 + 4)
+
+        real(wp) a1, a2                     ! Left-hand side; for clarity below
+        real(wp) b1, b2, b3, b4             ! Right-hand side
+        integer(wi) set_n(1), set_m(3)      ! intervals
+        real(wp) dummy
+        integer(wi) j
+
+        if (present(backwards)) then
+            ! same as forwards, but changing the signs of the increments w.r.t. i
+            ! To understand it, e.g., define a new variable k = -j, where k is the
+            ! discrete variable moving around i
+            set_n = [i - 1]
+            set_m = [i, i - 2, i - 3]
+        else
+            set_n = [i + 1]
+            set_m = [i, i + 2, i + 3]
+        end if
+
+        a1 = 1.0_wp
+        b1 = 2.0_wp/(x(i) - x(set_n(1))) + Lag_p(x, i, i, set_m)
+
+        j = set_n(1)
+        dummy = Pi_p(x, i, set_m)/Pi(x, j, set_m)
+        a2 = dummy*(x(j) - x(i))
+        b2 = dummy*(1.0_wp + Pi_p(x, j, set_m)/Pi(x, j, set_m)*(x(j) - x(i)))
+
+        j = set_m(2)
+        b3 = ((x(i) - x(set_n(1)))/(x(j) - x(set_n(1))))**2*Lag_p(x, i, j, set_m)
+
+        j = set_m(3)
+        b4 = ((x(i) - x(set_n(1)))/(x(j) - x(set_n(1))))**2*Lag_p(x, i, j, set_m)
+
+        coef = [a1, a2, b1, b2, b3, b4]
+
+        return
+    end function
+
+    !########################################################################
     ! am1 u'_i-1 + u'_i +ap1 u'_i+1 = bm1 u_i-1 +b u_i +bp1 u_i+1 +bp2 u_i+2
     !
     !         +       +             I_n = { i-1, i+1 }: set of points where the function and derivatives are given
@@ -312,7 +382,7 @@ contains
         real(wp), intent(in) :: x(:)
         integer(wi), intent(in) :: i
         logical, intent(in), optional :: backwards
-        real(wp) coef(7)
+        real(wp) coef(3 + 4)
 
         real(wp) am1, a, ap1                ! Left-hand side; for clarity below
         real(wp) bm1, b, bp1, bp2           ! Right-hand side

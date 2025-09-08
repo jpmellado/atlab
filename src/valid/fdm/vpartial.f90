@@ -168,7 +168,7 @@ program VPARTIAL
 
             call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, u, du1_n, wrk2d)
 
-            write (str,*) im
+            write (str, *) im
             call check(u, du1_a, du1_n, 'partial-'//trim(adjustl(str))//'.dat')
 
         end do
@@ -189,7 +189,8 @@ program VPARTIAL
             call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, u, du1_n, wrk2d)  ! I need du1_n in Jacobian formulation
             call FDM_Der2_Solve(nlines, g%der2, g%der2%lu, u, du2_n1, du1_n, wrk2d)
 
-            call check(u, du2_a, du2_n1, 'partial.dat')
+            write (str, *) im
+            call check(u, du2_a, du2_n1, 'partial-'//trim(adjustl(str))//'.dat')
 
         end do
 
@@ -235,21 +236,22 @@ program VPARTIAL
                 select case (g%der1%nb_diag(1))
                 case (3)
                     call Thomas3_SolveLU(nsize, nlines, &
-                                       g%der1%lu(nmin:nmax, ip + 1), &
-                                       g%der1%lu(nmin:nmax, ip + 2), &
-                                       g%der1%lu(nmin:nmax, ip + 3), &
-                                       du1_n(:, nmin:nmax))
+                                         g%der1%lu(nmin:nmax, ip + 1), &
+                                         g%der1%lu(nmin:nmax, ip + 2), &
+                                         g%der1%lu(nmin:nmax, ip + 3), &
+                                         du1_n(:, nmin:nmax))
                 case (5)
                     call Thomas5_SolveLU(nsize, nlines, &
-                                       g%der1%lu(nmin:nmax, ip + 1), &
-                                       g%der1%lu(nmin:nmax, ip + 2), &
-                                       g%der1%lu(nmin:nmax, ip + 3), &
-                                       g%der1%lu(nmin:nmax, ip + 4), &
-                                       g%der1%lu(nmin:nmax, ip + 5), &
-                                       du1_n(:, nmin:nmax))
+                                         g%der1%lu(nmin:nmax, ip + 1), &
+                                         g%der1%lu(nmin:nmax, ip + 2), &
+                                         g%der1%lu(nmin:nmax, ip + 3), &
+                                         g%der1%lu(nmin:nmax, ip + 4), &
+                                         g%der1%lu(nmin:nmax, ip + 5), &
+                                         du1_n(:, nmin:nmax))
                 end select
 
-                call check(u(:, nmin:nmax), du1_a(:, nmin:nmax), du1_n(:, nmin:nmax), 'partial.dat')
+                write (str, *) im
+                call check(u(:, nmin:nmax), du1_a(:, nmin:nmax), du1_n(:, nmin:nmax), 'partial-'//trim(adjustl(str))//'.dat')
 
                 idl = g%der1%nb_diag(1)/2 + 1
                 if (any([BCS_ND, BCS_NN] == ibc)) then
@@ -411,7 +413,7 @@ program VPARTIAL
                 case (3)
                     call Thomas3_FactorLU(nsize, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3))
                 case (5)
-             call Thomas5_FactorLU(nsize, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3), g%der1%lu(nmin:nmax, 4), g%der1%lu(nmin:nmax, 5))
+       call Thomas5_FactorLU(nsize, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3), g%der1%lu(nmin:nmax, 4), g%der1%lu(nmin:nmax, 5))
                 end select
 
                 du1_n(:, 1) = u(:, 1)           ! boundary condition

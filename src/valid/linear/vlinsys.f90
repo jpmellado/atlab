@@ -2,6 +2,7 @@ program vLinSys
     use TLab_Constants, only: wp, wi, BCS_NONE
     use Thomas3
     use Thomas5
+    use Thomas7
     implicit none
 
     integer(wi), parameter :: nlines = 1
@@ -105,7 +106,7 @@ program vLinSys
     print *, new_line('a'), 'Solve circulant pentadiagonal system'
 
     ! compute forcing
-    ! lhs(:, 1) = 1.4629948364887945e-003
+    ! lhs(:, 1) = 1.4629948364887945e-003 ! this comes from fdm1-penta and works. Why?
     ! lhs(:, 2) = 9.0361445783137314e-003
     ! lhs(:, 3) = 1.6135972461273688e-002
     ! lhs(:, 4) = 9.0361445783132474e-003
@@ -130,6 +131,36 @@ program vLinSys
                             lhs_loc(:, 5), &
                             lhs_loc(:, 6), &
                             lhs_loc(:, 7), f)
+
+    write (str, *) nd
+    call check(f, u, 'linsys-'//trim(adjustl(str))//'.dat')
+
+    ! ###################################################################
+    nd = 7
+
+    ! -------------------------------------------------------------------
+    print *, new_line('a'), 'Solve biased heptadiagonal system'
+
+    ! compute forcing
+    call matmul(lhs(:, 1:nd), u, f, circulant=.false.)
+
+    lhs_loc(:, 1:nd) = lhs(:, 1:nd)
+    call Thomas7_FactorLU(nsize, &
+                          lhs_loc(:, 1), &
+                          lhs_loc(:, 2), &
+                          lhs_loc(:, 3), &
+                          lhs_loc(:, 4), &
+                          lhs_loc(:, 5), &
+                          lhs_loc(:, 6), &
+                          lhs_loc(:, 7))
+    call Thomas7_SolveLU(nsize, nlines, &
+                         lhs_loc(:, 1), &
+                         lhs_loc(:, 2), &
+                         lhs_loc(:, 3), &
+                         lhs_loc(:, 4), &
+                         lhs_loc(:, 5), &
+                         lhs_loc(:, 6), &
+                         lhs_loc(:, 7), f)
 
     write (str, *) nd
     call check(f, u, 'linsys-'//trim(adjustl(str))//'.dat')

@@ -207,12 +207,12 @@ contains
         j = set_n(1)
         dummy = Lag(x, i, j, set_n)**2*Pi_p(x, i, set_m)/Pi(x, j, set_m)
         am1 = dummy*(x(j) - x(i))
-        bm1 = dummy*(1.0_wp + (x(j) - x(i))*(2.0*Lag_p(x, j, j, set_n) + Pi_p(x, j, set_m)/Pi(x, j, set_m)))
+        bm1 = dummy*(1.0_wp + (x(j) - x(i))*(2.0_wp*Lag_p(x, j, j, set_n) + Pi_p(x, j, set_m)/Pi(x, j, set_m)))
 
         j = set_n(2)
         dummy = Lag(x, i, j, set_n)**2*Pi_p(x, i, set_m)/Pi(x, j, set_m)
         ap1 = dummy*(x(j) - x(i))
-        bp1 = dummy*(1.0_wp + (x(j) - x(i))*(2.0*Lag_p(x, j, j, set_n) + Pi_p(x, j, set_m)/Pi(x, j, set_m)))
+        bp1 = dummy*(1.0_wp + (x(j) - x(i))*(2.0_wp*Lag_p(x, j, j, set_n) + Pi_p(x, j, set_m)/Pi(x, j, set_m)))
 
         coef = [am1, a, ap1, bm1, b, bp1]
 
@@ -298,12 +298,12 @@ contains
         j = set_n(1)
         dummy = Lag(x, i, j, set_n)**2*Pi_p(x, i, set_m)/Pi(x, j, set_m)
         am1 = dummy*(x(j) - x(i))
-        bm1 = dummy*(1.0_wp + (x(j) - x(i))*(2.0*Lag_p(x, j, j, set_n) + Pi_p(x, j, set_m)/Pi(x, j, set_m)))
+        bm1 = dummy*(1.0_wp + (x(j) - x(i))*(2.0_wp*Lag_p(x, j, j, set_n) + Pi_p(x, j, set_m)/Pi(x, j, set_m)))
 
         j = set_n(2)
         dummy = Lag(x, i, j, set_n)**2*Pi_p(x, i, set_m)/Pi(x, j, set_m)
         ap1 = dummy*(x(j) - x(i))
-        bp1 = dummy*(1.0_wp + (x(j) - x(i))*(2.0*Lag_p(x, j, j, set_n) + Pi_p(x, j, set_m)/Pi(x, j, set_m)))
+        bp1 = dummy*(1.0_wp + (x(j) - x(i))*(2.0_wp*Lag_p(x, j, j, set_n) + Pi_p(x, j, set_m)/Pi(x, j, set_m)))
 
         j = set_m(1)
         bm2 = (Pi(x, i, set_n)/Pi(x, j, set_n))**2*Lag_p(x, i, j, set_m)
@@ -407,12 +407,12 @@ contains
         j = set_n(1)
         dummy = Lag(x, i, j, set_n)**2*Pi_p(x, i, set_m)/Pi(x, j, set_m)
         am1 = dummy*(x(j) - x(i))
-        bm1 = dummy*(1.0_wp + (x(j) - x(i))*(2.0*Lag_p(x, j, j, set_n) + Pi_p(x, j, set_m)/Pi(x, j, set_m)))
+        bm1 = dummy*(1.0_wp + (x(j) - x(i))*(2.0_wp*Lag_p(x, j, j, set_n) + Pi_p(x, j, set_m)/Pi(x, j, set_m)))
 
         j = set_n(2)
         dummy = Lag(x, i, j, set_n)**2*Pi_p(x, i, set_m)/Pi(x, j, set_m)
         ap1 = dummy*(x(j) - x(i))
-        bp1 = dummy*(1.0_wp + (x(j) - x(i))*(2.0*Lag_p(x, j, j, set_n) + Pi_p(x, j, set_m)/Pi(x, j, set_m)))
+        bp1 = dummy*(1.0_wp + (x(j) - x(i))*(2.0_wp*Lag_p(x, j, j, set_n) + Pi_p(x, j, set_m)/Pi(x, j, set_m)))
 
         j = set_m(2)
         bp2 = (Pi(x, i, set_n)/Pi(x, j, set_n))**2*Lag_p(x, i, j, set_m)
@@ -882,8 +882,8 @@ contains
 !        f = (dxp - dxm)/(dxp*dxm)*(10.0_wp - 4.0_wp*dx**2/(dxp*dxm))  this was a mistake in the paper
         f = (dxp - dxm)/(dxp*dxm)*(6.0_wp - 4.0_wp*dx**2/(dxp*dxm)) &
             + 2.0_wp*dx*(dxm/dxp - dxp/dxm)*PIp_o_PI(x(:), i - 1, i)*PIp_o_PI(x(:), i + 1, i) &
-            + PIp_o_PI(x(:), i - 1, i)*(4.0_wp*dx/dxp - 4.0_wp*dx/dxm - 2.0_wp*dx**2.0/dxp**2.0) &
-            - PIp_o_PI(x(:), i + 1, i)*(4.0_wp*dx/dxp - 4.0_wp*dx/dxm + 2.0_wp*dx**2.0/dxm**2.0)
+            + PIp_o_PI(x(:), i - 1, i)*(4.0_wp*dx/dxp - 4.0_wp*dx/dxm - 2.0_wp*dx**2/dxp**2) &
+            - PIp_o_PI(x(:), i + 1, i)*(4.0_wp*dx/dxp - 4.0_wp*dx/dxm + 2.0_wp*dx**2/dxm**2)
 
         return
     end function
@@ -899,7 +899,7 @@ contains
         dxp = x(i + 1) - x(j)
         dxm = x(j) - x(i - 1)
 
-        f = 2.0_wp*(1.0_wp/dxp**2.0 + 1.0_wp/dxm**2.0 - 1.0_wp/(dxp*dxm)) &
+        f = 2.0_wp*(1.0_wp/dxp**2 + 1.0_wp/dxm**2 - 1.0_wp/(dxp*dxm)) &
             + 2.0_wp*dx**2.0/(dxp*dxm)*PIp_o_PI(x(:), i + 1, i)*PIp_o_PI(x(:), i - 1, i) &
             - 2.0_wp*PIp_o_PI(x(:), i + 1, i)*dx/dxm*(1.0_wp/dxp - 1.0_wp/dxm) &
             - 2.0_wp*PIp_o_PI(x(:), i - 1, i)*dx/dxp*(1.0_wp/dxp - 1.0_wp/dxm)

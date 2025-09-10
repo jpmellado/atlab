@@ -23,7 +23,7 @@ program VPARTIAL
     real(wp), dimension(:, :), pointer :: u
     real(wp), dimension(:, :), pointer :: du1_a, du1_b, du1_c, du1_n
     real(wp), dimension(:, :), pointer :: du2_a, du2_n1, du2_n2, du2_n3
-    real(wp) :: wk, x_0, coef(5)!, dummy
+    real(wp) :: wk, x_0, coef(5), dummy
     integer(wi) :: test_type, ibc, ip, ic, ndr, idr, ndl, idl, im, ib
     integer(wi) :: nmin, nmax, nsize
     real(wp) rhsr_b(5, 0:7), rhsr_t(0:4, 8)
@@ -122,20 +122,20 @@ program VPARTIAL
     wk = 10.0_wp
 
     do i = 1, kmax
-        ! single-mode
+        ! ! single-mode
         ! u(:, i) = 1.0_wp + sin(2.0_wp*pi_wp/g%scale*wk*(x%nodes(i) - x_0*x%scale)) ! + pi_wp/4.0_wp)
         ! du1_a(:, i) = (2.0_wp*pi_wp/g%scale*wk) &
         !               *cos(2.0_wp*pi_wp/g%scale*wk*(x%nodes(i) - x_0*x%scale))! + pi_wp/4.0_wp)
         ! du2_a(:, i) = -(2.0_wp*pi_wp/g%scale*wk)**2 &
         !               *sin(2.0_wp*pi_wp/g%scale*wk*(x%nodes(i) - x_0*x%scale))! + pi_wp/4.0_wp)
-        ! Gaussian
-        u(:, i) = exp(-(x%nodes(i) - x_0*g%scale)**2/(2.0_wp*(g%scale/wk)**2))
-        du1_a(:, i) = -(x%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*u(:, i)
-        du2_a(:, i) = -(x%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*du1_a(:, i) &
-                      - 1.0_wp/(g%scale/wk)**2*u(:, i)
-        ! ! exponential
-        ! u(:, i) = exp(-x%nodes(i)*wk)
-        ! du1_a(:, i) = -wk*u(:, i)
+        ! ! Gaussian
+        ! u(:, i) = exp(-(x%nodes(i) - x_0*g%scale)**2/(2.0_wp*(g%scale/wk)**2))
+        ! du1_a(:, i) = -(x%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*u(:, i)
+        ! du2_a(:, i) = -(x%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*du1_a(:, i) &
+        !               - 1.0_wp/(g%scale/wk)**2*u(:, i)
+        ! exponential
+        u(:, i) = exp(-x%nodes(i)*wk)
+        du1_a(:, i) = -wk*u(:, i)
         ! step
         ! u(:, i) = max(0.0_wp, (x%nodes(i) - x%nodes(kmax/2))*x_0)
         ! du1_a(:, i) = (1.0_wp + sign(1.0_wp, x%nodes(i) - x%nodes(kmax/2)))*0.5_wp*x_0
@@ -143,9 +143,12 @@ program VPARTIAL
         ! u(:, i) = x_0*log(1.0_wp + exp((x%nodes(i) - x%nodes(kmax/2))/x_0))
         ! du1_a(:, i) = 0.5_wp*(1.0_wp + tanh(0.5_wp*(x%nodes(i) - x%nodes(kmax/2))/x_0))
         ! ! Polynomial
-        ! dummy = 4.0_wp
-        ! u(:, i) = ((g%scale - x%nodes(i))/wk)**dummy
-        ! du1_a(:, i) = -dummy*((g%scale - x%nodes(i))/wk)**(dummy - 1.0_wp)
+        ! ! dummy = 5.0_wp
+        ! ! u(:, i) = ((g%scale - x%nodes(i))*wk)**dummy
+        ! ! du1_a(:, i) = -dummy*wk*((g%scale - x%nodes(i))*wk)**(dummy - 1.0_wp)
+        ! dummy = 5.0_wp
+        ! u(:, i) = (x%nodes(i)*wk)**dummy
+        ! du1_a(:, i) = dummy*wk*(x%nodes(i)*wk)**(dummy - 1.0_wp)
         ! ! zero
         ! u(:, i) = 0.0_wp
         ! du1_a(:, i) = 0.0_wp

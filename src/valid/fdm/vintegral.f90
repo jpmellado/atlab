@@ -18,7 +18,7 @@ program VINTEGRAL
 
     real(wp), dimension(:, :), pointer :: u => null(), w_n => null(), f => null()
     real(wp), dimension(:, :), pointer :: du1_a => null(), du2_a => null(), du1_n => null(), du2_n => null(), dw1_n => null(), dw2_n => null()
-    real(wp) :: lambda, wk, x_0
+    real(wp) :: lambda, wk, x_0, dummy
     integer(wi) :: test_type, ibc, ib, im
 
     integer :: bcs_cases(4)
@@ -93,15 +93,15 @@ program VINTEGRAL
         do i = 1, kmax
             read (21, *) x%nodes(i)
         end do
-        ! wrk1d(1:kmax, 1) = x%nodes(1:kmax)  ! reverse
-        ! do i = 1, kmax
-        !     x%nodes(i) = x%nodes(kmax) - wrk1d(kmax - i + 1, 1)
-        ! end do
+        wrk1d(1:kmax, 1) = x%nodes(1:kmax)  ! reverse
+        do i = 1, kmax
+            x%nodes(i) = x%nodes(kmax) - wrk1d(kmax - i + 1, 1)
+        end do
         close (21)
     end if
 
     g%der1%mode_fdm = FDM_COM6_JACOBIAN     ! default
-    ! g%der1%mode_fdm = FDM_COM4_DIRECT     ! default
+    ! g%der1%mode_fdm = FDM_COM6_DIRECT     ! default
     g%der2%mode_fdm = g%der1%mode_fdm
     call FDM_CreatePlan(x, g)
     call FDM_Int1_Initialize(g%der1, 0.0_wp, BCS_MIN, fdmi(BCS_MIN))
@@ -109,7 +109,7 @@ program VINTEGRAL
 
     ! ###################################################################
     ! Define the function f and analytic derivatives
-    x_0 = 0.1_wp
+    x_0 = 0.9_wp
     wk = 10.0_wp
 
     do i = 1, kmax
@@ -122,22 +122,30 @@ program VINTEGRAL
         du1_a(:, i) = -(x%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*u(:, i)
         du2_a(:, i) = -(x%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*du1_a(:, i) &
                       - 1.0_wp/(g%scale/wk)**2*u(:, i)
-        ! exponential
+        ! u(:, i) = exp(-(x%nodes(i)*wk)**2)
+        ! du1_a(:, i) = -2.0_wp*(wk*x%nodes(i))*wk*u(:, i)
+        ! du2_a(:, i) = -2.0_wp*(wk*x%nodes(i))*wk*du1_a(:, i) - 2.0_wp*wk**2*u(:, i)
+        ! ! exponential
         ! u(:, i) = exp(-x%nodes(i)*wk)
         ! du1_a(:, i) = -wk*u(:, i)
+        ! du2_a(:, i) = wk**2*u(:, i)
         ! step
         ! u(:, i) = max(0.0_wp, (x%nodes(i) - x%nodes(kmax/2))*x_0)
         ! du1_a(:, i) = (1.0_wp + sign(1.0_wp, x%nodes(i) - x%nodes(kmax/2)))*0.5_wp*x_0
         ! tanh
         ! u(:, i) = x_0*log(1.0_wp + exp((x%nodes(i) - x%nodes(kmax/2))/x_0))
         ! du1_a(:, i) = 0.5_wp*(1.0_wp + tanh(0.5_wp*(x%nodes(i) - x%nodes(kmax/2))/x_0))
-        ! Polynomial
-        ! dummy = 4.0_wp
-        ! u(:, i) = ((g%scale - x%nodes(i))/wk)**dummy
-        ! du1_a(:, i) = -dummy*((g%scale - x%nodes(i))/wk)**(dummy - 1.0_wp)
-        ! zero
-        ! u(i) = 0.0_wp
-        ! du1_a(i) = 0.0_wp
+        ! ! Polynomial
+        ! ! dummy = 4.0_wp
+        ! ! u(:, i) = ((g%scale - x%nodes(i))/wk)**dummy
+        ! ! du1_a(:, i) = -dummy*((g%scale - x%nodes(i))/wk)**(dummy - 1.0_wp)
+        ! dummy = 5.0_wp
+        ! u(:, i) = (x%nodes(i)*wk)**dummy
+        ! du1_a(:, i) = dummy*wk*(x%nodes(i)*wk)**(dummy - 1.0_wp)
+        ! du2_a(:, i) = dummy*(dummy - 1.0_wp)*wk**2*(x%nodes(i)*wk)**(dummy - 2.0_wp)
+        ! ! zero
+        ! u(:, i) = 0.0_wp
+        ! du1_a(:, i) = 0.0_wp
     end do
 
     ! open (21, file='f.dat')
@@ -208,19 +216,19 @@ program VINTEGRAL
         ! ###################################################################
     case (2)
         allocate (bcs(nlines, 2))
-        do i = kmax, 1, -1      ! set the lower value to zero, which is assumed in BCS_NN
-            u(:, i) = u(:, i) - u(:, 1)
-        end do
+        ! do i = kmax, 1, -1      ! set the lower value to zero, which is assumed in BCS_NN
+        !     u(:, i) = u(:, i) - u(:, 1)
+        ! end do
         do i = 1, kmax          ! set the upper value to zero, which is assumed in BCS_NN
             u(:, i) = u(:, i) - u(:, kmax)
         end do
 
-        ! f = du2_a
-        ! du1_n = du1_a ! I need it for the boundary conditions
-        call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, u, du1_n, wrk2d)
-        call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, du1_n, du2_n, wrk2d)
-        ! call FDM_Der2_Solve(nlines, g%du1_n%der2, g%der2%lu, u, du2_n, du1_n, wrk2d)
-        f = du2_n
+        f = du2_a
+        du1_n = du1_a ! I need it for the boundary conditions
+        ! call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, u, du1_n, wrk2d)
+        ! call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, du1_n, du2_n, wrk2d)
+        ! ! call FDM_Der2_Solve(nlines, g%du1_n%der2, g%der2%lu, u, du2_n, du1_n, wrk2d)
+        ! f = du2_n
 
         bcs_cases(1:4) = [BCS_DD, BCS_DN, BCS_ND, BCS_NN]
 
@@ -267,16 +275,16 @@ program VINTEGRAL
         ! call random_seed()
         ! call random_number(u)
 
-        ! f = du2_a - lambda*lambda*u
-        ! du1_n = du1_a ! I need it for the boundary conditions
-        call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, u, du1_n, wrk2d)
-        call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, du1_n, du2_n, wrk2d)
-        ! call FDM_Der2_Solve(nlines, g%der2, g%der2%lu, u, du2_n, du1_n, wrk2d)
-        f = du2_n - lambda*lambda*u
+        f = du2_a - lambda*lambda*u
+        du1_n = du1_a ! I need it for the boundary conditions
+        ! call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, u, du1_n, wrk2d)
+        ! call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, du1_n, du2_n, wrk2d)
+        ! ! call FDM_Der2_Solve(nlines, g%der2, g%der2%lu, u, du2_n, du1_n, wrk2d)
+        ! f = du2_n - lambda*lambda*u
 
         bcs_cases(1:2) = [BCS_DD, BCS_NN]!, BCS_DN, BCS_ND]
 
-        do ib = 1, 2
+        do ib = 1, 1!2
             ibc = bcs_cases(ib)
             print *, new_line('a')
 
@@ -284,7 +292,6 @@ program VINTEGRAL
             case (BCS_DD)
                 print *, 'Dirichlet/Dirichlet'
                 bcs(:, 1) = u(:, 1); bcs(:, 2) = u(:, kmax)
-                ! call OPR_ODE2_Factorize_1_REGULAR_DD_OLD(g%der1%mode_fdm, g%size, nlines, lambda*lambda, g%jac, w_n, f, bcs, dw1_n, wrk1d)
                 call OPR_ODE2_Factorize_DD(nlines, fdmi, fdmi(BCS_MIN)%rhs, fdmi(BCS_MAX)%rhs, w_n, f, bcs, dw1_n, wrk1d, wrk2d)
             case (BCS_DN) ! not yet developed
                 print *, 'Dirichlet/Neumann'
@@ -295,11 +302,10 @@ program VINTEGRAL
             case (BCS_NN)
                 print *, 'Neumann/Neumann'
                 bcs(:, 1) = du1_n(:, 1); bcs(:, 2) = du1_n(:, kmax)
-                ! call OPR_ODE2_Factorize_1_REGULAR_NN_OLD(g%der1%mode_fdm, g%size, nlines, lambda*lambda, g%jac, w_n, f, bcs, dw1_n, wrk1d)
                 call OPR_ODE2_Factorize_NN(nlines, fdmi, fdmi(BCS_MIN)%rhs, fdmi(BCS_MAX)%rhs, w_n, f, bcs, dw1_n, wrk1d, wrk2d)
             end select
 
-            write (str, *) im
+            write (str, *) ib
             call check(u, w_n, 'integral-'//trim(adjustl(str))//'.dat')
             call check(du1_n, dw1_n)
 

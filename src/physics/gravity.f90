@@ -244,11 +244,11 @@ contains
         do iter = 1, niter                                                          ! iterate
             select case (imode_thermo)
             case (THERMO_TYPE_ANELASTIC)
-                p_aux(:) = pbackground(:)
-                pbackground(:) = 1.0_wp                                             ! Set p to 1 to get 1/RT
+                p_aux(1:nz) = pbackground(1:nz)
+                pbackground(1:nz) = 1.0_wp                                             ! Set p to 1 to get 1/RT
                 call Thermo_Anelastic_Rho(1, 1, nz, s, r_aux(:), wrk_aux(:))        ! Get r_aux=1/RT
-                pbackground(:) = p_aux(:)
-                r_aux(:) = -scaleheightinv*r_aux(:)                                 ! Define (1/p)dpdz = -g/RT
+                pbackground(1:nz) = p_aux(1:nz)
+                r_aux(1:nz) = -scaleheightinv*r_aux(1:nz)                                 ! Define (1/p)dpdz = -g/RT
 
             case (THERMO_TYPE_COMPRESSIBLE)
                 ! call THERMO_AIRWATER_PH_RE(nx, s(:, 2), p, s(:, 1), T)
@@ -258,7 +258,7 @@ contains
             end select
 
             p(1) = 0.0_wp
-            call FDM_Int1_Solve(1, fdmi(BCS_MIN), fdmi(BCS_MIN)%rhs, r_aux(:), p, wrk_aux(:))
+            call FDM_Int1_Solve(1, fdmi(BCS_MIN), fdmi(BCS_MIN)%rhs, r_aux(1:nz), p, wrk_aux(1:nz))
 
             ! Calculate pressure and normalize s.t. p=pref at z=zref
             p(:) = exp(p(:))

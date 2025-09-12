@@ -89,15 +89,15 @@ program VINTEGRAL
         do i = 1, kmax
             x%nodes(i) = real(i - 1, wp)/real(kmax - 1, wp)*x%scale
         end do
-        open (21, file='z.dat')
-        do i = 1, kmax
-            read (21, *) x%nodes(i)
-        end do
-        wrk1d(1:kmax, 1) = x%nodes(1:kmax)  ! reverse
-        do i = 1, kmax
-            x%nodes(i) = x%nodes(kmax) - wrk1d(kmax - i + 1, 1)
-        end do
-        close (21)
+        ! open (21, file='z.dat')
+        ! do i = 1, kmax
+        !     read (21, *) x%nodes(i)
+        ! end do
+        ! ! wrk1d(1:kmax, 1) = x%nodes(1:kmax)  ! reverse
+        ! ! do i = 1, kmax
+        ! !     x%nodes(i) = x%nodes(kmax) - wrk1d(kmax - i + 1, 1)
+        ! ! end do
+        ! close (21)
     end if
 
     g%der1%mode_fdm = FDM_COM6_JACOBIAN     ! default
@@ -109,8 +109,8 @@ program VINTEGRAL
 
     ! ###################################################################
     ! Define the function f and analytic derivatives
-    x_0 = 0.9_wp
-    wk = 10.0_wp
+    x_0 = 0.1_wp
+    wk = 6.0_wp
 
     do i = 1, kmax
         ! single-mode
@@ -118,13 +118,13 @@ program VINTEGRAL
         ! du1_a(:, i) = (2.0_wp*pi_wp/g%scale*wk) &
         !               *cos(2.0_wp*pi_wp/g%scale*wk*x%nodes(i))! + pi_wp/4.0_wp)
         ! Gaussian
-        u(:, i) = exp(-(x%nodes(i) - x_0*g%scale)**2/(2.0_wp*(g%scale/wk)**2))
-        du1_a(:, i) = -(x%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*u(:, i)
-        du2_a(:, i) = -(x%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*du1_a(:, i) &
-                      - 1.0_wp/(g%scale/wk)**2*u(:, i)
-        ! u(:, i) = exp(-(x%nodes(i)*wk)**2)
-        ! du1_a(:, i) = -2.0_wp*(wk*x%nodes(i))*wk*u(:, i)
-        ! du2_a(:, i) = -2.0_wp*(wk*x%nodes(i))*wk*du1_a(:, i) - 2.0_wp*wk**2*u(:, i)
+        ! u(:, i) = exp(-(x%nodes(i) - x_0*g%scale)**2/(2.0_wp*(g%scale/wk)**2))
+        ! du1_a(:, i) = -(x%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*u(:, i)
+        ! du2_a(:, i) = -(x%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*du1_a(:, i) &
+        !               - 1.0_wp/(g%scale/wk)**2*u(:, i)
+        u(:, i) = exp(-((x%nodes(i) - x_0)*wk)**2)
+        du1_a(:, i) = -2.0_wp*(wk*(x%nodes(i) - x_0))*wk*u(:, i)
+        du2_a(:, i) = -2.0_wp*(wk*(x%nodes(i) - x_0))*wk*du1_a(:, i) - 2.0_wp*wk**2*u(:, i)
         ! ! exponential
         ! u(:, i) = exp(-x%nodes(i)*wk)
         ! du1_a(:, i) = -wk*u(:, i)
@@ -132,9 +132,9 @@ program VINTEGRAL
         ! step
         ! u(:, i) = max(0.0_wp, (x%nodes(i) - x%nodes(kmax/2))*x_0)
         ! du1_a(:, i) = (1.0_wp + sign(1.0_wp, x%nodes(i) - x%nodes(kmax/2)))*0.5_wp*x_0
-        ! tanh
-        ! u(:, i) = x_0*log(1.0_wp + exp((x%nodes(i) - x%nodes(kmax/2))/x_0))
-        ! du1_a(:, i) = 0.5_wp*(1.0_wp + tanh(0.5_wp*(x%nodes(i) - x%nodes(kmax/2))/x_0))
+        ! ! tanh
+        ! u(:, i) = log(1.0_wp + exp((x%nodes(i) - x_0)*wk))/wk
+        ! du1_a(:, i) = 0.5_wp*(1.0_wp + tanh(0.5_wp*(x%nodes(i) - x_0)*wk))
         ! ! Polynomial
         ! ! dummy = 4.0_wp
         ! ! u(:, i) = ((g%scale - x%nodes(i))/wk)**dummy
@@ -146,6 +146,10 @@ program VINTEGRAL
         ! ! zero
         ! u(:, i) = 0.0_wp
         ! du1_a(:, i) = 0.0_wp
+        ! ! delta
+        ! u(:, i) = 0.0_wp
+        ! du1_a(:, i) = 0.0_wp
+        ! if (i == kmax) du1_a(:, i) = 1.0_wp
     end do
 
     ! open (21, file='f.dat')
@@ -165,7 +169,10 @@ program VINTEGRAL
         write (*, *) 'Eigenvalue ?'
         read (*, *) lambda
 
+        write (*, *) 'Bcs case ?'
         bcs_cases(1:2) = [BCS_MIN, BCS_MAX]
+        ib = read_from_list(['BCS_MIN', 'BCS_MAX'])
+        ibc = bcs_cases(ib)
 
         do im = 1, size(fdm_cases)
             print *, new_line('a'), fdm_names(im)
@@ -178,36 +185,31 @@ program VINTEGRAL
             ! call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, u, f, wrk2d)
             f = f + lambda*u
 
-            do ib = 1, 2
-                ibc = bcs_cases(ib)
-                print *, new_line('a'), 'Bcs case ', ibc
+            call FDM_Int1_Initialize(g%der1, lambda, ibc, fdmi(ib))
 
-                call FDM_Int1_Initialize(g%der1, lambda, ibc, fdmi(ib))
+            ! bcs
+            select case (ibc)
+            case (BCS_MIN)
+                w_n(:, 1) = u(:, 1)
+            case (BCS_MAX)
+                w_n(:, kmax) = u(:, kmax)
+            end select
 
-                ! bcs
-                select case (ibc)
-                case (BCS_MIN)
-                    w_n(:, 1) = u(:, 1)
-                case (BCS_MAX)
-                    w_n(:, kmax) = u(:, kmax)
-                end select
+            call FDM_Int1_Solve(nlines, fdmi(ib), fdmi(ib)%rhs, f, w_n, wrk2d, dw1_n(:, 1))
 
-                call FDM_Int1_Solve(nlines, fdmi(ib), fdmi(ib)%rhs, f, w_n, wrk2d, dw1_n(:, 1))
+            write (str, *) im
+            call check(u, w_n, 'integral-'//trim(adjustl(str))//'.dat')
 
-                write (str, *) im
-                call check(u, w_n, 'integral-'//trim(adjustl(str))//'.dat')
-
-                ! check the calculation of the derivative at the boundary
+            ! check the calculation of the derivative at the boundary
+            print *, dw1_n(:, 1)
+            call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, w_n, dw1_n, wrk2d)
+            select case (ibc)
+            case (BCS_MIN)
                 print *, dw1_n(:, 1)
-                call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, w_n, dw1_n, wrk2d)
-                select case (ibc)
-                case (BCS_MIN)
-                    print *, dw1_n(:, 1)
-                case (BCS_MAX)
-                    print *, dw1_n(:, kmax)
-                end select
-
-            end do
+            case (BCS_MAX)
+                print *, dw1_n(:, kmax)
+            end select
+            call check(du1_a, dw1_n, 'integral-d-'//trim(adjustl(str))//'.dat')
 
         end do
 
@@ -257,7 +259,7 @@ program VINTEGRAL
 
             write (str, *) ib
             call check(u, w_n, 'integral-'//trim(adjustl(str))//'.dat')
-            call check(du1_n, dw1_n)
+            call check(du1_n, dw1_n, 'integral-d-'//trim(adjustl(str))//'.dat')
 
         end do
 
@@ -445,5 +447,21 @@ contains
 
         return
     end subroutine check
+
+    function read_from_list(list) result(option)
+        character(len=*) list(:)
+        integer option
+
+        integer i
+        character(len=16) str
+
+        do i = 1, size(list(:))
+            write (str, *) i
+            write (*, *) trim(adjustl(str))//'. '//trim(adjustl(list(i)))
+        end do
+        read (*, *) option
+
+        return
+    end function read_from_list
 
 end program VINTEGRAL

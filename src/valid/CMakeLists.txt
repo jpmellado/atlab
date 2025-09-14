@@ -26,7 +26,7 @@ target_link_libraries(vintegral.x physics operators finitedifferences ${LEVEL1_L
 
 FILE(GLOB sourcefiles "elliptic/velliptic.f90")
 add_executable(velliptic.x ${sourcefiles})
-target_link_libraries(velliptic.x physics operators finitedifferences ${LEVEL1_LIBS} ${LIBS})
+target_link_libraries(velliptic.x physics mappings operators finitedifferences ${LEVEL1_LIBS} ${LIBS})
 
 # FILE(GLOB sourcefiles "interpol/*.f90")
 # add_executable(vinterpol.x ${sourcefiles})

@@ -370,10 +370,10 @@ program VISUALS
                 plot_file = 'LogPotentialEnstrophy'//time_str(1:MaskSize)
                 select case (nse_eqns)
                 case (DNS_EQNS_BOUSSINESQ)
-                    wrk1d(1:kmax, 1) = bbackground(1:kmax)
-                    bbackground(1:kmax) = 0.0_wp
+                    ! wrk1d(1:kmax, 1) = bbackground(1:kmax)
+                    ! bbackground(1:kmax) = 0.0_wp
                     call Gravity_Source(gravityProps, imax, jmax, kmax, s, txc(:, 4))
-                    bbackground(1:kmax) = wrk1d(1:kmax, 1)
+                    ! bbackground(1:kmax) = wrk1d(1:kmax, 1)
 
                 case (DNS_EQNS_ANELASTIC)
                     call Thermo_Anelastic_Buoyancy(imax, jmax, kmax, s, txc(:, 4))

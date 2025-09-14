@@ -20,6 +20,7 @@ program VELLIPTIC
     use OPR_Fourier
     use OPR_Partial
     use OPR_Elliptic
+    use FI_VECTORCALCULUS
     use Averages
 
     implicit none
@@ -28,11 +29,20 @@ program VELLIPTIC
     real(wp), dimension(:, :, :), pointer :: a, b, c, d, e, f
 
     integer(wi) type_of_operator, type_of_problem
-    integer(wi) i, bcs(2, 2), idsp, jdsp
-    integer ibc, ib, bcs_cases(4)
+    integer(wi) i, idsp, jdsp
+    integer ibc, ib
+
+    integer :: bcs_cases(1:4) = [BCS_DD, BCS_DN, BCS_ND, BCS_NN]
+    character(len=32) :: bcs_names(4) = [character(len=32) :: &
+                                         'Dirichlet/Dirichlet', &
+                                         'Dirichlet/Neumann', &
+                                         'Neumann/Dirichlet', &
+                                         'Neumann/Neumann']
+
+    character(len=32) str
     real(wp) mean, lambda
     real(wp) wk, x_0
-    ! real(wp) Int_Simpson, delta
+    real(wp) Int_Simpson, delta
 
 ! ###################################################################
     call TLab_Start()
@@ -65,8 +75,6 @@ program VELLIPTIC
     call OPR_Fourier_Initialize()
     call OPR_Elliptic_Initialize(ifile)
     call OPR_Check()
-
-    bcs = 0
 
     type_of_operator = 1    ! default
 #ifndef USE_MPI
@@ -135,20 +143,27 @@ program VELLIPTIC
 
     ! call IO_Read_Fields('field.inp', imax, jmax, kmax, itime, 1, 0, a, params)
 
+    ! call random_seed()
+    ! call random_number(a)
+
+    ! -------------------------------------------------------------------
+    ! DC level at lower/upper boundary set to zero
+    ! mean = AVG_IK(imax, jmax, kmax, 1, a)
+    mean = AVG_IK(imax, jmax, kmax, kmax, a)
+    a = a - mean
+
+    ! Just single precision, no header to visualize easily
+    io_datatype = IO_TYPE_SINGLE
+
     ! ###################################################################
     select case (type_of_problem)
     case (1) ! The input field a is used as rhs in lap b = a and we solve for b
+        f = a
 
         ! ! remove 2\Delta x wave
         ! call OPR_FILTER(imax, jmax, kmax, Dealiasing, a, txc)
 
-        ! For Neumann conditions, we need to satisfy the compatibility constraint dpdy_top-dpdy_bottom=int f
-        ! mean = AVG_IK(imax, 1, kmax, 1, bcs_hb)
-        ! call AVG_IK_V(imax, jmax, kmax, a, wrk1d(:, 1), wrk1d(:, 2))
-        ! delta = mean + Int_Simpson(wrk1d(1:jmax,1), g(2)%nodes(1:jmax))
-        ! mean = AVG_IK(imax, 1, kmax, 1, bcs_ht)
-        ! bcs_ht = bcs_ht - mean + delta
-        ibc = BCS_NN
+        ibc = BCS_DD
         select case (ibc)
         case (BCS_DD)
             bcs_hb(:, :) = 0.0_wp; bcs_ht(:, :) = 0.0_wp
@@ -158,6 +173,12 @@ program VELLIPTIC
             bcs_hb(:, :) = 0.0_wp; bcs_ht(:, :) = 0.0_wp
         case (BCS_NN)
             bcs_hb(:, :) = 0.0_wp; bcs_ht(:, :) = 0.0_wp
+            ! For Neumann conditions, we need to satisfy the compatibility constraint dpdy_top-dpdy_bottom=int f
+            mean = AVG_IK(imax, jmax, 1, 1, bcs_hb)
+            call AVG_IK_V(imax, jmax, kmax, a, wrk1d(:, 1), wrk1d(:, 2))
+            delta = mean + Int_Simpson(wrk1d(1:kmax, 1), z%nodes(1:kmax))
+            mean = AVG_IK(imax, jmax, 1, 1, bcs_ht)
+            bcs_ht = bcs_ht - mean + delta
         end select
 
         if (type_of_operator == 1) then
@@ -172,7 +193,7 @@ program VELLIPTIC
         ! With the calculated a, we calculate the b = lap a
         ! call OPR_Partial_X(OPR_P1, imax, jmax, kmax, a, c)
         ! call OPR_Partial_X(OPR_P1, imax, jmax, kmax, c, b)
-        call OPR_Partial_X(OPR_P2_P1, imax, jmax, kmax,  a, b, txc(:, 1))
+        call OPR_Partial_X(OPR_P2_P1, imax, jmax, kmax, a, b, txc(:, 1))
 
         ! call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, a, c)
         ! call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, c, e)
@@ -181,7 +202,7 @@ program VELLIPTIC
 
         ! call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, a, c)
         ! call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, c, e)
-        call OPR_Partial_Y(OPR_P2_P1, imax, jmax, kmax,  a, e, txc(:, 1))
+        call OPR_Partial_Y(OPR_P2_P1, imax, jmax, kmax, a, e, txc(:, 1))
         b = b + e
 
         if (type_of_operator == 2) then
@@ -189,68 +210,46 @@ program VELLIPTIC
         end if
 
         ! -------------------------------------------------------------------
-        b(:, :, 1) = f(:, :, 1); b(:, :, kmax) = f(:, :, kmax)  ! The boundary points do not satisfy the PDE
-        call IO_Write_Fields('field.out', imax, jmax, kmax, itime, 1, b, io_header_s(1:1))
+        b(:, :, 1) = f(:, :, 1)         ! The boundary points do not satisfy the PDE
+        b(:, :, kmax) = f(:, :, kmax)
+        call IO_Write_Fields('field.out', imax, jmax, kmax, itime, 1, b)!, io_header_s(1:1))
         call check(f, b, txc(:, 1), 'field.dif')
 
 ! ###################################################################
     case (2) ! The input field a is used to construct the forcing term as lap a = f
-
-        ! call random_seed()
-        ! call random_number(a)
-
-        ! remove 2\Delta x wave
-        ! call OPR_Filter_Initialize_Parameters(ifile)
-        ! do ig = 1, 3
-        !     call OPR_FILTER_INITIALIZE(g(ig), FilterDomain(ig))
-        ! end do
-        ! call OPR_FILTER(imax, jmax, kmax, FilterDomain, a, txc)
-
-        call OPR_Partial_X(OPR_P1, imax, jmax, kmax, a, c)
-        call OPR_Partial_X(OPR_P1, imax, jmax, kmax, c, b)
-        ! call OPR_Partial_X(OPR_P2_P1, imax, jmax, kmax,  a, b, c)
-
+        ! 1. option: calculate f = div grad a
+        call OPR_Partial_X(OPR_P1, imax, jmax, kmax, a, b)
         call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, a, c)
-        call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, c, d)
-        ! call OPR_Partial_Y(OPR_P2_P1, imax, jmax, kmax,  a, d, c)
-        b = b + d
+        call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, a, d)
+        call FI_INVARIANT_P(imax, jmax, kmax, b, c, d, f, txc(:, 1))
+        f = -f
 
-        call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, a, c)
-        call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, c, d)
-        ! call OPR_Partial_Z(OPR_P2_P1, imax, jmax, kmax, a, d, c)
-        b = b + d
-
-        ! -------------------------------------------------------------------
-        ! DC level at lower boundary set to zero
-        mean = AVG_IK(imax, jmax, kmax, 1, a)
-        a = a - mean
+        ! ! 2. option: calculate f = lap a
+        ! call OPR_Partial_X(OPR_P2_P1, imax, jmax, kmax, a, b, txc(:, 1))
+        ! call OPR_Partial_Y(OPR_P2_P1, imax, jmax, kmax, a, c, txc(:, 1))
+        ! call OPR_Partial_Z(OPR_P2_P1, imax, jmax, kmax, a, f, d)
+        ! f = f + b + c
 
         if (type_of_operator == 2) then
-            b = b + lambda*a
+            f = f + lambda*a
         end if
 
-        bcs_cases(1:4) = [BCS_DD, BCS_NN, BCS_DN, BCS_ND]
-
-        do ib = 1, 2
+        do ib = 1, 4, 3 ! size(bcs_names)
             ibc = bcs_cases(ib)
-            print *, new_line('a')
+            print *, new_line('a'), bcs_names(ib)
 
             select case (ibc)
             case (BCS_DD)
-                print *, 'Dirichlet/Dirichlet'
                 bcs_hb(:, :) = a(:, :, 1); bcs_ht(:, :) = a(:, :, kmax)
-            case (BCS_DN)
-                print *, 'Dirichlet/Neumann'
-                bcs_hb(:, :) = a(:, :, 1); bcs_ht(:, :) = c(:, :, kmax)
-            case (BCS_ND)
-                print *, 'Neumann/Dirichlet'
-                bcs_hb(:, :) = c(:, :, 1); bcs_ht(:, :) = a(:, :, kmax)
+                ! case (BCS_DN)         ! undeveloped
+                !     bcs_hb(:, :) = a(:, :, 1); bcs_ht(:, :) = d(:, :, kmax)
+                ! case (BCS_ND)
+                !     bcs_hb(:, :) = d(:, :, 1); bcs_ht(:, :) = a(:, :, kmax)
             case (BCS_NN)
-                print *, 'Neumann/Neumann'
-                bcs_hb(:, :) = c(:, :, 1); bcs_ht(:, :) = c(:, :, kmax)
+                bcs_hb(:, :) = d(:, :, 1); bcs_ht(:, :) = d(:, :, kmax)
             end select
 
-            e = b       ! to save b for other cases in the loop
+            e = f       ! to save b for other cases in the loop
             if (type_of_operator == 1) then
                 call OPR_Poisson(imax, jmax, kmax, ibc, e, txc(:, 1), txc(:, 2), bcs_hb, bcs_ht)
 
@@ -260,9 +259,10 @@ program VELLIPTIC
             end if
 
             ! -------------------------------------------------------------------
-            io_datatype = IO_TYPE_SINGLE
+            write (str, *) ib
+            call check(a, e, txc(:, 1), 'elliptic-'//trim(adjustl(str)))
+
             call IO_Write_Fields('field.out', imax, jmax, kmax, itime, 1, e)!, io_header_s(1:1))
-            call check(a, e, txc(:, 1), 'field.dif')
 
         end do
 

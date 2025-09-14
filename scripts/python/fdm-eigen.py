@@ -32,9 +32,9 @@ def main():
         L = L + float(sys.argv[6]) * scipy.linalg.solve(A2, B2, assume_a="banded")
 
     # obtain eigenvalues
-    lambdas = scipy.linalg.eigvals(L[1:, 1:])  # BC at the beginning of the interval
+    # lambdas = scipy.linalg.eigvals(L[1:, 1:])  # BC at the beginning of the interval
     # lambdas = scipy.linalg.eigvals(L[:-1, :-1])  # BC at the end of the interval
-    # lambdas = scipy.linalg.eigvals(L[1:-1, 1:-1])  # BCs at both ends
+    lambdas = scipy.linalg.eigvals(L[1:-1, 1:-1])  # BCs at both ends
 
     # output information
     print("Maximum real part: ", np.max(np.real(lambdas)))

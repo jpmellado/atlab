@@ -136,6 +136,7 @@ program VPARTIAL
         ! exponential
         u(:, i) = exp(-x%nodes(i)*wk)
         du1_a(:, i) = -wk*u(:, i)
+        du2_a(:, i) = wk**2*u(:, i)
         ! step
         ! u(:, i) = max(0.0_wp, (x%nodes(i) - x%nodes(kmax/2))*x_0)
         ! du1_a(:, i) = (1.0_wp + sign(1.0_wp, x%nodes(i) - x%nodes(kmax/2)))*0.5_wp*x_0
@@ -173,6 +174,8 @@ program VPARTIAL
 
             write (str, *) im
             call check(u, du1_a, du1_n, 'partial-'//trim(adjustl(str))//'.dat')
+            call write_scheme(g%der1%lhs(:, 1:g%der1%nb_diag(1)), &
+                              g%der1%rhs(:, 1:g%der1%nb_diag(2)), 'fdm1-'//trim(adjustl(str)))
 
         end do
 
@@ -194,6 +197,8 @@ program VPARTIAL
 
             write (str, *) im
             call check(u, du2_a, du2_n1, 'partial-'//trim(adjustl(str))//'.dat')
+            call write_scheme(g%der2%lhs(:, 1:g%der2%nb_diag(1)), &
+                              g%der2%rhs(:, 1:g%der2%nb_diag(2)), 'fdm2-'//trim(adjustl(str)))
 
         end do
 
@@ -500,5 +505,29 @@ contains
         return
 1000    format(5(1x, e12.5))
     end subroutine check
+
+    subroutine write_scheme(lhs, rhs, name)
+        real(wp), intent(in) :: lhs(:, :)
+        real(wp), intent(in) :: rhs(:, :)
+        character(len=*), intent(in) :: name
+
+        integer nx, n
+
+        nx = size(lhs, 1)
+
+        open (21, file=trim(adjustl(name))//'-lhs.dat')
+        do n = 1, nx
+            write (21, *) lhs(n, :)
+        end do
+        close (21)
+
+        open (22, file=trim(adjustl(name))//'-rhs.dat')
+        do n = 1, nx
+            write (22, *) rhs(n, :)
+        end do
+        close (23)
+
+        return
+    end subroutine write_scheme
 
 end program VPARTIAL

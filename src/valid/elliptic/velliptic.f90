@@ -108,7 +108,7 @@ program VELLIPTIC
 
     do i = 1, imax
         ! single-mode
-        a(i, :, :) = 1.0_wp + sin(2.0_wp*pi_wp/x%scale*wk*x%nodes(i + idsp)) ! + pi_wp/4.0_wp)
+        a(i, :, :) = 1.0_wp !+ sin(2.0_wp*pi_wp/x%scale*wk*x%nodes(i + idsp)) ! + pi_wp/4.0_wp)
     end do
 
     do i = 1, jmax
@@ -117,8 +117,6 @@ program VELLIPTIC
     end do
 
     do i = 1, kmax
-        ! Gaussian
-        a(:, :, i) = a(:, :, 1)*exp(-(z%nodes(i) - x_0*z%scale)**2/(2.0_wp*(z%scale/wk)**2))
         ! ! exponential
         ! u(:, i) = exp(-z%nodes(i)*wk)
         ! du1_a(:, i) = -wk*u(:, i)
@@ -128,10 +126,9 @@ program VELLIPTIC
         ! ! tanh
         ! u(:, i) = x_0*log(1.0_wp + exp((z%nodes(i) - z%nodes(kmax/2))/x_0))
         ! du1_a(:, i) = 0.5_wp*(1.0_wp + tanh(0.5_wp*(z%nodes(i) - z%nodes(kmax/2))/x_0))
-        ! ! Polynomial
-        ! dummy = 4.0_wp
-        ! u(:, i) = ((z%scale - z%nodes(i))/wk)**dummy
-        ! du1_a(:, i) = -dummy*((z%scale - z%nodes(i))/wk)**(dummy - 1.0_wp)
+        ! Polynomial
+        lambda = 4.0_wp
+        a(:, :, i) = a(:, :, i)*(z%nodes(i)*wk)**lambda
         ! ! zero
         ! u(:, i) = 0.0_wp
         ! du1_a(:, i) = 0.0_wp
@@ -249,7 +246,7 @@ program VELLIPTIC
                 bcs_hb(:, :) = d(:, :, 1); bcs_ht(:, :) = d(:, :, kmax)
             end select
 
-            e = f       ! to save b for other cases in the loop
+            e = f       ! to save f for other cases in the loop
             if (type_of_operator == 1) then
                 call OPR_Poisson(imax, jmax, kmax, ibc, e, txc(:, 1), txc(:, 2), bcs_hb, bcs_ht)
 

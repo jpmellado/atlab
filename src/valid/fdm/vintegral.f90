@@ -45,7 +45,7 @@ program VINTEGRAL
     ! Initialize
     imax = 1
     jmax = 1
-    kmax = 96
+    kmax = 768
     nlines = imax*jmax
 
     x%size = kmax
@@ -89,19 +89,19 @@ program VINTEGRAL
         do i = 1, kmax
             x%nodes(i) = real(i - 1, wp)/real(kmax - 1, wp)*x%scale
         end do
-        ! open (21, file='z.dat')
+        open (21, file='z.dat')
+        do i = 1, kmax
+            read (21, *) x%nodes(i)
+        end do
+        ! wrk1d(1:kmax, 1) = x%nodes(1:kmax)  ! reverse
         ! do i = 1, kmax
-        !     read (21, *) x%nodes(i)
+        !     x%nodes(i) = x%nodes(kmax) - wrk1d(kmax - i + 1, 1)
         ! end do
-        ! ! wrk1d(1:kmax, 1) = x%nodes(1:kmax)  ! reverse
-        ! ! do i = 1, kmax
-        ! !     x%nodes(i) = x%nodes(kmax) - wrk1d(kmax - i + 1, 1)
-        ! ! end do
-        ! close (21)
+        close (21)
     end if
 
     g%der1%mode_fdm = FDM_COM6_JACOBIAN     ! default
-    ! g%der1%mode_fdm = FDM_COM6_DIRECT     ! default
+    g%der1%mode_fdm = FDM_COM6_DIRECT     ! default
     g%der2%mode_fdm = g%der1%mode_fdm
     call FDM_CreatePlan(x, g)
     call FDM_Int1_Initialize(g%der1, 0.0_wp, BCS_MIN, fdmi(BCS_MIN))
@@ -110,21 +110,21 @@ program VINTEGRAL
     ! ###################################################################
     ! Define the function f and analytic derivatives
     x_0 = 0.1_wp
-    wk = 6.0_wp
+    wk = 1.0_wp
 
     do i = 1, kmax
         ! single-mode
         ! u(:, i) = 1.0_wp + sin(2.0_wp*pi_wp/g%scale*wk*x%nodes(i)) ! + pi_wp/4.0_wp)
         ! du1_a(:, i) = (2.0_wp*pi_wp/g%scale*wk) &
         !               *cos(2.0_wp*pi_wp/g%scale*wk*x%nodes(i))! + pi_wp/4.0_wp)
-        ! Gaussian
-        ! u(:, i) = exp(-(x%nodes(i) - x_0*g%scale)**2/(2.0_wp*(g%scale/wk)**2))
-        ! du1_a(:, i) = -(x%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*u(:, i)
-        ! du2_a(:, i) = -(x%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*du1_a(:, i) &
-        !               - 1.0_wp/(g%scale/wk)**2*u(:, i)
-        u(:, i) = exp(-((x%nodes(i) - x_0)*wk)**2)
-        du1_a(:, i) = -2.0_wp*(wk*(x%nodes(i) - x_0))*wk*u(:, i)
-        du2_a(:, i) = -2.0_wp*(wk*(x%nodes(i) - x_0))*wk*du1_a(:, i) - 2.0_wp*wk**2*u(:, i)
+        ! ! Gaussian
+        ! ! u(:, i) = exp(-(x%nodes(i) - x_0*g%scale)**2/(2.0_wp*(g%scale/wk)**2))
+        ! ! du1_a(:, i) = -(x%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*u(:, i)
+        ! ! du2_a(:, i) = -(x%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*du1_a(:, i) &
+        ! !               - 1.0_wp/(g%scale/wk)**2*u(:, i)
+        ! u(:, i) = exp(-((x%nodes(i) - x_0)*wk)**2)
+        ! du1_a(:, i) = -2.0_wp*(wk*(x%nodes(i) - x_0))*wk*u(:, i)
+        ! du2_a(:, i) = -2.0_wp*(wk*(x%nodes(i) - x_0))*wk*du1_a(:, i) - 2.0_wp*wk**2*u(:, i)
         ! ! exponential
         ! u(:, i) = exp(-x%nodes(i)*wk)
         ! du1_a(:, i) = -wk*u(:, i)
@@ -135,14 +135,14 @@ program VINTEGRAL
         ! ! tanh
         ! u(:, i) = log(1.0_wp + exp((x%nodes(i) - x_0)*wk))/wk
         ! du1_a(:, i) = 0.5_wp*(1.0_wp + tanh(0.5_wp*(x%nodes(i) - x_0)*wk))
-        ! ! Polynomial
-        ! ! dummy = 4.0_wp
-        ! ! u(:, i) = ((g%scale - x%nodes(i))/wk)**dummy
-        ! ! du1_a(:, i) = -dummy*((g%scale - x%nodes(i))/wk)**(dummy - 1.0_wp)
-        ! dummy = 5.0_wp
-        ! u(:, i) = (x%nodes(i)*wk)**dummy
-        ! du1_a(:, i) = dummy*wk*(x%nodes(i)*wk)**(dummy - 1.0_wp)
-        ! du2_a(:, i) = dummy*(dummy - 1.0_wp)*wk**2*(x%nodes(i)*wk)**(dummy - 2.0_wp)
+        ! Polynomial
+        ! dummy = 4.0_wp
+        ! u(:, i) = ((g%scale - x%nodes(i))/wk)**dummy
+        ! du1_a(:, i) = -dummy*((g%scale - x%nodes(i))/wk)**(dummy - 1.0_wp)
+        dummy = 4.0_wp
+        u(:, i) = (x%nodes(i)*wk)**dummy
+        du1_a(:, i) = dummy*wk*(x%nodes(i)*wk)**(dummy - 1.0_wp)
+        du2_a(:, i) = dummy*(dummy - 1.0_wp)*wk**2*(x%nodes(i)*wk)**(dummy - 2.0_wp)
         ! ! zero
         ! u(:, i) = 0.0_wp
         ! du1_a(:, i) = 0.0_wp
@@ -181,8 +181,8 @@ program VINTEGRAL
             g%der2%mode_fdm = FDM_COM4_JACOBIAN     ! not used
             call FDM_CreatePlan(x, g)
 
-            f = du1_a
-            ! call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, u, f, wrk2d)
+            ! f = du1_a
+            call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, u, f, wrk2d)
             f = f + lambda*u
 
             call FDM_Int1_Initialize(g%der1, lambda, ibc, fdmi(ib))
@@ -200,6 +200,10 @@ program VINTEGRAL
             write (str, *) im
             call check(u, w_n, 'integral-'//trim(adjustl(str))//'.dat')
 
+            call FDM_Int1_CreateSystem(g%der1, lambda, ibc, fdmi(ib))       ! create without lu decomposition
+            call write_scheme(fdmi(ib)%lhs(:, :), &
+                              fdmi(ib)%rhs(:, :), 'int1-'//trim(adjustl(str)))
+
             ! check the calculation of the derivative at the boundary
             print *, dw1_n(:, 1)
             call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, w_n, dw1_n, wrk2d)
@@ -209,7 +213,8 @@ program VINTEGRAL
             case (BCS_MAX)
                 print *, dw1_n(:, kmax)
             end select
-            call check(du1_a, dw1_n, 'integral-d-'//trim(adjustl(str))//'.dat')
+            f = f - lambda*u
+            call check(f, dw1_n, 'integral-d-'//trim(adjustl(str))//'.dat')
 
         end do
 
@@ -225,12 +230,12 @@ program VINTEGRAL
             u(:, i) = u(:, i) - u(:, kmax)
         end do
 
-        f = du2_a
-        du1_n = du1_a ! I need it for the boundary conditions
-        ! call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, u, du1_n, wrk2d)
-        ! call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, du1_n, du2_n, wrk2d)
-        ! ! call FDM_Der2_Solve(nlines, g%du1_n%der2, g%der2%lu, u, du2_n, du1_n, wrk2d)
-        ! f = du2_n
+        ! f = du2_a
+        ! du1_n = du1_a ! I need it for the boundary conditions
+        call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, u, du1_n, wrk2d)
+        call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, du1_n, du2_n, wrk2d)
+        ! call FDM_Der2_Solve(nlines, g%du1_n%der2, g%der2%lu, u, du2_n, du1_n, wrk2d)
+        f = du2_n
 
         bcs_cases(1:4) = [BCS_DD, BCS_DN, BCS_ND, BCS_NN]
 
@@ -463,5 +468,29 @@ contains
 
         return
     end function read_from_list
+
+    subroutine write_scheme(lhs, rhs, name)
+        real(wp), intent(in) :: lhs(:, :)
+        real(wp), intent(in) :: rhs(:, :)
+        character(len=*), intent(in) :: name
+
+        integer nx, n
+
+        nx = size(lhs, 1)
+
+        open (21, file=trim(adjustl(name))//'-lhs.dat')
+        do n = 1, nx
+            write (21, *) lhs(n, :)
+        end do
+        close (21)
+
+        open (22, file=trim(adjustl(name))//'-rhs.dat')
+        do n = 1, nx
+            write (22, *) rhs(n, :)
+        end do
+        close (23)
+
+        return
+    end subroutine write_scheme
 
 end program VINTEGRAL

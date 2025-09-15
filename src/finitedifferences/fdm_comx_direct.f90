@@ -133,41 +133,42 @@ contains
 
         ! #######################################################################
         ! Boundary points according to notes
-        ! n = 1
-        ! coef(1:5) = coef_c1n3_biased(x, n)          ! if uniform, we should have ( 1 2 ) and ( -2.5 2 0.5 )/h
-        ! ! print *, n, coef(1:2)
-        ! ! print *, n, coef(3:5)*(x(2) - x(1))
-
-        ! dummy = 1.0_wp/coef(4)
-        ! lhs(n, 2:3) = coef(1:2)*dummy               ! a, ap1
-        ! rhs(n, 3:5) = coef(3:5)*dummy               ! b, bp1, bp2
-
-        ! n = nmax
-        ! coef(1:5) = coef_c1n3_biased(x, n, backwards=.true.)
-        ! ! print *, n, coef(1:2)
-        ! ! print *, n, coef(3:5)*(x(2) - x(1))
-
-        ! dummy = 1.0_wp/coef(4)
-        ! lhs(n, [2, 1]) = coef(1:2)*dummy            ! am1, a
-        ! rhs(n, [3, 2, 1]) = coef(3:5)*dummy         ! bm2, bm1, b
-
         n = 1
-        coef(1:6) = coef_c1n4_biased(x, n)
+        coef(1:5) = coef_c1n3_biased(x, n)          ! if uniform, we should have ( 1 2 ) and ( -2.5 2 0.5 )/h
         ! print *, n, coef(1:2)
-        ! print *, n, coef(3:6)*(x(2) - x(1))
+        ! print *, n, coef(3:5)*(x(2) - x(1))
 
         dummy = 1.0_wp/coef(4)
         lhs(n, 2:3) = coef(1:2)*dummy               ! a, ap1
-        rhs(n, [3, 4, 5, 1]) = coef(3:6)*dummy      ! b, bp1, bp2, bp3; bp3 is saved into rhs(1)
+        rhs(n, 3:5) = coef(3:5)*dummy               ! b, bp1, bp2
 
         n = nmax
-        coef(1:6) = coef_c1n4_biased(x, n, backwards=.true.)
+        coef(1:5) = coef_c1n3_biased(x, n, backwards=.true.)
         ! print *, n, coef(1:2)
         ! print *, n, coef(3:5)*(x(2) - x(1))
 
         dummy = 1.0_wp/coef(4)
         lhs(n, [2, 1]) = coef(1:2)*dummy            ! am1, a
-        rhs(n, [3, 2, 1, 5]) = coef(3:6)*dummy      ! bm3, bm2, bm1, b; bm3 is saved into rhs(5)
+        rhs(n, [3, 2, 1]) = coef(3:5)*dummy         ! bm2, bm1, b
+
+        ! this below has higher order, but shows more problems in integral ops for low res
+        ! n = 1
+        ! coef(1:6) = coef_c1n4_biased(x, n)
+        ! ! print *, n, coef(1:2)
+        ! ! print *, n, coef(3:6)*(x(2) - x(1))
+
+        ! dummy = 1.0_wp/coef(4)
+        ! lhs(n, 2:3) = coef(1:2)*dummy               ! a, ap1
+        ! rhs(n, [3, 4, 5, 1]) = coef(3:6)*dummy      ! b, bp1, bp2, bp3; bp3 is saved into rhs(1)
+
+        ! n = nmax
+        ! coef(1:6) = coef_c1n4_biased(x, n, backwards=.true.)
+        ! ! print *, n, coef(1:2)
+        ! ! print *, n, coef(3:5)*(x(2) - x(1))
+
+        ! dummy = 1.0_wp/coef(4)
+        ! lhs(n, [2, 1]) = coef(1:2)*dummy            ! am1, a
+        ! rhs(n, [3, 2, 1, 5]) = coef(3:6)*dummy      ! bm3, bm2, bm1, b; bm3 is saved into rhs(5)
 
         ! do n = 1, nmax
         !     print *, n, lhs(n, :)

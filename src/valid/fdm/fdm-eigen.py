@@ -25,10 +25,12 @@ if len(sys.argv) not in [4, 7]:
 def main():
     # construct matrix system
     A1, B1 = createMatrices(sys.argv[1], sys.argv[2])
+    print('Condition number A1 ', np.linalg.cond(A1))
     L = float(sys.argv[3]) * scipy.linalg.solve(A1, B1, assume_a="banded")
 
     if len(sys.argv) == 7:
         A2, B2 = createMatrices(sys.argv[4], sys.argv[5])
+        print('Condition number A2 ', np.linalg.cond(A2))
         L = L + float(sys.argv[6]) * scipy.linalg.solve(A2, B2, assume_a="banded")
 
     # obtain eigenvalues

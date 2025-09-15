@@ -28,15 +28,15 @@ if len(sys.argv) not in [3]:
 def main():
     # construct matrix system
     A1, B1 = createMatrices(sys.argv[1], sys.argv[2])
-    L = scipy.linalg.solve(A1[1:-1, 1:-1], B1[1:-1,:], assume_a="banded")
+    print('Condition number ', np.linalg.cond(A1[1:-1, 1:-1]))
 
-    im = plt.imshow(L)
-    plt.xlabel(r"vector index")
-    plt.ylabel(r"grid node")
-    cb = plt.colorbar(im)
-    plt.savefig("figure1.pdf", bbox_inches="tight")
-    plt.show()
-
+    # L = scipy.linalg.solve(A1[1:-1, 1:-1], B1[1:-1,:], assume_a="banded")
+    # im = plt.imshow(L)
+    # plt.xlabel(r"vector index")
+    # plt.ylabel(r"grid node")
+    # cb = plt.colorbar(im)
+    # plt.savefig("figure1.pdf", bbox_inches="tight")
+    # plt.show()
 
 def createMatrices(fileLhs, fileRhs):
     # read data

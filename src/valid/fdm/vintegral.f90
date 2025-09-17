@@ -137,8 +137,8 @@ program VINTEGRAL
         ! du1_a(:, i) = 0.5_wp*(1.0_wp + tanh(0.5_wp*(x%nodes(i) - x_0)*wk))
         ! Polynomial
         ! dummy = 4.0_wp
-        ! u(:, i) = ((g%scale - x%nodes(i))/wk)**dummy
-        ! du1_a(:, i) = -dummy*((g%scale - x%nodes(i))/wk)**(dummy - 1.0_wp)
+        ! u(:, i) = ((g%scale - x%nodes(i))*wk)**dummy
+        ! du1_a(:, i) = -dummy*wk*((g%scale - x%nodes(i))*wk)**(dummy - 1.0_wp)
         dummy = 4.0_wp
         u(:, i) = (x%nodes(i)*wk)**dummy
         du1_a(:, i) = dummy*wk*(x%nodes(i)*wk)**(dummy - 1.0_wp)

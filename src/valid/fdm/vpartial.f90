@@ -119,7 +119,7 @@ program VPARTIAL
     ! ###################################################################
     ! Define the function and analytic derivatives
     x_0 = 0.1_wp
-    wk = 1.0_wp
+    wk = 6.0_wp
 
     do i = 1, kmax
         ! ! single-mode
@@ -128,11 +128,11 @@ program VPARTIAL
         !               *cos(2.0_wp*pi_wp/g%scale*wk*(x%nodes(i) - x_0*x%scale))! + pi_wp/4.0_wp)
         ! du2_a(:, i) = -(2.0_wp*pi_wp/g%scale*wk)**2 &
         !               *sin(2.0_wp*pi_wp/g%scale*wk*(x%nodes(i) - x_0*x%scale))! + pi_wp/4.0_wp)
-        ! ! Gaussian
-        ! u(:, i) = exp(-(x%nodes(i) - x_0*g%scale)**2/(2.0_wp*(g%scale/wk)**2))
-        ! du1_a(:, i) = -(x%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*u(:, i)
-        ! du2_a(:, i) = -(x%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*du1_a(:, i) &
-        !               - 1.0_wp/(g%scale/wk)**2*u(:, i)
+        ! Gaussian
+        u(:, i) = exp(-(x%nodes(i) - x_0*g%scale)**2/(2.0_wp*(g%scale/wk)**2))
+        du1_a(:, i) = -(x%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*u(:, i)
+        du2_a(:, i) = -(x%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*du1_a(:, i) &
+                      - 1.0_wp/(g%scale/wk)**2*u(:, i)
         ! ! exponential
         ! u(:, i) = exp(-x%nodes(i)*wk)
         ! du1_a(:, i) = -wk*u(:, i)
@@ -143,13 +143,14 @@ program VPARTIAL
         ! ! tanh
         ! u(:, i) = x_0*log(1.0_wp + exp((x%nodes(i) - x%nodes(kmax/2))/x_0))
         ! du1_a(:, i) = 0.5_wp*(1.0_wp + tanh(0.5_wp*(x%nodes(i) - x%nodes(kmax/2))/x_0))
-        ! Polynomial
-        ! dummy = 5.0_wp
-        ! u(:, i) = ((g%scale - x%nodes(i))*wk)**dummy
-        ! du1_a(:, i) = -dummy*wk*((g%scale - x%nodes(i))*wk)**(dummy - 1.0_wp)
-        dummy = 4.0_wp
-        u(:, i) = (x%nodes(i)*wk)**dummy
-        du1_a(:, i) = dummy*wk*(x%nodes(i)*wk)**(dummy - 1.0_wp)
+        ! ! Polynomial
+        ! ! dummy = 5.0_wp
+        ! ! u(:, i) = ((g%scale - x%nodes(i))*wk)**dummy
+        ! ! du1_a(:, i) = -dummy*wk*((g%scale - x%nodes(i))*wk)**(dummy - 1.0_wp)
+        ! dummy = 4.0_wp
+        ! u(:, i) = (x%nodes(i)*wk)**dummy
+        ! du1_a(:, i) = dummy*wk*(x%nodes(i)*wk)**(dummy - 1.0_wp)
+        ! du2_a(:, i) = dummy*(dummy - 1.0_wp)*wk**2*(x%nodes(i)*wk)**(dummy - 2.0_wp)
         ! ! zero
         ! u(:, i) = 0.0_wp
         ! du1_a(:, i) = 0.0_wp
@@ -507,9 +508,9 @@ contains
             close (20)
         end if
 
-        write (*, *) 'Solution L2-norm ...........:', sqrt(g%jac(1, 1)*dummy)/real(nlines, wp)
+        write (*, *) 'Solution L2-norm ...........:', sqrt(dummy)/real(size(u), wp)
         if (dummy == 0.0_wp) return
-        write (*, *) 'Relative Error L2-norm .....:', sqrt(g%jac(1, 1)*error_l2)/maxval(abs(du1_a))
+        write (*, *) 'Relative Error L2-norm .....:', sqrt(error_l2)/sqrt(dummy)
         write (*, *) 'Relative Error Linf-norm ...:', error_max/maxval(abs(du1_a))
 
         return

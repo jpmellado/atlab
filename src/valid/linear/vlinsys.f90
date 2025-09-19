@@ -49,10 +49,22 @@ program vLinSys
     call matmul(lhs(:, 1:nd), u, f, circulant=.false.)
 
     lhs_loc(:, 1:nd) = lhs(:, 1:nd)
-    call Thomas3_FactorLU(nsize, lhs_loc(:, 1), lhs_loc(:, 2), lhs_loc(:, 3))
-    call Thomas3_SolveLU(nsize, nlines, lhs_loc(:, 1), lhs_loc(:, 2), lhs_loc(:, 3), f)
-    ! call Thomas3_FactorUL(nsize, lhs_loc(:, 1), lhs_loc(:, 2), lhs_loc(:, 3))
-    ! call Thomas3_SolveUL(nsize, nlines, lhs_loc(:, 1), lhs_loc(:, 2), lhs_loc(:, 3), f)
+    call Thomas3_FactorLU(nsize, &
+                          lhs_loc(:, 1), &
+                          lhs_loc(:, 2), &
+                          lhs_loc(:, 3))
+    call Thomas3_SolveLU(nsize, nlines, &
+                         lhs_loc(:, 1), &
+                         lhs_loc(:, 2), &
+                         lhs_loc(:, 3), f)
+    ! call Thomas3_FactorUL(nsize, &
+    !                       lhs_loc(:, 1), &
+    !                       lhs_loc(:, 2), &
+    !                       lhs_loc(:, 3))
+    ! call Thomas3_SolveUL(nsize, nlines, &
+    !                      lhs_loc(:, 1), &
+    !                      lhs_loc(:, 2), &
+    !                      lhs_loc(:, 3), f)
 
     write (str, *) nd
     call check(f, u, 'linsys-'//trim(adjustl(str))//'.dat')
@@ -86,13 +98,25 @@ program vLinSys
     call matmul(lhs(:, 1:nd), u, f, circulant=.false.)
 
     lhs_loc(:, 1:nd) = lhs(:, 1:nd)
-    call Thomas5_FactorLU(nsize, &
+    ! call Thomas5_FactorLU(nsize, &
+    !                       lhs_loc(:, 1), &
+    !                       lhs_loc(:, 2), &
+    !                       lhs_loc(:, 3), &
+    !                       lhs_loc(:, 4), &
+    !                       lhs_loc(:, 5))
+    ! call Thomas5_SolveLU(nsize, nlines, &
+    !                      lhs_loc(:, 1), &
+    !                      lhs_loc(:, 2), &
+    !                      lhs_loc(:, 3), &
+    !                      lhs_loc(:, 4), &
+    !                      lhs_loc(:, 5), f)
+    call Thomas5_FactorUL(nsize, &
                           lhs_loc(:, 1), &
                           lhs_loc(:, 2), &
                           lhs_loc(:, 3), &
                           lhs_loc(:, 4), &
                           lhs_loc(:, 5))
-    call Thomas5_SolveLU(nsize, nlines, &
+    call Thomas5_SolveUL(nsize, nlines, &
                          lhs_loc(:, 1), &
                          lhs_loc(:, 2), &
                          lhs_loc(:, 3), &

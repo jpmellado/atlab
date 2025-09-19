@@ -10,6 +10,7 @@ module Thomas5
     private
 
     public :: Thomas5_FactorLU, Thomas5_SolveLU
+    public :: Thomas5_FactorUL, Thomas5_SolveUL
     public :: Thomas5C_SMW_LU, Thomas5C_SMW_Solve   ! circulant systems (periodic boundary conditions)
 
 contains
@@ -86,6 +87,78 @@ contains
 
         return
     end subroutine Thomas5_SolveLU
+
+    ! #######################################################################
+    ! #######################################################################
+    subroutine Thomas5_FactorUL(nmax, a, b, c, d, e)
+        integer(wi) nmax
+        real(wp), intent(inout) :: a(nmax), b(nmax), c(nmax), d(nmax), e(nmax)
+
+        ! -----------------------------------------------------------------------
+        integer(wi) n
+
+        ! #######################################################################
+        n = nmax - 1
+        d(n) = d(n)/c(n + 1)
+        c(n) = c(n) - d(n)*b(n + 1)
+        b(n) = b(n) - d(n)*a(n + 1)
+
+        do n = nmax - 2, 2, -1
+            e(n) = e(n)/c(n + 2)
+            d(n) = (d(n) - e(n)*b(n + 2))/c(n + 1)
+            c(n) = c(n) - d(n)*b(n + 1) - e(n)*a(n + 2)
+            b(n) = b(n) - d(n)*a(n + 1)
+        end do
+
+        n = 1
+        e(n) = e(n)/c(n + 2)
+        d(n) = (d(n) - e(n)*b(n + 2))/c(n + 1)
+        c(n) = c(n) - d(n)*b(n + 1) - e(n)*a(n + 2)
+
+        ! Final operations
+        e(:nmax - 2) = -e(:nmax - 2)
+        d(:nmax - 1) = -d(:nmax - 1)
+        c(:) = 1.0_wp/c(:)
+        b(2:) = -b(2:)*c(2:)
+        a(3:) = -a(3:)*c(3:)
+
+        return
+    end subroutine Thomas5_FactorUL
+
+    ! #######################################################################
+    ! #######################################################################
+    subroutine Thomas5_SolveUL(nmax, len, a, b, c, d, e, f)
+        integer(wi) nmax, len
+        real(wp), intent(in) :: a(nmax), b(nmax), c(nmax), d(nmax), e(nmax)
+        real(wp), intent(inout) :: f(len, nmax)
+
+        ! -----------------------------------------------------------------------
+        integer(wi) n
+
+        ! #######################################################################
+        if (len <= 0) return
+
+        ! Solve Uy=f, backward elimination
+        n = nmax - 1
+        f(:, n) = f(:, n) + f(:, n + 1)*d(n)
+
+        do n = nmax - 2, 1, -1
+            f(:, n) = f(:, n) + f(:, n + 1)*d(n) + f(:, n + 2)*e(n)
+        end do
+
+        ! Solve Lx=y, forward substitution
+        n = 1
+        f(:, n) = c(n)*f(:, n)
+
+        n = 2
+        f(:, n) = c(n)*f(:, n) + b(n)*f(:, n - 1)
+
+        do n = 3, nmax
+            f(:, n) = c(n)*f(:, n) + b(n)*f(:, n - 1) + a(n)*f(:, n - 2)
+        end do
+
+        return
+    end subroutine Thomas5_SolveUL
 
     !########################################################################
     !#

@@ -151,7 +151,7 @@ contains
         lhs(n, [2, 1]) = coef(1:2)*dummy            ! am1, a
         rhs(n, [3, 2, 1]) = coef(3:5)*dummy         ! bm2, bm1, b
 
-        ! this below has higher order, but shows more problems in integral ops for low res
+        ! ! this below has higher order, but shows more problems in integral ops for low res
         ! n = 1
         ! coef(1:6) = coef_c1n4_biased(x, n)
         ! ! print *, n, coef(1:2)

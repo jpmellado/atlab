@@ -23,10 +23,9 @@ program VPARTIAL
     real(wp), dimension(:, :), pointer :: u
     real(wp), dimension(:, :), pointer :: du1_a, du1_b, du1_c, du1_n
     real(wp), dimension(:, :), pointer :: du2_a, du2_n1, du2_n2, du2_n3
-    real(wp) :: wk, x_0, coef(5), dummy
+    real(wp) :: wk, x_0!, dummy
     integer(wi) :: test_type, ibc, ip, ic, ndr, idr, ndl, idl, im, ib
     integer(wi) :: nmin, nmax, nsize
-    real(wp) rhsr_b(5, 0:7), rhsr_t(0:4, 8)
 
     real(wp), allocatable :: c(:)         ! for case 5
 
@@ -455,6 +454,7 @@ program VPARTIAL
                         du1_n(:, 1) = du1_n(:, 1) + g%der1%lu(1, idl + ic)*du1_n(:, 1 + ic)
                     end do
                     du1_n(:, 1) = du1_n(:, 1) + g%der1%lu(1, 1)*du1_n(:, 1 + ic)
+                    du1_n(:, 1) = du1_n(:, 1)/g%der1%lu(1, idl)
                 end if
                 if (any([BCS_MAX, BCS_BOTH] == ibc)) then
                     du1_n(:, kmax) = bcs_ht(1:nlines)
@@ -462,6 +462,7 @@ program VPARTIAL
                         du1_n(:, kmax) = du1_n(:, kmax) + g%der1%lu(kmax, idl - ic)*du1_n(:, kmax - ic)
                     end do
                     du1_n(:, kmax) = du1_n(:, kmax) + g%der1%lu(kmax, ndl)*du1_n(:, kmax - ic)
+                    du1_n(:, kmax) = du1_n(:, kmax)/g%der1%lu(kmax, idl)
                 end if
 
                 write (str, *) im

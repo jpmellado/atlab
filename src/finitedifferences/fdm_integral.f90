@@ -119,8 +119,7 @@ contains
         type(fdm_integral_dt), intent(inout) :: fdmi    ! int_plan to be created; inout because otherwise allocatable arrays are deallocated
 
         ! -------------------------------------------------------------------
-        integer(wi) i
-        integer(wi) idl, ndl, idr, ndr, ir, nx
+        integer(wi) idl, ndl, idr, ndr, ir, ic, nx, nmin, nmax
         real(wp) dummy, rhsr_b(5, 0:7), rhsr_t(0:4, 8)
 
         ! ###################################################################
@@ -149,64 +148,67 @@ contains
         ! new rhs diagonals (array A), independent of lambda
         fdmi%rhs(1:nx, 1:ndl) = g%lhs(1:nx, 1:ndl)
 
+        ! -------------------------------------------------------------------
+        ! new lhs diagonals (array C), dependent on lambda
+        !                    | 0 a_12 |
+        !   C = B + lamnda h | 0 A_22 |     for BCS_MIN
+        !
+        ! and correspondingly for BCS_MAX
+        fdmi%lhs(1:nx, 1:ndr) = g%rhs(1:nx, 1:ndr)
+
+        select case (fdmi%bc)
+        case (BCS_MIN)          ! first column of lambda h A is zero
+            nmin = 2; nmax = nx
+        case (BCS_MAX)          ! last column of lambda h A is zero
+            nmin = 1; nmax = nx - 1
+        end select
+
+        fdmi%lhs(nmin:nmax, idr) = fdmi%lhs(nmin:nmax, idr) + lambda*g%lhs(nmin:nmax, idl)  ! center diagonal
+        do ic = 1, idl - 1                                                                  ! off-center diagonals
+            fdmi%lhs(nmin + ic:nx, idr - ic) = fdmi%lhs(nmin + ic:nx, idr - ic) + lambda*g%lhs(nmin + ic:nx, idl - ic)
+            fdmi%lhs(1:nmax - ic, idr + ic) = fdmi%lhs(1:nmax - ic, idr + ic) + lambda*g%lhs(1:nmax - ic, idl + ic)
+        end do
+
+        ! -------------------------------------------------------------------
+        ! Reduction
         rhsr_b = 0.0_wp
         rhsr_t = 0.0_wp
-        call FDM_Bcs_Reduce(fdmi%bc, fdmi%rhs, g%rhs(1:nx, 1:ndr), rhsr_b, rhsr_t)
+        call FDM_Bcs_Reduce(fdmi%bc, fdmi%rhs, fdmi%lhs, rhsr_b, rhsr_t)
 
         fdmi%rhs_b = 0.0_wp
         fdmi%rhs_t = 0.0_wp
         select case (fdmi%bc)
         case (BCS_MIN)
-            fdmi%rhs_b(1:idl + 1, 1:ndl) = fdmi%rhs(1:idl + 1, 1:ndl)
+            fdmi%lhs(1:idr, 1:ndr) = rhsr_b(1:idr, 1:ndr)
 
+            fdmi%rhs_b(1:idl + 1, 1:ndl) = fdmi%rhs(1:idl + 1, 1:ndl)
             do ir = 1, idr - 1              ! change sign in b^R_{21} for nonzero bc
                 fdmi%rhs_b(1 + ir, idl - ir) = -rhsr_b(1 + ir, idr - ir)
             end do
 
-        case (BCS_MAX)
-            fdmi%rhs_t(0:idl, 1:ndl) = fdmi%rhs(nx - idl:nx, 1:ndl)
-
-            do ir = 1, idr - 1              ! change sign in b^R_{21} for nonzero bc
-                fdmi%rhs_t(idl - ir, idl + ir) = -rhsr_t(idr - ir, idr + ir)
-            end do
-
-        end select
-
-        ! -------------------------------------------------------------------
-        ! new lhs diagonals (array C = B + h \lambda A), dependent on lambda
-        fdmi%lhs(1:nx, 1:ndr) = g%rhs(1:nx, 1:ndr)
-
-        fdmi%lhs(:, idr) = fdmi%lhs(:, idr) + lambda*g%lhs(:, idl)                ! center diagonal
-        do i = 1, idl - 1                                                       ! off-diagonals
-            fdmi%lhs(1 + i:nx, idr - i) = fdmi%lhs(1 + i:nx, idr - i) + lambda*g%lhs(1 + i:nx, idl - i)
-            fdmi%lhs(1:nx - i, idr + i) = fdmi%lhs(1:nx - i, idr + i) + lambda*g%lhs(1:nx - i, idl + i)
-        end do
-
-        select case (fdmi%bc)
-        case (BCS_MIN)
-            fdmi%lhs(1:idr, 1:ndr) = rhsr_b(1:idr, 1:ndr)
-
-            fdmi%lhs(1, idr + 1:idr + idl - 1) = fdmi%lhs(1, idr + 1:idr + idl - 1) - lambda*fdmi%rhs_b(1, idl + 1:ndl)
-            ! fdmi%lhs(2:idr, 1:ndr) = rhsr_b(2:idr, 1:ndr)
-            do ir = 1, idr - 1
-                fdmi%lhs(1 + ir, idr - idl + 1:idr + idl - 1) = fdmi%lhs(1 + ir, idr - idl + 1:idr + idl - 1) + lambda*fdmi%rhs_b(1 + ir, 1:ndl)
-            end do
+            ! reducing system in the opposite end to account for the case of extended stencils
+            call FDM_Bcs_Reduce(BCS_MAX, fdmi%lhs, fdmi%rhs, rhs_t=fdmi%rhs_t)
 
         case (BCS_MAX)
             fdmi%lhs(nx - idr + 1:nx, 1:ndr) = rhsr_t(1:idr, 1:ndr)
 
-            fdmi%lhs(nx, idr - idl + 1:idr - 1) = fdmi%lhs(nx, idr - idl + 1:idr - 1) - lambda*fdmi%rhs_t(idl, 1:idl - 1)
-            ! fdmi%lhs(nx - idr + 1:nx - 1, 1:ndr) = rhsr_t(1:idr - 1, 1:ndr)
-            do ir = 1, idr - 1
-                fdmi%lhs(nx - ir, idr - idl + 1:idr + idl - 1) = fdmi%lhs(nx - ir, idr - idl + 1:idr + idl - 1) + lambda*fdmi%rhs_t(idl - ir, 1:ndl)
+            fdmi%rhs_t(0:idl, 1:ndl) = fdmi%rhs(nx - idl:nx, 1:ndl)
+            do ir = 1, idr - 1              ! change sign in b^R_{21} for nonzero bc
+                fdmi%rhs_t(idl - ir, idl + ir) = -rhsr_t(idr - ir, idr + ir)
             end do
+
+            ! reducing system in the opposite end to account for the case of extended stencils
+            call FDM_Bcs_Reduce(BCS_MIN, fdmi%lhs, fdmi%rhs, rhs_b=fdmi%rhs_b)
 
         end select
 
         ! -------------------------------------------------------------------
-        ! normalization to improve condition number 
-        ! we cannot normalize by lhs because that depends on lambda and brings lambda to the rhs.
-        ! such that new central diagonal in rhs is 1
+        ! preconditioning
+        !
+        ! so far, based on the rhs
+        ! use of lhs brings lambda to the rhs, in conflict with opr_elliptic.
+
+        ! boundary points; central diagonal in rhs equal to 1
         do ir = 1, max(idr, idl + 1)
             dummy = 1.0_wp/fdmi%rhs(ir, idl)
             ! dummy = 1.0_wp/fdmi%rhs(ir, idl + 1)
@@ -222,23 +224,13 @@ contains
 
         end do
 
-        ! interior points: normalization such that 1. upper-diagonal is 1
+        ! interior points: normalization such that 1. upper-diagonal in rhs is 1
         do ir = max(idr, idl + 1) + 1, nx - max(idr, idl + 1)
             dummy = 1.0_wp/fdmi%rhs(ir, idl + 1)
             fdmi%rhs(ir, 1:ndl) = fdmi%rhs(ir, 1:ndl)*dummy
             fdmi%lhs(ir, 1:ndr) = fdmi%lhs(ir, 1:ndr)*dummy
 
         end do
-
-        ! -------------------------------------------------------------------
-        ! reducing system in the opposite end to account for the case of extended stencils
-        ! to move it up, you need to recalculate the expression for p_1 and p_n because they assume division by a_11
-        select case (fdmi%bc)
-        case (BCS_MIN)
-            call FDM_Bcs_Reduce(BCS_MAX, fdmi%lhs, fdmi%rhs, rhs_t=fdmi%rhs_t)
-        case (BCS_MAX)
-            call FDM_Bcs_Reduce(BCS_MIN, fdmi%lhs, fdmi%rhs, rhs_b=fdmi%rhs_b)
-        end select
 
         return
     end subroutine FDM_Int1_CreateSystem
@@ -277,14 +269,14 @@ contains
         select case (ndr)
         case (3)
             call MatMul_3d(rhsi, f, result, BCS_BOTH, &
-                           rhs_b=fdmi%rhs_b, & !(1:3, 0:3), &
-                           rhs_t=fdmi%rhs_t, & !(0:2, 1:4), ) !&
+                           rhs_b=fdmi%rhs_b, &
+                           rhs_t=fdmi%rhs_t, &
                            bcs_b=wrk2d(:, 1), &
                            bcs_t=wrk2d(:, 2))
         case (5)
             call MatMul_5d(rhsi, f, result, BCS_BOTH, &
-                           rhs_b=fdmi%rhs_b, & !(1:4, 0:5), &
-                           rhs_t=fdmi%rhs_t, & !(0:3, 1:6), !&
+                           rhs_b=fdmi%rhs_b, &
+                           rhs_t=fdmi%rhs_t, &
                            bcs_b=wrk2d(:, 1), &
                            bcs_t=wrk2d(:, 2))
         end select
@@ -323,7 +315,7 @@ contains
         end select
 
         if (any([BCS_MAX] == fdmi%bc)) then
-            result(:, 1) = wrk2d(:, 1) !*fdmi%lhs(1, idl)
+            result(:, 1) = wrk2d(:, 1)
             do ic = 1, idl - 1
                 result(:, 1) = result(:, 1) + fdmi%lhs(1, idl + ic)*result(:, 1 + ic)
             end do
@@ -350,7 +342,7 @@ contains
         end if
 
         if (any([BCS_MIN] == fdmi%bc)) then
-            result(:, nx) = wrk2d(:, 2) !*fdmi%lhs(nx, idl)
+            result(:, nx) = wrk2d(:, 2)
             do ic = 1, idl - 1
                 result(:, nx) = result(:, nx) + fdmi%lhs(nx, idl - ic)*result(:, nx - ic)
             end do

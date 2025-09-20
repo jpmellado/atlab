@@ -15,10 +15,11 @@ program VINTEGRAL
     implicit none
 
     integer(wi) :: i, l, nlines
+    ! integer :: idl, idr
 
     real(wp), dimension(:, :), pointer :: u => null(), w_n => null(), f => null()
     real(wp), dimension(:, :), pointer :: du1_a => null(), du2_a => null(), du1_n => null(), du2_n => null(), dw1_n => null(), dw2_n => null()
-    real(wp) :: lambda, wk, x_0, dummy
+    real(wp) :: lambda, wk, x_0 !, dummy
     integer(wi) :: test_type, ibc, ib, im
 
     integer :: bcs_cases(4)
@@ -175,6 +176,8 @@ program VINTEGRAL
         ib = read_from_list(['BCS_MIN', 'BCS_MAX'])
         ibc = bcs_cases(ib)
 
+        ! dummy = 5.0_wp          ! test external normalization of the schemes
+
         do im = 1, size(fdm_cases)
             print *, new_line('a'), fdm_names(im)
 
@@ -187,6 +190,21 @@ program VINTEGRAL
             f = f + lambda*u
 
             call FDM_Int1_Initialize(g%der1, lambda, ibc, fdmi(ib))
+            ! ! test external normalization of the schemes
+            ! fdmi(ib)%rhs = fdmi(ib)%rhs*dummy
+            ! fdmi(ib)%rhs_b = fdmi(ib)%rhs_b*dummy
+            ! fdmi(ib)%rhs_t = fdmi(ib)%rhs_t*dummy
+            ! idr = size(fdmi(ib)%rhs, 2)/2 + 1
+            ! idl = size(fdmi(ib)%lhs, 2)/2 + 1
+            ! select case (ibc)
+            ! case (BCS_MIN)
+            !     fdmi(ib)%rhs(1, idr) = fdmi(ib)%rhs(1, idr)/dummy
+            !     fdmi(ib)%lhs(1, idl) = fdmi(ib)%lhs(1, idl)*dummy
+            ! case (BCS_MAX)
+            !     fdmi(ib)%rhs(kmax, idr) = fdmi(ib)%rhs(kmax, idr)/dummy
+            !     fdmi(ib)%lhs(kmax, idl) = fdmi(ib)%lhs(kmax, idl)*dummy
+            ! end select
+            ! !
 
             ! bcs
             select case (ibc)
@@ -197,6 +215,17 @@ program VINTEGRAL
             end select
 
             call FDM_Int1_Solve(nlines, fdmi(ib), fdmi(ib)%rhs, f, w_n, wrk2d, dw1_n(:, 1))
+
+            ! ! test external normalization of the schemes
+            ! select case (ibc)
+            ! case (BCS_MIN)
+            !     w_n(:, 1) = w_n(:, 1)*dummy
+            ! case (BCS_MAX)
+            !     w_n(:, kmax) = w_n(:, kmax)*dummy
+            ! end select
+            ! w_n = w_n/dummy
+            ! dw1_n(:, 1) = dw1_n(:, 1)/dummy
+            ! !
 
             write (str, *) im
             call check(u, w_n, 'integral-'//trim(adjustl(str))//'.dat')

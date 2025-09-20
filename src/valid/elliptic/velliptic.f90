@@ -22,7 +22,7 @@ program VELLIPTIC
     use OPR_Elliptic
     use FI_VECTORCALCULUS
     use Averages
-
+    use Integration
     implicit none
 
     real(wp), dimension(:, :), allocatable :: bcs_hb, bcs_ht
@@ -42,7 +42,7 @@ program VELLIPTIC
     character(len=32) str
     real(wp) mean, lambda
     real(wp) wk, x_0
-    real(wp) Int_Simpson, delta
+    real(wp) delta
 
 ! ###################################################################
     call TLab_Start()

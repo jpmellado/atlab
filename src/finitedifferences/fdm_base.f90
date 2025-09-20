@@ -325,13 +325,13 @@ contains
             dummy = 1.0_wp/lhs(1, idl)      ! normalize by l11
 
             ! reduced array A^R_{22}
-            lhs(1, 1:ndl) = -lhs(1, 1:ndl)*dummy; lhs(1, idl) = 1.0_wp
+            lhs(1, 1:ndl) = -lhs(1, 1:ndl); lhs(1, idl) = -lhs(1, idl)
             do ir = 1, idl - 1              ! rows
                 do ic = idl + 1, ndl        ! columns
-                    lhs(1 + ir, ic - ir) = lhs(1 + ir, ic - ir) + lhs(1 + ir, idl - ir)*lhs(1, ic)
+                    lhs(1 + ir, ic - ir) = lhs(1 + ir, ic - ir) + lhs(1 + ir, idl - ir)*lhs(1, ic)*dummy
                 end do
                 ic = ndl + 1                ! longer stencil at the boundary
-                lhs(1 + ir, ic - ir) = lhs(1 + ir, ic - ir) + lhs(1 + ir, idl - ir)*lhs(1, 1)
+                lhs(1 + ir, ic - ir) = lhs(1 + ir, ic - ir) + lhs(1 + ir, idl - ir)*lhs(1, 1)*dummy
             end do
 
             ! reduced array B^R_{22}
@@ -343,13 +343,12 @@ contains
 
                 rhs_b(1:max(idl, idr + 1), 1:ndr) = rhs(1:max(idl, idr + 1), 1:ndr)
 
-                rhs_b(1, 1:ndr) = rhs_b(1, 1:ndr)*dummy
                 do ir = 1, idl - 1              ! rows
                     do ic = idr, ndr            ! columns; ic = idr corresponds to vector b^R_{21}
-                        rhs_b(1 + ir, ic - ir) = rhs_b(1 + ir, ic - ir) - lhs(1 + ir, idl - ir)*rhs_b(1, ic)
+                        rhs_b(1 + ir, ic - ir) = rhs_b(1 + ir, ic - ir) - lhs(1 + ir, idl - ir)*rhs_b(1, ic)*dummy
                     end do
                     ic = ndr + 1                ! longer stencil at the boundary
-                    rhs_b(1 + ir, ic - ir) = rhs_b(1 + ir, ic - ir) - lhs(1 + ir, idl - ir)*rhs_b(1, 1)
+                    rhs_b(1 + ir, ic - ir) = rhs_b(1 + ir, ic - ir) - lhs(1 + ir, idl - ir)*rhs_b(1, 1)*dummy
                 end do
             end if
 
@@ -359,12 +358,12 @@ contains
             dummy = 1.0_wp/lhs(nx, idl)     ! normalize by lnn
 
             ! reduced array A^R_{11}
-            lhs(nx, 1:ndl) = -lhs(nx, 1:ndl)*dummy; lhs(nx, idl) = 1.0_wp
+            lhs(nx, 1:ndl) = -lhs(nx, 1:ndl); lhs(nx, idl) = -lhs(nx, idl)
             do ir = 1, idl - 1              ! rows
                 ic = 0                      ! longer stencil at the boundary
-                lhs(nx - ir, ic + ir) = lhs(nx - ir, ic + ir) + lhs(nx - ir, idl + ir)*lhs(nx, ndl)
+                lhs(nx - ir, ic + ir) = lhs(nx - ir, ic + ir) + lhs(nx - ir, idl + ir)*lhs(nx, ndl)*dummy
                 do ic = 1, idl - 1          ! columns
-                    lhs(nx - ir, ic + ir) = lhs(nx - ir, ic + ir) + lhs(nx - ir, idl + ir)*lhs(nx, ic)
+                    lhs(nx - ir, ic + ir) = lhs(nx - ir, ic + ir) + lhs(nx - ir, idl + ir)*lhs(nx, ic)*dummy
                 end do
             end do
 
@@ -377,12 +376,11 @@ contains
 
                 rhs_t(nx_t - max(idl, idr + 1) + 1:nx_t, 1:ndr) = rhs(nx - max(idl, idr + 1) + 1:nx, 1:ndr)
 
-                rhs_t(nx_t, 1:ndr) = rhs_t(nx_t, 1:ndr)*dummy
                 do ir = 1, idl - 1              ! rows
                     ic = 0                      ! columns; ic = 0 corresponds to longer stencil at the boundary
-                    rhs_t(nx_t - ir, ic + ir) = rhs_t(nx_t - ir, ic + ir) - lhs(nx - ir, idl + ir)*rhs_t(nx_t, ndr)
+                    rhs_t(nx_t - ir, ic + ir) = rhs_t(nx_t - ir, ic + ir) - lhs(nx - ir, idl + ir)*rhs_t(nx_t, ndr)*dummy
                     do ic = 1, idr              ! ic = idr corresponds to vector b^R_{1n}
-                        rhs_t(nx_t - ir, ic + ir) = rhs_t(nx_t - ir, ic + ir) - lhs(nx - ir, idl + ir)*rhs_t(nx_t, ic)
+                        rhs_t(nx_t - ir, ic + ir) = rhs_t(nx_t - ir, ic + ir) - lhs(nx - ir, idl + ir)*rhs_t(nx_t, ic)*dummy
                     end do
                 end do
             end if

@@ -30,14 +30,14 @@ module FDM_Derivative
         !
         real(wp), allocatable :: lu(:, :)           ! memory space for LU decomposition
         procedure(matmul_interface), pointer, nopass :: matmul  ! matrix multiplication to calculate the right-hand side
-        ! type(fdm_linsys) :: linsys(4)               ! linear system for 4 different boundary conditions
+        ! type(fdm_bcs) :: bcs(0:3)           ! linear system for 4 different boundary conditions, 0 is the default
     end type fdm_derivative_dt
 
-    ! type :: fdm_linsys
-    !     integer type                                    ! bcs type
+    ! type :: fdm_bcs
+    !     integer bcs_type
     !     real(wp), allocatable :: lu(:, :)               ! memory space for LU decomposition
     !     real(wp) :: rhs_b(4 + 1, 0:7), rhs_t(0:4, 7)    ! Neumann boundary conditions, max. # of diagonals is 7, # rows is 7/2+1
-    ! end type fdm_linsys
+    ! end type fdm_bcs
 
     public :: FDM_Der1_Initialize
     ! public :: FDM_Der1_CreateSystem
@@ -129,7 +129,7 @@ contains
                 ! g%lu(:, ip + 1:ip + ndl) = g%lhs(:, 1:ndl)
                 ! call FDM_BCS_Neumann(bcs_cases(ib), g%lu(:, ip + 1:ip + ndl), g%rhs(:, 1:ndr), g%rhs_b, g%rhs_t)
 
-                call FDM_Der1_Neumann_Reduce(g, bcs_cases(ib), g%lu(:, ip + 1:ip + ndl), g%rhs_b, g%rhs_t)
+                call FDM_Der1_Neumann_Reduce(g%lhs(:, 1:ndl), g%rhs(:, 1:ndr), bcs_cases(ib), g%lu(:, ip + 1:ip + ndl), g%rhs_b, g%rhs_t)
 
                 nmin = 1; nmax = g%size
                 if (any([BCS_ND, BCS_NN] == bcs_cases(ib))) nmin = nmin + 1
@@ -252,13 +252,12 @@ contains
 
 ! #######################################################################
 ! #######################################################################
-    subroutine FDM_Der1_Neumann_Reduce(g, ibc, lhs, rhs_b, rhs_t)
-        ! type(fdm_derivative_dt), intent(in) :: g                ! fdm plan to be reduced
-        type(fdm_derivative_dt), intent(inout) :: g                ! fdm plan to be reduced
+    subroutine FDM_Der1_Neumann_Reduce(lhs, rhs, ibc, r_lhs, r_rhs_b, r_rhs_t)
+        real(wp), intent(in) :: lhs(:, :)
+        real(wp), intent(in) :: rhs(:, :)
         integer, intent(in) :: ibc
-        ! real(wp), intent(out) :: lhs(:, :)                      ! new lhs
-        real(wp), intent(inout) :: lhs(:, :)                      ! new lhs
-        real(wp), intent(inout) :: rhs_b(:, 0:), rhs_t(0:, :)   ! new rhs
+        real(wp), intent(out) :: r_lhs(:, :)                        ! new, reduced lhs
+        real(wp), intent(inout) :: r_rhs_b(:, 0:), r_rhs_t(0:, :)   ! new, reduced rhs
 
         ! -------------------------------------------------------------------
         integer(wi) idl, ndl, idr, ndr, ir, nx
@@ -266,11 +265,11 @@ contains
         real(wp) locRhs_b(5, 0:7), locRhs_t(0:4, 7)
 
         ! ###################################################################
-        ndl = g%nb_diag(1)
+        ndl = size(lhs, 2)
         idl = ndl/2 + 1             ! center diagonal in lhs
-        ndr = g%nb_diag(2)
+        ndr = size(rhs, 2)
         idr = ndr/2 + 1             ! center diagonal in rhs
-        nx = g%size                 ! # grid points
+        nx = size(lhs, 1)           ! # grid points
 
         ! For A_22, we need idl >= idr -1
         if (idl < idr - 1) then
@@ -287,24 +286,24 @@ contains
         allocate (aux(1:nx, 1:ndr))
 
         ! -------------------------------------------------------------------
-        lhs(:, 1:ndl) = g%lhs(:, 1:ndl)
-        aux(1:nx, 1:ndr) = g%rhs(1:nx, 1:ndr)       ! array changed in FDM_Bcs_Reduce
+        r_lhs(:, 1:ndl) = lhs(:, 1:ndl)
+        aux(1:nx, 1:ndr) = rhs(1:nx, 1:ndr)       ! array changed in FDM_Bcs_Reduce
 
         locRhs_b = 0.0_wp
         locRhs_t = 0.0_wp
-        call FDM_Bcs_Reduce(ibc, aux, g%lhs(:, 1:ndl), locRhs_b, locRhs_t)
+        call FDM_Bcs_Reduce(ibc, aux, lhs(:, 1:ndl), locRhs_b, locRhs_t)
 
         ! reorganize data
         if (any([BCS_ND, BCS_NN] == ibc)) then
-            rhs_b = 0.0_wp
-            rhs_b(1:idr + 1, 1:ndr) = aux(1:idr + 1, 1:ndr)
-            rhs_b(1, idr) = g%lhs(1, idl)       ! save a_11 for nonzero bc
+            r_rhs_b = 0.0_wp
+            r_rhs_b(1:idr + 1, 1:ndr) = aux(1:idr + 1, 1:ndr)
+            r_rhs_b(1, idr) = lhs(1, idl)       ! save a_11 for nonzero bc
             do ir = 1, idr - 1                  ! save -a^R_{21} for nonzero bc
-                rhs_b(1 + ir, idr - ir) = -locRhs_b(1 + ir, idl - ir)
+                r_rhs_b(1 + ir, idr - ir) = -locRhs_b(1 + ir, idl - ir)
             end do
 
-            lhs(2:idl + 1, 1:ndl) = locRhs_b(2:idl + 1, 1:ndl)
-            lhs(1, idl) = g%rhs(1, idr)
+            r_lhs(2:idl + 1, 1:ndl) = locRhs_b(2:idl + 1, 1:ndl)
+            r_lhs(1, idl) = rhs(1, idr)
 
             ! ! it currently normalized; to be removed
             ! rhs_b(1, 1:ndr) = rhs_b(1, 1:ndr)/g%rhs(1, idr)
@@ -313,15 +312,15 @@ contains
         end if
 
         if (any([BCS_DN, BCS_NN] == ibc)) then
-            rhs_t = 0.0_wp
-            rhs_t(0:idr, 1:ndr) = aux(nx - idr:nx, 1:ndr)
-            rhs_t(idr, idr) = g%lhs(nx, idl)
+            r_rhs_t = 0.0_wp
+            r_rhs_t(0:idr, 1:ndr) = aux(nx - idr:nx, 1:ndr)
+            r_rhs_t(idr, idr) = lhs(nx, idl)
             do ir = 1, idr - 1              ! change sign in a^R_{21} for nonzero bc
-                rhs_t(idr - ir, idr + ir) = -locRhs_t(idl - ir, idl + ir)
+                r_rhs_t(idr - ir, idr + ir) = -locRhs_t(idl - ir, idl + ir)
             end do
 
-            lhs(nx - idl:nx - 1, 1:ndl) = locRhs_t(0:idl - 1, 1:ndl)
-            lhs(nx, idl) = g%rhs(nx, idr)
+            r_lhs(nx - idl:nx - 1, 1:ndl) = locRhs_t(0:idl - 1, 1:ndl)
+            r_lhs(nx, idl) = rhs(nx, idr)
 
             ! ! it currently normalized
             ! rhs_t(idr, 1:ndr) = rhs_t(idr, 1:ndr)/g%rhs(nx, idr)

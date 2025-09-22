@@ -10,6 +10,7 @@ program VPARTIAL
     use Thomas5
     use FDM, only: fdm_dt, FDM_CreatePlan
     use FDM_Derivative
+    use FDM_derivative_Neumann
     use FDM_ComX_Direct
     use FDM_Base
     use FDM_MatMul
@@ -265,10 +266,12 @@ program VPARTIAL
                 call check(u(:, nmin:nmax), du1_a(:, nmin:nmax), du1_n(:, nmin:nmax), 'partial-'//trim(adjustl(str))//'.dat')
 
                 idl = g%der1%nb_diag(1)/2 + 1
+                idr = g%der1%nb_diag(2)/2 + 1
                 if (any([BCS_ND, BCS_NN] == ibc)) then
                     do ic = 1, idl - 1
                         bcs_hb(1:nlines) = bcs_hb(1:nlines) + g%der1%lu(1, ip + idl + ic)*du1_n(:, 1 + ic)
                     end do
+                    bcs_hb(1:nlines) = bcs_hb(1:nlines)/g%der1%rhs(1, idr)
                     print *, u(:, 1)
                     print *, bcs_hb(1:nlines)
                 end if
@@ -276,6 +279,7 @@ program VPARTIAL
                     do ic = 1, idl - 1
                         bcs_ht(1:nlines) = bcs_ht(1:nlines) + g%der1%lu(kmax, ip + idl - ic)*du1_n(:, kmax - ic)
                     end do
+                    bcs_ht(1:nlines) = bcs_ht(1:nlines)/g%der1%rhs(kmax, idr)
                     print *, u(:, kmax)
                     print *, bcs_ht(1:nlines)
                 end if

@@ -53,7 +53,7 @@ contains
         use TLab_Constants, only: lfile
         use TLab_Memory, only: imax, jmax, kmax, inb_flow_array, inb_scal_array, inb_scal
         use TLab_Arrays, only: wrk1d
-        use FDM_Derivative
+        use FDM_derivative_Neumann
         use NavierStokes
 
         character*(*) inifile
@@ -216,68 +216,6 @@ contains
 
         return
     end subroutine BCS_Neumann_Z
-
-    ! !# Calculate the boundary values of a field s.t. the normal derivative is zero
-    ! !# Routine format extracted from OPR_Partial_Y
-    ! subroutine BCS_Neumann_Z_Old(ibc, nx, ny, nz, u, bcs_hb, bcs_ht, tmp1)
-    !     integer(wi), intent(in) :: ibc     ! BCs at jmin/Kmax: 1, for Neumann/-
-    !     !                                                   2, for -      /Neumann
-    !     !                                                   3, for Neumann/Neumann
-    !     integer(wi) nx, ny, nz
-    !     real(wp), intent(in) :: u(nx*ny, nz)            ! they are transposed below
-    !     real(wp), intent(inout) :: tmp1(nx*ny, nz)      ! they are transposed below
-    !     real(wp), intent(out) :: bcs_hb(nx*ny), bcs_ht(nx*ny)
-
-    !     ! -------------------------------------------------------------------
-    !     integer(wi) ip, idl, ic
-
-    !     ! ###################################################################
-    !     if (g(3)%size == 1) then ! Set to zero in 2D case
-    !         bcs_hb = 0.0_wp; bcs_ht = 0.0_wp
-    !         return
-    !     end if
-
-    !     ! ###################################################################
-    !     ip = ibc*5
-
-    !     nmin = 1; nmax = g(3)%size
-    !     if (any([BCS_ND, BCS_NN] == ibc)) then
-    !         tmp1(:, 1) = 0.0_wp      ! homogeneous bcs
-    !         nmin = nmin + 1
-    !     end if
-    !     if (any([BCS_DN, BCS_NN] == ibc)) then
-    !         tmp1(:, nz) = 0.0_wp
-    !         nmax = nmax - 1
-    !     end if
-    !     nsize = nmax - nmin + 1
-
-    !     ! -------------------------------------------------------------------
-    !     ! Calculate RHS in system of equations A u' = B u
-    !     call g(3)%der1%matmul(g(3)%der1%rhs, u, tmp1, ibc, g(3)%der1%rhs_b, g(3)%der1%rhs_t, bcs_hb, bcs_ht)
-
-    !     ! -------------------------------------------------------------------
-    !     ! Solve for u' in system of equations A u' = B u
-    !     select case (g(3)%der1%nb_diag(1))
-    !     case (3)
-    !      call Thomas3_SolveLU(nsize, nx*ny, g(3)%der1%lu(nmin:nmax, ip + 1), g(3)%der1%lu(nmin:nmax, ip + 2), g(3)%der1%lu(nmin:nmax, ip + 3), tmp1(:, nmin:nmax))
-    !     case (5)
-    !             call Thomas5_SolveLU(nsize, nx*ny, g(3)%der1%lu(nmin:nmax, ip + 1), g(3)%der1%lu(nmin:nmax, ip + 2), g(3)%der1%lu(nmin:nmax, ip + 3), g(3)%der1%lu(nmin:nmax, ip + 4), g(3)%der1%lu(nmin:nmax, ip + 5), tmp1(:, nmin:nmax))
-    !     end select
-
-    !     idl = g(3)%der1%nb_diag(1)/2 + 1
-    !     if (any([BCS_ND, BCS_NN] == ibc)) then
-    !         do ic = 1, idl - 1
-    !             bcs_hb(:) = bcs_hb(:) + g(3)%der1%lu(1, ip + idl + ic)*tmp1(:, 1 + ic)
-    !         end do
-    !     end if
-    !     if (any([BCS_DN, BCS_NN] == ibc)) then
-    !         do ic = 1, idl - 1
-    !             bcs_ht(:) = bcs_ht(:) + g(3)%der1%lu(nz, ip + idl - ic)*tmp1(:, nz - ic)
-    !         end do
-    !     end if
-
-    !     return
-    ! end subroutine BCS_Neumann_Z_Old
 
     !########################################################################
     !########################################################################

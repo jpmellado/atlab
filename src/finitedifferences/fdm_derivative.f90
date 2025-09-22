@@ -2,8 +2,8 @@
 
 module FDM_Derivative
     use TLab_Constants, only: wp, wi, pi_wp, roundoff_wp
-    use TLab_Constants, only: lfile
-    use TLab_Constants, only: BCS_DD, BCS_ND, BCS_DN, BCS_NN, BCS_NONE, BCS_PERIODIC
+    use TLab_Constants, only: lfile, efile
+    use TLab_Constants, only: BCS_DD, BCS_ND, BCS_DN, BCS_NN, BCS_NONE, BCS_PERIODIC, BCS_MIN, BCS_MAX
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
     use Thomas3
     use Thomas5
@@ -122,9 +122,10 @@ contains
             do ib = 1, size(bcs_cases)
                 ip = (ib - 1)*5
 
-                g%lu(:, ip + 1:ip + ndl) = g%lhs(:, 1:ndl)
+                ! g%lu(:, ip + 1:ip + ndl) = g%lhs(:, 1:ndl)
+                ! call FDM_BCS_Neumann(bcs_cases(ib), g%lu(:, ip + 1:ip + ndl), g%rhs(:, 1:ndr), g%rhs_b, g%rhs_t)
 
-                call FDM_BCS_Neumann(bcs_cases(ib), g%lu(:, ip + 1:ip + ndl), g%rhs(:, 1:ndr), g%rhs_b, g%rhs_t)
+                call FDM_Der1_Neumann_Reduce(g, bcs_cases(ib), g%lu(:, ip + 1:ip + ndl), g%rhs_b, g%rhs_t)
 
                 nmin = 1; nmax = g%size
                 if (any([BCS_ND, BCS_NN] == bcs_cases(ib))) nmin = nmin + 1
@@ -244,6 +245,94 @@ contains
 
         return
     end subroutine FDM_Der1_CreateSystem
+
+! #######################################################################
+! #######################################################################
+    subroutine FDM_Der1_Neumann_Reduce(g, ibc, lhs, rhs_b, rhs_t)
+        ! type(fdm_derivative_dt), intent(in) :: g                ! fdm plan to be reduced
+        type(fdm_derivative_dt), intent(inout) :: g                ! fdm plan to be reduced
+        integer, intent(in) :: ibc
+        ! real(wp), intent(out) :: lhs(:, :)                      ! new lhs
+        real(wp), intent(inout) :: lhs(:, :)                      ! new lhs
+        real(wp), intent(inout) :: rhs_b(:, 0:), rhs_t(0:, :)   ! new rhs
+
+        ! -------------------------------------------------------------------
+        integer(wi) idl, ndl, idr, ndr, ir, nx
+        real(wp), allocatable :: aux(:, :)
+        real(wp) locRhs_b(5, 0:7), locRhs_t(0:4, 7)
+
+        ! ###################################################################
+        ndl = g%nb_diag(1)
+        idl = ndl/2 + 1             ! center diagonal in lhs
+        ndr = g%nb_diag(2)
+        idr = ndr/2 + 1             ! center diagonal in rhs
+        nx = g%size                 ! # grid points
+
+        ! For A_22, we need idl >= idr -1
+        if (idl < idr - 1) then
+            call TLab_Write_ASCII(efile, __FILE__//'. LHS array is too small.')
+            call TLab_Stop(DNS_ERROR_UNDEVELOP)
+        end if
+        ! For b_21, we need idr >= idl
+        if (idr < idl) then
+            call TLab_Write_ASCII(efile, __FILE__//'. RHS array is too small.')
+            call TLab_Stop(DNS_ERROR_UNDEVELOP)
+        end if
+
+        if (allocated(aux)) deallocate (aux)
+        allocate (aux(1:nx, 1:ndr))
+
+        ! -------------------------------------------------------------------
+        lhs(:, 1:ndl) = g%lhs(:, 1:ndl)
+        aux(1:nx, 1:ndr) = g%rhs(1:nx, 1:ndr)       ! array changed in FDM_Bcs_Reduce
+
+        locRhs_b = 0.0_wp
+        locRhs_t = 0.0_wp
+        call FDM_Bcs_Reduce(ibc, aux, g%lhs(:, 1:ndl), locRhs_b, locRhs_t)
+
+        ! reorganize data
+        if (any([BCS_ND, BCS_NN] == ibc)) then
+            rhs_b = 0.0_wp
+            rhs_b(1:idr + 1, 1:ndr) = aux(1:idr + 1, 1:ndr)
+            rhs_b(1, idr) = g%lhs(1, idl)       ! save a_11 for nonzero bc
+            do ir = 1, idr - 1                  ! save -a^R_{21} for nonzero bc
+                rhs_b(1 + ir, idr - ir) = -locRhs_b(1 + ir, idl - ir)
+            end do
+
+            lhs(2:idl + 1, 1:ndl) = locRhs_b(2:idl + 1, 1:ndl)
+            lhs(1, idl) = g%rhs(1, idr)
+
+            ! it currently normalized; to be removed
+            rhs_b(1, 1:ndr) = rhs_b(1, 1:ndr)/g%rhs(1, idr)
+            lhs(1, 1:ndl) = lhs(1, 1:ndl)/g%rhs(1, idr)
+
+        end if
+
+        if (any([BCS_DN, BCS_NN] == ibc)) then
+            rhs_t = 0.0_wp
+            rhs_t(0:idr, 1:ndr) = aux(nx - idr:nx, 1:ndr)
+            rhs_t(idr, idr) = g%lhs(nx, idl)
+            do ir = 1, idr - 1              ! change sign in a^R_{21} for nonzero bc
+                rhs_t(idr - ir, idr + ir) = -locRhs_t(idl - ir, idl + ir)
+            end do
+
+            lhs(nx - idl:nx - 1, 1:ndl) = locRhs_t(0:idl - 1, 1:ndl)
+            lhs(nx, idl) = g%rhs(nx, idr)
+
+            ! it currently normalized
+            rhs_t(idr, 1:ndr) = rhs_t(idr, 1:ndr)/g%rhs(nx, idr)
+            lhs(nx, 1:ndl) = lhs(nx, 1:ndl)/g%rhs(nx, idr)
+
+            ! print*, '###'
+            ! print *, lhs(nx - idr:nx, 1:ndl)
+            ! print *, ''
+
+        end if
+
+        if (allocated(aux)) deallocate (aux)
+
+        return
+    end subroutine FDM_Der1_Neumann_Reduce
 
     ! ###################################################################
     ! ###################################################################

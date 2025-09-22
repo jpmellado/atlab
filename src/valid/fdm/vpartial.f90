@@ -23,7 +23,7 @@ program VPARTIAL
     real(wp), dimension(:, :), pointer :: u
     real(wp), dimension(:, :), pointer :: du1_a, du1_b, du1_c, du1_n
     real(wp), dimension(:, :), pointer :: du2_a, du2_n1, du2_n2, du2_n3
-    real(wp) :: wk, x_0!, dummy
+    real(wp) :: wk, x_0, dummy
     integer(wi) :: test_type, ibc, ip, ic, ndr, idr, ndl, idl, im, ib
     integer(wi) :: nmin, nmax, nsize
 
@@ -133,8 +133,11 @@ program VPARTIAL
         du2_a(:, i) = -(x%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*du1_a(:, i) &
                       - 1.0_wp/(g%scale/wk)**2*u(:, i)
         ! ! exponential
-        ! u(:, i) = exp(-x%nodes(i)*wk)
-        ! du1_a(:, i) = -wk*u(:, i)
+        ! ! u(:, i) = exp(-x%nodes(i)*wk)
+        ! ! du1_a(:, i) = -wk*u(:, i)
+        ! ! du2_a(:, i) = wk**2*u(:, i)
+        ! u(:, i) = exp(x%nodes(i)*wk)
+        ! du1_a(:, i) = wk*u(:, i)
         ! du2_a(:, i) = wk**2*u(:, i)
         ! step
         ! u(:, i) = max(0.0_wp, (x%nodes(i) - x%nodes(kmax/2))*x_0)
@@ -147,7 +150,7 @@ program VPARTIAL
         ! ! u(:, i) = ((g%scale - x%nodes(i))*wk)**dummy
         ! ! du1_a(:, i) = -dummy*wk*((g%scale - x%nodes(i))*wk)**(dummy - 1.0_wp)
         ! dummy = 4.0_wp
-        ! u(:, i) = (x%nodes(i)*wk)**dummy
+        ! u(:, i) = 1.0_wp + (x%nodes(i)*wk)**dummy
         ! du1_a(:, i) = dummy*wk*(x%nodes(i)*wk)**(dummy - 1.0_wp)
         ! du2_a(:, i) = dummy*(dummy - 1.0_wp)*wk**2*(x%nodes(i)*wk)**(dummy - 2.0_wp)
         ! ! zero

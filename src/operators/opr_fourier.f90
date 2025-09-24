@@ -93,8 +93,16 @@ contains
             end if
 #endif
 
-! #ifdef _DEBUG
-! #else
+#ifdef _DEBUG
+            call dfftw_plan_many_dft_r2c(fft_plan_fx, 1, size_fft_x, nlines, &
+                                         txc(:, 1), size_fft_x, 1, size_fft_x, &
+                                         wrk3d, size_fft_x/2 + 1, 1, offset, &
+                                         FFTW_ESTIMATE)
+            call dfftw_plan_many_dft_c2r(fft_plan_bx, 1, size_fft_x, nlines, &
+                                         txc(:, 1), size_fft_x/2 + 1, 1, offset, &
+                                         wrk3d, size_fft_x, 1, size_fft_x, &
+                                         FFTW_ESTIMATE)
+#else
             ! call dfftw_plan_many_dft_r2c(fft_plan_fx, 1, size_fft_x, nlines, &
             !                              txc(:, 1), 1, 1, size_fft_x, &
             !                              wrk3d, 1, 1, offset, &
@@ -111,7 +119,7 @@ contains
                                          txc(:, 1), size_fft_x/2 + 1, 1, offset, &
                                          wrk3d, size_fft_x, 1, size_fft_x, &
                                          FFTW_MEASURE)
-! #endif
+#endif
 
         end if
 
@@ -135,8 +143,17 @@ contains
 
             stride = nlines
 
-! #ifdef _DEBUG
-! #else
+#ifdef _DEBUG
+            call dfftw_plan_many_dft(fft_plan_fy, 1, size_fft_y, nlines, &
+                                     txc(:, 1), size_fft_y, stride, 1, &
+                                     wrk3d, size_fft_y, stride, 1, &
+                                     FFTW_FORWARD, FFTW_ESTIMATE)
+
+            call dfftw_plan_many_dft(fft_plan_by, 1, size_fft_y, nlines, &
+                                     txc(:, 1), size_fft_y, stride, 1, &
+                                     wrk3d, size_fft_y, stride, 1, &
+                                     FFTW_BACKWARD, FFTW_ESTIMATE)
+#else
             call dfftw_plan_many_dft(fft_plan_fy, 1, size_fft_y, nlines, &
                                      txc(:, 1), size_fft_y, stride, 1, &
                                      wrk3d, size_fft_y, stride, 1, &
@@ -146,7 +163,7 @@ contains
                                      txc(:, 1), size_fft_y, stride, 1, &
                                      wrk3d, size_fft_y, stride, 1, &
                                      FFTW_BACKWARD, FFTW_MEASURE)
-! #endif
+#endif
         end if
 
         ! -----------------------------------------------------------------------
@@ -158,8 +175,17 @@ contains
             nlines = (imax/2 + 1)*jmax
             stride = nlines
 
-! #ifdef _DEBUG
-! #else
+#ifdef _DEBUG
+            call dfftw_plan_many_dft(fft_plan_fz, 1, size_fft_z, nlines, &
+                                     txc(:, 1), size_fft_z, stride, 1, &
+                                     wrk3d, size_fft_z, stride, 1, &
+                                     FFTW_FORWARD, FFTW_ESTIMATE)
+
+            call dfftw_plan_many_dft(fft_plan_bz, 1, size_fft_z, nlines, &
+                                     txc(:, 1), size_fft_z, stride, 1, &
+                                     wrk3d, size_fft_z, stride, 1, &
+                                     FFTW_BACKWARD, FFTW_ESTIMATE)
+#else
             call dfftw_plan_many_dft(fft_plan_fz, 1, size_fft_z, nlines, &
                                      txc(:, 1), size_fft_z, stride, 1, &
                                      wrk3d, size_fft_z, stride, 1, &
@@ -169,7 +195,7 @@ contains
                                      txc(:, 1), size_fft_z, stride, 1, &
                                      wrk3d, size_fft_z, stride, 1, &
                                      FFTW_BACKWARD, FFTW_MEASURE)
-! #endif
+#endif
         end if
 
         return

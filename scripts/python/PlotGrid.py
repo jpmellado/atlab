@@ -19,29 +19,39 @@ rc("savefig", dpi=100)
 etype = "<"  # little-endian
 
 # getting data from stdin
-if len(sys.argv) < 2:
-    print("Usage: python $0 list-of-grid-files")
+if len(sys.argv) < 3:
+    print("Usage: python $0 [x,y,z] list-of-grid-files")
     quit()
 
-setoffiles = sorted(sys.argv[1:])
-
+direction = sys.argv[1]
+setoffiles = sorted(sys.argv[2:])
 
 def main():
-    global nx, ny, nz
-    nx, ny, nz = readGridSize("tlab.ini")
-
     fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(10, 4))
     for file in setoffiles:
-        s = np.linspace(1, nz, num=nz)
         x, y, z = readGrid(file)
 
-        spacing = np.gradient(z, edge_order=2)
-        axs[0].plot(z, spacing, label=file)
+        if direction == 'x':
+            grid = x
+        elif direction == 'y':
+            grid = y
+        elif direction == 'z':
+            grid = z
+
+        n = np.size(grid)
+        if n == 1:
+            print('Only one grid point in that direction.')
+            quit()
+
+        s = np.linspace(1, n, num=n)        # computational, uniform grid
+
+        spacing = np.gradient(grid, edge_order=2)
+        axs[0].plot(grid, spacing, label=file)
 
         stretching = (
             np.gradient(spacing, edge_order=2) / spacing * 100.0
         )  # in percentage
-        axs[1].plot(z, stretching)
+        axs[1].plot(grid, stretching)
 
     for ax in axs:
         ax.set_ylim([0, None])
@@ -67,7 +77,13 @@ def main():
 def readGrid(filename):
     fin = open(filename, "rb")
 
-    fin.seek(56, 0)
+    fin.seek(4, 0)
+    raw = fin.read(3 * 4)
+    nx, ny, nz = struct.unpack(etype + "{}i".format(3), raw)
+    print("Grid size is {}x{}x{}.".format(nx, ny, nz))
+
+    # fin.seek(56, 0)
+    fin.seek(4+4+8*3+4+4, 1)
     raw = fin.read(nx * 8)
     x = struct.unpack(etype + "{}d".format(nx), raw)
 
@@ -82,31 +98,6 @@ def readGrid(filename):
     fin.close()
 
     return x, y, z
-
-
-def readGridSize(filename, nx=0, ny=0, nz=0):
-    if nx == 0:
-        for line in open(filename):
-            if line.lower().replace(" ", "").startswith("imax="):
-                nx = int(line.split("=", 1)[1])
-                break
-
-    if ny == 0:
-        for line in open(filename):
-            if line.lower().replace(" ", "").startswith("jmax="):
-                ny = int(line.split("=", 1)[1])
-                break
-
-    if nz == 0:
-        for line in open(filename):
-            if line.lower().replace(" ", "").startswith("kmax="):
-                nz = int(line.split("=", 1)[1])
-                break
-
-    print("Grid size is {}x{}x{}.".format(nx, ny, nz))
-
-    return nx, ny, nz
-
 
 if __name__ == "__main__":
     main()

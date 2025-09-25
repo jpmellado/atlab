@@ -90,10 +90,13 @@ contains
         call FDM_Der1_CreateSystem(x, dx, g, periodic)
 
         ! -------------------------------------------------------------------
-        ! LU decomposition
         ndl = g%nb_diag(1)                      ! number of diagonals in lhs
         ndr = g%nb_diag(2)                      ! number of diagonals in rhs
 
+        ! Preconditioning
+        call Precon_Rhs(g%lhs(:, 1:ndl), g%rhs(:, 1:ndr), periodic=periodic)
+
+        ! LU decomposition
         if (allocated(g%lu)) deallocate (g%lu)
         if (g%periodic) then
             allocate (g%lu(g%size, ndl + 2))

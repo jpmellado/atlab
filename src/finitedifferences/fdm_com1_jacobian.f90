@@ -295,9 +295,9 @@ contains
             lhs(:, idl + ic) = lhs(:, idl + ic)*cshift(dx(:), +ic)
         end do
 
-        ! normalize s.t. 1. upper-diagonal is 1
-        lhs(:, :) = lhs(:, :)/coef_int(3)
-        rhs(:, :) = rhs(:, :)/coef_int(3)
+        ! ! normalize s.t. 1. upper-diagonal is 1
+        ! lhs(:, :) = lhs(:, :)/coef_int(3)
+        ! rhs(:, :) = rhs(:, :)/coef_int(3)
 
         return
     end subroutine Create_System_1der

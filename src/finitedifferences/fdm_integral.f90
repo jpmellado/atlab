@@ -207,30 +207,33 @@ contains
         !
         ! so far, based on the rhs
         ! use of lhs brings lambda to the rhs, in conflict with opr_elliptic.
+        call Precon_Rhs(fdmi%lhs, fdmi%rhs, &
+                        fdmi%rhs_b(1:max(idr, idl + 1), 0:ndl + 1), &
+                        fdmi%rhs_t(0:max(idr, idl + 1) - 1, 1:ndl + 2))
 
-        ! boundary points; central diagonal in rhs equal to 1
-        do ir = 1, max(idr, idl + 1)
-            dummy = 1.0_wp/fdmi%rhs(ir, idl)
-            ! dummy = 1.0_wp/fdmi%rhs(ir, idl + 1)
-            fdmi%rhs_b(ir, 0:ndl) = fdmi%rhs_b(ir, 0:ndl)*dummy
-            fdmi%rhs(ir, 1:ndl) = fdmi%rhs(ir, 1:ndl)*dummy
-            fdmi%lhs(ir, 1:ndr) = fdmi%lhs(ir, 1:ndr)*dummy
+        ! ! boundary points; central diagonal in rhs equal to 1
+        ! do ir = 1, max(idr, idl + 1)
+        !     dummy = 1.0_wp/fdmi%rhs(ir, idl)
+        !     ! dummy = 1.0_wp/fdmi%rhs(ir, idl + 1)
+        !     fdmi%rhs_b(ir, 0:ndl) = fdmi%rhs_b(ir, 0:ndl)*dummy
+        !     fdmi%rhs(ir, 1:ndl) = fdmi%rhs(ir, 1:ndl)*dummy
+        !     fdmi%lhs(ir, 1:ndr) = fdmi%lhs(ir, 1:ndr)*dummy
 
-            dummy = 1.0_wp/fdmi%rhs(nx - ir + 1, idl)
-            ! dummy = 1.0_wp/fdmi%rhs(nx - ir + 1, idl - 1)
-            fdmi%rhs_t(idl - ir + 1, 1:ndl + 1) = fdmi%rhs_t(idl - ir + 1, 1:ndl + 1)*dummy
-            fdmi%rhs(nx - ir + 1, 1:ndl) = fdmi%rhs(nx - ir + 1, 1:ndl)*dummy
-            fdmi%lhs(nx - ir + 1, 1:ndr) = fdmi%lhs(nx - ir + 1, 1:ndr)*dummy
+        !     dummy = 1.0_wp/fdmi%rhs(nx - ir + 1, idl)
+        !     ! dummy = 1.0_wp/fdmi%rhs(nx - ir + 1, idl - 1)
+        !     fdmi%rhs_t(idl - ir + 1, 1:ndl + 1) = fdmi%rhs_t(idl - ir + 1, 1:ndl + 1)*dummy
+        !     fdmi%rhs(nx - ir + 1, 1:ndl) = fdmi%rhs(nx - ir + 1, 1:ndl)*dummy
+        !     fdmi%lhs(nx - ir + 1, 1:ndr) = fdmi%lhs(nx - ir + 1, 1:ndr)*dummy
 
-        end do
+        ! end do
 
-        ! interior points: normalization such that 1. upper-diagonal in rhs is 1
-        do ir = max(idr, idl + 1) + 1, nx - max(idr, idl + 1)
-            dummy = 1.0_wp/fdmi%rhs(ir, idl + 1)
-            fdmi%rhs(ir, 1:ndl) = fdmi%rhs(ir, 1:ndl)*dummy
-            fdmi%lhs(ir, 1:ndr) = fdmi%lhs(ir, 1:ndr)*dummy
+        ! ! interior points: normalization such that 1. upper-diagonal in rhs is 1
+        ! do ir = max(idr, idl + 1) + 1, nx - max(idr, idl + 1)
+        !     dummy = 1.0_wp/fdmi%rhs(ir, idl + 1)
+        !     fdmi%rhs(ir, 1:ndl) = fdmi%rhs(ir, 1:ndl)*dummy
+        !     fdmi%lhs(ir, 1:ndr) = fdmi%lhs(ir, 1:ndr)*dummy
 
-        end do
+        ! end do
 
         return
     end subroutine FDM_Int1_CreateSystem

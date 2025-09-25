@@ -274,6 +274,8 @@ program VPARTIAL
                     bcs_hb(1:nlines) = bcs_hb(1:nlines)/g%der1%rhs(1, idr)
                     print *, u(:, 1)
                     print *, bcs_hb(1:nlines)
+                    write (*, *) 'Boundary Relative Error Linf-norm ...:', &
+                        maxval(abs(bcs_hb(1:nlines) - u(1:nlines, 1)))/maxval(abs(u(1:nlines, 1)))
                 end if
                 if (any([BCS_DN, BCS_NN] == ibc)) then
                     do ic = 1, idl - 1
@@ -282,6 +284,8 @@ program VPARTIAL
                     bcs_ht(1:nlines) = bcs_ht(1:nlines)/g%der1%rhs(kmax, idr)
                     print *, u(:, kmax)
                     print *, bcs_ht(1:nlines)
+                    write (*, *) 'Boundary Relative Error Linf-norm ...:', &
+                        maxval(abs(bcs_ht(1:nlines) - u(1:nlines, kmax)))/maxval(abs(u(1:nlines, kmax)))
                 end if
 
             end do
@@ -325,7 +329,7 @@ program VPARTIAL
                     do i = 2, nmax
                         bcs_hb(1:nlines) = bcs_hb(1:nlines) + c_b(i)*u(:, i)
                     end do
-                    write (*, *) 'Relative Error Linf-norm ...:', &
+                    write (*, *) 'Boundary Relative Error Linf-norm ...:', &
                         maxval(abs(bcs_hb(1:nlines) - u(1:nlines, 1)))/maxval(abs(u(1:nlines, 1)))
                 end if
                 if (any([BCS_DN, BCS_NN] == ibc)) then
@@ -333,7 +337,7 @@ program VPARTIAL
                     do i = g%size - 1, g%size - nmax + 1, -1
                         bcs_ht(1:nlines) = bcs_ht(1:nlines) + c_t(i)*u(:, i)
                     end do
-                    write (*, *) 'Relative Error Linf-norm ...:', &
+                    write (*, *) 'Boundary Relative Error Linf-norm ...:', &
                         maxval(abs(bcs_ht(1:nlines) - u(1:nlines, kmax)))/maxval(abs(u(1:nlines, kmax)))
                 end if
 

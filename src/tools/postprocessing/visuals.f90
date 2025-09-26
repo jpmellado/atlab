@@ -579,10 +579,10 @@ program VISUALS
 
                         write (str, *) is; plot_file = 'InfraredFlux'//trim(adjustl(str))//time_str(1:MaskSize)
                         txc(1:isize_field, 5) = txc(1:isize_field, 6) - txc(1:isize_field, 5)
-                        call Write_Visuals(plot_file, txc(:, 1:5))
+                        call Write_Visuals(plot_file, txc(:, 5:5))
 
                         write (str, *) is; plot_file = 'InfraredFluxUp'//trim(adjustl(str))//time_str(1:MaskSize)
-                        call Write_Visuals(plot_file, txc(:, 1:6))
+                        call Write_Visuals(plot_file, txc(:, 6:6))
                     end if
 
                 end do

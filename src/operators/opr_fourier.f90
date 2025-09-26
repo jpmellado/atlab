@@ -107,6 +107,8 @@ contains
             fftw_planner_flag = FFTW_ESTIMATE
         case ('fftw_measure')
             fftw_planner_flag = FFTW_MEASURE
+        case ('fftw_patient')
+            fftw_planner_flag = FFTW_PATIENT
         case default
             call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Wrong fftw planner flag.')
             call TLab_Stop(DNS_ERROR_OPTION)

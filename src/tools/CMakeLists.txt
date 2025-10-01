@@ -45,6 +45,10 @@ target_link_libraries(averages.x statistics physics mappings operators finitedif
 # set_target_properties(pdfs.x PROPERTIES LINK_FLAGS "${PSFFT_LINK_FLAGS} ${LINK_FLAGS}")
 # endif()
 
+FILE(GLOB sourcefiles "postprocessing/transgrid*.f90")
+add_executable(transgrid.x ${sourcefiles})
+target_link_libraries(transgrid.x ${LEVEL1_LIBS} ${LIBS})
+
 # # Transformation
 # FILE(GLOB sourcefiles "transform/transgrid.f90")
 # add_executable(transgrid.x ${sourcefiles})

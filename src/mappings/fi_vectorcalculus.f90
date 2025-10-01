@@ -45,8 +45,7 @@ contains
 !########################################################################
 !# remove divergence part of a vector field a=(u,v,w)
 !#
-!# Calculate scalar field phi s.t. lap phi = -div a, with BCs phi = 0
-!# at top and bottom (i.e. zero tangential component of vector grad phi)
+!# Calculate scalar field phi s.t. lap phi = -div a, with n grad phi = 0 at top and bottom.
 !# Then, add grad phi to vector a, where n grad phi = 0 at top and bottom.
 !#
 !# The BCs are such that a and a + grad phi are the same at top and bottom

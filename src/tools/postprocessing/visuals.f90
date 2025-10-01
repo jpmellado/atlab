@@ -370,10 +370,10 @@ program VISUALS
                 plot_file = 'LogPotentialEnstrophy'//time_str(1:MaskSize)
                 select case (nse_eqns)
                 case (DNS_EQNS_BOUSSINESQ)
-                    wrk1d(1:kmax, 1) = bbackground(1:kmax)
-                    bbackground(1:kmax) = 0.0_wp
+                    ! wrk1d(1:kmax, 1) = bbackground(1:kmax)
+                    ! bbackground(1:kmax) = 0.0_wp
                     call Gravity_Source(gravityProps, imax, jmax, kmax, s, txc(:, 4))
-                    bbackground(1:kmax) = wrk1d(1:kmax, 1)
+                    ! bbackground(1:kmax) = wrk1d(1:kmax, 1)
 
                 case (DNS_EQNS_ANELASTIC)
                     call Thermo_Anelastic_Buoyancy(imax, jmax, kmax, s, txc(:, 4))
@@ -519,7 +519,7 @@ program VISUALS
                 call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, txc(:, 1), txc(:, 2))
                 call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, q(:, 1), txc(:, 3))
                 call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, q(:, 2), txc(:, 4))
-                txc(1:isize_field, 2) = abs(txc(1:isize_field, 2))/(txc(1:isize_field, 3)**2.0 + txc(1:isize_field, 4)**2.0 + small_wp)
+                txc(1:isize_field, 2) = abs(txc(1:isize_field, 2))/(txc(1:isize_field, 3)**2 + txc(1:isize_field, 4)**2 + small_wp)
                 call Write_Visuals(plot_file, txc(:, 2:2))
 
                 plot_file = 'Fwb'//time_str(1:MaskSize)     ! buoyancy flux along Oy
@@ -579,10 +579,10 @@ program VISUALS
 
                         write (str, *) is; plot_file = 'InfraredFlux'//trim(adjustl(str))//time_str(1:MaskSize)
                         txc(1:isize_field, 5) = txc(1:isize_field, 6) - txc(1:isize_field, 5)
-                        call Write_Visuals(plot_file, txc(:, 1:5))
+                        call Write_Visuals(plot_file, txc(:, 5:5))
 
                         write (str, *) is; plot_file = 'InfraredFluxUp'//trim(adjustl(str))//time_str(1:MaskSize)
-                        call Write_Visuals(plot_file, txc(:, 1:6))
+                        call Write_Visuals(plot_file, txc(:, 6:6))
                     end if
 
                 end do

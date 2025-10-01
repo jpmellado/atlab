@@ -3,7 +3,8 @@
 ! Backward FFT can change original array
 
 module OPR_Fourier
-    use TLab_Constants, only: wp, wi, pi_wp, efile
+    use TLab_Constants, only: wp, wi, pi_wp
+    use TLab_Constants, only: efile, ifile
     use TLab_Memory, only: isize_txc_field
     use TLab_Memory, only: imax, jmax, kmax
     use TLab_Arrays, only: wrk3d
@@ -48,7 +49,7 @@ module OPR_Fourier
 contains
     ! #######################################################################
     ! #######################################################################
-    subroutine OPR_Fourier_Initialize()
+    subroutine OPR_Fourier_Initialize(locIniFile)
 #ifdef USE_MPI
         use mpi_f08, only: MPI_DOUBLE_COMPLEX
 #endif
@@ -56,13 +57,22 @@ contains
 
 #ifdef USE_FFTW
 #include "fftw3.f03"
+        integer(c_int) fftw_planner_flag
 #endif
+
+        character(len=*), optional :: locIniFile
+
         ! -----------------------------------------------------------------------
+        character(len=64) inifile
+        character(len=32) bakfile, block
+        character(len=128) eStr
+        character(len=512) sRes
+
         integer(wi) stride, offset, nlines
 
         ! #######################################################################
 #ifndef USE_FFTW
-        call TLab_Write_ASCII(efile, __FILE__//'. FFTW needed for POISSON solver.')
+        call TLab_Write_ASCII(efile, __FILE__//'. FFTW needed for elliptic solvers.')
         call TLab_Stop(DNS_ERROR_UNDEVELOP)
 #endif
 
@@ -70,6 +80,42 @@ contains
             call TLab_Write_ASCII(efile, __FILE__//'. Imax must be a multiple of 2 for the FFT operations.')
             call TLab_Stop(DNS_ERROR_DIMGRID)
         end if
+
+        ! ###################################################################
+        ! Reading
+        if (present(locIniFile)) then
+            inifile = locIniFile
+        else
+            inifile = ifile
+        end if
+
+        bakfile = trim(adjustl(inifile))//'.bak'
+
+        block = 'FFT'
+        eStr = __FILE__//'. '//trim(adjustl(block))//'. '
+
+#ifdef _DEBUG
+        fftw_planner_flag = FFTW_ESTIMATE
+#else
+        fftw_planner_flag = FFTW_MEASURE
+#endif
+
+        call ScanFile_Char(bakfile, inifile, block, 'fftwPlannerFlag', 'void', sRes)
+        select case (trim(adjustl(sRes)))
+        case ('void')
+        case ('fftw_estimate')
+            fftw_planner_flag = FFTW_ESTIMATE
+        case ('fftw_measure')
+            fftw_planner_flag = FFTW_MEASURE
+        case ('fftw_patient')
+            fftw_planner_flag = FFTW_PATIENT
+        case default
+            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Wrong fftw planner flag.')
+            call TLab_Stop(DNS_ERROR_OPTION)
+        end select
+
+        ! ###################################################################
+        ! Initializing
 
         ! -----------------------------------------------------------------------
         ! Ox direction
@@ -93,25 +139,22 @@ contains
             end if
 #endif
 
-! #ifdef _DEBUG
-! #else
             ! call dfftw_plan_many_dft_r2c(fft_plan_fx, 1, size_fft_x, nlines, &
             !                              txc(:, 1), 1, 1, size_fft_x, &
             !                              wrk3d, 1, 1, offset, &
-            !                              FFTW_MEASURE)
+            !                              fftw_planner_flag)
             ! call dfftw_plan_many_dft_c2r(fft_plan_bx, 1, size_fft_x, nlines, &
             !                              txc(:, 1), 1, 1, offset, &
             !                              wrk3d, 1, 1, size_fft_x, &
-            !                              FFTW_MEASURE)
+            !                              fftw_planner_flag)
             call dfftw_plan_many_dft_r2c(fft_plan_fx, 1, size_fft_x, nlines, &
                                          txc(:, 1), size_fft_x, 1, size_fft_x, &
                                          wrk3d, size_fft_x/2 + 1, 1, offset, &
-                                         FFTW_MEASURE)
+                                         fftw_planner_flag)
             call dfftw_plan_many_dft_c2r(fft_plan_bx, 1, size_fft_x, nlines, &
                                          txc(:, 1), size_fft_x/2 + 1, 1, offset, &
                                          wrk3d, size_fft_x, 1, size_fft_x, &
-                                         FFTW_MEASURE)
-! #endif
+                                         fftw_planner_flag)
 
         end if
 
@@ -135,18 +178,15 @@ contains
 
             stride = nlines
 
-! #ifdef _DEBUG
-! #else
             call dfftw_plan_many_dft(fft_plan_fy, 1, size_fft_y, nlines, &
                                      txc(:, 1), size_fft_y, stride, 1, &
                                      wrk3d, size_fft_y, stride, 1, &
-                                     FFTW_FORWARD, FFTW_MEASURE)
+                                     FFTW_FORWARD, fftw_planner_flag)
 
             call dfftw_plan_many_dft(fft_plan_by, 1, size_fft_y, nlines, &
                                      txc(:, 1), size_fft_y, stride, 1, &
                                      wrk3d, size_fft_y, stride, 1, &
-                                     FFTW_BACKWARD, FFTW_MEASURE)
-! #endif
+                                     FFTW_BACKWARD, fftw_planner_flag)
         end if
 
         ! -----------------------------------------------------------------------
@@ -158,18 +198,15 @@ contains
             nlines = (imax/2 + 1)*jmax
             stride = nlines
 
-! #ifdef _DEBUG
-! #else
             call dfftw_plan_many_dft(fft_plan_fz, 1, size_fft_z, nlines, &
                                      txc(:, 1), size_fft_z, stride, 1, &
                                      wrk3d, size_fft_z, stride, 1, &
-                                     FFTW_FORWARD, FFTW_MEASURE)
+                                     FFTW_FORWARD, fftw_planner_flag)
 
             call dfftw_plan_many_dft(fft_plan_bz, 1, size_fft_z, nlines, &
                                      txc(:, 1), size_fft_z, stride, 1, &
                                      wrk3d, size_fft_z, stride, 1, &
-                                     FFTW_BACKWARD, FFTW_MEASURE)
-! #endif
+                                     FFTW_BACKWARD, fftw_planner_flag)
         end if
 
         return

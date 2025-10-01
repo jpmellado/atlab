@@ -14,11 +14,12 @@ program VINTEGRAL
 
     implicit none
 
-    integer(wi) :: i, l, len
+    integer(wi) :: i, l, nlines
+    ! integer :: idl, idr
 
     real(wp), dimension(:, :), pointer :: u => null(), w_n => null(), f => null()
     real(wp), dimension(:, :), pointer :: du1_a => null(), du2_a => null(), du1_n => null(), du2_n => null(), dw1_n => null(), dw2_n => null()
-    real(wp) :: lambda, wk, x_0
+    real(wp) :: lambda, wk, x_0 !, dummy
     integer(wi) :: test_type, ibc, ib, im
 
     integer :: bcs_cases(4)
@@ -36,16 +37,17 @@ program VINTEGRAL
 
     real(wp), allocatable :: bcs(:, :), si(:, :)
 
+    character(len=32) str
     type(grid_dt) :: x
     type(fdm_dt) :: g
     type(fdm_integral_dt) :: fdmi(2), fdmi_test(2), fdmi_test_lambda(2)
 
     ! ###################################################################
     ! Initialize
-    imax = 2
-    jmax = 3
+    imax = 1
+    jmax = 1
     kmax = 768
-    len = imax*jmax
+    nlines = imax*jmax
 
     x%size = kmax
     x%scale = 1.0_wp
@@ -61,16 +63,16 @@ program VINTEGRAL
 
     call TLab_Initialize_Memory(__FILE__)
 
-    u(1:len, 1:kmax) => txc(1:imax*jmax*kmax, 1)
-    w_n(1:len, 1:kmax) => txc(1:imax*jmax*kmax, 2)
-    f(1:len, 1:kmax) => txc(1:imax*jmax*kmax, 3)
+    u(1:nlines, 1:kmax) => txc(1:imax*jmax*kmax, 1)
+    w_n(1:nlines, 1:kmax) => txc(1:imax*jmax*kmax, 2)
+    f(1:nlines, 1:kmax) => txc(1:imax*jmax*kmax, 3)
 
-    du1_a(1:len, 1:kmax) => txc(1:imax*jmax*kmax, 4)
-    du2_a(1:len, 1:kmax) => txc(1:imax*jmax*kmax, 5)
-    du1_n(1:len, 1:kmax) => txc(1:imax*jmax*kmax, 6)
-    du2_n(1:len, 1:kmax) => txc(1:imax*jmax*kmax, 7)
-    dw1_n(1:len, 1:kmax) => txc(1:imax*jmax*kmax, 8)
-    dw2_n(1:len, 1:kmax) => txc(1:imax*jmax*kmax, 9)
+    du1_a(1:nlines, 1:kmax) => txc(1:imax*jmax*kmax, 4)
+    du2_a(1:nlines, 1:kmax) => txc(1:imax*jmax*kmax, 5)
+    du1_n(1:nlines, 1:kmax) => txc(1:imax*jmax*kmax, 6)
+    du2_n(1:nlines, 1:kmax) => txc(1:imax*jmax*kmax, 7)
+    dw1_n(1:nlines, 1:kmax) => txc(1:imax*jmax*kmax, 8)
+    dw2_n(1:nlines, 1:kmax) => txc(1:imax*jmax*kmax, 9)
 
     print *, '1. First order equation.'
     print *, '2. Second order equation; factorized, singular.'
@@ -88,18 +90,19 @@ program VINTEGRAL
         do i = 1, kmax
             x%nodes(i) = real(i - 1, wp)/real(kmax - 1, wp)*x%scale
         end do
-        ! open (21, file='z.dat')
+        open (21, file='z.dat')
+        do i = 1, kmax
+            read (21, *) x%nodes(i)
+        end do
+        ! wrk1d(1:kmax, 1) = x%nodes(1:kmax)  ! reverse
         ! do i = 1, kmax
-        !     read (21, *) x%nodes(i)
+        !     x%nodes(i) = x%nodes(kmax) - wrk1d(kmax - i + 1, 1)
         ! end do
-        ! ! wrk1d(1:kmax, 1) = x%nodes(1:kmax)  ! reverse
-        ! ! do i = 1, kmax
-        ! !     x%nodes(i) = x%nodes(kmax) - wrk1d(kmax - i + 1, 1)
-        ! ! end do
-        ! close (21)
+        close (21)
     end if
 
     g%der1%mode_fdm = FDM_COM6_JACOBIAN     ! default
+    ! g%der1%mode_fdm = FDM_COM6_DIRECT     ! default
     g%der2%mode_fdm = g%der1%mode_fdm
     call FDM_CreatePlan(x, g)
     call FDM_Int1_Initialize(g%der1, 0.0_wp, BCS_MIN, fdmi(BCS_MIN))
@@ -107,35 +110,48 @@ program VINTEGRAL
 
     ! ###################################################################
     ! Define the function f and analytic derivatives
-    x_0 = 0.01_wp
-    wk = 1.0_wp
+    x_0 = 0.1_wp
+    wk = 6.0_wp
 
     do i = 1, kmax
         ! single-mode
-        ! u(:, i) = 1.0_wp + sin(2.0_wp*pi_wp/g%scale*wk*g%nodes(i)) ! + pi_wp/4.0_wp)
+        ! u(:, i) = 1.0_wp + sin(2.0_wp*pi_wp/g%scale*wk*x%nodes(i)) ! + pi_wp/4.0_wp)
         ! du1_a(:, i) = (2.0_wp*pi_wp/g%scale*wk) &
-        !               *cos(2.0_wp*pi_wp/g%scale*wk*g%nodes(i))! + pi_wp/4.0_wp)
+        !               *cos(2.0_wp*pi_wp/g%scale*wk*x%nodes(i))! + pi_wp/4.0_wp)
         ! Gaussian
-        ! u(:, i) = exp(-(g%nodes(i) - x_0*g%scale)**2/(2.0_wp*(g%scale/wk)**2))
-        ! du1_a(:, i) = -(g%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*u(:, i)
-        ! du2_a(:, i) = -(g%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*du1_a(:, i) &
+        ! u(:, i) = exp(-(x%nodes(i) - x_0*g%scale)**2/(2.0_wp*(g%scale/wk)**2))
+        ! du1_a(:, i) = -(x%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*u(:, i)
+        ! du2_a(:, i) = -(x%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*du1_a(:, i) &
         !               - 1.0_wp/(g%scale/wk)**2*u(:, i)
-        ! exponential
-        ! u(:, i) = exp(-g%nodes(i)*wk)
+        u(:, i) = exp(-((x%nodes(i) - x_0)*wk)**2)
+        du1_a(:, i) = -2.0_wp*(wk*(x%nodes(i) - x_0))*wk*u(:, i)
+        du2_a(:, i) = -2.0_wp*(wk*(x%nodes(i) - x_0))*wk*du1_a(:, i) - 2.0_wp*wk**2*u(:, i)
+        ! ! exponential
+        ! u(:, i) = exp(-x%nodes(i)*wk)
         ! du1_a(:, i) = -wk*u(:, i)
+        ! du2_a(:, i) = wk**2*u(:, i)
         ! step
-        ! u(:, i) = max(0.0_wp, (g%nodes(i) - g%nodes(kmax/2))*x_0)
-        ! du1_a(:, i) = (1.0_wp + sign(1.0_wp, g%nodes(i) - g%nodes(kmax/2)))*0.5_wp*x_0
-        ! tanh
-        u(:, i) = x_0*log(1.0_wp + exp((g%nodes(i) - g%nodes(kmax/2))/x_0))
-        du1_a(:, i) = 0.5_wp*(1.0_wp + tanh(0.5_wp*(g%nodes(i) - g%nodes(kmax/2))/x_0))
-        ! Polynomial
+        ! u(:, i) = max(0.0_wp, (x%nodes(i) - x%nodes(kmax/2))*x_0)
+        ! du1_a(:, i) = (1.0_wp + sign(1.0_wp, x%nodes(i) - x%nodes(kmax/2)))*0.5_wp*x_0
+        ! ! tanh
+        ! u(:, i) = log(1.0_wp + exp((x%nodes(i) - x_0)*wk))/wk
+        ! du1_a(:, i) = 0.5_wp*(1.0_wp + tanh(0.5_wp*(x%nodes(i) - x_0)*wk))
+        ! ! Polynomial
         ! dummy = 4.0_wp
-        ! u(:, i) = ((g%scale - g%nodes(i))/wk)**dummy
-        ! du1_a(:, i) = -dummy*((g%scale - g%nodes(i))/wk)**(dummy - 1.0_wp)
-        ! zero
-        ! u(i) = 0.0_wp
-        ! du1_a(i) = 0.0_wp
+        ! u(:, i) = ((g%scale - x%nodes(i))*wk)**dummy
+        ! du1_a(:, i) = -dummy*wk*((g%scale - x%nodes(i))*wk)**(dummy - 1.0_wp)
+        ! du2_a(:, i) = dummy*(dummy - 1.0_wp)*wk**2*((g%scale - x%nodes(i))*wk)**(dummy - 2.0_wp)
+        ! ! dummy = 4.0_wp
+        ! ! u(:, i) = (x%nodes(i)*wk)**dummy
+        ! ! du1_a(:, i) = dummy*wk*(x%nodes(i)*wk)**(dummy - 1.0_wp)
+        ! ! du2_a(:, i) = dummy*(dummy - 1.0_wp)*wk**2*(x%nodes(i)*wk)**(dummy - 2.0_wp)
+        ! ! zero
+        ! u(:, i) = 0.0_wp
+        ! du1_a(:, i) = 0.0_wp
+        ! ! delta
+        ! u(:, i) = 0.0_wp
+        ! du1_a(:, i) = 0.0_wp
+        ! if (i == kmax) du1_a(:, i) = 1.0_wp
     end do
 
     ! open (21, file='f.dat')
@@ -155,7 +171,12 @@ program VINTEGRAL
         write (*, *) 'Eigenvalue ?'
         read (*, *) lambda
 
+        write (*, *) 'Bcs case ?'
         bcs_cases(1:2) = [BCS_MIN, BCS_MAX]
+        ib = read_from_list(['BCS_MIN', 'BCS_MAX'])
+        ibc = bcs_cases(ib)
+
+        ! dummy = 5.0_wp          ! test external normalization of the schemes
 
         do im = 1, size(fdm_cases)
             print *, new_line('a'), fdm_names(im)
@@ -164,39 +185,70 @@ program VINTEGRAL
             g%der2%mode_fdm = FDM_COM4_JACOBIAN     ! not used
             call FDM_CreatePlan(x, g)
 
-            f = du1_a
-            ! call FDM_Der1_Solve(imax*jmax, BCS_NONE, g%der1, g%der1%lu, u, f, wrk2d)
+            ! f = du1_a
+            call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, u, f, wrk2d)
             f = f + lambda*u
 
-            do ib = 1, 2
-                ibc = bcs_cases(ib)
-                print *, new_line('a'), 'Bcs case ', ibc
+            call FDM_Int1_Initialize(g%der1, lambda, ibc, fdmi(ib))
+            ! ! test external normalization of the schemes
+            ! fdmi(ib)%rhs = fdmi(ib)%rhs*dummy
+            ! fdmi(ib)%rhs_b = fdmi(ib)%rhs_b*dummy
+            ! fdmi(ib)%rhs_t = fdmi(ib)%rhs_t*dummy
+            ! idr = size(fdmi(ib)%rhs, 2)/2 + 1
+            ! idl = size(fdmi(ib)%lhs, 2)/2 + 1
+            ! select case (ibc)
+            ! case (BCS_MIN)
+            !     fdmi(ib)%rhs(1, idr) = fdmi(ib)%rhs(1, idr)/dummy
+            !     fdmi(ib)%lhs(1, idl) = fdmi(ib)%lhs(1, idl)*dummy
+            ! case (BCS_MAX)
+            !     fdmi(ib)%rhs(kmax, idr) = fdmi(ib)%rhs(kmax, idr)/dummy
+            !     fdmi(ib)%lhs(kmax, idl) = fdmi(ib)%lhs(kmax, idl)*dummy
+            ! end select
+            ! !
 
-                call FDM_Int1_Initialize(g%der1, lambda, ibc, fdmi(ib))
+            ! bcs
+            select case (ibc)
+            case (BCS_MIN)
+                w_n(:, 1) = u(:, 1)
+            case (BCS_MAX)
+                w_n(:, kmax) = u(:, kmax)
+            end select
 
-                ! bcs
-                select case (ibc)
-                case (BCS_MIN)
-                    w_n(:, 1) = u(:, 1)
-                case (BCS_MAX)
-                    w_n(:, kmax) = u(:, kmax)
-                end select
+            call FDM_Int1_Solve(nlines, fdmi(ib), fdmi(ib)%rhs, f, w_n, wrk2d, dw1_n(:, 1))
 
-                call FDM_Int1_Solve(len, fdmi(ib), fdmi(ib)%rhs, f, w_n, wrk2d, dw1_n(:, 1))
+            ! ! test external normalization of the schemes
+            ! select case (ibc)
+            ! case (BCS_MIN)
+            !     w_n(:, 1) = w_n(:, 1)*dummy
+            ! case (BCS_MAX)
+            !     w_n(:, kmax) = w_n(:, kmax)*dummy
+            ! end select
+            ! w_n = w_n/dummy
+            ! dw1_n(:, 1) = dw1_n(:, 1)/dummy
+            ! !
 
-                call check(u, w_n, 'integral.dat')
+            write (str, *) im
+            call check(u, w_n, 'integral-'//trim(adjustl(str))//'.dat')
 
-                ! check the calculation of the derivative at the boundary
+            print *, 'Derivative'
+            ! check the calculation of the derivative at the boundary
+            print *, dw1_n(:, 1)
+            call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, w_n, dw1_n, wrk2d)
+            select case (ibc)
+            case (BCS_MIN)
                 print *, dw1_n(:, 1)
-                call FDM_Der1_Solve(imax*jmax, BCS_NONE, g%der1, g%der1%lu, w_n, dw1_n, wrk2d)
-                select case (ibc)
-                case (BCS_MIN)
-                    print *, dw1_n(:, 1)
-                case (BCS_MAX)
-                    print *, dw1_n(:, kmax)
-                end select
+            case (BCS_MAX)
+                print *, dw1_n(:, kmax)
+            end select
+            f = f - lambda*u
+            call check(f, dw1_n, 'integral-d-'//trim(adjustl(str))//'.dat')
 
-            end do
+            ! Output to check condition number
+            call FDM_Int1_CreateSystem(g%der1, lambda, ibc, fdmi(ib))       ! create without lu decomposition
+            call write_scheme(fdmi(ib)%lhs(:, :), &
+                              fdmi(ib)%rhs(:, :), 'int1-'//trim(adjustl(str)))
+            ! call write_scheme(g%der1%lhs(:, :), &
+            !                   g%der1%rhs(:, :), 'fdm1-'//trim(adjustl(str)))
 
         end do
 
@@ -204,16 +256,19 @@ program VINTEGRAL
         ! Second order equation; singular cases
         ! ###################################################################
     case (2)
-        allocate (bcs(len, 2))
-        do i = kmax, 1, -1     ! set the lower value to zero, which is assumed in BCS_NN
-            u(:, i) = u(:, i) - u(:, 1)
+        allocate (bcs(nlines, 2))
+        ! do i = kmax, 1, -1      ! set the lower value to zero, which is assumed in BCS_NN
+        !     u(:, i) = u(:, i) - u(:, 1)
+        ! end do
+        do i = 1, kmax          ! set the upper value to zero, which is assumed in BCS_NN
+            u(:, i) = u(:, i) - u(:, kmax)
         end do
 
         ! f = du2_a
         ! du1_n = du1_a ! I need it for the boundary conditions
-        call FDM_Der1_Solve(imax*jmax, BCS_NONE, g%der1, g%der1%lu, u, du1_n, wrk2d)
-        call FDM_Der1_Solve(imax*jmax, BCS_NONE, g%der1, g%der1%lu, du1_n, du2_n, wrk2d)
-        ! call FDM_Der2_Solve(imax*jmax, g%du1_n%der2, g%der2%lu, u, du2_n, du1_n, wrk2d)
+        call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, u, du1_n, wrk2d)
+        call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, du1_n, du2_n, wrk2d)
+        ! call FDM_Der2_Solve(nlines, g%du1_n%der2, g%der2%lu, u, du2_n, du1_n, wrk2d)
         f = du2_n
 
         bcs_cases(1:4) = [BCS_DD, BCS_DN, BCS_ND, BCS_NN]
@@ -226,23 +281,26 @@ program VINTEGRAL
             case (BCS_DD)
                 print *, 'Dirichlet/Dirichlet'
                 bcs(:, 1) = u(:, 1); bcs(:, 2) = u(:, kmax)
-                call OPR_ODE2_Factorize_DD_Sing(len, fdmi, w_n, f, bcs, dw1_n, wrk1d, wrk2d)
+                call OPR_ODE2_Factorize_DD_Sing(nlines, fdmi, w_n, f, bcs, dw1_n, wrk1d, wrk2d)
             case (BCS_DN)
                 print *, 'Dirichlet/Neumann'
                 bcs(:, 1) = u(:, 1); bcs(:, 2) = du1_n(:, kmax)
-                call OPR_ODE2_Factorize_DN_Sing(len, fdmi, w_n, f, bcs, dw1_n, wrk1d, wrk2d)
+                call OPR_ODE2_Factorize_DN_Sing(nlines, fdmi, w_n, f, bcs, dw1_n, wrk1d, wrk2d)
             case (BCS_ND)
                 print *, 'Neumann/Dirichlet'
                 bcs(:, 1) = du1_n(:, 1); bcs(:, 2) = u(:, kmax)
-                call OPR_ODE2_Factorize_ND_Sing(len, fdmi, w_n, f, bcs, dw1_n, wrk1d, wrk2d)
+                call OPR_ODE2_Factorize_ND_Sing(nlines, fdmi, w_n, f, bcs, dw1_n, wrk1d, wrk2d)
             case (BCS_NN)
                 print *, 'Neumann/Neumann'
                 bcs(:, 1) = du1_n(:, 1); bcs(:, 2) = du1_n(:, kmax)
-                call OPR_ODE2_Factorize_NN_Sing(len, fdmi, w_n, f, bcs, dw1_n, wrk1d, wrk2d)
+                call OPR_ODE2_Factorize_NN_Sing(nlines, fdmi, w_n, f, bcs, dw1_n, wrk1d, wrk2d)
             end select
 
-            call check(u, w_n, 'integral.dat')
-            call check(du1_n, dw1_n)
+            write (str, *) ib
+            call check(u, w_n, 'integral-'//trim(adjustl(str))//'.dat')
+
+            print *, 'Derivative'
+            call check(du1_n, dw1_n, 'integral-d-'//trim(adjustl(str))//'.dat')
 
         end do
 
@@ -256,20 +314,20 @@ program VINTEGRAL
         call FDM_Int1_Initialize(g%der1, lambda, BCS_MIN, fdmi(BCS_MIN))
         call FDM_Int1_Initialize(g%der1, -lambda, BCS_MAX, fdmi(BCS_MAX))
 
-        allocate (bcs(len, 2))
+        allocate (bcs(nlines, 2))
         ! call random_seed()
         ! call random_number(u)
 
         ! f = du2_a - lambda*lambda*u
         ! du1_n = du1_a ! I need it for the boundary conditions
-        call FDM_Der1_Solve(imax*jmax, BCS_NONE, g%der1, g%der1%lu, u, du1_n, wrk2d)
-        call FDM_Der1_Solve(imax*jmax, BCS_NONE, g%der1, g%der1%lu, du1_n, du2_n, wrk2d)
-        ! call FDM_Der2_Solve(imax*jmax, g%der2, g%der2%lu, u, du2_n, du1_n, wrk2d)
+        call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, u, du1_n, wrk2d)
+        call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, du1_n, du2_n, wrk2d)
+        ! call FDM_Der2_Solve(nlines, g%der2, g%der2%lu, u, du2_n, du1_n, wrk2d)
         f = du2_n - lambda*lambda*u
 
         bcs_cases(1:2) = [BCS_DD, BCS_NN]!, BCS_DN, BCS_ND]
 
-        do ib = 1, 2
+        do ib = 1, 1!2
             ibc = bcs_cases(ib)
             print *, new_line('a')
 
@@ -277,8 +335,7 @@ program VINTEGRAL
             case (BCS_DD)
                 print *, 'Dirichlet/Dirichlet'
                 bcs(:, 1) = u(:, 1); bcs(:, 2) = u(:, kmax)
-                ! call OPR_ODE2_Factorize_1_REGULAR_DD_OLD(g%der1%mode_fdm, g%size, len, lambda*lambda, g%jac, w_n, f, bcs, dw1_n, wrk1d)
-                call OPR_ODE2_Factorize_DD(len, fdmi, fdmi(BCS_MIN)%rhs, fdmi(BCS_MAX)%rhs, w_n, f, bcs, dw1_n, wrk1d, wrk2d)
+                call OPR_ODE2_Factorize_DD(nlines, fdmi, fdmi(BCS_MIN)%rhs, fdmi(BCS_MAX)%rhs, w_n, f, bcs, dw1_n, wrk1d, wrk2d)
             case (BCS_DN) ! not yet developed
                 print *, 'Dirichlet/Neumann'
                 bcs(:, 1) = u(:, 1); bcs(:, 2) = du1_n(:, kmax)
@@ -288,11 +345,11 @@ program VINTEGRAL
             case (BCS_NN)
                 print *, 'Neumann/Neumann'
                 bcs(:, 1) = du1_n(:, 1); bcs(:, 2) = du1_n(:, kmax)
-                ! call OPR_ODE2_Factorize_1_REGULAR_NN_OLD(g%der1%mode_fdm, g%size, len, lambda*lambda, g%jac, w_n, f, bcs, dw1_n, wrk1d)
-                call OPR_ODE2_Factorize_NN(len, fdmi, fdmi(BCS_MIN)%rhs, fdmi(BCS_MAX)%rhs, w_n, f, bcs, dw1_n, wrk1d, wrk2d)
+                call OPR_ODE2_Factorize_NN(nlines, fdmi, fdmi(BCS_MIN)%rhs, fdmi(BCS_MAX)%rhs, w_n, f, bcs, dw1_n, wrk1d, wrk2d)
             end select
 
-            call check(u, w_n, 'integral.dat')
+            write (str, *) ib
+            call check(u, w_n, 'integral-'//trim(adjustl(str))//'.dat')
             call check(du1_n, dw1_n)
 
         end do
@@ -305,7 +362,7 @@ program VINTEGRAL
         read (*, *) lambda
 
         allocate (si(g%size, 2))
-        allocate (bcs(len, 2))
+        allocate (bcs(nlines, 2))
 
         g%der1%mode_fdm = FDM_COM6_JACOBIAN
         g%der2%mode_fdm = FDM_COM6_DIRECT
@@ -316,9 +373,9 @@ program VINTEGRAL
 
         ! f = du2_a - lambda*u
         ! du1_n = du1_a ! I need it for the boundary conditions
-        call FDM_Der1_Solve(imax*jmax, BCS_NONE, g%der1, g%der1%lu, u, du1_n, wrk2d)
-        ! call FDM_Der1_Solve(imax*jmax, BCS_NONE, g%der1, g%der1%lu, du1_n, du2_n, wrk2d)
-        call FDM_Der2_Solve(imax*jmax, g%der2, g%der2%lu, u, du2_n, du1_n, wrk2d)
+        call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, u, du1_n, wrk2d)
+        ! call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, du1_n, du2_n, wrk2d)
+        call FDM_Der2_Solve(nlines, g%der2, g%der2%lu, u, du2_n, du1_n, wrk2d)
         f = du2_n - lambda*u
 
         bcs_cases(1:4) = [BCS_DD, BCS_NN, BCS_DN, BCS_ND]
@@ -342,10 +399,12 @@ program VINTEGRAL
                 w_n(:, 1) = du1_n(:, 1); w_n(:, kmax) = du1_n(:, kmax)
             end select
 
-            call FDM_Int2_Initialize(g%nodes(:), g%der2, lambda, ibc, fdmi(2))
+            call FDM_Int2_Initialize(x%nodes(:), g%der2, lambda, ibc, fdmi(2))
 
-            call FDM_Int2_Solve(len, fdmi(2), fdmi(2)%rhs, f, w_n, wrk2d)
-            call check(u, w_n, 'integral.dat')
+            call FDM_Int2_Solve(nlines, fdmi(2), fdmi(2)%rhs, f, w_n, wrk2d)
+
+            write (str, *) im
+            call check(u, w_n, 'integral-'//trim(adjustl(str))//'.dat')
 
         end do
 
@@ -411,10 +470,10 @@ contains
         do i = 1, size(u, 2)
             do l = 1, size(u, 1)
                 if (present(name)) then
-                    write (20, fmt_loc) g%nodes(i), u(l, i), w_n(l, i), u(l, i) - w_n(l, i)
+                    write (20, fmt_loc) x%nodes(i), u(l, i), w_n(l, i), u(l, i) - w_n(l, i)
                 end if
                 dummy = dummy + u(l, i)*u(l, i)
-                error_l2 = error_l2 + (u(l, i) - w_n(l, i))**2.0_wp
+                error_l2 = error_l2 + (u(l, i) - w_n(l, i))**2
                 error_max = max(error_max, abs(u(l, i) - w_n(l, i)))
             end do
         end do
@@ -422,12 +481,52 @@ contains
             close (20)
         end if
 
-        write (*, *) 'Solution L2-norm ...........:', sqrt(g%jac(1, 1)*dummy)/real(len, wp)
+        write (*, *) 'Solution L2-norm ...........:', sqrt(dummy)/real(size(u), wp)
         if (dummy == 0.0_wp) return
-        write (*, *) 'Relative Error L2-norm .....:', sqrt(g%jac(1, 1)*error_l2)/maxval(abs(u))
+        write (*, *) 'Relative Error L2-norm .....:', sqrt(error_l2)/sqrt(dummy)
         write (*, *) 'Relative Error Linf-norm ...:', error_max/maxval(abs(u))
 
         return
     end subroutine check
+
+    function read_from_list(list) result(option)
+        character(len=*) list(:)
+        integer option
+
+        integer i
+        character(len=16) str
+
+        do i = 1, size(list(:))
+            write (str, *) i
+            write (*, *) trim(adjustl(str))//'. '//trim(adjustl(list(i)))
+        end do
+        read (*, *) option
+
+        return
+    end function read_from_list
+
+    subroutine write_scheme(lhs, rhs, name)
+        real(wp), intent(in) :: lhs(:, :)
+        real(wp), intent(in) :: rhs(:, :)
+        character(len=*), intent(in) :: name
+
+        integer nx, n
+
+        nx = size(lhs, 1)
+
+        open (21, file=trim(adjustl(name))//'-lhs.dat')
+        do n = 1, nx
+            write (21, *) lhs(n, :)
+        end do
+        close (21)
+
+        open (22, file=trim(adjustl(name))//'-rhs.dat')
+        do n = 1, nx
+            write (22, *) rhs(n, :)
+        end do
+        close (23)
+
+        return
+    end subroutine write_scheme
 
 end program VINTEGRAL

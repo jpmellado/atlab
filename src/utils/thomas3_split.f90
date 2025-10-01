@@ -161,12 +161,12 @@ contains
 
             ! Generate vector zk
             aloc(:) = a(:); bloc(:) = b(:); cloc(:) = c(:)
-            call Thomas3_LU(size(aloc), aloc, bloc, cloc)
+            call Thomas3_FactorLU(size(aloc), aloc, bloc, cloc)
 
             z(:) = 0.0_wp
             z(p) = 1.0_wp
             z(p_plus_1) = 1.0_wp
-            call Thomas3_Solve(size(aloc), 1, aloc, bloc, cloc, z(:))
+            call Thomas3_SolveLU(size(aloc), 1, aloc, bloc, cloc, z(:))
 
             ! Complete definition of alpha
             delta = 1.0_wp + alpha(1)*z(p) + alpha(2)*z(p_plus_1)
@@ -203,7 +203,7 @@ contains
         do k = 1, nblocks                       ! loop over blocks
             ! nsize = split(k)%nmax - split(k)%nmin + 1
             nsize = size(f(k)%p, 2)
-            call Thomas3_Solve(nsize, nlines, &
+            call Thomas3_SolveLU(nsize, nlines, &
                                split(k)%lhs(:, 1), split(k)%lhs(:, 2), split(k)%lhs(:, 3), f(k)%p(:, :))
         end do
 
@@ -283,7 +283,7 @@ contains
 
         !########################################################################
         ! Solving block system Am in each block
-        call Thomas3_Solve(nsize, nlines, &
+        call Thomas3_SolveLU(nsize, nlines, &
                            split%lhs(:, 1), split%lhs(:, 2), split%lhs(:, 3), f(:, :))
 
         !########################################################################

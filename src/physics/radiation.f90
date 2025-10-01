@@ -234,7 +234,7 @@ contains
             ! -----------------------------------------------------------------------
         case (TYPE_IR_GRAY)
             ! emission function, Stefan-Boltzmann law
-            b(1:nx*ny*nz) = sigma*s(1:nx*ny*nz, inb_scal_T)**4.0_wp
+            b(1:nx*ny*nz) = sigma*s(1:nx*ny*nz, inb_scal_T)**4
 
             ! absorption coefficient
             source(1:nx*ny*nz) = localProps%kappa(1, 1)*s(:, inb_scal_ql) + &
@@ -266,7 +266,7 @@ contains
 
             do iband = 1, localProps%nbands
                 ! emission function, Stefan-Boltzmann law
-                b = sigma*s(:, inb_scal_T)**4.0_wp* &
+                b = sigma*s(:, inb_scal_T)**4* &
                     (localProps%beta(1, iband) + s(:, inb_scal_T)*(localProps%beta(2, iband) + s(:, inb_scal_T)*localProps%beta(3, iband)))
 
                 ! absorption coefficient
@@ -544,7 +544,7 @@ contains
                 tmp2(:, k) = b(:, k)*p_flux_2
             end do
             call Int_Simpson_v(tmp2(:, j:ny), z%nodes(j:ny), flux_down(:, j))
-            ! call Int_Trapezoidal_v(tmp2(:, j:ny), g%nodes(j:ny), flux_down(:, j))
+            ! call Int_Trapezoidal_v(tmp2(:, j:ny), z%nodes(j:ny), flux_down(:, j))
             flux_down(:, j) = flux_down(:, j) + p_flux_1
         end do
 

@@ -76,13 +76,35 @@ contains
 
         select case (nd)
         case (3)
-            call Thomas3_LU(nx - 2, fdmi%lhs(2:, 1), fdmi%lhs(2:, 2), fdmi%lhs(2:, 3))
+            call Thomas3_FactorLU(nx - 2, &
+                                  fdmi%lhs(2:nx - 1, 1), &
+                                  fdmi%lhs(2:nx - 1, 2), &
+                                  fdmi%lhs(2:nx - 1, 3))
         case (5)
-            call Thomas5_LU(nx - 2, fdmi%lhs(2:, 1), fdmi%lhs(2:, 2), fdmi%lhs(2:, 3), &
-                            fdmi%lhs(2:, 4), fdmi%lhs(2:, 5))
+            ! if (fdmi%bc == BCS_MAX) then
+            call Thomas5_FactorLU(nx - 2, &
+                                  fdmi%lhs(2:nx - 1, 1), &
+                                  fdmi%lhs(2:nx - 1, 2), &
+                                  fdmi%lhs(2:nx - 1, 3), &
+                                  fdmi%lhs(2:nx - 1, 4), &
+                                  fdmi%lhs(2:nx - 1, 5))
+            ! else
+            !     call Thomas5_FactorUL(nx - 2, &
+            !                           fdmi%lhs(2:nx - 1, 1), &
+            !                           fdmi%lhs(2:nx - 1, 2), &
+            !                           fdmi%lhs(2:nx - 1, 3), &
+            !                           fdmi%lhs(2:nx - 1, 4), &
+            !                           fdmi%lhs(2:nx - 1, 5))
+            ! end if
         case (7)
-            call Thomas7_LU(nx - 2, fdmi%lhs(2:, 1), fdmi%lhs(2:, 2), fdmi%lhs(2:, 3), &
-                            fdmi%lhs(2:, 4), fdmi%lhs(2:, 5), fdmi%lhs(2:, 6), fdmi%lhs(2:, 7))
+            call Thomas7_FactorLU(nx - 2, &
+                                  fdmi%lhs(2:nx - 1, 1), &
+                                  fdmi%lhs(2:nx - 1, 2), &
+                                  fdmi%lhs(2:nx - 1, 3), &
+                                  fdmi%lhs(2:nx - 1, 4), &
+                                  fdmi%lhs(2:nx - 1, 5), &
+                                  fdmi%lhs(2:nx - 1, 6), &
+                                  fdmi%lhs(2:nx - 1, 7))
         end select
 
         return
@@ -97,8 +119,7 @@ contains
         type(fdm_integral_dt), intent(inout) :: fdmi    ! int_plan to be created; inout because otherwise allocatable arrays are deallocated
 
         ! -------------------------------------------------------------------
-        integer(wi) i
-        integer(wi) idl, ndl, idr, ndr, ir, nx
+        integer(wi) idl, ndl, idr, ndr, ir, ic, nx, nmin, nmax
         real(wp) dummy, rhsr_b(5, 0:7), rhsr_t(0:4, 8)
 
         ! ###################################################################
@@ -125,91 +146,94 @@ contains
 
         ! -------------------------------------------------------------------
         ! new rhs diagonals (array A), independent of lambda
-        fdmi%rhs(:, :) = g%lhs(:, 1:ndl)
+        fdmi%rhs(1:nx, 1:ndl) = g%lhs(1:nx, 1:ndl)
 
-        call FDM_Bcs_Reduce(fdmi%bc, fdmi%rhs, g%rhs(:, 1:ndr), rhsr_b, rhsr_t)
+        ! -------------------------------------------------------------------
+        ! new lhs diagonals (array C), dependent on lambda
+        !                    | 0 a_12 |
+        !   C = B + lamnda h | 0 A_22 |     for BCS_MIN
+        !
+        ! and correspondingly for BCS_MAX
+        fdmi%lhs(1:nx, 1:ndr) = g%rhs(1:nx, 1:ndr)
+
+        select case (fdmi%bc)
+        case (BCS_MIN)          ! first column of lambda h A is zero
+            nmin = 2; nmax = nx
+        case (BCS_MAX)          ! last column of lambda h A is zero
+            nmin = 1; nmax = nx - 1
+        end select
+
+        fdmi%lhs(nmin:nmax, idr) = fdmi%lhs(nmin:nmax, idr) + lambda*g%lhs(nmin:nmax, idl)  ! center diagonal
+        do ic = 1, idl - 1                                                                  ! off-center diagonals
+            fdmi%lhs(nmin + ic:nx, idr - ic) = fdmi%lhs(nmin + ic:nx, idr - ic) + lambda*g%lhs(nmin + ic:nx, idl - ic)
+            fdmi%lhs(1:nmax - ic, idr + ic) = fdmi%lhs(1:nmax - ic, idr + ic) + lambda*g%lhs(1:nmax - ic, idl + ic)
+        end do
+
+        ! -------------------------------------------------------------------
+        ! Reduction
+        rhsr_b = 0.0_wp
+        rhsr_t = 0.0_wp
+        call FDM_Bcs_Reduce(fdmi%bc, fdmi%rhs, fdmi%lhs, rhsr_b, rhsr_t)
 
         fdmi%rhs_b = 0.0_wp
         fdmi%rhs_t = 0.0_wp
         select case (fdmi%bc)
         case (BCS_MIN)
+            fdmi%lhs(1:idr, 1:ndr) = rhsr_b(1:idr, 1:ndr)
+
             fdmi%rhs_b(1:idl + 1, 1:ndl) = fdmi%rhs(1:idl + 1, 1:ndl)
             do ir = 1, idr - 1              ! change sign in b^R_{21} for nonzero bc
                 fdmi%rhs_b(1 + ir, idl - ir) = -rhsr_b(1 + ir, idr - ir)
             end do
 
+            ! reducing system in the opposite end to account for the case of extended stencils
+            call FDM_Bcs_Reduce(BCS_MAX, fdmi%lhs, fdmi%rhs, rhs_t=fdmi%rhs_t)
+
         case (BCS_MAX)
+            fdmi%lhs(nx - idr + 1:nx, 1:ndr) = rhsr_t(1:idr, 1:ndr)
+
             fdmi%rhs_t(0:idl, 1:ndl) = fdmi%rhs(nx - idl:nx, 1:ndl)
             do ir = 1, idr - 1              ! change sign in b^R_{21} for nonzero bc
                 fdmi%rhs_t(idl - ir, idl + ir) = -rhsr_t(idr - ir, idr + ir)
             end do
 
-        end select
-
-        ! -------------------------------------------------------------------
-        ! new lhs diagonals (array C = B + h \lambda A), dependent on lambda
-        fdmi%lhs(:, :) = g%rhs(:, 1:ndr)
-
-        fdmi%lhs(:, idr) = fdmi%lhs(:, idr) + lambda*g%lhs(:, idl)                ! center diagonal
-        do i = 1, idl - 1                                                       ! off-diagonals
-            fdmi%lhs(1 + i:nx, idr - i) = fdmi%lhs(1 + i:nx, idr - i) + lambda*g%lhs(1 + i:nx, idl - i)
-            fdmi%lhs(1:nx - i, idr + i) = fdmi%lhs(1:nx - i, idr + i) + lambda*g%lhs(1:nx - i, idl + i)
-        end do
-
-        select case (fdmi%bc)
-        case (BCS_MIN)
-            fdmi%lhs(1:idr, 1:ndr) = rhsr_b(1:idr, 1:ndr)
-            fdmi%lhs(1, idr + 1:idr + idl - 1) = fdmi%lhs(1, idr + 1:idr + idl - 1) - lambda*fdmi%rhs_b(1, idl + 1:ndl)
-            ! fdmi%lhs(2:idr, 1:ndr) = rhsr_b(2:idr, 1:ndr)
-            do ir = 1, idr - 1
-                fdmi%lhs(1 + ir, idr - idl + 1:idr + idl - 1) = fdmi%lhs(1 + ir, idr - idl + 1:idr + idl - 1) + lambda*fdmi%rhs_b(1 + ir, 1:ndl)
-            end do
-        case (BCS_MAX)
-            fdmi%lhs(nx - idr + 1:nx, 1:ndr) = rhsr_t(1:idr, 1:ndr)
-            fdmi%lhs(nx, idr - idl + 1:idr - 1) = fdmi%lhs(nx, idr - idl + 1:idr - 1) - lambda*fdmi%rhs_t(idl, 1:idl - 1)
-            ! fdmi%lhs(nx - idr + 1:nx - 1, 1:ndr) = rhsr_t(1:idr - 1, 1:ndr)
-            do ir = 1, idr - 1
-                fdmi%lhs(nx - ir, idr - idl + 1:idr + idl - 1) = fdmi%lhs(nx - ir, idr - idl + 1:idr + idl - 1) + lambda*fdmi%rhs_t(idl - ir, 1:ndl)
-            end do
-        end select
-
-        ! -------------------------------------------------------------------
-        ! normalization such that new central diagonal in rhs is 1
-        do ir = 1, max(idr, idl + 1)
-            dummy = 1.0_wp/fdmi%rhs(ir, idl)
-            fdmi%rhs_b(ir, 0:ndl) = fdmi%rhs_b(ir, 0:ndl)*dummy
-
-            dummy = 1.0_wp/fdmi%rhs(nx - ir + 1, idl)
-            fdmi%rhs_t(idl - ir + 1, 1:ndl + 1) = fdmi%rhs_t(idl - ir + 1, 1:ndl + 1)*dummy
-
-            dummy = 1.0_wp/fdmi%rhs(ir, idl)
-            fdmi%rhs(ir, 1:ndl) = fdmi%rhs(ir, 1:ndl)*dummy
-            fdmi%lhs(ir, 1:ndr) = fdmi%lhs(ir, 1:ndr)*dummy
-
-            dummy = 1.0_wp/fdmi%rhs(nx - ir + 1, idl)
-            fdmi%rhs(nx - ir + 1, 1:ndl) = fdmi%rhs(nx - ir + 1, 1:ndl)*dummy
-            fdmi%lhs(nx - ir + 1, 1:ndr) = fdmi%lhs(nx - ir + 1, 1:ndr)*dummy
-
-        end do
-
-        ! interior points: normalization such that 1. upper-diagonal is 1
-        do ir = max(idr, idl + 1) + 1, nx - max(idr, idl + 1)
-            dummy = 1.0_wp/fdmi%rhs(ir, idl + 1)
-
-            fdmi%rhs(ir, 1:ndl) = fdmi%rhs(ir, 1:ndl)*dummy
-            fdmi%lhs(ir, 1:ndr) = fdmi%lhs(ir, 1:ndr)*dummy
-
-        end do
-
-        ! -------------------------------------------------------------------
-        ! reducing system in the opposite end to account for the case of extended stencils
-        ! to move it up, you need to recalculate the expression for p_1 and p_n because they assume division by a_11
-        select case (fdmi%bc)
-        case (BCS_MIN)
-            call FDM_Bcs_Reduce(BCS_MAX, fdmi%lhs, fdmi%rhs, rhs_t=fdmi%rhs_t)
-        case (BCS_MAX)
+            ! reducing system in the opposite end to account for the case of extended stencils
             call FDM_Bcs_Reduce(BCS_MIN, fdmi%lhs, fdmi%rhs, rhs_b=fdmi%rhs_b)
+
         end select
+
+        ! -------------------------------------------------------------------
+        ! preconditioning
+        !
+        ! so far, based on the rhs
+        ! use of lhs brings lambda to the rhs, in conflict with opr_elliptic.
+        call Precon_Rhs(fdmi%lhs, fdmi%rhs, &
+                        fdmi%rhs_b(1:max(idr, idl + 1), 0:ndl + 1), &
+                        fdmi%rhs_t(0:max(idr, idl + 1) - 1, 1:ndl + 2))
+
+        ! ! boundary points; central diagonal in rhs equal to 1
+        ! do ir = 1, max(idr, idl + 1)
+        !     dummy = 1.0_wp/fdmi%rhs(ir, idl)
+        !     ! dummy = 1.0_wp/fdmi%rhs(ir, idl + 1)
+        !     fdmi%rhs_b(ir, 0:ndl) = fdmi%rhs_b(ir, 0:ndl)*dummy
+        !     fdmi%rhs(ir, 1:ndl) = fdmi%rhs(ir, 1:ndl)*dummy
+        !     fdmi%lhs(ir, 1:ndr) = fdmi%lhs(ir, 1:ndr)*dummy
+
+        !     dummy = 1.0_wp/fdmi%rhs(nx - ir + 1, idl)
+        !     ! dummy = 1.0_wp/fdmi%rhs(nx - ir + 1, idl - 1)
+        !     fdmi%rhs_t(idl - ir + 1, 1:ndl + 1) = fdmi%rhs_t(idl - ir + 1, 1:ndl + 1)*dummy
+        !     fdmi%rhs(nx - ir + 1, 1:ndl) = fdmi%rhs(nx - ir + 1, 1:ndl)*dummy
+        !     fdmi%lhs(nx - ir + 1, 1:ndr) = fdmi%lhs(nx - ir + 1, 1:ndr)*dummy
+
+        ! end do
+
+        ! ! interior points: normalization such that 1. upper-diagonal in rhs is 1
+        ! do ir = max(idr, idl + 1) + 1, nx - max(idr, idl + 1)
+        !     dummy = 1.0_wp/fdmi%rhs(ir, idl + 1)
+        !     fdmi%rhs(ir, 1:ndl) = fdmi%rhs(ir, 1:ndl)*dummy
+        !     fdmi%lhs(ir, 1:ndr) = fdmi%lhs(ir, 1:ndr)*dummy
+
+        ! end do
 
         return
     end subroutine FDM_Int1_CreateSystem
@@ -247,31 +271,63 @@ contains
 
         select case (ndr)
         case (3)
-            call MatMul_3d(rhsi(:, 1:3), f, result, &
-                           BCS_BOTH, rhs_b=fdmi%rhs_b(1:3, 0:3), rhs_t=fdmi%rhs_t(0:2, 1:4), bcs_b=wrk2d(:, 1), bcs_t=wrk2d(:, 2))
+            call MatMul_3d(rhsi, f, result, BCS_BOTH, &
+                           rhs_b=fdmi%rhs_b, &
+                           rhs_t=fdmi%rhs_t, &
+                           bcs_b=wrk2d(:, 1), &
+                           bcs_t=wrk2d(:, 2))
         case (5)
-            call MatMul_5d(rhsi(:, 1:5), f, result, &
-                           BCS_BOTH, rhs_b=fdmi%rhs_b(1:4, 0:5), rhs_t=fdmi%rhs_t(0:3, 1:6), bcs_b=wrk2d(:, 1), bcs_t=wrk2d(:, 2))
+            call MatMul_5d(rhsi, f, result, BCS_BOTH, &
+                           rhs_b=fdmi%rhs_b, &
+                           rhs_t=fdmi%rhs_t, &
+                           bcs_b=wrk2d(:, 1), &
+                           bcs_t=wrk2d(:, 2))
         end select
 
         select case (ndl)
         case (3)
-            call Thomas3_Solve(nx - 2, nlines, fdmi%lhs(2:, 1), fdmi%lhs(2:, 2), fdmi%lhs(2:, 3), result(:, 2:))
+            call Thomas3_SolveLU(nx - 2, nlines, &
+                                 fdmi%lhs(2:nx - 1, 1), &
+                                 fdmi%lhs(2:nx - 1, 2), &
+                                 fdmi%lhs(2:nx - 1, 3), result(:, 2:nx - 1))
         case (5)
-            call Thomas5_Solve(nx - 2, nlines, fdmi%lhs(2:, 1), fdmi%lhs(2:, 2), fdmi%lhs(2:, 3), fdmi%lhs(2:, 4), fdmi%lhs(2:, 5), result(:, 2:))
+            ! if (fdmi%bc == BCS_MAX) then
+            call Thomas5_SolveLU(nx - 2, nlines, &
+                                 fdmi%lhs(2:nx - 1, 1), &
+                                 fdmi%lhs(2:nx - 1, 2), &
+                                 fdmi%lhs(2:nx - 1, 3), &
+                                 fdmi%lhs(2:nx - 1, 4), &
+                                 fdmi%lhs(2:nx - 1, 5), result(:, 2:nx - 1))
+            ! else
+            !     call Thomas5_SolveUL(nx - 2, nlines, &
+            !                          fdmi%lhs(2:nx - 1, 1), &
+            !                          fdmi%lhs(2:nx - 1, 2), &
+            !                          fdmi%lhs(2:nx - 1, 3), &
+            !                          fdmi%lhs(2:nx - 1, 4), &
+            !                          fdmi%lhs(2:nx - 1, 5), result(:, 2:nx - 1))
+            ! end if
         case (7)
-            call Thomas7_Solve(nx - 2, nlines, fdmi%lhs(2:, 1), fdmi%lhs(2:, 2), fdmi%lhs(2:, 3), fdmi%lhs(2:, 4), fdmi%lhs(2:, 5), fdmi%lhs(2:, 6), fdmi%lhs(2:, 7), result(:, 2:))
+            call Thomas7_SolveLU(nx - 2, nlines, &
+                                 fdmi%lhs(2:nx - 1, 1), &
+                                 fdmi%lhs(2:nx - 1, 2), &
+                                 fdmi%lhs(2:nx - 1, 3), &
+                                 fdmi%lhs(2:nx - 1, 4), &
+                                 fdmi%lhs(2:nx - 1, 5), &
+                                 fdmi%lhs(2:nx - 1, 6), &
+                                 fdmi%lhs(2:nx - 1, 7), result(:, 2:nx - 1))
         end select
 
         if (any([BCS_MAX] == fdmi%bc)) then
-            result(:, 1) = wrk2d(:, 1)*fdmi%lhs(1, idl)
+            result(:, 1) = wrk2d(:, 1)
             do ic = 1, idl - 1
                 result(:, 1) = result(:, 1) + fdmi%lhs(1, idl + ic)*result(:, 1 + ic)
             end do
             result(:, 1) = result(:, 1) + fdmi%lhs(1, 1)*result(:, 1 + ic)
 
+            result(:, 1) = result(:, 1)/fdmi%lhs(1, idl)
+
             if (present(du_boundary)) then      ! calculate u'n
-                du_boundary(:) = fdmi%lhs(nx, idl)*result(:, nx)
+                du_boundary(:) = result(:, nx)*fdmi%lhs(nx, idl)
                 do ic = 1, idl - 1
                     du_boundary(:) = du_boundary(:) + fdmi%lhs(nx, idl - ic)*result(:, nx - ic)
                 end do
@@ -282,19 +338,23 @@ contains
                     du_boundary(:) = du_boundary(:) + rhsi(nx, idr - ic)*f(:, nx - ic)
                 end do
 
+                du_boundary(:) = du_boundary(:)/rhsi(nx, idr)
+
             end if
 
         end if
 
         if (any([BCS_MIN] == fdmi%bc)) then
-            result(:, nx) = wrk2d(:, 2)*fdmi%lhs(nx, idl)
+            result(:, nx) = wrk2d(:, 2)
             do ic = 1, idl - 1
                 result(:, nx) = result(:, nx) + fdmi%lhs(nx, idl - ic)*result(:, nx - ic)
             end do
             result(:, nx) = result(:, nx) + fdmi%lhs(nx, ndl)*result(:, nx - ic)
 
+            result(:, nx) = result(:, nx)/fdmi%lhs(nx, idl)
+
             if (present(du_boundary)) then      ! calculate u'1
-                du_boundary(:) = fdmi%lhs(1, idl)*result(:, 1)
+                du_boundary(:) = result(:, 1)*fdmi%lhs(1, idl)
                 do ic = 1, idl - 1
                     du_boundary(:) = du_boundary(:) + fdmi%lhs(1, idl + ic)*result(:, 1 + ic)
                 end do
@@ -304,6 +364,8 @@ contains
                 do ic = 1, idr - 1
                     du_boundary(:) = du_boundary(:) + rhsi(1, idr + ic)*f(:, 1 + ic)
                 end do
+
+                du_boundary(:) = du_boundary(:)/rhsi(1, idr)
 
             end if
 
@@ -349,14 +411,14 @@ contains
 
         select case (nd)
         case (3)
-            call Thomas3_LU(nx - 2, fdmi%lhs(2:, 1), fdmi%lhs(2:, 2), fdmi%lhs(2:, 3))
+            call Thomas3_FactorLU(nx - 2, fdmi%lhs(2:, 1), fdmi%lhs(2:, 2), fdmi%lhs(2:, 3))
         case (5)
             ! We rely on this routines not changing a(2:3), b(2), e(ny-2:ny-1), d(ny-1)
-            call Thomas5_LU(nx - 2, fdmi%lhs(2:, 1), fdmi%lhs(2:, 2), fdmi%lhs(2:, 3), &
-                            fdmi%lhs(2:, 4), fdmi%lhs(2:, 5))
+            call Thomas5_FactorLU(nx - 2, fdmi%lhs(2:, 1), fdmi%lhs(2:, 2), fdmi%lhs(2:, 3), &
+                                  fdmi%lhs(2:, 4), fdmi%lhs(2:, 5))
         case (7)
-            call Thomas7_LU(nx - 2, fdmi%lhs(2:, 1), fdmi%lhs(2:, 2), fdmi%lhs(2:, 3), &
-                            fdmi%lhs(2:, 4), fdmi%lhs(2:, 5), fdmi%lhs(2:, 6), fdmi%lhs(2:, 7))
+            call Thomas7_FactorLU(nx - 2, fdmi%lhs(2:, 1), fdmi%lhs(2:, 2), fdmi%lhs(2:, 3), &
+                                  fdmi%lhs(2:, 4), fdmi%lhs(2:, 5), fdmi%lhs(2:, 6), fdmi%lhs(2:, 7))
         end select
 
         return
@@ -640,32 +702,53 @@ contains
 
         select case (ndr)
         case (3)
-            call MatMul_3d(rhsi(:, 1:3), f, result, &
-                           BCS_BOTH, rhs_b=fdmi%rhs_b(1:3, 0:3), rhs_t=fdmi%rhs_t(0:2, 1:4), bcs_b=wrk2d(:, 1), bcs_t=wrk2d(:, 2))
+            call MatMul_3d(rhsi, f, result, BCS_BOTH, &
+                           rhs_b=fdmi%rhs_b(1:3, 0:3), rhs_t=fdmi%rhs_t(0:2, 1:4), &
+                           bcs_b=wrk2d(:, 1), bcs_t=wrk2d(:, 2))
         case (5)
-            call MatMul_5d(rhsi(:, 1:5), f, result, &
-                           BCS_BOTH, rhs_b=fdmi%rhs_b(1:4, 0:5), rhs_t=fdmi%rhs_t(0:3, 1:6), bcs_b=wrk2d(:, 1), bcs_t=wrk2d(:, 2))
+            call MatMul_5d(rhsi, f, result, BCS_BOTH, &
+                           rhs_b=fdmi%rhs_b(1:4, 0:5), rhs_t=fdmi%rhs_t(0:3, 1:6), &
+                           bcs_b=wrk2d(:, 1), bcs_t=wrk2d(:, 2))
         end select
 
         ! Solve pentadiagonal linear system
         select case (ndl)
         case (3)
-            call Thomas3_Solve(nx - 2, nlines, fdmi%lhs(2:, 1), fdmi%lhs(2:, 2), fdmi%lhs(2:, 3), result(:, 2:))
+            call Thomas3_SolveLU(nx - 2, nlines, &
+                                 fdmi%lhs(2:, 1), &
+                                 fdmi%lhs(2:, 2), &
+                                 fdmi%lhs(2:, 3), result(:, 2:))
         case (5)
-            call Thomas5_Solve(nx - 2, nlines, fdmi%lhs(2:, 1), fdmi%lhs(2:, 2), fdmi%lhs(2:, 3), fdmi%lhs(2:, 4), fdmi%lhs(2:, 5), result(:, 2:))
+            call Thomas5_SolveLU(nx - 2, nlines, &
+                                 fdmi%lhs(2:, 1), &
+                                 fdmi%lhs(2:, 2), &
+                                 fdmi%lhs(2:, 3), &
+                                 fdmi%lhs(2:, 4), &
+                                 fdmi%lhs(2:, 5), result(:, 2:))
         case (7)
-            call Thomas7_Solve(nx - 2, nlines, fdmi%lhs(2:, 1), fdmi%lhs(2:, 2), fdmi%lhs(2:, 3), fdmi%lhs(2:, 4), fdmi%lhs(2:, 5), fdmi%lhs(2:, 6), fdmi%lhs(2:, 7), result(:, 2:))
+            call Thomas7_SolveLU(nx - 2, nlines, &
+                                 fdmi%lhs(2:, 1), &
+                                 fdmi%lhs(2:, 2), &
+                                 fdmi%lhs(2:, 3), &
+                                 fdmi%lhs(2:, 4), &
+                                 fdmi%lhs(2:, 5), &
+                                 fdmi%lhs(2:, 6), &
+                                 fdmi%lhs(2:, 7), result(:, 2:))
         end select
 
         !   Corrections to the BCS_DD to account for Neumann
         if (any([BCS_ND, BCS_NN] == fdmi%bc)) then
             result(:, 1) = wrk2d(:, 1) &
-                           + fdmi%lhs(1, 1)*result(:, 2) + fdmi%lhs(1, 2)*result(:, 3) + fdmi%lhs(1, 3)*result(:, 4)
+                           + fdmi%lhs(1, 1)*result(:, 2) &
+                           + fdmi%lhs(1, 2)*result(:, 3) &
+                           + fdmi%lhs(1, 3)*result(:, 4)
         end if
 
         if (any([BCS_DN, BCS_NN] == fdmi%bc)) then
             result(:, nx) = wrk2d(:, 2) &
-                            + fdmi%lhs(nx, ndl)*result(:, nx - 1) + fdmi%lhs(nx, ndl - 1)*result(:, nx - 2) + fdmi%lhs(nx, ndl - 2)*result(:, nx - 3)
+                            + fdmi%lhs(nx, ndl)*result(:, nx - 1) &
+                            + fdmi%lhs(nx, ndl - 1)*result(:, nx - 2) &
+                            + fdmi%lhs(nx, ndl - 2)*result(:, nx - 3)
         end if
 
         return

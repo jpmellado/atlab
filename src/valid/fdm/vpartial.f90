@@ -10,6 +10,7 @@ program VPARTIAL
     use Thomas5
     use FDM, only: fdm_dt, FDM_CreatePlan
     use FDM_Derivative
+    use FDM_derivative_Neumann
     use FDM_ComX_Direct
     use FDM_Base
     use FDM_MatMul
@@ -23,10 +24,9 @@ program VPARTIAL
     real(wp), dimension(:, :), pointer :: u
     real(wp), dimension(:, :), pointer :: du1_a, du1_b, du1_c, du1_n
     real(wp), dimension(:, :), pointer :: du2_a, du2_n1, du2_n2, du2_n3
-    real(wp) :: wk, x_0, coef(5)!, dummy
+    real(wp) :: wk, x_0, dummy
     integer(wi) :: test_type, ibc, ip, ic, ndr, idr, ndl, idl, im, ib
     integer(wi) :: nmin, nmax, nsize
-    real(wp) rhsr_b(5, 0:7), rhsr_t(0:4, 8)
 
     real(wp), allocatable :: c(:)         ! for case 5
 
@@ -42,15 +42,15 @@ program VPARTIAL
                                          'Jacobian 6 penta-diagonal', &
                                          'Direct 4', &
                                          'Direct 6']
-
+    character(len=32) str
     type(grid_dt) :: x
     type(fdm_dt) g
 
     ! ###################################################################
     ! Initialize
-    imax = 2
-    jmax = 3
-    kmax = 256
+    imax = 1
+    jmax = 1
+    kmax = 768
     nlines = imax*jmax
 
     x%size = kmax
@@ -83,9 +83,9 @@ program VPARTIAL
 
     print *, '1. First-order derivative.'
     print *, '2. Second-order derivative.'
-    print *, '3. Reduction routines.'
-    print *, '4. Boundary conditions.'
-    print *, '5. Boundary conditions decomposition.'
+    print *, '3. Boundary conditions.'
+    print *, '4. Neumann decomposition.'
+    print *, '5. Reduction routines.'
     read (*, *) test_type
 
     !  ###################################################################
@@ -98,11 +98,15 @@ program VPARTIAL
         do i = 1, kmax
             x%nodes(i) = real(i - 1, wp)/real(kmax - 1, wp)*x%scale
         end do
-        ! open (21, file='y.dat')
+        open (21, file='z.dat')
+        do i = 1, kmax
+            read (21, *) x%nodes(i)
+        end do
+        ! wrk1d(1:kmax, 1) = x%nodes(1:kmax)  ! reverse
         ! do i = 1, kmax
-        !     read (21, *) x%nodes(i)
+        !     x%nodes(i) = x%nodes(kmax) - wrk1d(kmax - i + 1, 1)
         ! end do
-        ! close (21)
+        close (21)
     end if
 
     g%periodic = x%periodic
@@ -114,34 +118,42 @@ program VPARTIAL
 
     ! ###################################################################
     ! Define the function and analytic derivatives
-    x_0 = 0.75_wp
-    wk = 1.0_wp
+    x_0 = 0.1_wp
+    wk = 6.0_wp
 
     do i = 1, kmax
-        ! single-mode
-        u(:, i) = 1.0_wp + sin(2.0_wp*pi_wp/g%scale*wk*(g%nodes(i) - x_0*x%scale)) ! + pi_wp/4.0_wp)
-        du1_a(:, i) = (2.0_wp*pi_wp/g%scale*wk) &
-                      *cos(2.0_wp*pi_wp/g%scale*wk*(g%nodes(i) - x_0*x%scale))! + pi_wp/4.0_wp)
-        du2_a(:, i) = -(2.0_wp*pi_wp/g%scale*wk)**2.0_wp &
-                      *sin(2.0_wp*pi_wp/g%scale*wk*(g%nodes(i) - x_0*x%scale))! + pi_wp/4.0_wp)
-        ! ! Gaussian
-        ! u(:, i) = exp(-(g%nodes(i) - x_0*g%scale)**2/(2.0_wp*(g%scale/wk)**2))
-        ! du1_a(:, i) = -(g%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*u(:, i)
-        ! du2_a(:, i) = -(g%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*du1_a(:, i) &
-        !               - 1.0_wp/(g%scale/wk)**2*u(:, i)
+        ! ! single-mode
+        ! u(:, i) = 1.0_wp + sin(2.0_wp*pi_wp/g%scale*wk*(x%nodes(i) - x_0*x%scale)) ! + pi_wp/4.0_wp)
+        ! du1_a(:, i) = (2.0_wp*pi_wp/g%scale*wk) &
+        !               *cos(2.0_wp*pi_wp/g%scale*wk*(x%nodes(i) - x_0*x%scale))! + pi_wp/4.0_wp)
+        ! du2_a(:, i) = -(2.0_wp*pi_wp/g%scale*wk)**2 &
+        !               *sin(2.0_wp*pi_wp/g%scale*wk*(x%nodes(i) - x_0*x%scale))! + pi_wp/4.0_wp)
+        ! Gaussian
+        u(:, i) = exp(-(x%nodes(i) - x_0*g%scale)**2/(2.0_wp*(g%scale/wk)**2))
+        du1_a(:, i) = -(x%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*u(:, i)
+        du2_a(:, i) = -(x%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*du1_a(:, i) &
+                      - 1.0_wp/(g%scale/wk)**2*u(:, i)
         ! ! exponential
-        ! u(:, i) = exp(-g%nodes(i)*wk)
-        ! du1_a(:, i) = -wk*u(:, i)
+        ! ! u(:, i) = exp(-x%nodes(i)*wk)
+        ! ! du1_a(:, i) = -wk*u(:, i)
+        ! ! du2_a(:, i) = wk**2*u(:, i)
+        ! u(:, i) = exp(x%nodes(i)*wk)
+        ! du1_a(:, i) = wk*u(:, i)
+        ! du2_a(:, i) = wk**2*u(:, i)
         ! step
-        ! u(:, i) = max(0.0_wp, (g%nodes(i) - g%nodes(kmax/2))*x_0)
-        ! du1_a(:, i) = (1.0_wp + sign(1.0_wp, g%nodes(i) - g%nodes(kmax/2)))*0.5_wp*x_0
+        ! u(:, i) = max(0.0_wp, (x%nodes(i) - x%nodes(kmax/2))*x_0)
+        ! du1_a(:, i) = (1.0_wp + sign(1.0_wp, x%nodes(i) - x%nodes(kmax/2)))*0.5_wp*x_0
         ! ! tanh
-        ! u(:, i) = x_0*log(1.0_wp + exp((g%nodes(i) - g%nodes(kmax/2))/x_0))
-        ! du1_a(:, i) = 0.5_wp*(1.0_wp + tanh(0.5_wp*(g%nodes(i) - g%nodes(kmax/2))/x_0))
+        ! u(:, i) = x_0*log(1.0_wp + exp((x%nodes(i) - x%nodes(kmax/2))/x_0))
+        ! du1_a(:, i) = 0.5_wp*(1.0_wp + tanh(0.5_wp*(x%nodes(i) - x%nodes(kmax/2))/x_0))
         ! ! Polynomial
+        ! ! dummy = 5.0_wp
+        ! ! u(:, i) = ((g%scale - x%nodes(i))*wk)**dummy
+        ! ! du1_a(:, i) = -dummy*wk*((g%scale - x%nodes(i))*wk)**(dummy - 1.0_wp)
         ! dummy = 4.0_wp
-        ! u(:, i) = ((g%scale - g%nodes(i))/wk)**dummy
-        ! du1_a(:, i) = -dummy*((g%scale - g%nodes(i))/wk)**(dummy - 1.0_wp)
+        ! u(:, i) = 1.0_wp + (x%nodes(i)*wk)**dummy
+        ! du1_a(:, i) = dummy*wk*(x%nodes(i)*wk)**(dummy - 1.0_wp)
+        ! du2_a(:, i) = dummy*(dummy - 1.0_wp)*wk**2*(x%nodes(i)*wk)**(dummy - 2.0_wp)
         ! ! zero
         ! u(:, i) = 0.0_wp
         ! du1_a(:, i) = 0.0_wp
@@ -162,9 +174,12 @@ program VPARTIAL
             g%der1%mode_fdm = fdm_cases(im)
             call FDM_CreatePlan(x, g)
 
-            call FDM_Der1_Solve(nlines, BCS_NONE, g%der1, g%der1%lu, u, du1_n, wrk2d)
+            call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, u, du1_n, wrk2d)
 
-            call check(u, du1_a, du1_n, 'partial.dat')
+            write (str, *) im
+            call check(u, du1_a, du1_n, 'partial-'//trim(adjustl(str))//'.dat')
+            call write_scheme(g%der1%lhs(:, 1:g%der1%nb_diag(1)), &
+                              g%der1%rhs(:, 1:g%der1%nb_diag(2)), 'fdm1-'//trim(adjustl(str)))
 
         end do
 
@@ -181,109 +196,20 @@ program VPARTIAL
             g%der2%mode_fdm = fdm_cases(im)
             call FDM_CreatePlan(x, g)
 
-            call FDM_Der1_Solve(nlines, BCS_NONE, g%der1, g%der1%lu, u, du1_n, wrk2d)  ! I need du1_n in Jacobian formulation
+            call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, u, du1_n, wrk2d)  ! I need du1_n in Jacobian formulation
             call FDM_Der2_Solve(nlines, g%der2, g%der2%lu, u, du2_n1, du1_n, wrk2d)
 
-            call check(u, du2_a, du2_n1, 'partial.dat')
-
-        end do
-
-        ! ###################################################################
-        !   Testing the reduction routines
-        ! ###################################################################
-    case (3)
-        bcs_cases(1:3) = [BCS_MIN, BCS_MAX, BCS_BOTH]
-
-        do ip = 1, 3
-            ibc = bcs_cases(ip)
-            print *, new_line('a'), 'Bcs case ', ibc
-
-            nmin = 1
-            nmax = g%size
-            if (any([BCS_MIN, BCS_BOTH] == ibc)) then
-                nmin = nmin + 1
-            end if
-            if (any([BCS_MAX, BCS_BOTH] == ibc)) then
-                nmax = nmax - 1
-            end if
-            nsize = nmax - nmin + 1
-
-            do im = 1, 3
-                g%der1%mode_fdm = fdm_cases(im)
-                print *, fdm_names(im)
-
-                select case (g%der1%mode_fdm)
-                case (FDM_COM4_JACOBIAN)
-                    call FDM_C1N4_Jacobian(kmax, g%jac, g%der1%lu, g%der1%rhs, g%der1%nb_diag, coef, g%periodic)
-
-                case (FDM_COM6_JACOBIAN)
-                    call FDM_C1N6_Jacobian(kmax, g%jac, g%der1%lu, g%der1%rhs, g%der1%nb_diag, coef, g%periodic)
-
-                case (FDM_COM6_JACOBIAN_PENTA)
-                    call FDM_C1N6_Jacobian_Penta(kmax, g%jac, g%der1%lu, g%der1%rhs, g%der1%nb_diag, coef, g%periodic)
-
-                end select
-                ndl = g%der1%nb_diag(1)
-                idl = g%der1%nb_diag(1)/2 + 1
-                ndr = g%der1%nb_diag(2)
-                idr = g%der1%nb_diag(2)/2 + 1
-
-                ! g%rhsr_b = 0.0_wp
-                ! g%rhsr_t = 0.0_wp
-                call FDM_Bcs_Reduce(ibc, g%der1%lu(:, 1:ndl), g%der1%rhs(:, 1:ndr), rhsr_b, rhsr_t)
-
-                select case (g%der1%nb_diag(1))
-                case (3)
-                    call Thomas3_LU(nsize, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3))
-                case (5)
-             call Thomas5_LU(nsize, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3), g%der1%lu(nmin:nmax, 4), g%der1%lu(nmin:nmax, 5))
-                end select
-
-                du1_n(:, 1) = u(:, 1)           ! boundary condition
-                du1_n(:, kmax) = u(:, kmax)
-                select case (g%der1%nb_diag(2))
-                case (3)
-                    call MatMul_3d_antisym(g%der1%rhs(:, 1:3), u, du1_n, &
-                                           ibc, rhs_b=rhsr_b(:, 1:), bcs_b=wrk2d(:, 1), rhs_t=rhsr_t(1:, :), bcs_t=wrk2d(:, 2))
-                case (5)
-                    call MatMul_5d_antisym(g%der1%rhs(:, 1:5), u, du1_n, &
-                                           ibc, rhs_b=rhsr_b(:, 1:), bcs_b=wrk2d(:, 1), rhs_t=rhsr_t(1:, :), bcs_t=wrk2d(:, 2))
-                case (7)
-                    call MatMul_7d_antisym(g%der1%rhs(:, 1:7), u, du1_n, &
-                                           ibc, rhs_b=rhsr_b(:, 1:), bcs_b=wrk2d(:, 1), rhs_t=rhsr_t(1:, :), bcs_t=wrk2d(:, 2))
-                end select
-
-                select case (g%der1%nb_diag(1))
-                case (3)
-                    call Thomas3_Solve(nsize, nlines, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3), du1_n(:, nmin:nmax))
-                case (5)
-                    call Thomas5_Solve(nsize, nlines, g%der1%lu(nmin:nmax, 1), g%der1%lu(nmin:nmax, 2), g%der1%lu(nmin:nmax, 3), g%der1%lu(nmin:nmax, 4), g%der1%lu(nmin:nmax, 5), du1_n(:, nmin:nmax))
-                end select
-
-                if (any([BCS_MIN, BCS_BOTH] == ibc)) then
-                    du1_n(:, 1) = wrk2d(:, 1)
-                    do ic = 1, idl - 1
-                        du1_n(:, 1) = du1_n(:, 1) + g%der1%lu(1, idl + ic)*du1_n(:, 1 + ic)
-                    end do
-                    du1_n(:, 1) = du1_n(:, 1) + g%der1%lu(1, 1)*du1_n(:, 1 + ic)
-                end if
-                if (any([BCS_MAX, BCS_BOTH] == ibc)) then
-                    du1_n(:, kmax) = wrk2d(:, 2)
-                    do ic = 1, idl - 1
-                        du1_n(:, kmax) = du1_n(:, kmax) + g%der1%lu(kmax, idl - ic)*du1_n(:, kmax - ic)
-                    end do
-                    du1_n(:, kmax) = du1_n(:, kmax) + g%der1%lu(kmax, ndl)*du1_n(:, kmax - ic)
-                end if
-                call check(u, du1_a, du1_n, 'partial.dat')
-
-            end do
+            write (str, *) im
+            call check(u, du2_a, du2_n1, 'partial-'//trim(adjustl(str))//'.dat')
+            call write_scheme(g%der2%lhs(:, 1:g%der2%nb_diag(1)), &
+                              g%der2%rhs(:, 1:g%der2%nb_diag(2)), 'fdm2-'//trim(adjustl(str)))
 
         end do
 
         ! ###################################################################
         ! Boundary conditions
         ! ###################################################################
-    case (4)
+    case (3)
         bcs_cases(1:4) = [BCS_DD, BCS_ND, BCS_DN, BCS_NN]
 
 #define bcs_hb(i) wrk2d(i,1)
@@ -321,37 +247,45 @@ program VPARTIAL
 
                 select case (g%der1%nb_diag(1))
                 case (3)
-                    call Thomas3_Solve(nsize, nlines, &
-                                       g%der1%lu(nmin:nmax, ip + 1), &
-                                       g%der1%lu(nmin:nmax, ip + 2), &
-                                       g%der1%lu(nmin:nmax, ip + 3), &
-                                       du1_n(:, nmin:nmax))
+                    call Thomas3_SolveLU(nsize, nlines, &
+                                         g%der1%lu(nmin:nmax, ip + 1), &
+                                         g%der1%lu(nmin:nmax, ip + 2), &
+                                         g%der1%lu(nmin:nmax, ip + 3), &
+                                         du1_n(:, nmin:nmax))
                 case (5)
-                    call Thomas5_Solve(nsize, nlines, &
-                                       g%der1%lu(nmin:nmax, ip + 1), &
-                                       g%der1%lu(nmin:nmax, ip + 2), &
-                                       g%der1%lu(nmin:nmax, ip + 3), &
-                                       g%der1%lu(nmin:nmax, ip + 4), &
-                                       g%der1%lu(nmin:nmax, ip + 5), &
-                                       du1_n(:, nmin:nmax))
+                    call Thomas5_SolveLU(nsize, nlines, &
+                                         g%der1%lu(nmin:nmax, ip + 1), &
+                                         g%der1%lu(nmin:nmax, ip + 2), &
+                                         g%der1%lu(nmin:nmax, ip + 3), &
+                                         g%der1%lu(nmin:nmax, ip + 4), &
+                                         g%der1%lu(nmin:nmax, ip + 5), &
+                                         du1_n(:, nmin:nmax))
                 end select
 
-                call check(u(:, nmin:nmax), du1_a(:, nmin:nmax), du1_n(:, nmin:nmax), 'partial.dat')
+                write (str, *) im
+                call check(u(:, nmin:nmax), du1_a(:, nmin:nmax), du1_n(:, nmin:nmax), 'partial-'//trim(adjustl(str))//'.dat')
 
                 idl = g%der1%nb_diag(1)/2 + 1
+                idr = g%der1%nb_diag(2)/2 + 1
                 if (any([BCS_ND, BCS_NN] == ibc)) then
                     do ic = 1, idl - 1
                         bcs_hb(1:nlines) = bcs_hb(1:nlines) + g%der1%lu(1, ip + idl + ic)*du1_n(:, 1 + ic)
                     end do
+                    bcs_hb(1:nlines) = bcs_hb(1:nlines)/g%der1%rhs(1, idr)
                     print *, u(:, 1)
                     print *, bcs_hb(1:nlines)
+                    write (*, *) 'Boundary Relative Error Linf-norm ...:', &
+                        maxval(abs(bcs_hb(1:nlines) - u(1:nlines, 1)))/maxval(abs(u(1:nlines, 1)))
                 end if
                 if (any([BCS_DN, BCS_NN] == ibc)) then
                     do ic = 1, idl - 1
                         bcs_ht(1:nlines) = bcs_ht(1:nlines) + g%der1%lu(kmax, ip + idl - ic)*du1_n(:, kmax - ic)
                     end do
+                    bcs_ht(1:nlines) = bcs_ht(1:nlines)/g%der1%rhs(kmax, idr)
                     print *, u(:, kmax)
                     print *, bcs_ht(1:nlines)
+                    write (*, *) 'Boundary Relative Error Linf-norm ...:', &
+                        maxval(abs(bcs_ht(1:nlines) - u(1:nlines, kmax)))/maxval(abs(u(1:nlines, kmax)))
                 end if
 
             end do
@@ -364,7 +298,7 @@ program VPARTIAL
         ! ###################################################################
         ! Decomposition of Neumann boundary condition
         ! ###################################################################
-    case (5)
+    case (4)
         bcs_cases(1:3) = [BCS_MIN, BCS_MAX, BCS_BOTH]
 
 #define bcs_hb(i) wrk2d(i,1)
@@ -395,7 +329,7 @@ program VPARTIAL
                     do i = 2, nmax
                         bcs_hb(1:nlines) = bcs_hb(1:nlines) + c_b(i)*u(:, i)
                     end do
-                    write (*, *) 'Relative Error Linf-norm ...:', &
+                    write (*, *) 'Boundary Relative Error Linf-norm ...:', &
                         maxval(abs(bcs_hb(1:nlines) - u(1:nlines, 1)))/maxval(abs(u(1:nlines, 1)))
                 end if
                 if (any([BCS_DN, BCS_NN] == ibc)) then
@@ -403,7 +337,7 @@ program VPARTIAL
                     do i = g%size - 1, g%size - nmax + 1, -1
                         bcs_ht(1:nlines) = bcs_ht(1:nlines) + c_t(i)*u(:, i)
                     end do
-                    write (*, *) 'Relative Error Linf-norm ...:', &
+                    write (*, *) 'Boundary Relative Error Linf-norm ...:', &
                         maxval(abs(bcs_ht(1:nlines) - u(1:nlines, kmax)))/maxval(abs(u(1:nlines, kmax)))
                 end if
 
@@ -450,6 +384,110 @@ program VPARTIAL
 #undef bcs_hb
 #undef bcs_ht
 
+        ! ###################################################################
+        !   Testing the reduction routines
+        ! ###################################################################
+    case (5)
+        bcs_cases(1:3) = [BCS_MIN, BCS_MAX, BCS_BOTH]
+
+#define bcs_hb(i) wrk2d(i,1)
+#define bcs_ht(i) wrk2d(i,2)
+
+        do im = 1, size(fdm_cases)
+            g%der1%mode_fdm = fdm_cases(im)
+            print *, new_line('a'), fdm_names(im)
+
+            g%der1%mode_fdm = fdm_cases(im)
+            call FDM_CreatePlan(x, g)
+
+            do ib = 1, 3
+                ibc = bcs_cases(ib)
+                print *, new_line('a'), 'Bcs case ', ibc
+
+                nmin = 1; nmax = g%size
+                if (any([BCS_MIN, BCS_BOTH] == ibc)) then
+                    du1_n(:, 1) = u(:, 1)           ! boundary condition
+                    nmin = nmin + 1
+                end if
+                if (any([BCS_MAX, BCS_BOTH] == ibc)) then
+                    du1_n(:, kmax) = u(:, kmax)
+                    nmax = nmax - 1
+                end if
+                nsize = nmax - nmin + 1
+
+                ndl = g%der1%nb_diag(1)
+                idl = g%der1%nb_diag(1)/2 + 1
+                ndr = g%der1%nb_diag(2)
+                idr = g%der1%nb_diag(2)/2 + 1
+
+                g%der1%rhs_b = 0.0_wp
+                g%der1%rhs_t = 0.0_wp
+                g%der1%lu(:, 1:ndl) = g%der1%lhs(:, 1:ndl)
+                call FDM_Bcs_Reduce(ibc, g%der1%lu(:, 1:ndl), g%der1%rhs(:, 1:ndr), g%der1%rhs_b, g%der1%rhs_t)
+
+                select case (g%der1%nb_diag(1))
+                case (3)
+                    call Thomas3_FactorLU(nsize, &
+                                          g%der1%lu(nmin:nmax, 1), &
+                                          g%der1%lu(nmin:nmax, 2), &
+                                          g%der1%lu(nmin:nmax, 3))
+                case (5)
+                    call Thomas5_FactorLU(nsize, &
+                                          g%der1%lu(nmin:nmax, 1), &
+                                          g%der1%lu(nmin:nmax, 2), &
+                                          g%der1%lu(nmin:nmax, 3), &
+                                          g%der1%lu(nmin:nmax, 4), &
+                                          g%der1%lu(nmin:nmax, 5))
+                end select
+
+                ! -------------------------------------------------------------------
+                ! Calculate RHS in system of equations A u' = B u
+                call g%der1%matmul(g%der1%rhs, u, du1_n, ibc, g%der1%rhs_b, g%der1%rhs_t, bcs_hb(1:nlines), bcs_ht(1:nlines))
+
+                select case (g%der1%nb_diag(1))
+                case (3)
+                    call Thomas3_SolveLU(nsize, nlines, &
+                                         g%der1%lu(nmin:nmax, 1), &
+                                         g%der1%lu(nmin:nmax, 2), &
+                                         g%der1%lu(nmin:nmax, 3), du1_n(:, nmin:nmax))
+                case (5)
+                    call Thomas5_SolveLU(nsize, nlines, &
+                                         g%der1%lu(nmin:nmax, 1), &
+                                         g%der1%lu(nmin:nmax, 2), &
+                                         g%der1%lu(nmin:nmax, 3), &
+                                         g%der1%lu(nmin:nmax, 4), &
+                                         g%der1%lu(nmin:nmax, 5), du1_n(:, nmin:nmax))
+                end select
+
+                if (any([BCS_MIN, BCS_BOTH] == ibc)) then
+                    du1_n(:, 1) = bcs_hb(1:nlines)
+                    do ic = 1, idl - 1
+                        du1_n(:, 1) = du1_n(:, 1) + g%der1%lu(1, idl + ic)*du1_n(:, 1 + ic)
+                    end do
+                    du1_n(:, 1) = du1_n(:, 1) + g%der1%lu(1, 1)*du1_n(:, 1 + ic)
+                    du1_n(:, 1) = du1_n(:, 1)/g%der1%lu(1, idl)
+                end if
+                if (any([BCS_MAX, BCS_BOTH] == ibc)) then
+                    du1_n(:, kmax) = bcs_ht(1:nlines)
+                    do ic = 1, idl - 1
+                        du1_n(:, kmax) = du1_n(:, kmax) + g%der1%lu(kmax, idl - ic)*du1_n(:, kmax - ic)
+                    end do
+                    du1_n(:, kmax) = du1_n(:, kmax) + g%der1%lu(kmax, ndl)*du1_n(:, kmax - ic)
+                    du1_n(:, kmax) = du1_n(:, kmax)/g%der1%lu(kmax, idl)
+                end if
+
+                write (str, *) im
+                call check(u, du1_a, du1_n, 'partial-'//trim(adjustl(str))//'.dat')
+                ! call write_scheme(g%der1%lhs(:, 1:g%der1%nb_diag(1)), &
+                !                   g%der1%rhs(:, 1:g%der1%nb_diag(2)), 'fdm1-'//trim(adjustl(str)))
+
+            end do
+
+        end do
+
+#undef bcs_hb
+#undef bcs_ht
+
     end select
 
     stop
@@ -471,10 +509,10 @@ contains
         do i = 1, size(u, 2)
             do l = 1, size(u, 1)
                 if (present(name)) then
-                    write (20, 1000) g%nodes(i), u(l, i), du_a(l, i), du_n(l, i), du_a(l, i) - du_n(l, i)
+                    write (20, 1000) x%nodes(i), u(l, i), du_a(l, i), du_n(l, i), du_a(l, i) - du_n(l, i)
                 end if
                 dummy = dummy + du_a(l, i)*du_a(l, i)
-                error_l2 = error_l2 + (du_a(l, i) - du_n(l, i))**2.0_wp
+                error_l2 = error_l2 + (du_a(l, i) - du_n(l, i))**2
                 error_max = max(error_max, abs(du_a(l, i) - du_n(l, i)))
             end do
         end do
@@ -482,13 +520,37 @@ contains
             close (20)
         end if
 
-        write (*, *) 'Solution L2-norm ...........:', sqrt(g%jac(1, 1)*dummy)/real(nlines, wp)
+        write (*, *) 'Solution L2-norm ...........:', sqrt(dummy)/real(size(u), wp)
         if (dummy == 0.0_wp) return
-        write (*, *) 'Relative Error L2-norm .....:', sqrt(g%jac(1, 1)*error_l2)/maxval(abs(du1_a))
+        write (*, *) 'Relative Error L2-norm .....:', sqrt(error_l2)/sqrt(dummy)
         write (*, *) 'Relative Error Linf-norm ...:', error_max/maxval(abs(du1_a))
 
         return
 1000    format(5(1x, e12.5))
     end subroutine check
+
+    subroutine write_scheme(lhs, rhs, name)
+        real(wp), intent(in) :: lhs(:, :)
+        real(wp), intent(in) :: rhs(:, :)
+        character(len=*), intent(in) :: name
+
+        integer nx, n
+
+        nx = size(lhs, 1)
+
+        open (21, file=trim(adjustl(name))//'-lhs.dat')
+        do n = 1, nx
+            write (21, *) lhs(n, :)
+        end do
+        close (21)
+
+        open (22, file=trim(adjustl(name))//'-rhs.dat')
+        do n = 1, nx
+            write (22, *) rhs(n, :)
+        end do
+        close (23)
+
+        return
+    end subroutine write_scheme
 
 end program VPARTIAL

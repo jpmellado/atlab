@@ -91,7 +91,7 @@ contains
         integer, parameter :: TYPE_FACTORIZE = 1
         integer, parameter :: TYPE_DIRECT = 2
 
-        integer(wi) :: ndl, ndr, nd 
+        integer(wi) :: ndl, ndr, nd !, idl, idr
         character(len=32) bakfile, block
         character(len=512) sRes
 
@@ -105,8 +105,8 @@ contains
 
         imode_elliptic = TYPE_FACTORIZE                 ! default is the finite-difference method used for the derivatives
         fdm_loc%der1%mode_fdm = g(3)%der1%mode_fdm      ! to impose zero divergence down to round-off error in the interior points
-        !                                                 If factorize type, it needs to be equal to the scheme used to calculate 
-        !                                                 derivatives and thus Neumann boundary conditions, 
+        !                                                 If factorize type, it needs to be equal to the scheme used to calculate
+        !                                                 derivatives and thus Neumann boundary conditions,
         !                                                 because of the compatibility constraint in pressure-Poisson equation
         ! fdm_loc%der2%mode_fdm = FDM_NONE
         fdm_loc%der2%mode_fdm = g(3)%der2%mode_fdm      ! I still need it in FDM_CreatePlan
@@ -144,8 +144,8 @@ contains
             ndr = fdm_loc%der1%nb_diag(2)
             nd = ndl
             allocate (fdm_int1(2, isize_line, jmax))
-            call TLab_Allocate_Real(__FILE__, rhs_b, [g(3)%size, nd], 'rhs_b')
-            call TLab_Allocate_Real(__FILE__, rhs_t, [g(3)%size, nd], 'rhs_t')
+            call TLab_Allocate_Real(__FILE__, rhs_b, [z%size, nd], 'rhs_b')
+            call TLab_Allocate_Real(__FILE__, rhs_t, [z%size, nd], 'rhs_t')
 
             ! if (stagger_on) then
             !     i_sing = [1, 1]                 ! only one singular mode + different modified wavenumbers
@@ -163,7 +163,7 @@ contains
             ndr = fdm_loc%der2%nb_diag(2)
             nd = ndl
             allocate (fdm_int2(isize_line, jmax))
-            call TLab_Allocate_Real(__FILE__, rhs_d, [g(3)%size, nd], 'rhs_d')
+            call TLab_Allocate_Real(__FILE__, rhs_d, [z%size, nd], 'rhs_d')
 
             i_sing = [1, 1]                     ! 2nd order FDMs are non-zero at Nyquist
             j_sing = [1, 1]
@@ -203,16 +203,30 @@ contains
                 case (TYPE_FACTORIZE)
                     ! Define \lambda based on modified wavenumbers (real)
                     if (y%size > 1) then
-                        lambda(i, j) = g(1)%der1%mwn(iglobal)**2.0 + g(2)%der1%mwn(jglobal)**2.0
+                        lambda(i, j) = g(1)%der1%mwn(iglobal)**2 + g(2)%der1%mwn(jglobal)**2
                     else
-                        lambda(i, j) = g(1)%der1%mwn(iglobal)**2.0
+                        lambda(i, j) = g(1)%der1%mwn(iglobal)**2
                     end if
 
                     call FDM_Int1_Initialize(fdm_loc%der1, &
                                              sqrt(lambda(i, j)), BCS_MIN, fdm_int1(BCS_MIN, i, j))
+                    ! ! multiply by the FFT normalization
+                    ! idl = ndl/2 + 1
+                    ! idr = ndr/2 + 1
+                    ! fdm_int1(BCS_MIN, i, j)%rhs(:, :) = fdm_int1(BCS_MIN, i, j)%rhs(:, :)*norm
+                    ! fdm_int1(BCS_MIN, i, j)%rhs(1, idl) = fdm_int1(BCS_MIN, i, j)%rhs(1, idl)/norm  ! not this one
+                    ! fdm_int1(BCS_MIN, i, j)%rhs_b(:, :) = fdm_int1(BCS_MIN, i, j)%rhs_b(:, :)*norm
+                    ! fdm_int1(BCS_MIN, i, j)%rhs_t(:, :) = fdm_int1(BCS_MIN, i, j)%rhs_t(:, :)*norm
+                    ! fdm_int1(BCS_MIN, i, j)%lhs(1, idr) = fdm_int1(BCS_MIN, i, j)%lhs(1, idr)*norm
 
                     call FDM_Int1_Initialize(fdm_loc%der1, &
                                              -sqrt(lambda(i, j)), BCS_MAX, fdm_int1(BCS_MAX, i, j))
+                    ! ! multiply by the FFT normalization
+                    ! fdm_int1(BCS_MAX, i, j)%rhs(:, :) = fdm_int1(BCS_MAX, i, j)%rhs(:, :)*norm
+                    ! fdm_int1(BCS_MAX, i, j)%rhs(z%size, idl) = fdm_int1(BCS_MAX, i, j)%rhs(z%size, idl)*norm ! not this one
+                    ! fdm_int1(BCS_MAX, i, j)%rhs_b(:, :) = fdm_int1(BCS_MAX, i, j)%rhs_b(:, :)*norm
+                    ! fdm_int1(BCS_MAX, i, j)%rhs_t(:, :) = fdm_int1(BCS_MAX, i, j)%rhs_t(:, :)*norm
+                    ! fdm_int1(BCS_MAX, i, j)%lhs(z%size, idr) = fdm_int1(BCS_MAX, i, j)%lhs(z%size, idr)*norm 
 
                     if (any(i_sing == i) .and. any(j_sing == j)) then
                     else                                        ! free memory that is independent of lambda
@@ -308,7 +322,8 @@ contains
                 select case (ibc)
                 case (BCS_NN)       ! Neumann & Neumann boundary conditions
                     if (any(i_sing == i) .and. any(j_sing == j)) then
-                        call OPR_ODE2_Factorize_NN_Sing(2, fdm_int1(:, i, j), u(:, i, j), f(:, i, j), bcs, v(:, i, j), wrk1d, wrk2d)
+                        call OPR_ODE2_Factorize_NN_Sing(2, fdm_int1(:, i, j), &
+                                                        u(:, i, j), f(:, i, j), bcs, v(:, i, j), wrk1d, wrk2d)
                     else
                         call OPR_ODE2_Factorize_NN(2, fdm_int1(:, i, j), rhs_b, rhs_t, &
                                                    u(:, i, j), f(:, i, j), bcs, v(:, i, j), wrk1d, wrk2d)
@@ -316,7 +331,8 @@ contains
 
                 case (BCS_DD)       ! Dirichlet & Dirichlet boundary conditions
                     if (any(i_sing == i) .and. any(j_sing == j)) then
-                        call OPR_ODE2_Factorize_DD_Sing(2, fdm_int1(:, i, j), u(:, i, j), f(:, i, j), bcs, v(:, i, j), wrk1d, wrk2d)
+                        call OPR_ODE2_Factorize_DD_Sing(2, fdm_int1(:, i, j), &
+                                                        u(:, i, j), f(:, i, j), bcs, v(:, i, j), wrk1d, wrk2d)
                     else
                         call OPR_ODE2_Factorize_DD(2, fdm_int1(:, i, j), rhs_b, rhs_t, &
                                                    u(:, i, j), f(:, i, j), bcs, v(:, i, j), wrk1d, wrk2d)

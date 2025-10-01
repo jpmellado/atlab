@@ -193,15 +193,15 @@ contains
 
         select case (type)
         case (OPR_P2)
-            if (g(1)%der2%need_1der) call FDM_Der1_Solve(ny*nz, ibc_loc, g(1)%der1, g(1)%der1%lu, result, tmp1, wrk2d)
+            if (g(1)%der2%need_1der) call FDM_Der1_Solve(ny*nz, g(1)%der1, g(1)%der1%lu, result, tmp1, wrk2d, ibc_loc)
             call FDM_Der2_Solve(ny*nz, g(1)%der2, g(1)%der2%lu, result, wrk3d, tmp1, wrk2d)
 
         case (OPR_P2_P1)
-            call FDM_Der1_Solve(ny*nz, ibc_loc, g(1)%der1, g(1)%der1%lu, result, wrk3d, wrk2d)
+            call FDM_Der1_Solve(ny*nz, g(1)%der1, g(1)%der1%lu, result, wrk3d, wrk2d, ibc_loc)
             call FDM_Der2_Solve(ny*nz, g(1)%der2, g(1)%der2%lu, result, tmp1, wrk3d, wrk2d)
 
         case (OPR_P1)
-            call FDM_Der1_Solve(ny*nz, ibc_loc, g(1)%der1, g(1)%der1%lu, result, wrk3d, wrk2d)
+            call FDM_Der1_Solve(ny*nz, g(1)%der1, g(1)%der1%lu, result, wrk3d, wrk2d, ibc_loc)
 
         end select
 
@@ -265,15 +265,15 @@ contains
 
         select case (type)
         case (OPR_P2)
-            if (g(1)%der2%need_1der) call FDM_Der1_Solve(nlines, ibc_loc, g(1)%der1, g(1)%der1%lu, wrk3d, tmp1, wrk2d)
+            if (g(1)%der2%need_1der) call FDM_Der1_Solve(nlines, g(1)%der1, g(1)%der1%lu, wrk3d, tmp1, wrk2d, ibc_loc)
             call FDM_Der2_Solve(nlines, g(1)%der2, g(1)%der2%lu, wrk3d, result, tmp1, wrk2d)
 
         case (OPR_P2_P1)
-            call FDM_Der1_Solve(nlines, ibc_loc, g(1)%der1, g(1)%der1%lu, wrk3d, tmp1, wrk2d)
+            call FDM_Der1_Solve(nlines, g(1)%der1, g(1)%der1%lu, wrk3d, tmp1, wrk2d, ibc_loc)
             call FDM_Der2_Solve(nlines, g(1)%der2, g(1)%der2%lu, wrk3d, result, tmp1, wrk2d)
 
         case (OPR_P1)
-            call FDM_Der1_Solve(nlines, ibc_loc, g(1)%der1, g(1)%der1%lu, wrk3d, result, wrk2d)
+            call FDM_Der1_Solve(nlines, g(1)%der1, g(1)%der1%lu, wrk3d, result, wrk2d, ibc_loc)
 
         end select
 
@@ -414,15 +414,15 @@ contains
 
         select case (type)
         case (OPR_P2)
-            if (g(2)%der2%need_1der) call FDM_Der1_Solve(nlines, ibc_loc, g(2)%der1, g(2)%der1%lu, result, tmp1, wrk2d)
+            if (g(2)%der2%need_1der) call FDM_Der1_Solve(nlines, g(2)%der1, g(2)%der1%lu, result, tmp1, wrk2d, ibc_loc)
             call FDM_Der2_Solve(nlines, g(2)%der2, g(2)%der2%lu, result, wrk3d, tmp1, wrk2d)
 
         case (OPR_P2_P1)
-            call FDM_Der1_Solve(nlines, ibc_loc, g(2)%der1, g(2)%der1%lu, result, wrk3d, wrk2d)
+            call FDM_Der1_Solve(nlines, g(2)%der1, g(2)%der1%lu, result, wrk3d, wrk2d, ibc_loc)
             call FDM_Der2_Solve(nlines, g(2)%der2, g(2)%der2%lu, result, tmp1, wrk3d, wrk2d)
 
         case (OPR_P1)
-            call FDM_Der1_Solve(nlines, ibc_loc, g(2)%der1, g(2)%der1%lu, result, wrk3d, wrk2d)
+            call FDM_Der1_Solve(nlines, g(2)%der1, g(2)%der1%lu, result, wrk3d, wrk2d, ibc_loc)
 
         end select
 
@@ -486,15 +486,15 @@ contains
 
         select case (type)
         case (OPR_P2)
-            if (g(2)%der2%need_1der) call FDM_Der1_Solve(nlines, ibc_loc, g(2)%der1, g(2)%der1%lu, wrk3d, tmp1, wrk2d)
+            if (g(2)%der2%need_1der) call FDM_Der1_Solve(nlines, g(2)%der1, g(2)%der1%lu, wrk3d, tmp1, wrk2d, ibc_loc)
             call FDM_Der2_Solve(nlines, g(2)%der2, g(2)%der2%lu, wrk3d, result, tmp1, wrk2d)
 
         case (OPR_P2_P1)
-            call FDM_Der1_Solve(nlines, ibc_loc, g(2)%der1, g(2)%der1%lu, wrk3d, tmp1, wrk2d)
+            call FDM_Der1_Solve(nlines, g(2)%der1, g(2)%der1%lu, wrk3d, tmp1, wrk2d, ibc_loc)
             call FDM_Der2_Solve(nlines, g(2)%der2, g(2)%der2%lu, wrk3d, result, tmp1, wrk2d)
 
         case (OPR_P1)
-            call FDM_Der1_Solve(nlines, ibc_loc, g(2)%der1, g(2)%der1%lu, wrk3d, result, wrk2d)
+            call FDM_Der1_Solve(nlines, g(2)%der1, g(2)%der1%lu, wrk3d, result, wrk2d, ibc_loc)
 
         end select
 
@@ -628,15 +628,15 @@ contains
 
         select case (type)
         case (OPR_P2)
-            if (g(3)%der2%need_1der) call FDM_Der1_Solve(nx*ny, ibc_loc, g(3)%der1, g(3)%der1%lu, u, wrk3d, wrk2d)
+            if (g(3)%der2%need_1der) call FDM_Der1_Solve(nx*ny, g(3)%der1, g(3)%der1%lu, u, wrk3d, wrk2d, ibc_loc)
             call FDM_Der2_Solve(nx*ny, g(3)%der2, g(3)%der2%lu, u, result, wrk3d, wrk2d)
 
         case (OPR_P2_P1)
-            call FDM_Der1_Solve(nx*ny, ibc_loc, g(3)%der1, g(3)%der1%lu, u, tmp1, wrk2d)
+            call FDM_Der1_Solve(nx*ny, g(3)%der1, g(3)%der1%lu, u, tmp1, wrk2d, ibc_loc)
             call FDM_Der2_Solve(nx*ny, g(3)%der2, g(3)%der2%lu, u, result, tmp1, wrk2d)
 
         case (OPR_P1)
-            call FDM_Der1_Solve(nx*ny, ibc_loc, g(3)%der1, g(3)%der1%lu, u, result, wrk2d)
+            call FDM_Der1_Solve(nx*ny, g(3)%der1, g(3)%der1%lu, u, result, wrk2d, ibc_loc)
 
         end select
 

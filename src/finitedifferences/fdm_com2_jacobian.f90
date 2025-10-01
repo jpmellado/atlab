@@ -155,7 +155,7 @@ contains
         ! #######################################################################
         ! Interior points according to to JCP, Lamballais et al. 2011, JCP 230:3270-3275, Eqs. 1,3, 6th order
         ! One more diagonal in rhs to better match the transfer function (hyper- instead of hypodiffusive)
-        kc = pi_wp**2.0_wp
+        kc = pi_wp**2
         coef(1:2) = [(272.0_wp - 45.0_wp*kc)/(416.0_wp - 90.0_wp*kc), &
                      0.0_wp]                                                        ! a_1, a_2
         coef(3:5) = [(48.0_wp - 135.0_wp*kc)/(1664.0_wp - 360.0_wp*kc), &

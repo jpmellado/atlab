@@ -8,11 +8,11 @@ import sys
 # etype = ">" # big-endian
 etype = "<" # little-endian
 
-dtype = "d" # floating-point number
-sizeofdata = 8 # in bytes
+# dtype = "d" # floating-point number
+# sizeofdata = 8 # in bytes
 
-# dtype = "f" # floating-point number
-# sizeofdata = 4 # in bytes
+dtype = "f" # floating-point number
+sizeofdata = 4 # in bytes
 
 # dtype = 'B' # unsigned character, for gate files
 # sizeofdata = 1 # in bytes

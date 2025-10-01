@@ -759,7 +759,7 @@ contains
             Rv_ov_Rd = Rv/Rd
             lapse = (1.0_wp + qv_ov_qd*(Lv0 - T*Cvl)*one_ov_Rd/T) &
                     /(Cd + s(:, 2)*Cdl - qv_ov_qd*(1.0 - s(:, 2))*Cvl &
-                      + qv_ov_qd*(1.0_wp - s(:, 2))*(1.0_wp + qv_ov_qd*Rv_ov_Rd)*(Lv0 - T*Cvl)**2.0_wp*one_ov_Rv/(T*T)) &
+                      + qv_ov_qd*(1.0_wp - s(:, 2))*(1.0_wp + qv_ov_qd*Rv_ov_Rd)*(Lv0 - T*Cvl)**2*one_ov_Rv/(T*T)) &
                     *GRATIO*scaleheightinv
 
 #undef psat

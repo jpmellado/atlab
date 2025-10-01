@@ -1,9 +1,9 @@
 #include "tlab_error.h"
 
 module FDM_Derivative
-    use TLab_Constants, only: wp, wi, pi_wp, roundoff_wp
-    use TLab_Constants, only: lfile
-    use TLab_Constants, only: BCS_DD, BCS_ND, BCS_DN, BCS_NN, BCS_NONE, BCS_PERIODIC
+    use TLab_Constants, only: wp, wi, pi_wp
+    use TLab_Constants, only: lfile, efile
+    use TLab_Constants, only: BCS_DD, BCS_ND, BCS_DN, BCS_NN, BCS_NONE, BCS_PERIODIC, BCS_MIN, BCS_MAX
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
     use Thomas3
     use Thomas5
@@ -27,14 +27,19 @@ module FDM_Derivative
         real(wp), allocatable :: lhs(:, :)          ! memory space for LHS
         real(wp), allocatable :: rhs(:, :)          ! memory space for RHS
         real(wp), allocatable :: mwn(:)             ! memory space for modified wavenumbers
+        !
         real(wp), allocatable :: lu(:, :)           ! memory space for LU decomposition
         procedure(matmul_interface), pointer, nopass :: matmul  ! matrix multiplication to calculate the right-hand side
+        ! type(fdm_bcs) :: bcs(0:3)           ! linear system for 4 different boundary conditions, 0 is the default
     end type fdm_derivative_dt
 
+    ! type :: fdm_bcs
+    !     integer bcs_type
+    !     real(wp), allocatable :: lu(:, :)               ! memory space for LU decomposition
+    !     real(wp) :: rhs_b(4 + 1, 0:7), rhs_t(0:4, 7)    ! Neumann boundary conditions, max. # of diagonals is 7, # rows is 7/2+1
+    ! end type fdm_bcs
+
     public :: FDM_Der1_Initialize
-    public :: FDM_Der1_Neumann_Initialize           ! General, full version
-    public :: FDM_Der1_NeumannMin_Initialize        ! Truncated versions
-    public :: FDM_Der1_NeumannMax_Initialize
     ! public :: FDM_Der1_CreateSystem
     public :: FDM_Der1_Solve
 
@@ -77,6 +82,7 @@ contains
         integer, intent(in) :: bcs_cases(:)
 
         ! -------------------------------------------------------------------
+        integer ndl, ndr
         integer(wi) ib, ip
         integer(wi) nmin, nmax, nsize
 
@@ -84,54 +90,68 @@ contains
         call FDM_Der1_CreateSystem(x, dx, g, periodic)
 
         ! -------------------------------------------------------------------
+        ndl = g%nb_diag(1)                      ! number of diagonals in lhs
+        ndr = g%nb_diag(2)                      ! number of diagonals in rhs
+
+        ! Preconditioning
+        call Precon_Rhs(g%lhs(:, 1:ndl), g%rhs(:, 1:ndr), periodic=periodic)
+
         ! LU decomposition
         if (allocated(g%lu)) deallocate (g%lu)
         if (g%periodic) then
-            allocate (g%lu(g%size, g%nb_diag(1) + 2))
+            allocate (g%lu(g%size, ndl + 2))
         else
-            allocate (g%lu(g%size, 5*4))          ! 4 bcs
+            allocate (g%lu(g%size, 5*size(bcs_cases)))
         end if
         g%lu(:, :) = 0.0_wp
         g%rhs_b(:, :) = 0.0_wp
         g%rhs_t(:, :) = 0.0_wp
 
         if (periodic) then
-            g%lu(:, 1:g%nb_diag(1)) = g%lhs(:, 1:g%nb_diag(1))
+            g%lu(:, 1:ndl) = g%lhs(:, 1:ndl)
 
-            select case (g%nb_diag(1))
+            select case (ndl)
             case (3)
                 ! call Thomas3C_LU(g%lu(:, 1), g%lu(:, 2), g%lu(:, 3), g%lu(:, 4), g%lu(:, 5))
                 call Thomas3C_SMW_LU(g%lu(:, 1), g%lu(:, 2), g%lu(:, 3), g%lu(:, 4))
             case (5)
-                call Thomas5C_SMW_LU(g%size, g%lu(:, 1), g%lu(:, 2), g%lu(:, 3), g%lu(:, 4), g%lu(:, 5), g%lu(:, 6), g%lu(:, 7))
+                call Thomas5C_SMW_LU(g%size, &
+                                     g%lu(:, 1), &
+                                     g%lu(:, 2), &
+                                     g%lu(:, 3), &
+                                     g%lu(:, 4), &
+                                     g%lu(:, 5), &
+                                     g%lu(:, 6), &
+                                     g%lu(:, 7))
             end select
 
         else                            ! biased,  different BCs
             do ib = 1, size(bcs_cases)
                 ip = (ib - 1)*5
 
-                g%lu(:, ip + 1:ip + g%nb_diag(1)) = g%lhs(:, 1:g%nb_diag(1))
+                ! g%lu(:, ip + 1:ip + ndl) = g%lhs(:, 1:ndl)
+                ! call FDM_BCS_Neumann(bcs_cases(ib), g%lu(:, ip + 1:ip + ndl), g%rhs(:, 1:ndr), g%rhs_b, g%rhs_t)
 
-                call FDM_BCS_Neumann(bcs_cases(ib), g%lu(:, ip + 1:ip + g%nb_diag(1)), g%rhs(:, 1:g%nb_diag(2)), g%rhs_b, g%rhs_t)
+                call FDM_Der1_Neumann_Reduce(g%lhs(:, 1:ndl), g%rhs(:, 1:ndr), bcs_cases(ib), g%lu(:, ip + 1:ip + ndl), g%rhs_b, g%rhs_t)
 
                 nmin = 1; nmax = g%size
                 if (any([BCS_ND, BCS_NN] == bcs_cases(ib))) nmin = nmin + 1
                 if (any([BCS_DN, BCS_NN] == bcs_cases(ib))) nmax = nmax - 1
                 nsize = nmax - nmin + 1
 
-                select case (g%nb_diag(1))
+                select case (ndl)
                 case (3)
-                    call Thomas3_LU(nsize, &
-                                    g%lu(nmin:nmax, ip + 1), &
-                                    g%lu(nmin:nmax, ip + 2), &
-                                    g%lu(nmin:nmax, ip + 3))
+                    call Thomas3_FactorLU(nsize, &
+                                          g%lu(nmin:nmax, ip + 1), &
+                                          g%lu(nmin:nmax, ip + 2), &
+                                          g%lu(nmin:nmax, ip + 3))
                 case (5)
-                    call Thomas5_LU(nsize, &
-                                    g%lu(nmin:nmax, ip + 1), &
-                                    g%lu(nmin:nmax, ip + 2), &
-                                    g%lu(nmin:nmax, ip + 3), &
-                                    g%lu(nmin:nmax, ip + 4), &
-                                    g%lu(nmin:nmax, ip + 5))
+                    call Thomas5_FactorLU(nsize, &
+                                          g%lu(nmin:nmax, ip + 1), &
+                                          g%lu(nmin:nmax, ip + 2), &
+                                          g%lu(nmin:nmax, ip + 3), &
+                                          g%lu(nmin:nmax, ip + 4), &
+                                          g%lu(nmin:nmax, ip + 5))
                 end select
 
             end do
@@ -141,14 +161,14 @@ contains
         ! -------------------------------------------------------------------
         ! Procedure pointers to matrix multiplication to calculate the right-hand side
         if (any([FDM_COM4_DIRECT, FDM_COM6_DIRECT] == g%mode_fdm)) then
-            select case (g%nb_diag(2))
+            select case (ndr)
             case (3)
                 g%matmul => MatMul_3d
             case (5)
                 g%matmul => MatMul_5d
             end select
         else
-            select case (g%nb_diag(2))
+            select case (ndr)
             case (3)
                 g%matmul => MatMul_3d_antisym
             case (5)
@@ -233,27 +253,110 @@ contains
         return
     end subroutine FDM_Der1_CreateSystem
 
+! #######################################################################
+! #######################################################################
+    subroutine FDM_Der1_Neumann_Reduce(lhs, rhs, ibc, r_lhs, r_rhs_b, r_rhs_t)
+        real(wp), intent(in) :: lhs(:, :)
+        real(wp), intent(in) :: rhs(:, :)
+        integer, intent(in) :: ibc
+        real(wp), intent(out) :: r_lhs(:, :)                        ! new, reduced lhs
+        real(wp), intent(inout) :: r_rhs_b(:, 0:), r_rhs_t(0:, :)   ! new, reduced rhs
+
+        ! -------------------------------------------------------------------
+        integer(wi) idl, ndl, idr, ndr, ir, nx
+        real(wp), allocatable :: aux(:, :)
+        real(wp) locRhs_b(5, 0:7), locRhs_t(0:4, 7)
+
+        ! ###################################################################
+        ndl = size(lhs, 2)
+        idl = ndl/2 + 1             ! center diagonal in lhs
+        ndr = size(rhs, 2)
+        idr = ndr/2 + 1             ! center diagonal in rhs
+        nx = size(lhs, 1)           ! # grid points
+
+        ! For A_22, we need idl >= idr -1
+        if (idl < idr - 1) then
+            call TLab_Write_ASCII(efile, __FILE__//'. LHS array is too small.')
+            call TLab_Stop(DNS_ERROR_UNDEVELOP)
+        end if
+        ! For b_21, we need idr >= idl
+        if (idr < idl) then
+            call TLab_Write_ASCII(efile, __FILE__//'. RHS array is too small.')
+            call TLab_Stop(DNS_ERROR_UNDEVELOP)
+        end if
+
+        if (allocated(aux)) deallocate (aux)
+        allocate (aux(1:nx, 1:ndr))
+
+        ! -------------------------------------------------------------------
+        r_lhs(:, 1:ndl) = lhs(:, 1:ndl)
+        aux(1:nx, 1:ndr) = rhs(1:nx, 1:ndr)       ! array changed in FDM_Bcs_Reduce
+
+        locRhs_b = 0.0_wp
+        locRhs_t = 0.0_wp
+        call FDM_Bcs_Reduce(ibc, aux, lhs(:, 1:ndl), locRhs_b, locRhs_t)
+
+        ! reorganize data
+        if (any([BCS_ND, BCS_NN] == ibc)) then
+            r_rhs_b = 0.0_wp
+            r_rhs_b(1:idr + 1, 1:ndr) = aux(1:idr + 1, 1:ndr)
+            r_rhs_b(1, idr) = lhs(1, idl)       ! save a_11 for nonzero bc
+            do ir = 1, idr - 1                  ! save -a^R_{21} for nonzero bc
+                r_rhs_b(1 + ir, idr - ir) = -locRhs_b(1 + ir, idl - ir)
+            end do
+
+            r_lhs(2:idl + 1, 1:ndl) = locRhs_b(2:idl + 1, 1:ndl)
+            r_lhs(1, idl) = rhs(1, idr)
+
+            ! ! it currently normalized; to be removed
+            ! rhs_b(1, 1:ndr) = rhs_b(1, 1:ndr)/g%rhs(1, idr)
+            ! lhs(1, 1:ndl) = lhs(1, 1:ndl)/g%rhs(1, idr)
+
+        end if
+
+        if (any([BCS_DN, BCS_NN] == ibc)) then
+            r_rhs_t = 0.0_wp
+            r_rhs_t(0:idr, 1:ndr) = aux(nx - idr:nx, 1:ndr)
+            r_rhs_t(idr, idr) = lhs(nx, idl)
+            do ir = 1, idr - 1              ! change sign in a^R_{21} for nonzero bc
+                r_rhs_t(idr - ir, idr + ir) = -locRhs_t(idl - ir, idl + ir)
+            end do
+
+            r_lhs(nx - idl:nx - 1, 1:ndl) = locRhs_t(0:idl - 1, 1:ndl)
+            r_lhs(nx, idl) = rhs(nx, idr)
+
+            ! ! it currently normalized
+            ! rhs_t(idr, 1:ndr) = rhs_t(idr, 1:ndr)/g%rhs(nx, idr)
+            ! lhs(nx, 1:ndl) = lhs(nx, 1:ndl)/g%rhs(nx, idr)
+
+        end if
+
+        if (allocated(aux)) deallocate (aux)
+
+        return
+    end subroutine FDM_Der1_Neumann_Reduce
+
     ! ###################################################################
     ! ###################################################################
-    subroutine FDM_Der1_Solve(nlines, ibc, g, lu1, u, result, wrk2d)
+    subroutine FDM_Der1_Solve(nlines, g, lu1, u, result, wrk2d, ibc)
         integer(wi), intent(in) :: nlines   ! # of lines to be solved
-        integer, intent(in) :: ibc          ! Boundary condition [BCS_DD=BCS_NONE, BCS_DN, BCS_ND, BCS_NN]
         type(fdm_derivative_dt), intent(in) :: g
         real(wp), intent(in) :: lu1(:, :)
         real(wp), intent(in) :: u(nlines, g%size)
         real(wp), intent(out) :: result(nlines, g%size)
         real(wp), intent(inout) :: wrk2d(nlines)
+        integer, intent(in), optional :: ibc          ! Boundary condition [BCS_DD=BCS_NONE, BCS_DN, BCS_ND, BCS_NN]
 
         ! -------------------------------------------------------------------
         integer(wi) nmin, nmax, nsize, ip
         integer ibc_loc
 
         ! ###################################################################
-        ibc_loc = ibc
-
-        ip = ibc_loc*5
-
-        if (g%periodic) ibc_loc = BCS_PERIODIC
+        if (present(ibc)) then
+            ibc_loc = ibc
+        else
+            ibc_loc = BCS_NONE
+        end if
 
         nmin = 1; nmax = g%size
         if (any([BCS_ND, BCS_NN] == ibc_loc)) then
@@ -268,6 +371,7 @@ contains
 
         ! -------------------------------------------------------------------
         ! Calculate RHS in system of equations A u' = B u
+        if (g%periodic) ibc_loc = BCS_PERIODIC
         call g%matmul(g%rhs, u, result, ibc_loc, g%rhs_b, g%rhs_t)
 
         ! -------------------------------------------------------------------
@@ -276,20 +380,37 @@ contains
             select case (g%nb_diag(1))
             case (3)
                 ! call Thomas3C_Solve(lu1(:, 1), lu1(:, 2), lu1(:, 3), lu1(:, 4), lu1(:, 5), result, wrk2d)
-                call Thomas3C_SMW_Solve(lu1(:, 1), lu1(:, 2), lu1(:, 3), lu1(:, 4), result, wrk2d)
+                call Thomas3C_SMW_Solve(lu1(:, 1), &
+                                        lu1(:, 2), &
+                                        lu1(:, 3), &
+                                        lu1(:, 4), result, wrk2d)
             case (5)
-                call Thomas5C_SMW_Solve(g%size, nlines, lu1(:, 1), lu1(:, 2), lu1(:, 3), lu1(:, 4), lu1(:, 5), lu1(:, 6), lu1(:, 7), &
-                                        result)
+                call Thomas5C_SMW_Solve(g%size, nlines, &
+                                        lu1(:, 1), &
+                                        lu1(:, 2), &
+                                        lu1(:, 3), &
+                                        lu1(:, 4), &
+                                        lu1(:, 5), &
+                                        lu1(:, 6), &
+                                        lu1(:, 7), result)
             end select
 
         else
+            ip = ibc_loc*5
+
             select case (g%nb_diag(1))
             case (3)
-                call Thomas3_Solve(nsize, nlines, lu1(nmin:, ip + 1), lu1(nmin:, ip + 2), lu1(nmin:, ip + 3), &
-                                   result(:, nmin:))
+                call Thomas3_SolveLU(nsize, nlines, &
+                                     lu1(nmin:, ip + 1), &
+                                     lu1(nmin:, ip + 2), &
+                                     lu1(nmin:, ip + 3), result(:, nmin:))
             case (5)
-                call Thomas5_Solve(nsize, nlines, lu1(nmin:, ip + 1), lu1(nmin:, ip + 2), lu1(nmin:, ip + 3), lu1(nmin:, ip + 4), lu1(nmin:, ip + 5), &
-                                   result(:, nmin:))
+                call Thomas5_SolveLU(nsize, nlines, &
+                                     lu1(nmin:, ip + 1), &
+                                     lu1(nmin:, ip + 2), &
+                                     lu1(nmin:, ip + 3), &
+                                     lu1(nmin:, ip + 4), &
+                                     lu1(nmin:, ip + 5), result(:, nmin:))
             end select
 
         end if
@@ -299,242 +420,48 @@ contains
 
     ! ###################################################################
     ! ###################################################################
-    ! Obtain coefficients to calculate boundary value in Neumann conditions
-    subroutine FDM_Der1_Neumann_Initialize(ibc, g, c_b, c_t, u, z)
-        integer, intent(in) :: ibc                          ! Boundary condition [BCS_ND, BCS_DN, BCS_NN]
-        type(fdm_derivative_dt), intent(in) :: g
-        real(wp), intent(out) :: c_b(g%size), c_t(g%size)   ! coefficients for bottom value and top value
-        real(wp), intent(inout) :: u(1, g%size)             ! Working arrays
-        real(wp), intent(inout) :: z(1, g%size)
-
-        ! -------------------------------------------------------------------
-        integer(wi) nmin, nmax, nsize, n, ip, idl, ic
-        real(wp) bcs_hb(1), bcs_ht(1)
-
-        ! ###################################################################
-        do n = 1, g%size
-            u(1, :) = 0.0_wp                ! Create delta-function forcing term
-            u(1, n) = 1.0_wp
-
-            nmin = 1; nmax = g%size
-            if (any([BCS_ND, BCS_NN] == ibc)) then
-                z(1, 1) = u(1, 1)
-                nmin = nmin + 1
-            end if
-            if (any([BCS_DN, BCS_NN] == ibc)) then
-                z(1, g%size) = u(1, g%size)
-                nmax = nmax - 1
-            end if
-            nsize = nmax - nmin + 1
-
-            ! -------------------------------------------------------------------
-            ! Calculate RHS in system of equations A u' = B u
-            call g%matmul(g%rhs, u, z, ibc, g%rhs_b, g%rhs_t, bcs_hb, bcs_ht)
-
-            ! -------------------------------------------------------------------
-            ! Solve for u' in system of equations A u' = B u
-            ip = ibc*5
-            select case (g%nb_diag(1))
-            case (3)
-                call Thomas3_Solve(nsize, 1, &
-                                   g%lu(nmin:nmax, ip + 1), &
-                                   g%lu(nmin:nmax, ip + 2), &
-                                   g%lu(nmin:nmax, ip + 3), &
-                                   z(:, nmin:nmax))
-            case (5)
-                call Thomas5_Solve(nsize, 1, &
-                                   g%lu(nmin:nmax, ip + 1), &
-                                   g%lu(nmin:nmax, ip + 2), &
-                                   g%lu(nmin:nmax, ip + 3), &
-                                   g%lu(nmin:nmax, ip + 4), &
-                                   g%lu(nmin:nmax, ip + 5), &
-                                   z(:, nmin:nmax))
-            end select
-
-            idl = g%nb_diag(1)/2 + 1
-            if (any([BCS_ND, BCS_NN] == ibc)) then
-                do ic = 1, idl - 1
-                    c_b(n) = bcs_hb(1) + g%lu(1, ip + idl + ic)*z(1, 1 + ic)
-                end do
-            end if
-            if (any([BCS_DN, BCS_NN] == ibc)) then
-                do ic = 1, idl - 1
-                    c_t(n) = bcs_ht(1) + g%lu(g%size, ip + idl - ic)*z(1, g%size - ic)
-                end do
-            end if
-
-        end do
-
-        return
-    end subroutine FDM_Der1_Neumann_Initialize
-
-    ! ###################################################################
-    ! ###################################################################
-    ! Truncated version for BCS_ND
-    subroutine FDM_Der1_NeumannMin_Initialize(g, c_b, u, z, n_bcs)
-        type(fdm_derivative_dt), intent(in) :: g
-        real(wp), intent(out) :: c_b(g%size)                ! coefficients for bottom value and top value
-        real(wp), intent(inout) :: u(1, g%size)             ! Working arrays
-        real(wp), intent(inout) :: z(1, g%size)
-        integer, intent(out) :: n_bcs                       ! Index of truncation
-
-        ! -------------------------------------------------------------------
-        integer ibc
-        integer(wi) nmin, nmax, nsize, n, ip, idl, ic
-        real(wp) bcs_hb(1), bcs_ht(1)
-
-        ! ###################################################################
-        ibc = BCS_ND
-
-        c_b(:) = 0.0_wp
-
-        nmin = 2; nmax = g%size
-        nsize = nmax - nmin + 1
-
-        idl = g%nb_diag(1)/2 + 1
-
-        do n = 1, g%size
-            u(1, :) = 0.0_wp                ! Create delta-function forcing term
-            u(1, n) = 1.0_wp
-
-            z(1, 1) = u(1, 1)
-
-            ! -------------------------------------------------------------------
-            ! Calculate RHS in system of equations A u' = B u
-            call g%matmul(g%rhs, u, z, ibc, g%rhs_b, g%rhs_t, bcs_hb, bcs_ht)
-
-            ! -------------------------------------------------------------------
-            ! Solve for u' in system of equations A u' = B u
-            ip = ibc*5
-            select case (g%nb_diag(1))
-            case (3)
-                call Thomas3_Solve(nsize, 1, &
-                                   g%lu(nmin:nmax, ip + 1), &
-                                   g%lu(nmin:nmax, ip + 2), &
-                                   g%lu(nmin:nmax, ip + 3), &
-                                   z(:, nmin:nmax))
-            case (5)
-                call Thomas5_Solve(nsize, 1, &
-                                   g%lu(nmin:nmax, ip + 1), &
-                                   g%lu(nmin:nmax, ip + 2), &
-                                   g%lu(nmin:nmax, ip + 3), &
-                                   g%lu(nmin:nmax, ip + 4), &
-                                   g%lu(nmin:nmax, ip + 5), &
-                                   z(:, nmin:nmax))
-            end select
-
-            do ic = 1, idl - 1
-                c_b(n) = bcs_hb(1) + g%lu(1, ip + idl + ic)*z(1, 1 + ic)
-            end do
-
-            if (abs(c_b(n)/c_b(1)) < roundoff_wp) exit
-
-        end do
-        n_bcs = min(n, g%size)
-
-        return
-    end subroutine FDM_Der1_NeumannMin_Initialize
-
-    ! ###################################################################
-    ! ###################################################################
-    ! Truncated version for BCS_DN
-    subroutine FDM_Der1_NeumannMax_Initialize(g, c_t, u, z, n_bcs)
-        type(fdm_derivative_dt), intent(in) :: g
-        real(wp), intent(out) :: c_t(g%size)                ! coefficients for bottom value and top value
-        real(wp), intent(inout) :: u(1, g%size)             ! Working arrays
-        real(wp), intent(inout) :: z(1, g%size)
-        integer, intent(out) :: n_bcs                       ! Index of truncation
-
-        ! -------------------------------------------------------------------
-        integer ibc
-        integer(wi) nmin, nmax, nsize, n, ip, idl, ic
-        real(wp) bcs_hb(1), bcs_ht(1)
-
-        ! ###################################################################
-        ibc = BCS_DN
-
-        c_t(:) = 0.0_wp
-
-        nmin = 1; nmax = g%size - 1
-        nsize = nmax - nmin + 1
-
-        idl = g%nb_diag(1)/2 + 1
-
-        do n = g%size, 1, -1
-            u(1, :) = 0.0_wp                ! Create delta-function forcing term
-            u(1, n) = 1.0_wp
-
-            z(1, g%size) = u(1, g%size)
-
-            ! -------------------------------------------------------------------
-            ! Calculate RHS in system of equations A u' = B u
-            call g%matmul(g%rhs, u, z, ibc, g%rhs_b, g%rhs_t, bcs_hb, bcs_ht)
-
-            ! -------------------------------------------------------------------
-            ! Solve for u' in system of equations A u' = B u
-            ip = ibc*5
-            select case (g%nb_diag(1))
-            case (3)
-                call Thomas3_Solve(nsize, 1, &
-                                   g%lu(nmin:nmax, ip + 1), &
-                                   g%lu(nmin:nmax, ip + 2), &
-                                   g%lu(nmin:nmax, ip + 3), &
-                                   z(:, nmin:nmax))
-            case (5)
-                call Thomas5_Solve(nsize, 1, &
-                                   g%lu(nmin:nmax, ip + 1), &
-                                   g%lu(nmin:nmax, ip + 2), &
-                                   g%lu(nmin:nmax, ip + 3), &
-                                   g%lu(nmin:nmax, ip + 4), &
-                                   g%lu(nmin:nmax, ip + 5), &
-                                   z(:, nmin:nmax))
-            end select
-
-            do ic = 1, idl - 1
-                c_t(n) = bcs_ht(1) + g%lu(g%size, ip + idl - ic)*z(1, g%size - ic)
-            end do
-
-            if (abs(c_t(n)/c_t(g%size)) < roundoff_wp) exit
-
-        end do
-        n_bcs = min(g%size - n + 1, g%size)
-
-        return
-    end subroutine FDM_Der1_NeumannMax_Initialize
-
-    ! ###################################################################
-    ! ###################################################################
     subroutine FDM_Der2_Initialize(x, dx, g, periodic, uniform)
         real(wp), intent(in) :: x(:)                    ! node positions
         real(wp), intent(in) :: dx(:, :)                ! Jacobians
         type(fdm_derivative_dt), intent(inout) :: g     ! fdm plan for 2. order derivative
         logical, intent(in) :: periodic, uniform
 
+        integer ndl, ndr
+
         ! ###################################################################
         call FDM_Der2_CreateSystem(x, dx, g, periodic, uniform)
 
         ! -------------------------------------------------------------------
         ! LU decomposition
+        ndl = g%nb_diag(1)                              ! number of diagonals in lhs
+        ndr = g%nb_diag(2)                              ! number of diagonals in rhs
+
         if (allocated(g%lu)) deallocate (g%lu)
         if (g%periodic) then
-            allocate (g%lu(g%size, g%nb_diag(1) + 2))
+            allocate (g%lu(g%size, ndl + 2))
         else
-            allocate (g%lu(g%size, g%nb_diag(1)*1))          ! Only 1 bcs
+            allocate (g%lu(g%size, ndl*1))              ! Only 1 bcs
         end if
         g%lu(:, :) = 0.0_wp
 
-        g%lu(:, 1:g%nb_diag(1)) = g%lhs(:, 1:g%nb_diag(1))
+        g%lu(:, 1:ndl) = g%lhs(:, 1:ndl)
         if (g%periodic) then
-            select case (g%nb_diag(1))
+            select case (ndl)
             case (3)
                 ! call Thomas3C_LU(g%lu(:, 1), g%lu(:, 2), g%lu(:, 3), g%lu(:, 4), g%lu(:, 5))
-                call Thomas3C_SMW_LU(g%lu(:, 1), g%lu(:, 2), g%lu(:, 3), g%lu(:, 4))
+                call Thomas3C_SMW_LU(g%lu(:, 1), &
+                                     g%lu(:, 2), &
+                                     g%lu(:, 3), &
+                                     g%lu(:, 4))
             end select
 
         else
-            select case (g%nb_diag(1))
+            select case (ndl)
             case (3)
-                call Thomas3_LU(g%size, g%lu(:, 1), g%lu(:, 2), g%lu(:, 3))
+                call Thomas3_FactorLU(g%size, &
+                                      g%lu(:, 1), &
+                                      g%lu(:, 2), &
+                                      g%lu(:, 3))
             end select
 
         end if
@@ -542,12 +469,12 @@ contains
         ! -------------------------------------------------------------------
         ! Procedure pointers to matrix multiplication to calculate the right-hand side
         if (any([FDM_COM4_DIRECT, FDM_COM6_DIRECT, FDM_COM6_DIRECT_HYPER] == g%mode_fdm)) then
-            select case (g%nb_diag(2))
+            select case (ndr)
             case (5)
                 g%matmul => MatMul_5d
             end select
         else
-            select case (g%nb_diag(2))
+            select case (ndr)
             case (5)
                 g%matmul => MatMul_5d_sym
             case (7)
@@ -652,18 +579,14 @@ contains
 
         ! -------------------------------------------------------------------
         integer(wi) ip
-        integer ibc
 
         ! ###################################################################
-        if (g%periodic) then
-            ibc = BCS_PERIODIC
-        else
-            ibc = BCS_DD
-        end if
-
-        ! -------------------------------------------------------------------
         ! Calculate RHS in system of equations A u' = B u
-        call g%matmul(g%rhs, u, result, ibc)
+        if (g%periodic) then
+            call g%matmul(g%rhs, u, result, BCS_PERIODIC)
+        else
+            call g%matmul(g%rhs, u, result, BCS_DD)
+        end if
 
         if (g%need_1der) then           ! add Jacobian correction A_2 dx2 du
             ip = g%nb_diag(2)           ! so far, only tridiagonal systems
@@ -676,13 +599,18 @@ contains
             select case (g%nb_diag(1))
             case (3)
                 ! call Thomas3C_Solve(lu(:, 1), lu(:, 2), lu(:, 3), lu(:, 4), lu(:, 5), result, wrk2d)
-                call Thomas3C_SMW_Solve(lu(:, 1), lu(:, 2), lu(:, 3), lu(:, 4), result, wrk2d)
+                call Thomas3C_SMW_Solve(lu(:, 1), &
+                                        lu(:, 2), &
+                                        lu(:, 3), &
+                                        lu(:, 4), result, wrk2d)
             end select
         else
             select case (g%nb_diag(1))
             case (3)
-                call Thomas3_Solve(g%size, nlines, lu(:, 1), lu(:, 2), lu(:, 3), &
-                                   result)
+                call Thomas3_SolveLU(g%size, nlines, &
+                                     lu(:, 1), &
+                                     lu(:, 2), &
+                                     lu(:, 3), result)
             end select
         end if
 

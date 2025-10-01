@@ -207,18 +207,18 @@ contains
                 amplify = (1.0_wp + 0.5_wp*xi)*(1.0_wp - 0.5_wp*xi)
 
             case (PROFILE_BICKLEY)
-                amplify = 1.0_wp/(cosh(0.5_wp*xi))**2.0_wp
+                amplify = 1.0_wp/(cosh(0.5_wp*xi))**2
 
             case (PROFILE_GAUSSIAN, PROFILE_GAUSSIAN_SURFACE, PROFILE_GAUSSIAN_TANH_SYM)
-                amplify = exp(-0.5_wp*xi**2.0_wp)
+                amplify = exp(-0.5_wp*xi**2)
 
             case (PROFILE_GAUSSIAN_SYM)
-                amplify = exp(-0.5_wp*(xi - 0.5_wp*var%diam/var%thick)**2.0_wp) &
-                          + exp(-0.5_wp*(xi + 0.5_wp*var%diam/var%thick)**2.0_wp)
+                amplify = exp(-0.5_wp*(xi - 0.5_wp*var%diam/var%thick)**2) &
+                          + exp(-0.5_wp*(xi + 0.5_wp*var%diam/var%thick)**2)
 
             case (PROFILE_GAUSSIAN_ANTISYM)
-                amplify = exp(-0.5_wp*(xi - 0.5_wp*var%diam/var%thick)**2.0_wp) &
-                          - exp(-0.5_wp*(xi + 0.5_wp*var%diam/var%thick)**2.0_wp)
+                amplify = exp(-0.5_wp*(xi - 0.5_wp*var%diam/var%thick)**2) &
+                          - exp(-0.5_wp*(xi + 0.5_wp*var%diam/var%thick)**2)
 
             case (PROFILE_EKMAN)        ! Projection of Ekman spiral at the angle given by parameters(1)
                 uloc = 1.0_wp - exp(-xi)*cos(xi)

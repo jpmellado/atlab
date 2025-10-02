@@ -20,13 +20,13 @@ contains
         integer(wi) n
 
         ! #######################################################################
-        g(1) = g(1)/d(1)
-        f(1) = f(1)/d(1)
-        e(1) = e(1)/d(1)
-        c(1) = 1.0_wp/d(1) ! padding, and used in Thomas7_SolveLU to normalize 1st eqn.
-        !   b(1) = 1.0_wp      ! padding
-        !   a(1) = 1.0_wp      ! padding
-        d(1) = 1.0_wp
+        ! g(1) = g(1)/d(1)
+        ! f(1) = f(1)/d(1)
+        ! e(1) = e(1)/d(1)
+        ! c(1) = 1.0_wp/d(1) ! padding, and used in Thomas7_SolveLU to normalize 1st eqn.
+        ! !   b(1) = 1.0_wp      ! padding
+        ! !   a(1) = 1.0_wp      ! padding
+        ! d(1) = 1.0_wp
 
         !   a(2) = 1.0_wp ! padding
         !   b(2) = 1.0_wp ! padding
@@ -75,9 +75,9 @@ contains
         b(3:) = -b(3:)
         c(2:) = -c(2:)
         d = 1.0_wp/d
-        e(:nmax - 1) = -e(:nmax - 1)
-        f(:nmax - 2) = -f(:nmax - 2)
-        g(:nmax - 3) = -g(:nmax - 3)
+        e(:nmax - 1) = -e(:nmax - 1)*d(:nmax - 1)
+        f(:nmax - 2) = -f(:nmax - 2)*d(:nmax - 2)
+        g(:nmax - 3) = -g(:nmax - 3)*d(:nmax - 3)
 
         return
     end subroutine Thomas7_FactorLU
@@ -98,7 +98,7 @@ contains
         ! -----------------------------------------------------------------------
         ! Solve Ly=frc, forward
         ! -----------------------------------------------------------------------
-        frc(:, 1) = frc(:, 1)*c(1) ! Normalize first eqn. See Thomas7_FactorLU
+        ! frc(:, 1) = frc(:, 1)*c(1) ! Normalize first eqn. See Thomas7_FactorLU
         frc(:, 2) = frc(:, 2) + frc(:, 1)*c(2)
         frc(:, 3) = frc(:, 3) + frc(:, 2)*c(3) + frc(:, 1)*b(3)
 
@@ -113,18 +113,18 @@ contains
         frc(:, n) = frc(:, n)*d(n)
 
         n = nmax - 1
-        dummy1 = d(n)*e(n)
+        dummy1 = e(n) !d(n)*e(n)
         frc(:, n) = d(n)*frc(:, n) + dummy1*frc(:, n + 1)
 
         n = nmax - 2
-        dummy1 = d(n)*e(n)
-        dummy2 = d(n)*f(n)
+        dummy1 = e(n)!d(n)*e(n)
+        dummy2 = f(n)!d(n)*f(n)
         frc(:, n) = d(n)*frc(:, n) + dummy1*frc(:, n + 1) + dummy2*frc(:, n + 2)
 
         do n = nmax - 3, 1, -1
-            dummy1 = d(n)*e(n)
-            dummy2 = d(n)*f(n)
-            dummy3 = d(n)*g(n)
+            dummy1 = e(n)!d(n)*e(n)
+            dummy2 = f(n)!d(n)*f(n)
+            dummy3 = g(n)!d(n)*g(n)
             frc(:, n) = d(n)*frc(:, n) + dummy1*frc(:, n + 1) + dummy2*frc(:, n + 2) + dummy3*frc(:, n + 3)
         end do
 

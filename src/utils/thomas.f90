@@ -5,14 +5,17 @@ module Thomas
     implicit none
     private
 
-    public :: Thomas_SolveLU_L, Thomas_SolveLU_U
     public :: Thomas_FactorLU_InPlace
-    public :: Thomas3_SolveLU_L, Thomas3_SolveLU_U  ! Particularized for tridiagonals
+    public :: Thomas_SolveL, Thomas_SolveU
+
     public :: Thomas3_FactorLU_InPlace
-    public :: Thomas5_SolveLU_L, Thomas5_SolveLU_U  ! Particularized for pentadiagonals
+    public :: Thomas3_SolveL, Thomas3_SolveU  ! Particularized for tridiagonal systems
+
     public :: Thomas5_FactorLU_InPlace
-    public :: Thomas7_SolveLU_L, Thomas7_SolveLU_U  ! Particularizde for heptadiagonals
+    public :: Thomas5_SolveL, Thomas5_SolveU  ! Particularized for pentadiagonal systems
+
     public :: Thomas7_FactorLU_InPlace
+    public :: Thomas7_SolveL, Thomas7_SolveU  ! Particularized for heptadiagonal systems
 
 contains
     ! #######################################################################
@@ -91,10 +94,10 @@ contains
         return
     end subroutine Thomas_FactorLU_InPlace
 
-! #######################################################################
+    ! #######################################################################
     ! #######################################################################
     ! Solve Ly=f, forward elimination
-    subroutine Thomas_SolveLU_L(L, f)
+    subroutine Thomas_SolveL(L, f)
         real(wp), intent(in) :: L(:, :)
         real(wp), intent(inout) :: f(:, :)          ! RHS and solution
 
@@ -120,12 +123,12 @@ contains
         end do
 
         return
-    end subroutine Thomas_SolveLU_L
+    end subroutine Thomas_SolveL
 
     ! #######################################################################
     ! #######################################################################
     ! Solve Ux=y, backward substitution
-    subroutine Thomas_SolveLU_U(U, f)
+    subroutine Thomas_SolveU(U, f)
         real(wp), intent(in) :: U(:, :)
         real(wp), intent(inout) :: f(:, :)      ! RHS and solution
 
@@ -154,7 +157,7 @@ contains
         end do
 
         return
-    end subroutine Thomas_SolveLU_U
+    end subroutine Thomas_SolveU
 
     ! #######################################################################
     ! #######################################################################
@@ -185,7 +188,7 @@ contains
     ! #######################################################################
     ! #######################################################################
     ! Solve Ly=f, forward elimination
-    subroutine Thomas3_SolveLU_L(L, f)
+    subroutine Thomas3_SolveL(L, f)
         real(wp), intent(in) :: L(:, :)
         real(wp), intent(inout) :: f(:, :)          ! RHS and solution
 
@@ -195,17 +198,17 @@ contains
         ! ###################################################################
         if (size(f, 1) <= 0) return
 
-        do n = 2, size(f, 2)
+        do n = 2, size(L, 1)
             f(:, n) = f(:, n) + L(n, 1)*f(:, n - 1)
         end do
 
         return
-    end subroutine Thomas3_SolveLU_L
+    end subroutine Thomas3_SolveL
 
     ! #######################################################################
     ! #######################################################################
     ! Solve Ux=y, backward substitution
-    subroutine Thomas3_SolveLU_U(U, f)
+    subroutine Thomas3_SolveU(U, f)
         real(wp), intent(in) :: U(:, :)
         real(wp), intent(inout) :: f(:, :)      ! RHS and solution
 
@@ -214,7 +217,8 @@ contains
 
         ! ###################################################################
         if (size(f, 1) <= 0) return
-        nmax = size(f, 2)
+
+        nmax = size(U, 1)
 
         n = nmax
         f(:, n) = f(:, n)*U(n, 1)
@@ -224,7 +228,7 @@ contains
         end do
 
         return
-    end subroutine Thomas3_SolveLU_U
+    end subroutine Thomas3_SolveU
 
     ! #######################################################################
     ! #######################################################################
@@ -272,7 +276,7 @@ contains
     ! #######################################################################
     ! #######################################################################
     ! Solve Ly=f, forward elimination
-    subroutine Thomas5_SolveLU_L(L, f)
+    subroutine Thomas5_SolveL(L, f)
         real(wp), intent(in) :: L(:, :)
         real(wp), intent(inout) :: f(:, :)          ! RHS and solution
 
@@ -285,17 +289,17 @@ contains
         n = 2
         f(:, n) = f(:, n) + f(:, n - 1)*L(n, 2)
 
-        do n = 3, size(f, 2)
+        do n = 3, size(L, 1)
             f(:, n) = f(:, n) + f(:, n - 1)*L(n, 2) + f(:, n - 2)*L(n, 1)
         end do
 
         return
-    end subroutine Thomas5_SolveLU_L
+    end subroutine Thomas5_SolveL
 
     ! #######################################################################
     ! #######################################################################
     ! Solve Ux=y, backward substitution
-    subroutine Thomas5_SolveLU_U(U, f)
+    subroutine Thomas5_SolveU(U, f)
         real(wp), intent(in) :: U(:, :)
         real(wp), intent(inout) :: f(:, :)      ! RHS and solution
 
@@ -304,7 +308,8 @@ contains
 
         ! #######################################################################
         if (size(f, 1) <= 0) return
-        nmax = size(f, 2)
+
+        nmax = size(U, 1)
 
         n = nmax
         f(:, n) = f(:, n)*U(n, 1)
@@ -317,7 +322,7 @@ contains
         end do
 
         return
-    end subroutine Thomas5_SolveLU_U
+    end subroutine Thomas5_SolveU
 
     ! #######################################################################
     ! #######################################################################
@@ -387,7 +392,7 @@ contains
     ! #######################################################################
     ! #######################################################################
     ! Solve Ly=f, forward elimination
-    subroutine Thomas7_SolveLU_L(L, f)
+    subroutine Thomas7_SolveL(L, f)
         real(wp), intent(in) :: L(:, :)
         real(wp), intent(inout) :: f(:, :)          ! RHS and solution
 
@@ -406,17 +411,17 @@ contains
         n = 3
         f(:, n) = f(:, n) + f(:, n - 1)*L(n, 3) + f(:, n - 2)*L(n, 2)
 
-        do n = 4, size(f, 2)
+        do n = 4, size(L, 1)
             f(:, n) = f(:, n) + f(:, n - 1)*L(n, 3) + f(:, n - 2)*L(n, 2) + f(:, n - 3)*L(n, 1)
         end do
 
         return
-    end subroutine Thomas7_SolveLU_L
+    end subroutine Thomas7_SolveL
 
     ! #######################################################################
     ! #######################################################################
     ! Solve Ux=y, backward substitution
-    subroutine Thomas7_SolveLU_U(U, f)
+    subroutine Thomas7_SolveU(U, f)
         real(wp), intent(in) :: U(:, :)
         real(wp), intent(inout) :: f(:, :)      ! RHS and solution
 
@@ -425,7 +430,8 @@ contains
 
         ! #######################################################################
         if (size(f, 1) <= 0) return
-        nmax = size(f, 2)
+        
+        nmax = size(U, 1)
 
         n = nmax
         f(:, n) = f(:, n)*U(n, 1)
@@ -441,6 +447,6 @@ contains
         end do
 
         return
-    end subroutine Thomas7_SolveLU_U
+    end subroutine Thomas7_SolveU
 
 end module Thomas

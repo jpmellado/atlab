@@ -1,6 +1,7 @@
 program vLinSys
     use TLab_Constants, only: wp, wi, BCS_NONE
     use Thomas
+    use Thomas_Circulant
     use Thomas3
     use Thomas5
     use Thomas7
@@ -56,32 +57,14 @@ program vLinSys
                 rhs_t=lhs(nsize - nd/2 + 1:nsize, 1:nd))
 
     lhs_loc(:, 1:nd) = lhs(:, 1:nd)
-    ! call Thomas3_FactorLU(nsize, &
-    !                       lhs_loc(:, 1), &
-    !                       lhs_loc(:, 2), &
-    !                       lhs_loc(:, 3))
     ! call Thomas3_FactorLU_InPlace(lhs_loc(:, 1:nd/2), &
     !                               lhs_loc(:, nd/2 + 1:nd))
+    ! call Thomas3_SolveL(lhs_loc(:, 1:nd/2), f)
+    ! call Thomas3_SolveU(lhs_loc(:, nd/2 + 1:nd), f)
     call Thomas_FactorLU_InPlace(lhs_loc(:, 1:nd/2), &
-                                  lhs_loc(:, nd/2 + 1:nd))
-
-    ! call Thomas3_SolveLU(nsize, nlines, &
-    !                      lhs_loc(:, 1), &
-    !                      lhs_loc(:, 2), &
-    !                      lhs_loc(:, 3), f)
-    ! call Thomas3_SolveLU_L(lhs_loc(:, 1:nd/2), f)
-    call Thomas_SolveLU_L(lhs_loc(:, 1:nd/2), f)
-    ! call Thomas3_SolveLU_U(lhs_loc(:, nd/2 + 1:nd), f)
-    call Thomas_SolveLU_U(lhs_loc(:, nd/2 + 1:nd), f)
-
-    ! call Thomas3_FactorUL(nsize, &
-    !                       lhs_loc(:, 1), &
-    !                       lhs_loc(:, 2), &
-    !                       lhs_loc(:, 3))
-    ! call Thomas3_SolveUL(nsize, nlines, &
-    !                      lhs_loc(:, 1), &
-    !                      lhs_loc(:, 2), &
-    !                      lhs_loc(:, 3), f)
+                                 lhs_loc(:, nd/2 + 1:nd))
+    call Thomas_SolveL(lhs_loc(:, 1:nd/2), f)
+    call Thomas_SolveU(lhs_loc(:, nd/2 + 1:nd), f)
 
     write (str, *) nd
     call check(f, u, 'linsys-'//trim(adjustl(str))//'.dat')
@@ -93,14 +76,22 @@ program vLinSys
     call matmul(lhs(:, 1:nd), u, f)
 
     lhs_loc(:, 1:nd) = lhs(:, 1:nd)
-    call Thomas3C_SMW_LU(lhs_loc(:, 1), &
-                         lhs_loc(:, 2), &
-                         lhs_loc(:, 3), &
-                         lhs_loc(:, 4))
-    call Thomas3C_SMW_Solve(lhs_loc(:, 1), &
-                            lhs_loc(:, 2), &
-                            lhs_loc(:, 3), &
-                            lhs_loc(:, 4), f, wrk)
+    ! call Thomas3C_SMW_LU(lhs_loc(:, 1), &
+    !                      lhs_loc(:, 2), &
+    !                      lhs_loc(:, 3), &
+    !                      lhs_loc(:, 4))
+    ! call Thomas3C_SMW_Solve(lhs_loc(:, 1), &
+    !                         lhs_loc(:, 2), &
+    !                         lhs_loc(:, 3), &
+    !                         lhs_loc(:, 4), f, wrk)
+    call Thomas3_C_SMW_Initialize(lhs_loc(:, 1:nd/2), &
+                                  lhs_loc(:, nd/2 + 1:nd), &
+                                  lhs_loc(:, nd + 1:nd + 1))
+    call Thomas3_C_SMW_Solve(lhs_loc(:, 1:nd/2), &
+                             lhs_loc(:, nd/2 + 1:nd), &
+                             lhs_loc(:, nd + 1), &
+                             f, &
+                             wrk)
 
     write (str, *) nd
     call check(f, u, 'linsys-'//trim(adjustl(str))//'.dat')
@@ -117,39 +108,14 @@ program vLinSys
                 rhs_t=lhs(nsize - nd/2 + 1:nsize, 1:nd))
 
     lhs_loc(:, 1:nd) = lhs(:, 1:nd)
-    ! call Thomas5_FactorLU(nsize, &
-    !                       lhs_loc(:, 1), &
-    !                       lhs_loc(:, 2), &
-    !                       lhs_loc(:, 3), &
-    !                       lhs_loc(:, 4), &
-    !                       lhs_loc(:, 5))
     ! call Thomas5_FactorLU_InPlace(lhs_loc(:, 1:nd/2), &
     !                               lhs_loc(:, nd/2 + 1:nd))
+    ! call Thomas5_SolveL(lhs_loc(:, 1:nd/2), f)
+    ! call Thomas5_SolveU(lhs_loc(:, nd/2 + 1:nd), f)
     call Thomas_FactorLU_InPlace(lhs_loc(:, 1:nd/2), &
                                  lhs_loc(:, nd/2 + 1:nd))
-    ! call Thomas5_SolveLU(nsize, nlines, &
-    !                      lhs_loc(:, 1), &
-    !                      lhs_loc(:, 2), &
-    !                      lhs_loc(:, 3), &
-    !                      lhs_loc(:, 4), &
-    !                      lhs_loc(:, 5), f)
-    ! call Thomas5_SolveLU_L(lhs_loc(:, 1:nd/2), f)
-    call Thomas_SolveLU_L(lhs_loc(:, 1:nd/2), f)
-    ! call Thomas5_SolveLU_U(lhs_loc(:, nd/2 + 1:nd), f)
-    call Thomas_SolveLU_U(lhs_loc(:, nd/2 + 1:nd), f)
-
-    ! call Thomas5_FactorUL(nsize, &
-    !                       lhs_loc(:, 1), &
-    !                       lhs_loc(:, 2), &
-    !                       lhs_loc(:, 3), &
-    !                       lhs_loc(:, 4), &
-    !                       lhs_loc(:, 5))
-    ! call Thomas5_SolveUL(nsize, nlines, &
-    !                      lhs_loc(:, 1), &
-    !                      lhs_loc(:, 2), &
-    !                      lhs_loc(:, 3), &
-    !                      lhs_loc(:, 4), &
-    !                      lhs_loc(:, 5), f)
+    call Thomas_SolveL(lhs_loc(:, 1:nd/2), f)
+    call Thomas_SolveU(lhs_loc(:, nd/2 + 1:nd), f)
 
     write (str, *) nd
     call check(f, u, 'linsys-'//trim(adjustl(str))//'.dat')
@@ -199,30 +165,14 @@ program vLinSys
                 rhs_t=lhs(nsize - nd/2 + 1:nsize, 1:nd))
 
     lhs_loc(:, 1:nd) = lhs(:, 1:nd)
-    ! call Thomas7_FactorLU(nsize, &
-    !                       lhs_loc(:, 1), &
-    !                       lhs_loc(:, 2), &
-    !                       lhs_loc(:, 3), &
-    !                       lhs_loc(:, 4), &
-    !                       lhs_loc(:, 5), &
-    !                       lhs_loc(:, 6), &
-    !                       lhs_loc(:, 7))
     ! call Thomas7_FactorLU_InPlace(lhs_loc(:, 1:nd/2), &
     !                               lhs_loc(:, nd/2 + 1:nd))
+    ! call Thomas7_SolveL(lhs_loc(:, 1:nd/2), f)
+    ! call Thomas7_SolveU(lhs_loc(:, nd/2 + 1:nd), f)
     call Thomas_FactorLU_InPlace(lhs_loc(:, 1:nd/2), &
                                  lhs_loc(:, nd/2 + 1:nd))
-    ! call Thomas7_SolveLU(nsize, nlines, &
-    !                      lhs_loc(:, 1), &
-    !                      lhs_loc(:, 2), &
-    !                      lhs_loc(:, 3), &
-    !                      lhs_loc(:, 4), &
-    !                      lhs_loc(:, 5), &
-    !                      lhs_loc(:, 6), &
-    !                      lhs_loc(:, 7), f)
-    !   call Thomas7_SolveLU_L(lhs_loc(:, 1:nd/2), f)
-    call Thomas_SolveLU_L(lhs_loc(:, 1:nd/2), f)
-    ! call Thomas7_SolveLU_U(lhs_loc(:, nd/2 + 1:nd), f)
-    call Thomas_SolveLU_U(lhs_loc(:, nd/2 + 1:nd), f)
+    call Thomas_SolveL(lhs_loc(:, 1:nd/2), f)
+    call Thomas_SolveU(lhs_loc(:, nd/2 + 1:nd), f)
 
     write (str, *) nd
     call check(f, u, 'linsys-'//trim(adjustl(str))//'.dat')

@@ -8,8 +8,11 @@ module Thomas_Circulant
     implicit none
     private
 
-    public :: Thomas3_C_SMW_Initialize
-    public :: Thomas3_C_SMW_Solve
+    public :: ThomasCirc3_SMW_Initialize
+    public :: ThomasCirc3_SMW_Solve
+
+    public :: ThomasCirc5_SMW_Initialize
+    public :: ThomasCirc5_SMW_Solve
 
 contains
     !########################################################################
@@ -18,7 +21,7 @@ contains
     ! Adapted from 10.1016/j.camwa.2011.12.044
     ! Marginally slower because one more call to memory for array f, but clearer
 
-    subroutine Thomas3_C_SMW_Initialize(L, U, z_mem)
+    subroutine ThomasCirc3_SMW_Initialize(L, U, z_mem)
         real(wp), intent(inout) :: L(:, :), U(:, :)
         real(wp), intent(inout) :: z_mem(1, size(L, 1))
 
@@ -35,16 +38,19 @@ contains
         ! -------------------------------------------------------------------
         ! Generate matrix A1
         U(1, 1) = U(1, 1) - cn
+
         U(nmax, 1) = U(nmax, 1) - a1
+
         call Thomas3_FactorLU_InPlace(L, U)
 
         ! -------------------------------------------------------------------
         ! Generate vector z
-#define z(i) z_mem(i,1)
+#define z(i) z_mem(1,i)
 
         z(:) = 0.0_wp
         z(1) = 1.0_wp
         z(nmax) = 1.0_wp
+
         call Thomas3_SolveL(L, z_mem)
         call Thomas3_SolveU(U, z_mem)
 
@@ -71,11 +77,11 @@ contains
 #undef z
 
         return
-    end subroutine Thomas3_C_SMW_Initialize
+    end subroutine ThomasCirc3_SMW_Initialize
 
     !########################################################################
     !########################################################################
-    subroutine Thomas3_C_SMW_Solve(L, U, z, f, wrk)
+    subroutine ThomasCirc3_SMW_Solve(L, U, z, f, wrk)
         real(wp), intent(in) :: L(:, :), U(:, :), z(:)
         real(wp), intent(inout) :: f(:, :)          ! forcing and solution
         real(wp), intent(inout) :: wrk(:)
@@ -103,6 +109,129 @@ contains
         ! end do
 
         return
-    end subroutine Thomas3_C_SMW_Solve
+    end subroutine ThomasCirc3_SMW_Solve
+
+    ! #######################################################################
+    ! #######################################################################
+#define a(i) L(i,1)
+#define b(i) L(i,2)
+#define c(i) U(i,1)
+#define d(i) U(i,2)
+#define e(i) U(i,3)
+
+#define z1(i) z_mem(1,i)
+#define z2(i) z_mem(2,i)
+
+    subroutine ThomasCirc5_SMW_Initialize(L, U, z_mem)
+        real(wp), intent(inout) :: L(:, :), U(:, :)
+        real(wp), intent(inout) :: z_mem(2, size(L, 1))
+
+        ! -----------------------------------------------------------------------
+        integer nmax
+        real(wp) :: m1, m2, m3, m4
+
+        ! #######################################################################
+        nmax = size(L, 1)
+
+        ! -------------------------------------------------------------------
+        ! Generate matrix A1
+        b(2) = b(2) - d(nmax)
+        c(1) = c(1) - e(nmax - 1)
+        c(2) = c(2) - e(nmax)
+
+        c(nmax - 1) = c(nmax - 1) - a(1)
+        c(nmax) = c(nmax) - a(2)
+        d(nmax - 1) = d(nmax - 1) - b(1)
+
+        call Thomas5_FactorLU_InPlace(L, U)
+
+        ! -------------------------------------------------------------------
+        ! Generate vector z
+        z1(:) = 0.0_wp ! u1
+        z1(1) = 1.0_wp
+        z1(nmax - 1) = 1.0_wp
+
+        z2(:) = 0.0_wp ! u2
+        z2(2) = 1.0_wp
+        z2(nmax) = 1.0_wp
+
+        call Thomas5_SolveL(L, z_mem)
+        call Thomas5_SolveU(U, z_mem)
+
+        ! Compute entries of matrix M[2x2] once
+        m1 = e(nmax - 1)*z1(1) + a(1)*z1(nmax - 1) + b(1)*z1(nmax) + 1.0_wp
+        m2 = e(nmax - 1)*z2(1) + a(1)*z2(nmax - 1) + b(1)*z2(nmax)
+        m3 = d(nmax)*z1(1) + e(nmax)*z1(2) + a(2)*z1(nmax)
+        m4 = d(nmax)*z2(1) + e(nmax)*z2(2) + a(2)*z2(nmax) + 1.0_wp
+        ! Check if M is invertible (eq. 2.9)
+        if ((m1*m4 - m2*m3) < small_wp) then
+            call TLab_Write_ASCII(efile, __FILE__//'. Singular matrix M.')
+            call TLab_Stop(DNS_ERROR_THOMAS)
+        end if
+
+        return
+    end subroutine ThomasCirc5_SMW_Initialize
+
+    ! #######################################################################
+    ! #######################################################################
+    subroutine ThomasCirc5_SMW_Solve(L, U, z_mem, f)
+        real(wp), intent(in) :: L(:, :), U(:, :)
+        real(wp), intent(inout) :: z_mem(2, size(L, 1))
+        real(wp), intent(inout) :: f(:, :)          ! forcing and solution
+
+        ! -----------------------------------------------------------------------
+        integer(wi) :: nmax, n, ll
+        real(wp) :: m1, m2, m3, m4
+        real(wp) :: di, d11, d12, d13, d14, d21, d22, d23, d24
+        real(wp) :: dummy1, dummy2
+
+        ! #######################################################################
+        if (size(f, 1) <= 0) return
+
+        call Thomas5_SolveL(L, f)
+        call Thomas5_SolveU(U, f)
+
+        nmax = size(f, 2)
+
+        ! Compute entries of matrix m[2x2]
+        m1 = e(nmax - 1)*z1(1) + a(1)*z1(nmax - 1) + b(1)*z1(nmax) + 1.0_wp
+        m2 = e(nmax - 1)*z2(1) + a(1)*z2(nmax - 1) + b(1)*z2(nmax)
+        m3 = d(nmax)*z1(1) + e(nmax)*z1(2) + a(2)*z1(nmax)
+        m4 = d(nmax)*z2(1) + e(nmax)*z2(2) + a(2)*z2(nmax) + 1.0_wp
+
+        ! Compute coefficients
+        di = 1.0_wp/(m1*m4 - m2*m3)
+        d11 = di*(m4*e(nmax - 1) - m2*d(nmax))
+        d12 = di*(m4*b(1) - m2*a(2))
+        d13 = di*m4*a(1)
+        d14 = di*m2*e(nmax)
+        d21 = di*(m1*d(nmax) - m3*e(nmax - 1))
+        d22 = di*(m1*a(2) - m3*b(1))
+        d23 = di*m3*a(1)
+        d24 = di*m1*e(nmax)
+
+        ! Solve
+        do n = 3, nmax - 2, 1 ! Main loop
+            do ll = 1, size(f, 1)
+                dummy1 = d11*f(ll, 1) + d12*f(ll, nmax) + d13*f(ll, nmax - 1) - d14*f(ll, 2)
+                dummy2 = d21*f(ll, 1) + d22*f(ll, nmax) - d23*f(ll, nmax - 1) + d24*f(ll, 2)
+                !
+                f(ll, n) = f(ll, n) - dummy1*z1(n) - dummy2*z2(n)
+            end do
+        end do
+        !
+        do ll = 1, size(f, 1)    ! Boundaries
+            dummy1 = d11*f(ll, 1) + d12*f(ll, nmax) + d13*f(ll, nmax - 1) - d14*f(ll, 2)
+            dummy2 = d21*f(ll, 1) + d22*f(ll, nmax) - d23*f(ll, nmax - 1) + d24*f(ll, 2)
+            do n = 1, 2
+                f(ll, n) = f(ll, n) - dummy1*z1(n) - dummy2*z2(n)
+            end do
+            do n = nmax - 1, nmax
+                f(ll, n) = f(ll, n) - dummy1*z1(n) - dummy2*z2(n)
+            end do
+        end do
+
+        return
+    end subroutine ThomasCirc5_SMW_Solve
 
 end module Thomas_Circulant

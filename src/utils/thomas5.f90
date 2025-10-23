@@ -183,25 +183,27 @@ contains
         real(wp), intent(out) :: f(nmax), g(nmax)       ! Additional (u1,u2)
 
         ! -----------------------------------------------------------------------
-        real(wp) :: a0, b0, en, dn
+        real(wp) :: a0, b0, en, dn, a2, enm1
         real(wp) :: m1, m2, m3, m4
 
         ! #######################################################################
         ! Build regular modified pentadiagonal matrix A1 (eq. 2.8)
 
-        ! Save cyclic entries
-        a0 = a(1)    ! upper-right corner
-        b0 = b(1)
-        en = e(nmax) ! lower-left  corner
-        dn = d(nmax)
+        ! ! Save cyclic entries
+        ! a0 = a(1)    ! upper-right corner
+        ! b0 = b(1)
+        ! a2 = a(2)
+        ! enm1 = e(nmax - 1)
+        ! en = e(nmax) ! lower-left  corner
+        ! dn = d(nmax)
 
         ! Modified entries of A1
         b(2) = b(2) - d(nmax)
-        c(1) = c(1) - e(nmax)
+        c(1) = c(1) - e(nmax - 1)
         c(2) = c(2) - e(nmax)
 
         c(nmax - 1) = c(nmax - 1) - a(1)
-        c(nmax) = c(nmax) - a(1)
+        c(nmax) = c(nmax) - a(2)
         d(nmax - 1) = d(nmax - 1) - b(1)
 
         ! ! Set off-diagonal entries to zero for A1
@@ -216,11 +218,13 @@ contains
         ! Regular forward step for A1
         call Thomas5_FactorLU(nmax, a, b, c, d, e)
 
-        ! Save cyclic entries again
-        a(1) = a0 ! upper-right corner
-        b(1) = b0
-        e(nmax) = en ! lower-left corner
-        d(nmax) = dn
+        ! ! Save cyclic entries again
+        ! a(1) = a0 ! upper-right corner
+        ! b(1) = b0
+        ! a(2) = a2
+        ! e(nmax - 1) = enm1
+        ! e(nmax) = en ! lower-left corner
+        ! d(nmax) = dn
 
         ! Define matrix u [here: u1,u2 stored in additional diagonals f, g] (eq. 2.8)
         f = 0.0_wp ! u1
@@ -235,10 +239,10 @@ contains
         call Thomas5_SolveLU(nmax, 1, a, b, c, d, e, g)
 
         ! Compute entries of matrix M[2x2] once
-        m1 = e(nmax)*f(1) + a(1)*f(nmax - 1) + b(1)*f(nmax) + 1.0_wp
-        m2 = e(nmax)*g(1) + a(1)*g(nmax - 1) + b(1)*g(nmax)
-        m3 = d(nmax)*f(1) + e(nmax)*f(2) + a(1)*f(nmax)
-        m4 = d(nmax)*g(1) + e(nmax)*g(2) + a(1)*g(nmax) + 1.0_wp
+        m1 = e(nmax - 1)*f(1) + a(1)*f(nmax - 1) + b(1)*f(nmax) + 1.0_wp
+        m2 = e(nmax - 1)*g(1) + a(1)*g(nmax - 1) + b(1)*g(nmax)
+        m3 = d(nmax)*f(1) + e(nmax)*f(2) + a(2)*f(nmax)
+        m4 = d(nmax)*g(1) + e(nmax)*g(2) + a(2)*g(nmax) + 1.0_wp
         ! Check if M is invertible (eq. 2.9)
         if ((m1*m4 - m2*m3) < small_wp) then
             call TLab_Write_ASCII(efile, __FILE__//'. Singular matrix M.')
@@ -269,24 +273,24 @@ contains
         call Thomas5_SolveLU(nmax, len, a, b, c, d, e, frc)
 
         ! Compute entries of matrix m[2x2]
-        m1 = e(nmax)*f(1) + a(1)*f(nmax - 1) + b(1)*f(nmax) + 1.0_wp
-        m2 = e(nmax)*g(1) + a(1)*g(nmax - 1) + b(1)*g(nmax)
-        m3 = d(nmax)*f(1) + e(nmax)*f(2) + a(1)*f(nmax)
-        m4 = d(nmax)*g(1) + e(nmax)*g(2) + a(1)*g(nmax) + 1.0_wp
+        m1 = e(nmax - 1)*f(1) + a(1)*f(nmax - 1) + b(1)*f(nmax) + 1.0_wp
+        m2 = e(nmax - 1)*g(1) + a(1)*g(nmax - 1) + b(1)*g(nmax)
+        m3 = d(nmax)*f(1) + e(nmax)*f(2) + a(2)*f(nmax)
+        m4 = d(nmax)*g(1) + e(nmax)*g(2) + a(2)*g(nmax) + 1.0_wp
 
         ! Compute coefficients
-        di = 1/(m1*m4 - m2*m3)
-        d11 = di*(m4*e(nmax) - m2*d(nmax))
-        d12 = di*(m4*b(1) - m2*a(1))
+        di = 1.0_wp/(m1*m4 - m2*m3)
+        d11 = di*(m4*e(nmax - 1) - m2*d(nmax))
+        d12 = di*(m4*b(1) - m2*a(2))
         d13 = di*m4*a(1)
         d14 = di*m2*e(nmax)
-        d21 = di*(m1*d(nmax) - m3*e(nmax))
-        d22 = di*(m1*a(1) - m3*b(1))
+        d21 = di*(m1*d(nmax) - m3*e(nmax - 1))
+        d22 = di*(m1*a(2) - m3*b(1))
         d23 = di*m3*a(1)
         d24 = di*m1*e(nmax)
 
         ! Solve
-        do n = 3, nmax - 3, 1 ! Main loop
+        do n = 3, nmax - 2, 1 ! Main loop
             do l = 1, len, 1
                 dummy1 = d11*frc(l, 1) + d12*frc(l, nmax) + d13*frc(l, nmax - 1) - d14*frc(l, 2)
                 dummy2 = d21*frc(l, 1) + d22*frc(l, nmax) - d23*frc(l, nmax - 1) + d24*frc(l, 2)
@@ -301,7 +305,7 @@ contains
             do n = 1, 2, 1
                 frc(l, n) = frc(l, n) - dummy1*f(n) - dummy2*g(n)
             end do
-            do n = nmax - 2, nmax, 1
+            do n = nmax - 1, nmax, 1
                 frc(l, n) = frc(l, n) - dummy1*f(n) - dummy2*g(n)
             end do
         end do

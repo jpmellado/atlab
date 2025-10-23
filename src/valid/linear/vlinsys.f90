@@ -84,14 +84,14 @@ program vLinSys
     !                         lhs_loc(:, 2), &
     !                         lhs_loc(:, 3), &
     !                         lhs_loc(:, 4), f, wrk)
-    call Thomas3_C_SMW_Initialize(lhs_loc(:, 1:nd/2), &
-                                  lhs_loc(:, nd/2 + 1:nd), &
-                                  lhs_loc(:, nd + 1:nd + 1))
-    call Thomas3_C_SMW_Solve(lhs_loc(:, 1:nd/2), &
-                             lhs_loc(:, nd/2 + 1:nd), &
-                             lhs_loc(:, nd + 1), &
-                             f, &
-                             wrk)
+    call ThomasCirc3_SMW_Initialize(lhs_loc(:, 1:nd/2), &
+                                    lhs_loc(:, nd/2 + 1:nd), &
+                                    lhs_loc(1, nd + 1))
+    call ThomasCirc3_SMW_Solve(lhs_loc(:, 1:nd/2), &
+                               lhs_loc(:, nd/2 + 1:nd), &
+                               lhs_loc(:, nd + 1), &
+                               f, &
+                               wrk)
 
     write (str, *) nd
     call check(f, u, 'linsys-'//trim(adjustl(str))//'.dat')
@@ -124,31 +124,32 @@ program vLinSys
     print *, new_line('a'), 'Solve circulant pentadiagonal system'
 
     ! compute forcing
-    ! lhs(:, 1) = 1.4629948364887945e-003 ! this comes from fdm1-penta and works. Why?
-    ! lhs(:, 2) = 9.0361445783137314e-003
-    ! lhs(:, 3) = 1.6135972461273688e-002
-    ! lhs(:, 4) = 9.0361445783132474e-003
-    ! lhs(:, 5) = 1.4629948364888149e-003
-
     call matmul(lhs(:, 1:nd), u, f)
 
     lhs_loc(:, 1:nd) = lhs(:, 1:nd)
-    call Thomas5C_SMW_LU(nsize, &
-                         lhs_loc(:, 1), &
-                         lhs_loc(:, 2), &
-                         lhs_loc(:, 3), &
-                         lhs_loc(:, 4), &
-                         lhs_loc(:, 5), &
-                         lhs_loc(:, 6), &
-                         lhs_loc(:, 7))
-    call Thomas5C_SMW_Solve(nsize, nlines, &
-                            lhs_loc(:, 1), &
-                            lhs_loc(:, 2), &
-                            lhs_loc(:, 3), &
-                            lhs_loc(:, 4), &
-                            lhs_loc(:, 5), &
-                            lhs_loc(:, 6), &
-                            lhs_loc(:, 7), f)
+    ! call Thomas5C_SMW_LU(nsize, &
+    !                      lhs_loc(:, 1), &
+    !                      lhs_loc(:, 2), &
+    !                      lhs_loc(:, 3), &
+    !                      lhs_loc(:, 4), &
+    !                      lhs_loc(:, 5), &
+    !                      lhs_loc(:, 6), &
+    !                      lhs_loc(:, 7))
+    ! call Thomas5C_SMW_Solve(nsize, nlines, &
+    !                         lhs_loc(:, 1), &
+    !                         lhs_loc(:, 2), &
+    !                         lhs_loc(:, 3), &
+    !                         lhs_loc(:, 4), &
+    !                         lhs_loc(:, 5), &
+    !                         lhs_loc(:, 6), &
+    !                         lhs_loc(:, 7), f)
+    call ThomasCirc5_SMW_Initialize(lhs_loc(:, 1:nd/2), &
+                                    lhs_loc(:, nd/2 + 1:nd), &
+                                    lhs_loc(1, nd + 1))
+    call ThomasCirc5_SMW_Solve(lhs_loc(:, 1:nd/2), &
+                               lhs_loc(:, nd/2 + 1:nd), &
+                               lhs_loc(1, nd + 1), &
+                               f)
 
     write (str, *) nd
     call check(f, u, 'linsys-'//trim(adjustl(str))//'.dat')
@@ -322,7 +323,7 @@ contains
             do ic = 1, idr - 1
                 f(:, nx - ir) = f(:, nx - ir) + &
                                 rhs(nx - ir, idr - ic)*u(:, nx - ir - ic) + &
-                                rhs(nx - ir, idr + ic)*u(:, mod(nx - ir + ic, nx))
+                                rhs(nx - ir, idr + ic)*u(:, mod(nx - ir + ic - 1, nx) + 1)
             end do
         end do
 

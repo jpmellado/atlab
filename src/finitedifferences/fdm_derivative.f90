@@ -5,8 +5,10 @@ module FDM_Derivative
     use TLab_Constants, only: lfile, efile
     use TLab_Constants, only: BCS_DD, BCS_ND, BCS_DN, BCS_NN, BCS_NONE, BCS_PERIODIC, BCS_MIN, BCS_MAX
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
-    use Thomas3
-    use Thomas5
+    use Thomas
+    use Thomas_Circulant
+    ! use Thomas3
+    ! use Thomas5
     use FDM_MatMul
     use FDM_Base
     use FDM_ComX_Direct
@@ -113,16 +115,22 @@ contains
             select case (ndl)
             case (3)
                 ! call Thomas3C_LU(g%lu(:, 1), g%lu(:, 2), g%lu(:, 3), g%lu(:, 4), g%lu(:, 5))
-                call Thomas3C_SMW_LU(g%lu(:, 1), g%lu(:, 2), g%lu(:, 3), g%lu(:, 4))
+                ! call Thomas3C_SMW_LU(g%lu(:, 1), g%lu(:, 2), g%lu(:, 3), g%lu(:, 4))
+                call ThomasCirc3_SMW_Initialize(g%lu(:, 1:ndl/2), &
+                                                g%lu(:, ndl/2 + 1:ndl), &
+                                                g%lu(1, ndl + 1))
             case (5)
-                call Thomas5C_SMW_LU(g%size, &
-                                     g%lu(:, 1), &
-                                     g%lu(:, 2), &
-                                     g%lu(:, 3), &
-                                     g%lu(:, 4), &
-                                     g%lu(:, 5), &
-                                     g%lu(:, 6), &
-                                     g%lu(:, 7))
+                ! call Thomas5C_SMW_LU(g%size, &
+                !                      g%lu(:, 1), &
+                !                      g%lu(:, 2), &
+                !                      g%lu(:, 3), &
+                !                      g%lu(:, 4), &
+                !                      g%lu(:, 5), &
+                !                      g%lu(:, 6), &
+                !                      g%lu(:, 7))
+                call ThomasCirc5_SMW_Initialize(g%lu(:, 1:ndl/2), &
+                                                g%lu(:, ndl/2 + 1:ndl), &
+                                                g%lu(1, ndl + 1))
             end select
 
         else                            ! biased,  different BCs
@@ -139,20 +147,22 @@ contains
                 if (any([BCS_DN, BCS_NN] == bcs_cases(ib))) nmax = nmax - 1
                 nsize = nmax - nmin + 1
 
-                select case (ndl)
-                case (3)
-                    call Thomas3_FactorLU(nsize, &
-                                          g%lu(nmin:nmax, ip + 1), &
-                                          g%lu(nmin:nmax, ip + 2), &
-                                          g%lu(nmin:nmax, ip + 3))
-                case (5)
-                    call Thomas5_FactorLU(nsize, &
-                                          g%lu(nmin:nmax, ip + 1), &
-                                          g%lu(nmin:nmax, ip + 2), &
-                                          g%lu(nmin:nmax, ip + 3), &
-                                          g%lu(nmin:nmax, ip + 4), &
-                                          g%lu(nmin:nmax, ip + 5))
-                end select
+                call Thomas_FactorLU_InPlace(g%lu(nmin:nmax, ip + 1:ip + ndl/2), &
+                                             g%lu(nmin:nmax, ip + ndl/2 + 1:ip + ndl))
+                ! select case (ndl)
+                ! case (3)
+                !     call Thomas3_FactorLU(nsize, &
+                !                           g%lu(nmin:nmax, ip + 1), &
+                !                           g%lu(nmin:nmax, ip + 2), &
+                !                           g%lu(nmin:nmax, ip + 3))
+                ! case (5)
+                !     call Thomas5_FactorLU(nsize, &
+                !                           g%lu(nmin:nmax, ip + 1), &
+                !                           g%lu(nmin:nmax, ip + 2), &
+                !                           g%lu(nmin:nmax, ip + 3), &
+                !                           g%lu(nmin:nmax, ip + 4), &
+                !                           g%lu(nmin:nmax, ip + 5))
+                ! end select
 
             end do
 
@@ -348,7 +358,7 @@ contains
         integer, intent(in), optional :: ibc          ! Boundary condition [BCS_DD=BCS_NONE, BCS_DN, BCS_ND, BCS_NN]
 
         ! -------------------------------------------------------------------
-        integer(wi) nmin, nmax, nsize, ip
+        integer(wi) nmin, nmax, nsize, ip, ndl
         integer ibc_loc
 
         ! ###################################################################
@@ -376,23 +386,33 @@ contains
 
         ! -------------------------------------------------------------------
         ! Solve for u' in system of equations A u' = B u
+        ndl = g%nb_diag(1)
+
         if (g%periodic) then
             select case (g%nb_diag(1))
             case (3)
                 ! call Thomas3C_Solve(lu1(:, 1), lu1(:, 2), lu1(:, 3), lu1(:, 4), lu1(:, 5), result, wrk2d)
-                call Thomas3C_SMW_Solve(lu1(:, 1), &
-                                        lu1(:, 2), &
-                                        lu1(:, 3), &
-                                        lu1(:, 4), result, wrk2d)
+                ! call Thomas3C_SMW_Solve(lu1(:, 1), &
+                !                         lu1(:, 2), &
+                !                         lu1(:, 3), &
+                !                         lu1(:, 4), result, wrk2d)
+                call ThomasCirc3_SMW_Solve(lu1(:, 1:ndl/2), &
+                                           lu1(:, ndl/2 + 1:ndl), &
+                                           lu1(:, ndl + 1), &
+                                           result, wrk2d)
             case (5)
-                call Thomas5C_SMW_Solve(g%size, nlines, &
-                                        lu1(:, 1), &
-                                        lu1(:, 2), &
-                                        lu1(:, 3), &
-                                        lu1(:, 4), &
-                                        lu1(:, 5), &
-                                        lu1(:, 6), &
-                                        lu1(:, 7), result)
+                ! call Thomas5C_SMW_Solve(g%size, nlines, &
+                !                         lu1(:, 1), &
+                !                         lu1(:, 2), &
+                !                         lu1(:, 3), &
+                !                         lu1(:, 4), &
+                !                         lu1(:, 5), &
+                !                         lu1(:, 6), &
+                !                         lu1(:, 7), result)
+                call ThomasCirc5_SMW_Solve(lu1(:, 1:ndl/2), &
+                                           lu1(:, ndl/2 + 1:ndl), &
+                                           lu1(:, ndl + 1), &
+                                           result)!, wrk2d)
             end select
 
         else
@@ -400,17 +420,21 @@ contains
 
             select case (g%nb_diag(1))
             case (3)
-                call Thomas3_SolveLU(nsize, nlines, &
-                                     lu1(nmin:, ip + 1), &
-                                     lu1(nmin:, ip + 2), &
-                                     lu1(nmin:, ip + 3), result(:, nmin:))
+                call Thomas3_SolveL(lu1(nmin:nmax, ip + 1:ip + ndl/2), result(:, nmin:nmax))
+                call Thomas3_SolveU(lu1(nmin:nmax, ip + ndl/2 + 1:ip + ndl), result(:, nmin:nmax))
+                ! call Thomas3_SolveLU(nsize, nlines, &
+                !                      lu1(nmin:, ip + 1), &
+                !                      lu1(nmin:, ip + 2), &
+                !                      lu1(nmin:, ip + 3), result(:, nmin:))
             case (5)
-                call Thomas5_SolveLU(nsize, nlines, &
-                                     lu1(nmin:, ip + 1), &
-                                     lu1(nmin:, ip + 2), &
-                                     lu1(nmin:, ip + 3), &
-                                     lu1(nmin:, ip + 4), &
-                                     lu1(nmin:, ip + 5), result(:, nmin:))
+                ! call Thomas5_SolveLU(nsize, nlines, &
+                !                      lu1(nmin:, ip + 1), &
+                !                      lu1(nmin:, ip + 2), &
+                !                      lu1(nmin:, ip + 3), &
+                !                      lu1(nmin:, ip + 4), &
+                !                      lu1(nmin:, ip + 5), result(:, nmin:))
+                call Thomas5_SolveL(lu1(nmin:nmax, ip + 1:ip + ndl/2), result(:, nmin:nmax))
+                call Thomas5_SolveU(lu1(nmin:nmax, ip + ndl/2 + 1:ip + ndl), result(:, nmin:nmax))
             end select
 
         end if
@@ -449,20 +473,25 @@ contains
             select case (ndl)
             case (3)
                 ! call Thomas3C_LU(g%lu(:, 1), g%lu(:, 2), g%lu(:, 3), g%lu(:, 4), g%lu(:, 5))
-                call Thomas3C_SMW_LU(g%lu(:, 1), &
-                                     g%lu(:, 2), &
-                                     g%lu(:, 3), &
-                                     g%lu(:, 4))
+                ! call Thomas3C_SMW_LU(g%lu(:, 1), &
+                !                      g%lu(:, 2), &
+                !                      g%lu(:, 3), &
+                !                      g%lu(:, 4))
+                call ThomasCirc3_SMW_Initialize(g%lu(:, 1:ndl/2), &
+                                                g%lu(:, ndl/2 + 1:ndl), &
+                                                g%lu(1, ndl + 1))
             end select
 
         else
-            select case (ndl)
-            case (3)
-                call Thomas3_FactorLU(g%size, &
-                                      g%lu(:, 1), &
-                                      g%lu(:, 2), &
-                                      g%lu(:, 3))
-            end select
+            call Thomas_FactorLU_InPlace(g%lu(:, 1:ndl/2), &
+                                         g%lu(:, ndl/2 + 1:ndl))
+            ! select case (ndl)
+            ! case (3)
+            !     call Thomas3_FactorLU(g%size, &
+            !                           g%lu(:, 1), &
+            !                           g%lu(:, 2), &
+            !                           g%lu(:, 3))
+            ! end select
 
         end if
 
@@ -578,7 +607,7 @@ contains
         real(wp), intent(out) :: wrk2d(nlines)
 
         ! -------------------------------------------------------------------
-        integer(wi) ip
+        integer(wi) ip, ndl
 
         ! ###################################################################
         ! Calculate RHS in system of equations A u' = B u
@@ -595,22 +624,30 @@ contains
 
         ! -------------------------------------------------------------------
         ! Solve for u' in system of equations A u' = B u
+        ndl = g%nb_diag(1)
+
         if (g%periodic) then
             select case (g%nb_diag(1))
             case (3)
                 ! call Thomas3C_Solve(lu(:, 1), lu(:, 2), lu(:, 3), lu(:, 4), lu(:, 5), result, wrk2d)
-                call Thomas3C_SMW_Solve(lu(:, 1), &
-                                        lu(:, 2), &
-                                        lu(:, 3), &
-                                        lu(:, 4), result, wrk2d)
+                ! call Thomas3C_SMW_Solve(lu(:, 1), &
+                !                         lu(:, 2), &
+                !                         lu(:, 3), &
+                !                         lu(:, 4), result, wrk2d)
+                call ThomasCirc3_SMW_Solve(lu(:, 1:ndl/2), &
+                                           lu(:, ndl/2 + 1:ndl), &
+                                           lu(:, ndl + 1), &
+                                           result, wrk2d)
             end select
         else
             select case (g%nb_diag(1))
             case (3)
-                call Thomas3_SolveLU(g%size, nlines, &
-                                     lu(:, 1), &
-                                     lu(:, 2), &
-                                     lu(:, 3), result)
+                call Thomas3_SolveL(lu(:, 1:ndl/2), result)
+                call Thomas3_SolveU(lu(:, ndl/2 + 1:ndl), result)
+                ! call Thomas3_SolveLU(g%size, nlines, &
+                !                      lu(:, 1), &
+                !                      lu(:, 2), &
+                !                      lu(:, 3), result)
             end select
         end if
 

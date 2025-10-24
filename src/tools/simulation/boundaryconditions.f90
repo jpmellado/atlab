@@ -5,8 +5,6 @@ module BoundaryConditions
     use TLab_Constants, only: BCS_DD, BCS_DN, BCS_ND, BCS_NN, BCS_NONE, BCS_MIN, BCS_MAX, BCS_BOTH, MAX_VARS
     use TLab_Constants, only: efile
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
-    use Thomas3
-    use Thomas5
     use FDM, only: g
     implicit none
     private

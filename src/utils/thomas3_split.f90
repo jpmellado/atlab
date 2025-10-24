@@ -9,7 +9,8 @@ module Thomas3_Split
 #ifdef USE_MPI
     use mpi_f08, only: MPI_Comm
 #endif
-    use Thomas3
+    use Thomas
+    ! use Thomas3
     implicit none
     private
 
@@ -39,8 +40,10 @@ module Thomas3_Split
 contains
     !########################################################################
     !########################################################################
-    subroutine Thomas3_Split_Initialize(a, b, c, points, split)
-        real(wp), intent(inout) :: a(:), b(:), c(:)
+    ! subroutine Thomas3_Split_Initialize(a, b, c, points, split)
+    !     real(wp), intent(inout) :: a(:), b(:), c(:)
+    subroutine Thomas3_Split_Initialize(L, U, points, split)
+        real(wp), intent(inout) :: L(:, :), U(:, :)
         integer(wi), intent(in) :: points(:)   ! sequence of splitting points in ascending order
         type(thomas3_split_dt), intent(inout) :: split
 
@@ -50,17 +53,22 @@ contains
         integer(wi) p, p_plus_1
         character(len=32) str
 
-        real(wp), allocatable :: aloc(:), bloc(:), cloc(:), zloc(:)
+        ! real(wp), allocatable :: aloc(:), bloc(:), cloc(:), zloc(:)
+        real(wp), allocatable :: lhs_loc(:, :), zloc(:)
         real(wp) alpha_0(2), alpha(2)
         real(wp) delta
         real(wp) alpha_previous(2), beta_loc, gamma_loc
+
+#define a(i) L(i,1)
+#define b(i) U(i,1)
+#define c(i) U(i,2)
 
         !########################################################################
         nblocks = size(points)
         ! Number of coefficients are nblocks-1 for the tridiagonal case
         ! and we add one for the circulant case, which is managed by last block
 
-        nsize = size(a)
+        nsize = size(a(:))
 
         k = split%block_id
         split%nmin = points(mod(k - 2 + nblocks, nblocks) + 1)
@@ -81,15 +89,17 @@ contains
 
         ! -------------------------------------------------------------------
         ! temporary arrays to calculate z_j
-        nsize = size(a)
-        allocate (aloc(nsize), bloc(nsize), cloc(nsize), zloc(nsize))
+        nsize = size(a(:))
+        ! allocate (aloc(nsize), bloc(nsize), cloc(nsize), zloc(nsize))
+        allocate (lhs_loc(nsize, 3), zloc(nsize))
 
         if (split%circulant) then
             m = nblocks             ! last block has the circulant coefficient
             p = points(m)           ! index of splitting point
             p_plus_1 = 1
 
-            call Splitting(a, b, c, p, p_plus_1, alpha_0, zloc)
+            ! call Splitting(a, b, c, p, p_plus_1, alpha_0, zloc)
+            call Splitting(L, U, p, p_plus_1, alpha_0, zloc)
 
             if (split%block_id == m) then
                 split%alpha(1:2) = alpha_0(1:2)
@@ -111,7 +121,8 @@ contains
             p = points(m)           ! index of splitting point
             p_plus_1 = p + 1
 
-            call Splitting(a, b, c, p, p_plus_1, alpha, zloc)
+            ! call Splitting(a, b, c, p, p_plus_1, alpha, zloc)
+            call Splitting(L, U, p, p_plus_1, alpha, zloc)
 
             if (split%block_id == m) then
                 split%alpha(1:2) = alpha(1:2)
@@ -134,20 +145,25 @@ contains
 
         ! -------------------------------------------------------------------
         ! block matrix Am and LU decomposition
-        split%lhs(:, 1) = aloc(split%nmin:split%nmax)
-        split%lhs(:, 2) = bloc(split%nmin:split%nmax)
-        split%lhs(:, 3) = cloc(split%nmin:split%nmax)
+        ! split%lhs(:, 1) = aloc(split%nmin:split%nmax)
+        ! split%lhs(:, 2) = bloc(split%nmin:split%nmax)
+        ! split%lhs(:, 3) = cloc(split%nmin:split%nmax)
+        split%lhs(:, 1) = lhs_loc(split%nmin:split%nmax, 1)
+        split%lhs(:, 2) = lhs_loc(split%nmin:split%nmax, 2)
+        split%lhs(:, 3) = lhs_loc(split%nmin:split%nmax, 3)
 
-        deallocate (aloc, bloc, cloc, zloc)
+        deallocate (lhs_loc, zloc)
 
         return
 
     contains
-        subroutine Splitting(a, b, c, p, p_plus_1, alpha, z)
-            real(wp), intent(inout) :: a(:), b(:), c(:)
+        ! subroutine Splitting(a, b, c, p, p_plus_1, alpha, z)
+        !     real(wp), intent(inout) :: a(:), b(:), c(:)
+        subroutine Splitting(L, U, p, p_plus_1, alpha, z)
+            real(wp), intent(inout) :: L(:, :), U(:, :)
             integer(wi), intent(in) :: p, p_plus_1
             real(wp), intent(inout) :: alpha(2)
-            real(wp), intent(inout) :: z(:)
+            real(wp), intent(inout) :: z(1, size(L, 1))
 
             ! Start definition of alpha
             alpha(1) = a(p_plus_1)
@@ -160,16 +176,23 @@ contains
             c(p) = 0.0_wp
 
             ! Generate vector zk
-            aloc(:) = a(:); bloc(:) = b(:); cloc(:) = c(:)
-            call Thomas3_FactorLU(size(aloc), aloc, bloc, cloc)
+            ! aloc(:) = a(:); bloc(:) = b(:); cloc(:) = c(:)
+            lhs_loc(:, 1) = a(:)
+            lhs_loc(:, 2) = b(:)
+            lhs_loc(:, 3) = c(:)
+            ! call Thomas3_FactorLU(size(aloc), aloc, bloc, cloc)
+            call Thomas_FactorLU_InPlace(lhs_loc(:, 1:1), &
+                                         lhs_loc(:, 2:3))
 
-            z(:) = 0.0_wp
-            z(p) = 1.0_wp
-            z(p_plus_1) = 1.0_wp
-            call Thomas3_SolveLU(size(aloc), 1, aloc, bloc, cloc, z(:))
+            z(1, :) = 0.0_wp
+            z(1, p) = 1.0_wp
+            z(1, p_plus_1) = 1.0_wp
+            ! call Thomas3_SolveLU(size(aloc), 1, aloc, bloc, cloc, z(:))
+            call Thomas3_SolveL(lhs_loc(:, 1:1), z)
+            call Thomas3_SolveU(lhs_loc(:, 2:3), z)
 
             ! Complete definition of alpha
-            delta = 1.0_wp + alpha(1)*z(p) + alpha(2)*z(p_plus_1)
+            delta = 1.0_wp + alpha(1)*z(1, p) + alpha(2)*z(1, p_plus_1)
             if (abs(delta) < small_wp) then
                 call TLab_Write_ASCII(efile, __FILE__//'. Singular matrix M.')
                 call TLab_Stop(DNS_ERROR_THOMAS)
@@ -203,8 +226,10 @@ contains
         do k = 1, nblocks                       ! loop over blocks
             ! nsize = split(k)%nmax - split(k)%nmin + 1
             nsize = size(f(k)%p, 2)
-            call Thomas3_SolveLU(nsize, nlines, &
-                               split(k)%lhs(:, 1), split(k)%lhs(:, 2), split(k)%lhs(:, 3), f(k)%p(:, :))
+            ! call Thomas3_SolveLU(nsize, nlines, &
+            !                      split(k)%lhs(:, 1), split(k)%lhs(:, 2), split(k)%lhs(:, 3), f(k)%p(:, :))
+            call Thomas3_SolveL(split(k)%lhs(:, 1:1), f(k)%p(:, :))
+            call Thomas3_SolveU(split(k)%lhs(:, 2:3), f(k)%p(:, :))
         end do
 
         ! -------------------------------------------------------------------
@@ -283,8 +308,10 @@ contains
 
         !########################################################################
         ! Solving block system Am in each block
-        call Thomas3_SolveLU(nsize, nlines, &
-                           split%lhs(:, 1), split%lhs(:, 2), split%lhs(:, 3), f(:, :))
+        ! call Thomas3_SolveLU(nsize, nlines, &
+        !                      split%lhs(:, 1), split%lhs(:, 2), split%lhs(:, 3), f(:, :))
+        call Thomas3_SolveL(split%lhs(:, 1:1), f)
+        call Thomas3_SolveU(split%lhs(:, 2:3), f)
 
         !########################################################################
         ! Reduction step

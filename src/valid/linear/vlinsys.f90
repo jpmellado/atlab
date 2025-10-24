@@ -148,7 +148,7 @@ program vLinSys
                                     lhs_loc(1, nd + 1))
     call ThomasCirc5_SMW_Solve(lhs_loc(:, 1:nd/2), &
                                lhs_loc(:, nd/2 + 1:nd), &
-                               lhs_loc(1, nd + 1), &
+                               lhs_loc(:, nd + 1), &
                                f)
 
     write (str, *) nd

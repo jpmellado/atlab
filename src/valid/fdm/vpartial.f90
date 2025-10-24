@@ -6,8 +6,9 @@ program VPARTIAL
     use TLab_Memory, only: TLab_Initialize_Memory, TLab_Allocate_Real
     use TLab_Arrays, only: wrk1d, wrk2d, txc
     use TLab_Grid, only: grid_dt
-    use Thomas3
-    use Thomas5
+    use Thomas
+    ! use Thomas3
+    ! use Thomas5
     use FDM, only: fdm_dt, FDM_CreatePlan
     use FDM_Derivative
     use FDM_derivative_Neumann
@@ -55,7 +56,7 @@ program VPARTIAL
 
     x%size = kmax
     x%scale = 1.0_wp
-    x%periodic = .true.
+    x%periodic = .false.
     allocate (x%nodes(kmax))
 
     isize_field = imax*jmax*kmax
@@ -122,17 +123,17 @@ program VPARTIAL
     wk = 6.0_wp
 
     do i = 1, kmax
-        ! single-mode
-        u(:, i) = 1.0_wp + sin(2.0_wp*pi_wp/g%scale*wk*(x%nodes(i) - x_0*x%scale)) ! + pi_wp/4.0_wp)
-        du1_a(:, i) = (2.0_wp*pi_wp/g%scale*wk) &
-                      *cos(2.0_wp*pi_wp/g%scale*wk*(x%nodes(i) - x_0*x%scale))! + pi_wp/4.0_wp)
-        du2_a(:, i) = -(2.0_wp*pi_wp/g%scale*wk)**2 &
-                      *sin(2.0_wp*pi_wp/g%scale*wk*(x%nodes(i) - x_0*x%scale))! + pi_wp/4.0_wp)
-        ! ! Gaussian
-        ! u(:, i) = exp(-(x%nodes(i) - x_0*g%scale)**2/(2.0_wp*(g%scale/wk)**2))
-        ! du1_a(:, i) = -(x%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*u(:, i)
-        ! du2_a(:, i) = -(x%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*du1_a(:, i) &
-        !               - 1.0_wp/(g%scale/wk)**2*u(:, i)
+        ! ! single-mode
+        ! u(:, i) = 1.0_wp + sin(2.0_wp*pi_wp/g%scale*wk*(x%nodes(i) - x_0*x%scale)) ! + pi_wp/4.0_wp)
+        ! du1_a(:, i) = (2.0_wp*pi_wp/g%scale*wk) &
+        !               *cos(2.0_wp*pi_wp/g%scale*wk*(x%nodes(i) - x_0*x%scale))! + pi_wp/4.0_wp)
+        ! du2_a(:, i) = -(2.0_wp*pi_wp/g%scale*wk)**2 &
+        !               *sin(2.0_wp*pi_wp/g%scale*wk*(x%nodes(i) - x_0*x%scale))! + pi_wp/4.0_wp)
+        ! Gaussian
+        u(:, i) = exp(-(x%nodes(i) - x_0*g%scale)**2/(2.0_wp*(g%scale/wk)**2))
+        du1_a(:, i) = -(x%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*u(:, i)
+        du2_a(:, i) = -(x%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*du1_a(:, i) &
+                      - 1.0_wp/(g%scale/wk)**2*u(:, i)
         ! ! exponential
         ! ! u(:, i) = exp(-x%nodes(i)*wk)
         ! ! du1_a(:, i) = -wk*u(:, i)
@@ -245,21 +246,26 @@ program VPARTIAL
                 ! Solve for u' in system of equations A u' = B u
                 ip = ibc*5
 
+                ndl = g%der1%nb_diag(1)
                 select case (g%der1%nb_diag(1))
                 case (3)
-                    call Thomas3_SolveLU(nsize, nlines, &
-                                         g%der1%lu(nmin:nmax, ip + 1), &
-                                         g%der1%lu(nmin:nmax, ip + 2), &
-                                         g%der1%lu(nmin:nmax, ip + 3), &
-                                         du1_n(:, nmin:nmax))
+                    call Thomas3_SolveL(g%der1%lu(nmin:nmax, ip + 1:ip + ndl/2), du1_n(:, nmin:nmax))
+                    call Thomas3_SolveU(g%der1%lu(nmin:nmax, ip + ndl/2 + 1:ip + ndl), du1_n(:, nmin:nmax))
+                    ! call Thomas3_SolveLU(nsize, nlines, &
+                    !                      g%der1%lu(nmin:nmax, ip + 1), &
+                    !                      g%der1%lu(nmin:nmax, ip + 2), &
+                    !                      g%der1%lu(nmin:nmax, ip + 3), &
+                    !                      du1_n(:, nmin:nmax))
                 case (5)
-                    call Thomas5_SolveLU(nsize, nlines, &
-                                         g%der1%lu(nmin:nmax, ip + 1), &
-                                         g%der1%lu(nmin:nmax, ip + 2), &
-                                         g%der1%lu(nmin:nmax, ip + 3), &
-                                         g%der1%lu(nmin:nmax, ip + 4), &
-                                         g%der1%lu(nmin:nmax, ip + 5), &
-                                         du1_n(:, nmin:nmax))
+                    ! call Thomas5_SolveLU(nsize, nlines, &
+                    !                      g%der1%lu(nmin:nmax, ip + 1), &
+                    !                      g%der1%lu(nmin:nmax, ip + 2), &
+                    !                      g%der1%lu(nmin:nmax, ip + 3), &
+                    !                      g%der1%lu(nmin:nmax, ip + 4), &
+                    !                      g%der1%lu(nmin:nmax, ip + 5), &
+                    !                      du1_n(:, nmin:nmax))
+                    call Thomas5_SolveL(g%der1%lu(nmin:nmax, ip + 1:ip + ndl/2), du1_n(:, nmin:nmax))
+                    call Thomas5_SolveU(g%der1%lu(nmin:nmax, ip + ndl/2 + 1:ip + ndl), du1_n(:, nmin:nmax))
                 end select
 
                 write (str, *) im
@@ -425,20 +431,22 @@ program VPARTIAL
                 g%der1%lu(:, 1:ndl) = g%der1%lhs(:, 1:ndl)
                 call FDM_Bcs_Reduce(ibc, g%der1%lu(:, 1:ndl), g%der1%rhs(:, 1:ndr), g%der1%rhs_b, g%der1%rhs_t)
 
-                select case (g%der1%nb_diag(1))
-                case (3)
-                    call Thomas3_FactorLU(nsize, &
-                                          g%der1%lu(nmin:nmax, 1), &
-                                          g%der1%lu(nmin:nmax, 2), &
-                                          g%der1%lu(nmin:nmax, 3))
-                case (5)
-                    call Thomas5_FactorLU(nsize, &
-                                          g%der1%lu(nmin:nmax, 1), &
-                                          g%der1%lu(nmin:nmax, 2), &
-                                          g%der1%lu(nmin:nmax, 3), &
-                                          g%der1%lu(nmin:nmax, 4), &
-                                          g%der1%lu(nmin:nmax, 5))
-                end select
+                call Thomas_FactorLU_InPlace(g%der1%lu(nmin:nmax, 1:ndl/2), &
+                                             g%der1%lu(nmin:nmax, ndl/2 + 1:ndl))
+                ! select case (g%der1%nb_diag(1))
+                ! case (3)
+                !     call Thomas3_FactorLU(nsize, &
+                !                           g%der1%lu(nmin:nmax, 1), &
+                !                           g%der1%lu(nmin:nmax, 2), &
+                !                           g%der1%lu(nmin:nmax, 3))
+                ! case (5)
+                !     call Thomas5_FactorLU(nsize, &
+                !                           g%der1%lu(nmin:nmax, 1), &
+                !                           g%der1%lu(nmin:nmax, 2), &
+                !                           g%der1%lu(nmin:nmax, 3), &
+                !                           g%der1%lu(nmin:nmax, 4), &
+                !                           g%der1%lu(nmin:nmax, 5))
+                ! end select
 
                 ! -------------------------------------------------------------------
                 ! Calculate RHS in system of equations A u' = B u
@@ -446,17 +454,21 @@ program VPARTIAL
 
                 select case (g%der1%nb_diag(1))
                 case (3)
-                    call Thomas3_SolveLU(nsize, nlines, &
-                                         g%der1%lu(nmin:nmax, 1), &
-                                         g%der1%lu(nmin:nmax, 2), &
-                                         g%der1%lu(nmin:nmax, 3), du1_n(:, nmin:nmax))
+                    ! call Thomas3_SolveLU(nsize, nlines, &
+                    !                      g%der1%lu(nmin:nmax, 1), &
+                    !                      g%der1%lu(nmin:nmax, 2), &
+                    !                      g%der1%lu(nmin:nmax, 3), du1_n(:, nmin:nmax))
+                    call Thomas3_SolveL(g%der1%lu(nmin:nmax, 1:ndl/2), du1_n(:, nmin:nmax))
+                    call Thomas3_SolveU(g%der1%lu(nmin:nmax, ndl/2 + 1:ndl), du1_n(:, nmin:nmax))
                 case (5)
-                    call Thomas5_SolveLU(nsize, nlines, &
-                                         g%der1%lu(nmin:nmax, 1), &
-                                         g%der1%lu(nmin:nmax, 2), &
-                                         g%der1%lu(nmin:nmax, 3), &
-                                         g%der1%lu(nmin:nmax, 4), &
-                                         g%der1%lu(nmin:nmax, 5), du1_n(:, nmin:nmax))
+                    ! call Thomas5_SolveLU(nsize, nlines, &
+                    !                      g%der1%lu(nmin:nmax, 1), &
+                    !                      g%der1%lu(nmin:nmax, 2), &
+                    !                      g%der1%lu(nmin:nmax, 3), &
+                    !                      g%der1%lu(nmin:nmax, 4), &
+                    !                      g%der1%lu(nmin:nmax, 5), du1_n(:, nmin:nmax))
+                    call Thomas5_SolveL(g%der1%lu(nmin:nmax, 1:ndl/2), du1_n(:, nmin:nmax))
+                    call Thomas5_SolveU(g%der1%lu(nmin:nmax, ndl/2 + 1:ndl), du1_n(:, nmin:nmax))
                 end select
 
                 if (any([BCS_MIN, BCS_BOTH] == ibc)) then

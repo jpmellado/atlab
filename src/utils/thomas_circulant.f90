@@ -176,7 +176,7 @@ contains
     ! #######################################################################
     subroutine ThomasCirc5_SMW_Solve(L, U, z_mem, f)
         real(wp), intent(in) :: L(:, :), U(:, :)
-        real(wp), intent(inout) :: z_mem(2, size(L, 1))
+        real(wp), intent(in) :: z_mem(2, size(L, 1))
         real(wp), intent(inout) :: f(:, :)          ! forcing and solution
 
         ! -----------------------------------------------------------------------

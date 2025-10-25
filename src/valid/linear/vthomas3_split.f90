@@ -2,8 +2,7 @@ program vThomas3_Split
     use TLab_Constants, only: wp, wi, BCS_NONE
     use Thomas
     use Thomas_Circulant
-    ! use Thomas3
-    use Thomas3_Split
+    use Thomas_Split
 #ifdef USE_MPI
     use mpi_f08
     use TLabMPI_VARS, only: ims_pro, ims_npro
@@ -119,14 +118,12 @@ program vThomas3_Split
             split(k)%block_id = k
 
             lhs_loc = lhs
-            ! call Thomas3_Split_Initialize(lhs_loc(:, 1), lhs_loc(:, 2), lhs_loc(:, 3), &
             call Thomas3_Split_Initialize(lhs_loc(:, 1:1), lhs_loc(:, 2:3), &
                                           points, split(k))
             data(k)%p => u_loc(1:nlines, split(k)%nmin:split(k)%nmax)
 
         end do
 
-        ! call Thomas3_Split_Solve_Serial_Old(split, data)
         call Thomas3_Split_Solve_Serial(split, data)
 
         call check(u_loc, u, 'linear.dat')
@@ -147,7 +144,6 @@ program vThomas3_Split
     split_mpi%n_ranks = ims_npro
 
     lhs_loc = lhs
-    ! call Thomas3_Split_Initialize(lhs_loc(:, 1), lhs_loc(:, 2), lhs_loc(:, 3), &
     call Thomas3_Split_Initialize(lhs_loc(:, 1:1), lhs_loc(:, 2:3), &
                                   points, split_mpi)
 

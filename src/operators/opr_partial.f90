@@ -12,7 +12,7 @@ module OPR_Partial
     use TLab_Grid, only: x, y, z
     use FDM, only: g
     use FDM_Derivative, only: FDM_Der1_Solve, FDM_Der2_Solve
-    use Thomas3_Split
+    use Thomas_Split
     implicit none
     private
 

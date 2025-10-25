@@ -2,7 +2,7 @@
 
 ! Matrix splitting
 
-module Thomas3_Split
+module Thomas_Split
     use TLab_Constants, only: wp, wi, small_wp, roundoff_wp
     use TLab_Constants, only: efile, lfile, fmt_r
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
@@ -10,7 +10,6 @@ module Thomas3_Split
     use mpi_f08, only: MPI_Comm
 #endif
     use Thomas
-    ! use Thomas3
     implicit none
     private
 
@@ -40,8 +39,6 @@ module Thomas3_Split
 contains
     !########################################################################
     !########################################################################
-    ! subroutine Thomas3_Split_Initialize(a, b, c, points, split)
-    !     real(wp), intent(inout) :: a(:), b(:), c(:)
     subroutine Thomas3_Split_Initialize(L, U, points, split)
         real(wp), intent(inout) :: L(:, :), U(:, :)
         integer(wi), intent(in) :: points(:)   ! sequence of splitting points in ascending order
@@ -364,4 +361,4 @@ contains
     end subroutine Thomas3_Split_Solve_MPI
 #endif
 
-end module Thomas3_Split
+end module Thomas_Split

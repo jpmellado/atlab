@@ -11,7 +11,6 @@ module NSE_Burgers
     use TLabMPI_Transpose
 #endif
     use TLab_Grid, only: x, y, z
-    use Thomas3
     use FDM, only: fdm_dt, g
     use NavierStokes, only: nse_eqns, DNS_EQNS_ANELASTIC
     use Thermo_Anelastic, only: ribackground, rbackground

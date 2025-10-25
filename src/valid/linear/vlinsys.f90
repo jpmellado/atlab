@@ -2,9 +2,6 @@ program vLinSys
     use TLab_Constants, only: wp, wi, BCS_NONE
     use Thomas
     use Thomas_Circulant
-    use Thomas3
-    use Thomas5
-    use Thomas7
     implicit none
 
     interface matmul
@@ -76,22 +73,13 @@ program vLinSys
     call matmul(lhs(:, 1:nd), u, f)
 
     lhs_loc(:, 1:nd) = lhs(:, 1:nd)
-    ! call Thomas3C_SMW_LU(lhs_loc(:, 1), &
-    !                      lhs_loc(:, 2), &
-    !                      lhs_loc(:, 3), &
-    !                      lhs_loc(:, 4))
-    ! call Thomas3C_SMW_Solve(lhs_loc(:, 1), &
-    !                         lhs_loc(:, 2), &
-    !                         lhs_loc(:, 3), &
-    !                         lhs_loc(:, 4), f, wrk)
     call ThomasCirc3_SMW_Initialize(lhs_loc(:, 1:nd/2), &
                                     lhs_loc(:, nd/2 + 1:nd), &
                                     lhs_loc(1, nd + 1))
     call ThomasCirc3_SMW_Solve(lhs_loc(:, 1:nd/2), &
                                lhs_loc(:, nd/2 + 1:nd), &
                                lhs_loc(:, nd + 1), &
-                               f, &
-                               wrk)
+                               f, wrk)
 
     write (str, *) nd
     call check(f, u, 'linsys-'//trim(adjustl(str))//'.dat')
@@ -127,22 +115,6 @@ program vLinSys
     call matmul(lhs(:, 1:nd), u, f)
 
     lhs_loc(:, 1:nd) = lhs(:, 1:nd)
-    ! call Thomas5C_SMW_LU(nsize, &
-    !                      lhs_loc(:, 1), &
-    !                      lhs_loc(:, 2), &
-    !                      lhs_loc(:, 3), &
-    !                      lhs_loc(:, 4), &
-    !                      lhs_loc(:, 5), &
-    !                      lhs_loc(:, 6), &
-    !                      lhs_loc(:, 7))
-    ! call Thomas5C_SMW_Solve(nsize, nlines, &
-    !                         lhs_loc(:, 1), &
-    !                         lhs_loc(:, 2), &
-    !                         lhs_loc(:, 3), &
-    !                         lhs_loc(:, 4), &
-    !                         lhs_loc(:, 5), &
-    !                         lhs_loc(:, 6), &
-    !                         lhs_loc(:, 7), f)
     call ThomasCirc5_SMW_Initialize(lhs_loc(:, 1:nd/2), &
                                     lhs_loc(:, nd/2 + 1:nd), &
                                     lhs_loc(1, nd + 1))

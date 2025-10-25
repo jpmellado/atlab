@@ -10,9 +10,6 @@ module FDM_Integral
     use TLab_Constants, only: BCS_DD, BCS_ND, BCS_DN, BCS_NN, BCS_MIN, BCS_MAX, BCS_BOTH
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
     use Thomas
-    ! use Thomas3
-    ! use Thomas5
-    ! use Thomas7
     use FDM_MatMul
     use FDM_Derivative, only: fdm_derivative_dt
     use FDM_Base
@@ -78,39 +75,6 @@ contains
         call Thomas_FactorLU_InPlace(fdmi%lhs(2:nx - 1, 1:nd/2), &
                                      fdmi%lhs(2:nx - 1, nd/2 + 1:nd))
 
-        ! select case (nd)
-        ! case (3)
-        !     call Thomas3_FactorLU(nx - 2, &
-        !                           fdmi%lhs(2:nx - 1, 1), &
-        !                           fdmi%lhs(2:nx - 1, 2), &
-        !                           fdmi%lhs(2:nx - 1, 3))
-        ! case (5)
-        !     ! if (fdmi%bc == BCS_MAX) then
-        !     call Thomas5_FactorLU(nx - 2, &
-        !                           fdmi%lhs(2:nx - 1, 1), &
-        !                           fdmi%lhs(2:nx - 1, 2), &
-        !                           fdmi%lhs(2:nx - 1, 3), &
-        !                           fdmi%lhs(2:nx - 1, 4), &
-        !                           fdmi%lhs(2:nx - 1, 5))
-        !     ! else
-        !     !     call Thomas5_FactorUL(nx - 2, &
-        !     !                           fdmi%lhs(2:nx - 1, 1), &
-        !     !                           fdmi%lhs(2:nx - 1, 2), &
-        !     !                           fdmi%lhs(2:nx - 1, 3), &
-        !     !                           fdmi%lhs(2:nx - 1, 4), &
-        !     !                           fdmi%lhs(2:nx - 1, 5))
-        !     ! end if
-        ! case (7)
-        !     call Thomas7_FactorLU(nx - 2, &
-        !                           fdmi%lhs(2:nx - 1, 1), &
-        !                           fdmi%lhs(2:nx - 1, 2), &
-        !                           fdmi%lhs(2:nx - 1, 3), &
-        !                           fdmi%lhs(2:nx - 1, 4), &
-        !                           fdmi%lhs(2:nx - 1, 5), &
-        !                           fdmi%lhs(2:nx - 1, 6), &
-        !                           fdmi%lhs(2:nx - 1, 7))
-        ! end select
-
         return
     end subroutine FDM_Int1_Initialize
 
@@ -124,7 +88,7 @@ contains
 
         ! -------------------------------------------------------------------
         integer(wi) idl, ndl, idr, ndr, ir, ic, nx, nmin, nmax
-        real(wp) dummy, rhsr_b(5, 0:7), rhsr_t(0:4, 8)
+        real(wp) rhsr_b(5, 0:7), rhsr_t(0:4, 8)
 
         ! ###################################################################
         ndl = g%nb_diag(1)
@@ -215,30 +179,6 @@ contains
                         fdmi%rhs_b(1:max(idr, idl + 1), 0:ndl + 1), &
                         fdmi%rhs_t(0:max(idr, idl + 1) - 1, 1:ndl + 2))
 
-        ! ! boundary points; central diagonal in rhs equal to 1
-        ! do ir = 1, max(idr, idl + 1)
-        !     dummy = 1.0_wp/fdmi%rhs(ir, idl)
-        !     ! dummy = 1.0_wp/fdmi%rhs(ir, idl + 1)
-        !     fdmi%rhs_b(ir, 0:ndl) = fdmi%rhs_b(ir, 0:ndl)*dummy
-        !     fdmi%rhs(ir, 1:ndl) = fdmi%rhs(ir, 1:ndl)*dummy
-        !     fdmi%lhs(ir, 1:ndr) = fdmi%lhs(ir, 1:ndr)*dummy
-
-        !     dummy = 1.0_wp/fdmi%rhs(nx - ir + 1, idl)
-        !     ! dummy = 1.0_wp/fdmi%rhs(nx - ir + 1, idl - 1)
-        !     fdmi%rhs_t(idl - ir + 1, 1:ndl + 1) = fdmi%rhs_t(idl - ir + 1, 1:ndl + 1)*dummy
-        !     fdmi%rhs(nx - ir + 1, 1:ndl) = fdmi%rhs(nx - ir + 1, 1:ndl)*dummy
-        !     fdmi%lhs(nx - ir + 1, 1:ndr) = fdmi%lhs(nx - ir + 1, 1:ndr)*dummy
-
-        ! end do
-
-        ! ! interior points: normalization such that 1. upper-diagonal in rhs is 1
-        ! do ir = max(idr, idl + 1) + 1, nx - max(idr, idl + 1)
-        !     dummy = 1.0_wp/fdmi%rhs(ir, idl + 1)
-        !     fdmi%rhs(ir, 1:ndl) = fdmi%rhs(ir, 1:ndl)*dummy
-        !     fdmi%lhs(ir, 1:ndr) = fdmi%lhs(ir, 1:ndr)*dummy
-
-        ! end do
-
         return
     end subroutine FDM_Int1_CreateSystem
 
@@ -292,39 +232,12 @@ contains
         case (3)
             call Thomas3_SolveL(fdmi%lhs(2:nx - 1, 1:ndl/2), result(:, 2:nx - 1))
             call Thomas3_SolveU(fdmi%lhs(2:nx - 1, ndl/2 + 1:ndl), result(:, 2:nx - 1))
-            ! call Thomas3_SolveLU(nx - 2, nlines, &
-            !                      fdmi%lhs(2:nx - 1, 1), &
-            !                      fdmi%lhs(2:nx - 1, 2), &
-            !                      fdmi%lhs(2:nx - 1, 3), result(:, 2:nx - 1))
         case (5)
             call Thomas5_SolveL(fdmi%lhs(2:nx - 1, 1:ndl/2), result(:, 2:nx - 1))
             call Thomas5_SolveU(fdmi%lhs(2:nx - 1, ndl/2 + 1:ndl), result(:, 2:nx - 1))
-            ! ! if (fdmi%bc == BCS_MAX) then
-            ! call Thomas5_SolveLU(nx - 2, nlines, &
-            !                      fdmi%lhs(2:nx - 1, 1), &
-            !                      fdmi%lhs(2:nx - 1, 2), &
-            !                      fdmi%lhs(2:nx - 1, 3), &
-            !                      fdmi%lhs(2:nx - 1, 4), &
-            !                      fdmi%lhs(2:nx - 1, 5), result(:, 2:nx - 1))
-            ! ! else
-            ! !     call Thomas5_SolveUL(nx - 2, nlines, &
-            ! !                          fdmi%lhs(2:nx - 1, 1), &
-            ! !                          fdmi%lhs(2:nx - 1, 2), &
-            ! !                          fdmi%lhs(2:nx - 1, 3), &
-            ! !                          fdmi%lhs(2:nx - 1, 4), &
-            ! !                          fdmi%lhs(2:nx - 1, 5), result(:, 2:nx - 1))
-            ! ! end if
         case (7)
             call Thomas7_SolveL(fdmi%lhs(2:nx - 1, 1:ndl/2), result(:, 2:nx - 1))
             call Thomas7_SolveU(fdmi%lhs(2:nx - 1, ndl/2 + 1:ndl), result(:, 2:nx - 1))
-            ! call Thomas7_SolveLU(nx - 2, nlines, &
-            !                      fdmi%lhs(2:nx - 1, 1), &
-            !                      fdmi%lhs(2:nx - 1, 2), &
-            !                      fdmi%lhs(2:nx - 1, 3), &
-            !                      fdmi%lhs(2:nx - 1, 4), &
-            !                      fdmi%lhs(2:nx - 1, 5), &
-            !                      fdmi%lhs(2:nx - 1, 6), &
-            !                      fdmi%lhs(2:nx - 1, 7), result(:, 2:nx - 1))
         end select
 
         if (any([BCS_MAX] == fdmi%bc)) then
@@ -421,18 +334,6 @@ contains
 
         call Thomas_FactorLU_InPlace(fdmi%lhs(2:nx - 1, 1:nd/2), &
                                      fdmi%lhs(2:nx - 1, nd/2 + 1:nd))
-
-        ! select case (nd)
-        ! case (3)
-        !     call Thomas3_FactorLU(nx - 2, fdmi%lhs(2:, 1), fdmi%lhs(2:, 2), fdmi%lhs(2:, 3))
-        ! case (5)
-        !     ! We rely on this routines not changing a(2:3), b(2), e(ny-2:ny-1), d(ny-1)
-        !     call Thomas5_FactorLU(nx - 2, fdmi%lhs(2:, 1), fdmi%lhs(2:, 2), fdmi%lhs(2:, 3), &
-        !                           fdmi%lhs(2:, 4), fdmi%lhs(2:, 5))
-        ! case (7)
-        !     call Thomas7_FactorLU(nx - 2, fdmi%lhs(2:, 1), fdmi%lhs(2:, 2), fdmi%lhs(2:, 3), &
-        !                           fdmi%lhs(2:, 4), fdmi%lhs(2:, 5), fdmi%lhs(2:, 6), fdmi%lhs(2:, 7))
-        ! end select
 
         return
     end subroutine FDM_Int2_Initialize
@@ -729,30 +630,12 @@ contains
         case (3)
             call Thomas3_SolveL(fdmi%lhs(2:nx - 1, 1:ndl/2), result(:, 2:nx - 1))
             call Thomas3_SolveU(fdmi%lhs(2:nx - 1, ndl/2 + 1:ndl), result(:, 2:nx - 1))
-            ! call Thomas3_SolveLU(nx - 2, nlines, &
-            !                      fdmi%lhs(2:, 1), &
-            !                      fdmi%lhs(2:, 2), &
-            !                      fdmi%lhs(2:, 3), result(:, 2:))
         case (5)
             call Thomas5_SolveL(fdmi%lhs(2:nx - 1, 1:ndl/2), result(:, 2:nx - 1))
             call Thomas5_SolveU(fdmi%lhs(2:nx - 1, ndl/2 + 1:ndl), result(:, 2:nx - 1))
-            ! call Thomas5_SolveLU(nx - 2, nlines, &
-            !                      fdmi%lhs(2:, 1), &
-            !                      fdmi%lhs(2:, 2), &
-            !                      fdmi%lhs(2:, 3), &
-            !                      fdmi%lhs(2:, 4), &
-            !                      fdmi%lhs(2:, 5), result(:, 2:))
         case (7)
             call Thomas7_SolveL(fdmi%lhs(2:nx - 1, 1:ndl/2), result(:, 2:nx - 1))
             call Thomas7_SolveU(fdmi%lhs(2:nx - 1, ndl/2 + 1:ndl), result(:, 2:nx - 1))
-            ! call Thomas7_SolveLU(nx - 2, nlines, &
-            !                      fdmi%lhs(2:, 1), &
-            !                      fdmi%lhs(2:, 2), &
-            !                      fdmi%lhs(2:, 3), &
-            !                      fdmi%lhs(2:, 4), &
-            !                      fdmi%lhs(2:, 5), &
-            !                      fdmi%lhs(2:, 6), &
-            !                      fdmi%lhs(2:, 7), result(:, 2:))
         end select
 
         !   Corrections to the BCS_DD to account for Neumann

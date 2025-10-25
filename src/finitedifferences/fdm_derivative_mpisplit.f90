@@ -5,8 +5,7 @@ module FDM_Derivative_MPISplit
     use TLab_Constants, only: wp, wi, efile
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, stagger_on
     use TLabMPI_VARS
-    use Thomas3
-    use Thomas3_Split
+    use Thomas_Split
     use FDM_MatMul_Halo
     implicit none
     private
@@ -76,7 +75,6 @@ contains
 
         allocate (lhs_loc(nsize, nd))
         lhs_loc(1:nsize, 1:nd) = g%lhs(1:nsize, 1:nd)
-        ! call Thomas3_Split_Initialize(lhs_loc(:, 1), lhs_loc(:, 2), lhs_loc(:, 3), &
         call Thomas3_Split_Initialize(lhs_loc(:, 1:1), lhs_loc(:, 2:3), &
                                       [(k, k=nsize/gSplit%thomas3%n_ranks, nsize, nsize/gSplit%thomas3%n_ranks)], &
                                       gSplit%thomas3)

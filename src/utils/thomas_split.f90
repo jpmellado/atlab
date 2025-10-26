@@ -4,7 +4,7 @@
 
 module Thomas_Split
     use TLab_Constants, only: wp, wi, small_wp, roundoff_wp
-    use TLab_Constants, only: efile, lfile, fmt_r
+    use TLab_Constants, only: efile, wfile, fmt_r
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
 #ifdef USE_MPI
     use mpi_f08, only: MPI_Comm
@@ -50,7 +50,6 @@ contains
         integer(wi) p, p_plus_1
         character(len=32) str
 
-        ! real(wp), allocatable :: aloc(:), bloc(:), cloc(:), zloc(:)
         real(wp), allocatable :: lhs_loc(:, :), zloc(:)
         real(wp) alpha_0(2), alpha(2)
         real(wp) delta
@@ -87,7 +86,6 @@ contains
         ! -------------------------------------------------------------------
         ! temporary arrays to calculate z_j
         nsize = size(a(:))
-        ! allocate (aloc(nsize), bloc(nsize), cloc(nsize), zloc(nsize))
         allocate (lhs_loc(nsize, 3), zloc(nsize))
 
         if (split%circulant) then
@@ -95,7 +93,6 @@ contains
             p = points(m)           ! index of splitting point
             p_plus_1 = 1
 
-            ! call Splitting(a, b, c, p, p_plus_1, alpha_0, zloc)
             call Splitting(L, U, p, p_plus_1, alpha_0, zloc)
 
             if (split%block_id == m) then
@@ -109,16 +106,15 @@ contains
                 ! print *, n, abs(zloc(n)/zloc(1))
             end do
             write (str, *) n
-            call TLab_Write_ASCII(lfile, 'Decay to round-off in splitting algorithm in '//trim(adjustl(str))//' indexes.')
+            call TLab_Write_ASCII(wfile, 'Decay to round-off in splitting algorithm in '//trim(adjustl(str))//' indexes.')
             write (str, fmt_r) abs(zloc(split%nmax - split%nmin + 1)/zloc(1))
-            call TLab_Write_ASCII(lfile, 'Truncation error in splitting algorithm equal to '//trim(adjustl(str))//'.')
+            call TLab_Write_ASCII(wfile, 'Truncation error in splitting algorithm equal to '//trim(adjustl(str))//'.')
         end if
 
         do m = 1, nblocks - 1       ! loop over remaining coefficients
             p = points(m)           ! index of splitting point
             p_plus_1 = p + 1
 
-            ! call Splitting(a, b, c, p, p_plus_1, alpha, zloc)
             call Splitting(L, U, p, p_plus_1, alpha, zloc)
 
             if (split%block_id == m) then
@@ -142,9 +138,6 @@ contains
 
         ! -------------------------------------------------------------------
         ! block matrix Am and LU decomposition
-        ! split%lhs(:, 1) = aloc(split%nmin:split%nmax)
-        ! split%lhs(:, 2) = bloc(split%nmin:split%nmax)
-        ! split%lhs(:, 3) = cloc(split%nmin:split%nmax)
         split%lhs(:, 1) = lhs_loc(split%nmin:split%nmax, 1)
         split%lhs(:, 2) = lhs_loc(split%nmin:split%nmax, 2)
         split%lhs(:, 3) = lhs_loc(split%nmin:split%nmax, 3)
@@ -154,8 +147,6 @@ contains
         return
 
     contains
-        ! subroutine Splitting(a, b, c, p, p_plus_1, alpha, z)
-        !     real(wp), intent(inout) :: a(:), b(:), c(:)
         subroutine Splitting(L, U, p, p_plus_1, alpha, z)
             real(wp), intent(inout) :: L(:, :), U(:, :)
             integer(wi), intent(in) :: p, p_plus_1
@@ -173,18 +164,15 @@ contains
             c(p) = 0.0_wp
 
             ! Generate vector zk
-            ! aloc(:) = a(:); bloc(:) = b(:); cloc(:) = c(:)
             lhs_loc(:, 1) = a(:)
             lhs_loc(:, 2) = b(:)
             lhs_loc(:, 3) = c(:)
-            ! call Thomas3_FactorLU(size(aloc), aloc, bloc, cloc)
             call Thomas_FactorLU_InPlace(lhs_loc(:, 1:1), &
                                          lhs_loc(:, 2:3))
 
             z(1, :) = 0.0_wp
             z(1, p) = 1.0_wp
             z(1, p_plus_1) = 1.0_wp
-            ! call Thomas3_SolveLU(size(aloc), 1, aloc, bloc, cloc, z(:))
             call Thomas3_SolveL(lhs_loc(:, 1:1), z)
             call Thomas3_SolveU(lhs_loc(:, 2:3), z)
 
@@ -223,8 +211,6 @@ contains
         do k = 1, nblocks                       ! loop over blocks
             ! nsize = split(k)%nmax - split(k)%nmin + 1
             nsize = size(f(k)%p, 2)
-            ! call Thomas3_SolveLU(nsize, nlines, &
-            !                      split(k)%lhs(:, 1), split(k)%lhs(:, 2), split(k)%lhs(:, 3), f(k)%p(:, :))
             call Thomas3_SolveL(split(k)%lhs(:, 1:1), f(k)%p(:, :))
             call Thomas3_SolveU(split(k)%lhs(:, 2:3), f(k)%p(:, :))
         end do
@@ -299,20 +285,17 @@ contains
         integer source, dest, tag
 
         !########################################################################
-        nblocks = split%n_ranks
-        nlines = size(f, 1)
-        nsize = size(f, 2)              ! Assume all blocks have same size
-
-        !########################################################################
         ! Solving block system Am in each block
-        ! call Thomas3_SolveLU(nsize, nlines, &
-        !                      split%lhs(:, 1), split%lhs(:, 2), split%lhs(:, 3), f(:, :))
         call Thomas3_SolveL(split%lhs(:, 1:1), f)
         call Thomas3_SolveU(split%lhs(:, 2:3), f)
 
         !########################################################################
         ! Reduction step
         ! Assume circulant matrix and need alpha_0
+
+        nblocks = split%n_ranks
+        nlines = size(f, 1)
+        nsize = size(f, 2)              ! Assume all blocks have same size
 
         ! -------------------------------------------------------------------
         ! pass x(:,1) to previous block and calculate local coefficient

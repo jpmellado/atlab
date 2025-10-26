@@ -1,4 +1,4 @@
-module FDM_MatMul_Halo
+module Matmul_Halo
     use TLab_Constants, only: wp, wi
     implicit none
     private
@@ -257,4 +257,4 @@ contains
         return
     end subroutine MatMul_Halo_7d_sym
 
-end module FDM_MatMul_Halo
+end module Matmul_Halo

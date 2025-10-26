@@ -6,7 +6,7 @@ module FDM_Derivative_MPISplit
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, stagger_on
     use TLabMPI_VARS
     use Thomas_Split
-    use FDM_MatMul_Halo
+    use Matmul_Halo
     implicit none
     private
 
@@ -116,6 +116,7 @@ contains
         real(wp), intent(inout) :: wrk2d(nlines, 2)
 
         call gSplit%matmul(gSplit%rhs, u, u_halo_m, u_halo_p, result)
+        
         call Thomas3_Split_Solve_MPI(gSplit%thomas3, result, wrk2d(:, 1), wrk2d(:, 2))
 
         return

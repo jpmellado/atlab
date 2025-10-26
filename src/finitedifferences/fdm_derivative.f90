@@ -7,7 +7,7 @@ module FDM_Derivative
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
     use Thomas
     use Thomas_Circulant
-    use FDM_MatMul
+    use Matmul
     use FDM_Base
     use FDM_ComX_Direct
     use FDM_Com1_Jacobian

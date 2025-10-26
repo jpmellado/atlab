@@ -4,7 +4,7 @@
 ! The 1. upper-diagonal in interior points is equal to 1
 ! This allows use to handle systems A y = B x in which A amd B differ by up to 2 diagonals (see notes)
 !########################################################################
-module FDM_MatMul
+module Matmul
     use TLab_Constants, only: wp, wi
     use TLab_Constants, only: BCS_DD, BCS_DN, BCS_ND, BCS_NN
     use TLab_Constants, only: BCS_NONE, BCS_MIN, BCS_MAX, BCS_BOTH
@@ -742,4 +742,4 @@ contains
         return
     end subroutine MatMul_7d_sym
 
-end module FDM_MatMul
+end module Matmul

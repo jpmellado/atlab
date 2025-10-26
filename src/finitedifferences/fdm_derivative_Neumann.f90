@@ -4,8 +4,6 @@ module FDM_derivative_Neumann
     use TLab_Constants, only: BCS_ND, BCS_DN, BCS_NN
     use FDM_Derivative
     use Thomas
-    ! use Thomas3
-    ! use Thomas5
     implicit none
     private
 
@@ -60,21 +58,9 @@ contains
             case (3)
                 call Thomas3_SolveL(g%lu(nmin:nmax, ip + 1:ip + ndl/2), z(:, nmin:nmax))
                 call Thomas3_SolveU(g%lu(nmin:nmax, ip + ndl/2 + 1:ip + ndl), z(:, nmin:nmax))
-                ! call Thomas3_SolveLU(nsize, 1, &
-                !                      g%lu(nmin:nmax, ip + 1), &
-                !                      g%lu(nmin:nmax, ip + 2), &
-                !                      g%lu(nmin:nmax, ip + 3), &
-                !                      z(:, nmin:nmax))
             case (5)
                 call Thomas5_SolveL(g%lu(nmin:nmax, ip + 1:ip + ndl/2), z(:, nmin:nmax))
                 call Thomas5_SolveU(g%lu(nmin:nmax, ip + ndl/2 + 1:ip + ndl), z(:, nmin:nmax))
-                ! call Thomas5_SolveLU(nsize, 1, &
-                !                      g%lu(nmin:nmax, ip + 1), &
-                !                      g%lu(nmin:nmax, ip + 2), &
-                !                      g%lu(nmin:nmax, ip + 3), &
-                !                      g%lu(nmin:nmax, ip + 4), &
-                !                      g%lu(nmin:nmax, ip + 5), &
-                !                      z(:, nmin:nmax))
             end select
 
             if (any([BCS_ND, BCS_NN] == ibc)) then
@@ -141,21 +127,9 @@ contains
             case (3)
                 call Thomas3_SolveL(g%lu(nmin:nmax, ip + 1:ip + ndl/2), z(:, nmin:nmax))
                 call Thomas3_SolveU(g%lu(nmin:nmax, ip + ndl/2 + 1:ip + ndl), z(:, nmin:nmax))
-                ! call Thomas3_SolveLU(nsize, 1, &
-                !                      g%lu(nmin:nmax, ip + 1), &
-                !                      g%lu(nmin:nmax, ip + 2), &
-                !                      g%lu(nmin:nmax, ip + 3), &
-                !                      z(:, nmin:nmax))
             case (5)
                 call Thomas5_SolveL(g%lu(nmin:nmax, ip + 1:ip + ndl/2), z(:, nmin:nmax))
                 call Thomas5_SolveU(g%lu(nmin:nmax, ip + ndl/2 + 1:ip + ndl), z(:, nmin:nmax))
-                ! call Thomas5_SolveLU(nsize, 1, &
-                !                      g%lu(nmin:nmax, ip + 1), &
-                !                      g%lu(nmin:nmax, ip + 2), &
-                !                      g%lu(nmin:nmax, ip + 3), &
-                !                      g%lu(nmin:nmax, ip + 4), &
-                !                      g%lu(nmin:nmax, ip + 5), &
-                !                      z(:, nmin:nmax))
             end select
 
             do ic = 1, idl - 1
@@ -217,21 +191,9 @@ contains
             case (3)
                 call Thomas3_SolveL(g%lu(nmin:nmax, ip + 1:ip + ndl/2), z(:, nmin:nmax))
                 call Thomas3_SolveU(g%lu(nmin:nmax, ip + ndl/2 + 1:ip + ndl), z(:, nmin:nmax))
-                ! call Thomas3_SolveLU(nsize, 1, &
-                !                      g%lu(nmin:nmax, ip + 1), &
-                !                      g%lu(nmin:nmax, ip + 2), &
-                !                      g%lu(nmin:nmax, ip + 3), &
-                !                      z(:, nmin:nmax))
             case (5)
                 call Thomas5_SolveL(g%lu(nmin:nmax, ip + 1:ip + ndl/2), z(:, nmin:nmax))
                 call Thomas5_SolveU(g%lu(nmin:nmax, ip + ndl/2 + 1:ip + ndl), z(:, nmin:nmax))
-                ! call Thomas5_SolveLU(nsize, 1, &
-                !                      g%lu(nmin:nmax, ip + 1), &
-                !                      g%lu(nmin:nmax, ip + 2), &
-                !                      g%lu(nmin:nmax, ip + 3), &
-                !                      g%lu(nmin:nmax, ip + 4), &
-                !                      g%lu(nmin:nmax, ip + 5), &
-                !                      z(:, nmin:nmax))
             end select
 
             do ic = 1, idl - 1

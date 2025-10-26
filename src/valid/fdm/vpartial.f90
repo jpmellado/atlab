@@ -14,7 +14,7 @@ program VPARTIAL
     use FDM_derivative_Neumann
     use FDM_ComX_Direct
     use FDM_Base
-    use FDM_MatMul
+    use Matmul
     use FDM_Com1_Jacobian
     use FDM_Com2_Jacobian
 

@@ -14,7 +14,7 @@ module OPR_Fourier
     use, intrinsic :: iso_c_binding
 #ifdef USE_MPI
     use TLabMPI_VARS, only: ims_npro_i, ims_npro_j
-    use TLabMPI_VARS, only: ims_offset_i, ims_offset_k
+    use TLabMPI_VARS, only: ims_offset_i, ims_offset_j !, ims_offset_k
     use TLabMPI_Transpose
 #endif
     implicit none
@@ -459,11 +459,8 @@ contains
 
         ! #######################################################################
         do k = 1, nz
-#ifdef USE_MPI
-            kglobal = k + ims_offset_k
-#else
-            kglobal = k
-#endif
+            kglobal = k ! No MPI decomposition along Oz
+
             if (kglobal <= size_fft_z/2 + 1) then
                 fk = real(kglobal - 1, wp)/z%scale
             else
@@ -471,7 +468,11 @@ contains
             end if
 
             do j = 1, ny
-                jglobal = j ! No MPI decomposition along Oy
+#ifdef USE_MPI
+                jglobal = j + ims_offset_j
+#else
+                jglobal = j
+#endif
                 if (jglobal <= size_fft_y/2 + 1) then
                     fj = real(jglobal - 1, wp)/y%scale
                 else
@@ -499,7 +500,7 @@ contains
                         if (size_fft_y == 1 .or. size_fft_z == 1) then ! 2D spectrum
                             pow_dst = pow_dst/(pi_wp*f)
                         else
-                            pow_dst = pow_dst/(2*pi_wp*f**2)
+                            pow_dst = pow_dst/(2.0*pi_wp*f**2)
                         end if
 
                     end if

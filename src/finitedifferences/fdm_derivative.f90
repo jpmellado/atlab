@@ -30,8 +30,11 @@ module FDM_Derivative
         real(wp), allocatable :: mwn(:)             ! memory space for modified wavenumbers
         !
         real(wp), allocatable :: lu(:, :)           ! memory space for LU decomposition
-        procedure(matmul_halo_ice), pointer, nopass :: matmul_halo  ! matrix multiplication to calculate the right-hand side
-        procedure(matmul_ice), pointer, nopass :: matmul  ! matrix multiplication to calculate the right-hand side
+
+        procedure(matmul_halo_ice), pointer, nopass :: matmul_halo
+        procedure(matmul_ice), pointer, nopass :: matmul
+        procedure(thomas_ice), pointer, nopass :: thomasL, thomasU
+
         ! type(fdm_bcs) :: bcs(0:3)           ! linear system for 4 different boundary conditions, 0 is the default
     end type fdm_derivative_dt
 
@@ -81,6 +84,14 @@ module FDM_Derivative
             real(wp), intent(in) :: u_halo_m(:, :)      ! minus, coming from left
             real(wp), intent(in) :: u_halo_p(:, :)      ! plus, coming from right
             real(wp), intent(out) :: f(:, :)            ! vector f = B u
+        end subroutine
+    end interface
+
+    abstract interface
+        subroutine thomas_ice(A, f)
+            use TLab_Constants, only: wp
+            real(wp), intent(in) :: A(:, :)
+            real(wp), intent(inout) :: f(:, :)          ! RHS and solution
         end subroutine
     end interface
 
@@ -150,6 +161,20 @@ contains
             end do
 
         end if
+
+        ! -------------------------------------------------------------------
+        ! Procedure pointers to linear solvers
+        select case (ndl)
+        case (3)
+            g%thomasL => Thomas3_SolveL
+            g%thomasU => Thomas3_SolveU
+        case (5)
+            g%thomasL => Thomas5_SolveL
+            g%thomasU => Thomas5_SolveU
+        case (7)
+            g%thomasL => Thomas7_SolveL
+            g%thomasU => Thomas7_SolveU
+        end select
 
         ! -------------------------------------------------------------------
         ! Procedure pointers to matrix multiplication to calculate the right-hand side
@@ -371,17 +396,19 @@ contains
                                f=result)
 
             ! Solve for u' in system of equations A u' = B u
+            call g%thomasL(lu1(:, 1:ndl/2), result)
+            call g%thomasU(lu1(:, ndl/2 + 1:ndl), result)
             select case (g%nb_diag(1))
             case (3)
-                call Thomas3_SolveL(lu1(:, 1:ndl/2), result)
-                call Thomas3_SolveU(lu1(:, ndl/2 + 1:ndl), result)
+                ! call Thomas3_SolveL(lu1(:, 1:ndl/2), result)
+                ! call Thomas3_SolveU(lu1(:, ndl/2 + 1:ndl), result)
                 call ThomasCirculant_3_Reduce(lu1(:, 1:ndl/2), &
                                               lu1(:, ndl/2 + 1:ndl), &
                                               lu1(:, ndl + 1), &
                                               result, wrk2d)
             case (5)
-                call Thomas5_SolveL(lu1(:, 1:ndl/2), result)
-                call Thomas5_SolveU(lu1(:, ndl/2 + 1:ndl), result)
+                ! call Thomas5_SolveL(lu1(:, 1:ndl/2), result)
+                ! call Thomas5_SolveU(lu1(:, ndl/2 + 1:ndl), result)
                 call ThomasCirculant_5_Reduce(lu1(:, 1:ndl/2), &
                                               lu1(:, ndl/2 + 1:ndl), &
                                               lu1(:, ndl + 1), &
@@ -412,14 +439,16 @@ contains
             ! Solve for u' in system of equations A u' = B u
             ip = ibc_loc*5
 
-            select case (g%nb_diag(1))
-            case (3)
-                call Thomas3_SolveL(lu1(nmin:nmax, ip + 1:ip + ndl/2), result(:, nmin:nmax))
-                call Thomas3_SolveU(lu1(nmin:nmax, ip + ndl/2 + 1:ip + ndl), result(:, nmin:nmax))
-            case (5)
-                call Thomas5_SolveL(lu1(nmin:nmax, ip + 1:ip + ndl/2), result(:, nmin:nmax))
-                call Thomas5_SolveU(lu1(nmin:nmax, ip + ndl/2 + 1:ip + ndl), result(:, nmin:nmax))
-            end select
+            call g%thomasL(lu1(nmin:nmax, ip + 1:ip + ndl/2), result(:, nmin:nmax))
+            call g%thomasU(lu1(nmin:nmax, ip + ndl/2 + 1:ip + ndl), result(:, nmin:nmax))
+            ! select case (g%nb_diag(1))
+            ! case (3)
+            !     call Thomas3_SolveL(lu1(nmin:nmax, ip + 1:ip + ndl/2), result(:, nmin:nmax))
+            !     call Thomas3_SolveU(lu1(nmin:nmax, ip + ndl/2 + 1:ip + ndl), result(:, nmin:nmax))
+            ! case (5)
+            !     call Thomas5_SolveL(lu1(nmin:nmax, ip + 1:ip + ndl/2), result(:, nmin:nmax))
+            !     call Thomas5_SolveU(lu1(nmin:nmax, ip + ndl/2 + 1:ip + ndl), result(:, nmin:nmax))
+            ! end select
 
         end if
 
@@ -466,6 +495,20 @@ contains
                                          g%lu(:, ndl/2 + 1:ndl))
 
         end if
+
+        ! -------------------------------------------------------------------
+        ! Procedure pointers to linear solvers
+        select case (ndl)
+        case (3)
+            g%thomasL => Thomas3_SolveL
+            g%thomasU => Thomas3_SolveU
+        case (5)
+            g%thomasL => Thomas5_SolveL
+            g%thomasU => Thomas5_SolveU
+        case (7)
+            g%thomasL => Thomas7_SolveL
+            g%thomasU => Thomas7_SolveU
+        end select
 
         ! -------------------------------------------------------------------
         ! Procedure pointers to matrix multiplication to calculate the right-hand side
@@ -607,10 +650,12 @@ contains
                                f=result)
 
             ! Solve for u' in system of equations A u' = B u
+            call g%thomasL(lu(:, 1:ndl/2), result)
+            call g%thomasU(lu(:, ndl/2 + 1:ndl), result)
             select case (g%nb_diag(1))
             case (3)
-                call Thomas3_SolveL(lu(:, 1:ndl/2), result)
-                call Thomas3_SolveU(lu(:, ndl/2 + 1:ndl), result)
+                ! call Thomas3_SolveL(lu(:, 1:ndl/2), result)
+                ! call Thomas3_SolveU(lu(:, ndl/2 + 1:ndl), result)
                 call ThomasCirculant_3_Reduce(lu(:, 1:ndl/2), &
                                               lu(:, ndl/2 + 1:ndl), &
                                               lu(:, ndl + 1), &
@@ -627,11 +672,14 @@ contains
             end if
 
             ! Solve for u' in system of equations A u' = B u
-            select case (g%nb_diag(1))
-            case (3)
-                call Thomas3_SolveL(lu(:, 1:ndl/2), result)
-                call Thomas3_SolveU(lu(:, ndl/2 + 1:ndl), result)
-            end select
+            call g%thomasL(lu(:, 1:ndl/2), result)
+            call g%thomasU(lu(:, ndl/2 + 1:ndl), result)
+            ! select case (g%nb_diag(1))
+            ! case (3)
+            !     call Thomas3_SolveL(lu(:, 1:ndl/2), result)
+            !     call Thomas3_SolveU(lu(:, ndl/2 + 1:ndl), result)
+            ! end select
+
         end if
 
         return

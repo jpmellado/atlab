@@ -91,11 +91,11 @@ program vThomas3_Split
 
         lhs_loc = lhs
         if (periodic) then
-            call ThomasCirculantSMW_3_Initialize(lhs_loc(:, 1:1), &
+            call ThomasCirculant_3_Initialize(lhs_loc(:, 1:1), &
                                             lhs_loc(:, 2:3), z)
             call Thomas3_SolveL(lhs_loc(:, 1:1), u_loc)
             call Thomas3_SolveU(lhs_loc(:, 2:3), u_loc)
-            call ThomasCirculantSMW_3_Reduce(lhs_loc(:, 1:1), &
+            call ThomasCirculant_3_Reduce(lhs_loc(:, 1:1), &
                                        lhs_loc(:, 2:3), z, u_loc, wrk)
         else
             call Thomas3_FactorLU_InPlace(lhs_loc(:, 1:1), &

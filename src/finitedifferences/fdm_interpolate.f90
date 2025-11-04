@@ -58,7 +58,7 @@ contains
 
         ! LU decomposition
         ! call Thomas3C_SMW_LU(var%lu0i(:, 1), var%lu0i(:, 2), var%lu0i(:, 3), var%lu0i(:, 4))
-        call ThomasCirculantSMW_3_Initialize(var%lu0i(:, 1:2), &
+        call ThomasCirculant_3_Initialize(var%lu0i(:, 1:2), &
                                         var%lu0i(:, 2:3), &
                                         var%lu0i(1, 4))
 
@@ -74,7 +74,7 @@ contains
 
         ! LU decomposition
         ! call Thomas3C_SMW_LU(var%lu1i(:, 1), var%lu1i(:, 2), var%lu1i(:, 3), var%lu1i(:, 4))
-        call ThomasCirculantSMW_3_Initialize(var%lu1i(:, 1:2), &
+        call ThomasCirculant_3_Initialize(var%lu1i(:, 1:2), &
                                         var%lu1i(:, 2:3), &
                                         var%lu1i(1, 4))
 
@@ -123,7 +123,7 @@ contains
             end select
             call Thomas3_SolveL(g%lu0i(:, 1:1), result)
             call Thomas3_SolveU(g%lu0i(:, 2:3), result)
-            call ThomasCirculantSMW_3_Reduce(g%lu0i(:, 1:1), &
+            call ThomasCirculant_3_Reduce(g%lu0i(:, 1:1), &
                                        g%lu0i(:, 2:3), &
                                        g%lu0i(:, 4), &
                                        result, wrk2d)
@@ -136,7 +136,7 @@ contains
             end select
             call Thomas3_SolveL(g%lu0i(:, 1:1), result)
             call Thomas3_SolveU(g%lu0i(:, 2:3), result)
-            call ThomasCirculantSMW_3_Reduce(g%lu0i(:, 1:1), &
+            call ThomasCirculant_3_Reduce(g%lu0i(:, 1:1), &
                                        g%lu0i(:, 2:3), &
                                        g%lu0i(:, 4), &
                                        result, wrk2d)
@@ -166,7 +166,7 @@ contains
             end select
             call Thomas3_SolveL(g%lu1i(:, 1:1), result)
             call Thomas3_SolveU(g%lu1i(:, 2:3), result)
-            call ThomasCirculantSMW_3_Reduce(g%lu1i(:, 1:1), &
+            call ThomasCirculant_3_Reduce(g%lu1i(:, 1:1), &
                                        g%lu1i(:, 2:3), &
                                        g%lu1i(:, 4), &
                                        result, wrk2d)
@@ -178,7 +178,7 @@ contains
             end select
             call Thomas3_SolveL(g%lu1i(:, 1:1), result)
             call Thomas3_SolveU(g%lu1i(:, 2:3), result)
-            call ThomasCirculantSMW_3_Reduce(g%lu1i(:, 1:1), &
+            call ThomasCirculant_3_Reduce(g%lu1i(:, 1:1), &
                                        g%lu1i(:, 2:3), &
                                        g%lu1i(:, 4), &
                                        result, wrk2d)

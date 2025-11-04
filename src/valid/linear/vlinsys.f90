@@ -1,5 +1,6 @@
 program vLinSys
     use TLab_Constants, only: wp, wi, BCS_NONE
+    use Matmul_Halo
     use Thomas
     use Thomas_Circulant
     implicit none
@@ -68,9 +69,11 @@ program vLinSys
         ! end select
 
         ! compute forcing
-        call matmul(rhs(:, 1:nd), u, f, &
+        call matmul(rhs=rhs(:, 1:nd), &
                     rhs_b=rhs(1:nd/2, 1:nd), &
                     rhs_t=rhs(nsize - nd/2 + 1:nsize, 1:nd), &
+                    u=u, &
+                    f=f, &
                     L=lhs(:, 1:nd/2))
 
         ! call Thomas_SolveL(lhs(:, 1:nd/2), f)
@@ -97,35 +100,41 @@ program vLinSys
         lhs(:, 1:nd) = rhs(:, 1:nd)
         select case (nd)
         case (3)
-            call ThomasCirculantSMW_3_Initialize(lhs(:, 1:nd/2), &
-                                            lhs(:, nd/2 + 1:nd), &
-                                            lhs(1, nd + 1))
+            call ThomasCirculant_3_Initialize(lhs(:, 1:nd/2), &
+                                                 lhs(:, nd/2 + 1:nd), &
+                                                 lhs(1, nd + 1))
         case (5)
-            call ThomasCirculantSMW_5_Initialize(lhs(:, 1:nd/2), &
-                                            lhs(:, nd/2 + 1:nd), &
-                                            lhs(1, nd + 1))
+            call ThomasCirculant_5_Initialize(lhs(:, 1:nd/2), &
+                                                 lhs(:, nd/2 + 1:nd), &
+                                                 lhs(1, nd + 1))
         case (7)
             cycle
         end select
 
         ! compute forcing
-        call matmul_halo(rhs(:, 1:nd), u, u(:, nsize - nd/2 + 1:nsize), u(:, 1:nd/2), f)
+        ! call MatMul_Halo_X(rhs(:, 1:nd), u, u(:, nsize - nd/2 + 1:nsize), u(:, 1:nd/2), f)
+        call MatMul_Halo_X_solveL(rhs=rhs(:, 1:nd), &
+                                  u=u, &
+                                  u_halo_m=u(:, nsize - nd/2 + 1:nsize), &
+                                  u_halo_p=u(:, 1:nd/2), &
+                                  f=f, &
+                                  L=lhs(:, 1:nd/2))
 
         select case (nd)
         case (3)
-            call Thomas3_SolveL(lhs(:, 1:nd/2), f)
+            ! call Thomas3_SolveL(lhs(:, 1:nd/2), f)
             call Thomas3_SolveU(lhs(:, nd/2 + 1:nd), f)
-            call ThomasCirculantSMW_3_Reduce(lhs(:, 1:nd/2), &
-                                       lhs(:, nd/2 + 1:nd), &
-                                       lhs(:, nd + 1), &
-                                       f, wrk)
+            call ThomasCirculant_3_Reduce(lhs(:, 1:nd/2), &
+                                             lhs(:, nd/2 + 1:nd), &
+                                             lhs(:, nd + 1), &
+                                             f, wrk)
         case (5)
-            call Thomas5_SolveL(lhs(:, 1:nd/2), f)
+            ! call Thomas5_SolveL(lhs(:, 1:nd/2), f)
             call Thomas5_SolveU(lhs(:, nd/2 + 1:nd), f)
-            call ThomasCirculantSMW_5_Reduce(lhs(:, 1:nd/2), &
-                                       lhs(:, nd/2 + 1:nd), &
-                                       lhs(:, nd + 1), &
-                                       f)
+            call ThomasCirculant_5_Reduce(lhs(:, 1:nd/2), &
+                                             lhs(:, nd/2 + 1:nd), &
+                                             lhs(:, nd + 1), &
+                                             f)
         case (7)
         end select
 
@@ -141,11 +150,11 @@ contains
     ! ###################################################################
     ! calculate f = A u, where A is narrow banded with diagonals given by rhs
     ! Allowing for different band size at the bottom and at the top
-    subroutine matmul_biased(rhs, u, f, rhs_b, rhs_t)
+    subroutine matmul_biased(rhs, rhs_b, rhs_t, u, f)
         real(wp), intent(in) :: rhs(:, :)
+        real(wp), intent(in) :: rhs_b(:, :), rhs_t(:, :)
         real(wp), intent(in) :: u(:, :)
         real(wp), intent(out) :: f(:, :)
-        real(wp), intent(in) :: rhs_b(:, :), rhs_t(:, :)
 
         integer(wi) nx, ir
         integer(wi) ndr, idr, ic
@@ -217,11 +226,14 @@ contains
         return
     end subroutine matmul_biased
 
-    subroutine matmul_biased_solveL(rhs, u, f, rhs_b, rhs_t, L)
+    ! ###################################################################
+    ! ###################################################################
+    ! Assumes that ndl is less or equal than nx_b, nx_t
+    subroutine matmul_biased_solveL(rhs, rhs_b, rhs_t, u, f, L)
         real(wp), intent(in) :: rhs(:, :)
+        real(wp), intent(in) :: rhs_b(:, :), rhs_t(:, :)
         real(wp), intent(in) :: u(:, :)
         real(wp), intent(out) :: f(:, :)
-        real(wp), intent(in) :: rhs_b(:, :), rhs_t(:, :)
         real(wp), intent(in) :: L(:, :)
 
         integer(wi) nx, ir
@@ -230,14 +242,29 @@ contains
         integer(wi) ndl
 
         ! ###################################################################
-        ndl = size(L, 2)
+        ! interior points
+        nx = size(rhs, 1)       ! size of the system
+        ndr = size(rhs, 2)      ! # of diagonals
+        idr = ndr/2 + 1         ! index of centerline diagonal
 
-        ! -------------------------------------------------------------------
         ! lower boundary
         nx_b = size(rhs_b, 1)
         ndr_b = size(rhs_b, 2)
         idr_b = ndr_b/2 + 1
 
+        ! upper boundary
+        nx_t = size(rhs_t, 1)
+        ndr_t = size(rhs_t, 2)
+        idr_t = ndr_t/2 + 1
+
+        ! array L
+        ndl = size(L, 2)
+        if (any([nx_b, nx_t] < ndl)) then
+            print *, __FILE__//'Error'
+        end if
+
+        ! -------------------------------------------------------------------
+        ! lower boundary
         do ir = 1, ndr_b/2
             f(:, ir) = rhs_b(ir, idr_b - ir + 1)*u(:, 1)
             do ic = 2, ndr_b/2 + ir
@@ -263,15 +290,6 @@ contains
 
         ! -------------------------------------------------------------------
         ! interior points
-        nx = size(rhs, 1)       ! size of the system
-        ndr = size(rhs, 2)      ! # of diagonals
-        idr = ndr/2 + 1         ! index of centerline diagonal
-
-        ! upper boundary
-        nx_t = size(rhs_t, 1)
-        ndr_t = size(rhs_t, 2)
-        idr_t = ndr_t/2 + 1
-
         do ir = nx_b + 1, nx - nx_t
             f(:, ir) = rhs(ir, idr)*u(:, ir)
             do ic = 1, idr - 1
@@ -311,116 +329,6 @@ contains
 
         return
     end subroutine matmul_biased_solveL
-
-    ! ###################################################################
-    ! ###################################################################
-    subroutine matmul_circulant(rhs, u, f)
-        real(wp), intent(in) :: rhs(:, :)
-        real(wp), intent(in) :: u(:, :)
-        real(wp), intent(out) :: f(:, :)
-
-        integer(wi) nx, ir
-        integer(wi) ndr, idr, ic
-
-        ! ###################################################################
-        ndr = size(rhs, 2)      ! # of diagonals
-        idr = ndr/2 + 1         ! index of centerline diagonal
-        nx = size(rhs, 1)       ! size of the system
-
-        ! -------------------------------------------------------------------
-        ! lower boundary
-        do ir = 1, idr - 1
-            f(:, ir) = rhs(ir, idr)*u(:, ir)
-            do ic = 1, idr - 1
-                f(:, ir) = f(:, ir) + &
-                           rhs(ir, idr + ic)*u(:, ir + ic) + &
-                           rhs(ir, idr - ic)*u(:, mod(ir - ic + nx - 1, nx) + 1)
-            end do
-        end do
-
-        ! -------------------------------------------------------------------
-        ! interior points
-        do ir = idr, nx - idr + 1
-            f(:, ir) = rhs(ir, idr)*u(:, ir)
-            do ic = 1, idr - 1
-                f(:, ir) = f(:, ir) + &
-                           rhs(ir, idr - ic)*u(:, ir - ic) + &
-                           rhs(ir, idr + ic)*u(:, ir + ic)
-            end do
-        end do
-
-        ! -------------------------------------------------------------------
-        ! upper boundary
-        do ir = idr - 2, 0, -1
-            f(:, nx - ir) = rhs(nx - ir, idr)*u(:, nx - ir)
-            do ic = 1, idr - 1
-                f(:, nx - ir) = f(:, nx - ir) + &
-                                rhs(nx - ir, idr - ic)*u(:, nx - ir - ic) + &
-                                rhs(nx - ir, idr + ic)*u(:, mod(nx - ir + ic - 1, nx) + 1)
-            end do
-        end do
-
-        return
-    end subroutine matmul_circulant
-
-    ! ###################################################################
-    ! ###################################################################
-    subroutine matmul_halo(rhs, u, u_halo_m, u_halo_p, f)
-        real(wp), intent(in) :: rhs(:, :)
-        real(wp), intent(in) :: u(:, :)
-        real(wp), intent(in) :: u_halo_m(:, :)      ! minus, coming from left
-        real(wp), intent(in) :: u_halo_p(:, :)      ! plus, coming from right
-        real(wp), intent(out) :: f(:, :)
-
-        integer(wi) nx, ir
-        integer(wi) ndr, idr, ic
-
-        ! ###################################################################
-        ndr = size(rhs, 2)      ! # of diagonals
-        idr = ndr/2 + 1         ! index of centerline diagonal
-        nx = size(rhs, 1)       ! size of the system
-
-        ! -------------------------------------------------------------------
-        ! lower boundary
-        do ir = 1, ndr/2
-            f(:, ir) = rhs(ir, idr - ir + 1)*u(:, 1)
-            do ic = 2, ndr/2 + ir
-                f(:, ir) = f(:, ir) + &
-                           rhs(ir, idr - ir + ic)*u(:, ic)
-            end do
-            do ic = 0, ndr/2 - ir
-                f(:, ir) = f(:, ir) + &
-                           rhs(ir, idr - ir - ic)*u_halo_m(:, ndr/2 - ic)
-            end do
-        end do
-
-        ! -------------------------------------------------------------------
-        ! interior points
-        do ir = idr, nx - idr + 1
-            f(:, ir) = rhs(ir, idr)*u(:, ir)
-            do ic = 1, idr - 1
-                f(:, ir) = f(:, ir) + &
-                           rhs(ir, idr - ic)*u(:, ir - ic) + &
-                           rhs(ir, idr + ic)*u(:, ir + ic)
-            end do
-        end do
-
-        ! -------------------------------------------------------------------
-        ! upper boundary
-        do ir = ndr/2 - 1, 0, -1
-            f(:, nx - ir) = rhs(nx - ir, idr + ir)*u(:, nx)
-            do ic = 1, ndr/2 + ir
-                f(:, nx - ir) = f(:, nx - ir) + &
-                                rhs(nx - ir, idr + ir - ic)*u(:, nx - ic)
-            end do
-            do ic = 1, ndr/2 - ir
-                f(:, nx - ir) = f(:, nx - ir) + &
-                                rhs(nx - ir, idr + ir + ic)*u_halo_p(:, ic)
-            end do
-        end do
-
-        return
-    end subroutine matmul_halo
 
     ! ###################################################################
     ! ###################################################################

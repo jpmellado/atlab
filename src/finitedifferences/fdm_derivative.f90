@@ -8,6 +8,7 @@ module FDM_Derivative
     use Thomas
     use Thomas_Circulant
     use Matmul
+    use Matmul_Halo
     use FDM_Base
     use FDM_ComX_Direct
     use FDM_Com1_Jacobian
@@ -29,7 +30,8 @@ module FDM_Derivative
         real(wp), allocatable :: mwn(:)             ! memory space for modified wavenumbers
         !
         real(wp), allocatable :: lu(:, :)           ! memory space for LU decomposition
-        procedure(matmul_interface), pointer, nopass :: matmul  ! matrix multiplication to calculate the right-hand side
+        procedure(matmul_halo_ice), pointer, nopass :: matmul_halo  ! matrix multiplication to calculate the right-hand side
+        procedure(matmul_ice), pointer, nopass :: matmul  ! matrix multiplication to calculate the right-hand side
         ! type(fdm_bcs) :: bcs(0:3)           ! linear system for 4 different boundary conditions, 0 is the default
     end type fdm_derivative_dt
 
@@ -60,7 +62,7 @@ module FDM_Derivative
 
     ! -----------------------------------------------------------------------
     abstract interface
-        subroutine matmul_interface(rhs, u, f, ibc, rhs_b, rhs_t, bcs_b, bcs_t)
+        subroutine matmul_ice(rhs, u, f, ibc, rhs_b, rhs_t, bcs_b, bcs_t)
             use TLab_Constants, only: wp
             real(wp), intent(in) :: rhs(:, :)                               ! diagonals of B
             real(wp), intent(in) :: u(:, :)                                 ! vector u
@@ -68,6 +70,17 @@ module FDM_Derivative
             integer, intent(in) :: ibc
             real(wp), intent(in), optional :: rhs_b(:, 0:), rhs_t(0:, :)    ! Special bcs at bottom, top
             real(wp), intent(out), optional :: bcs_b(:), bcs_t(:)
+        end subroutine
+    end interface
+
+    abstract interface
+        subroutine matmul_halo_ice(rhs, u, u_halo_m, u_halo_p, f)
+            use TLab_Constants, only: wp
+            real(wp), intent(in) :: rhs(:)              ! diagonals of B
+            real(wp), intent(in) :: u(:, :)             ! vector u
+            real(wp), intent(in) :: u_halo_m(:, :)      ! minus, coming from left
+            real(wp), intent(in) :: u_halo_p(:, :)      ! plus, coming from right
+            real(wp), intent(out) :: f(:, :)            ! vector f = B u
         end subroutine
     end interface
 
@@ -112,13 +125,13 @@ contains
 
             select case (ndl)
             case (3)
-                call ThomasCirculantSMW_3_Initialize(g%lu(:, 1:ndl/2), &
-                                                g%lu(:, ndl/2 + 1:ndl), &
-                                                g%lu(1, ndl + 1))
+                call ThomasCirculant_3_Initialize(g%lu(:, 1:ndl/2), &
+                                                  g%lu(:, ndl/2 + 1:ndl), &
+                                                  g%lu(1, ndl + 1))
             case (5)
-                call ThomasCirculantSMW_5_Initialize(g%lu(:, 1:ndl/2), &
-                                                g%lu(:, ndl/2 + 1:ndl), &
-                                                g%lu(1, ndl + 1))
+                call ThomasCirculant_5_Initialize(g%lu(:, 1:ndl/2), &
+                                                  g%lu(:, ndl/2 + 1:ndl), &
+                                                  g%lu(1, ndl + 1))
             end select
 
         else                            ! biased,  different BCs
@@ -140,22 +153,35 @@ contains
 
         ! -------------------------------------------------------------------
         ! Procedure pointers to matrix multiplication to calculate the right-hand side
-        if (any([FDM_COM4_DIRECT, FDM_COM6_DIRECT] == g%mode_fdm)) then
+        if (periodic) then
             select case (ndr)
             case (3)
-                g%matmul => MatMul_3d
+                g%matmul_halo => MatMul_Halo_3d_antisym
             case (5)
-                g%matmul => MatMul_5d
-            end select
-        else
-            select case (ndr)
-            case (3)
-                g%matmul => MatMul_3d_antisym
-            case (5)
-                g%matmul => MatMul_5d_antisym
+                g%matmul_halo => MatMul_Halo_5d_antisym
             case (7)
-                g%matmul => MatMul_7d_antisym
+                g%matmul_halo => MatMul_Halo_7d_antisym
             end select
+
+        else
+            if (any([FDM_COM4_DIRECT, FDM_COM6_DIRECT] == g%mode_fdm)) then
+                select case (ndr)
+                case (3)
+                    g%matmul => MatMul_3d
+                case (5)
+                    g%matmul => MatMul_5d
+                end select
+            else
+                select case (ndr)
+                case (3)
+                    g%matmul => MatMul_3d_antisym
+                case (5)
+                    g%matmul => MatMul_5d_antisym
+                case (7)
+                    g%matmul => MatMul_7d_antisym
+                end select
+            end if
+
         end if
 
         return
@@ -328,55 +354,62 @@ contains
         integer, intent(in), optional :: ibc          ! Boundary condition [BCS_DD=BCS_NONE, BCS_DN, BCS_ND, BCS_NN]
 
         ! -------------------------------------------------------------------
-        integer(wi) nmin, nmax, nsize, ip, ndl
+        integer(wi) nmin, nmax, nsize, ip
+        integer ndl, ndr
         integer ibc_loc
 
         ! ###################################################################
-        if (present(ibc)) then
-            ibc_loc = ibc
-        else
-            ibc_loc = BCS_NONE
-        end if
-
-        nmin = 1; nmax = g%size
-        if (any([BCS_ND, BCS_NN] == ibc_loc)) then
-            result(:, 1) = 0.0_wp                   ! homogeneous Neumann bcs
-            nmin = nmin + 1
-        end if
-        if (any([BCS_DN, BCS_NN] == ibc_loc)) then
-            result(:, g%size) = 0.0_wp              ! homogeneous Neumann bcs
-            nmax = nmax - 1
-        end if
-        nsize = nmax - nmin + 1
-
-        ! -------------------------------------------------------------------
-        ! Calculate RHS in system of equations A u' = B u
-        if (g%periodic) ibc_loc = BCS_PERIODIC
-        call g%matmul(g%rhs, u, result, ibc_loc, g%rhs_b, g%rhs_t)
-
-        ! -------------------------------------------------------------------
-        ! Solve for u' in system of equations A u' = B u
         ndl = g%nb_diag(1)
+        ndr = g%nb_diag(2)
 
         if (g%periodic) then
+            ! Calculate RHS in system of equations A u' = B u
+            call g%matmul_halo(rhs=g%rhs(1, 1:ndr), &
+                               u=u, &
+                               u_halo_m=u(:, g%size - ndr/2 + 1:g%size), &
+                               u_halo_p=u(:, 1:ndr/2), &
+                               f=result)
+
+            ! Solve for u' in system of equations A u' = B u
             select case (g%nb_diag(1))
             case (3)
                 call Thomas3_SolveL(lu1(:, 1:ndl/2), result)
                 call Thomas3_SolveU(lu1(:, ndl/2 + 1:ndl), result)
-                call ThomasCirculantSMW_3_Reduce(lu1(:, 1:ndl/2), &
-                                           lu1(:, ndl/2 + 1:ndl), &
-                                           lu1(:, ndl + 1), &
-                                           result, wrk2d)
+                call ThomasCirculant_3_Reduce(lu1(:, 1:ndl/2), &
+                                              lu1(:, ndl/2 + 1:ndl), &
+                                              lu1(:, ndl + 1), &
+                                              result, wrk2d)
             case (5)
                 call Thomas5_SolveL(lu1(:, 1:ndl/2), result)
                 call Thomas5_SolveU(lu1(:, ndl/2 + 1:ndl), result)
-                call ThomasCirculantSMW_5_Reduce(lu1(:, 1:ndl/2), &
-                                           lu1(:, ndl/2 + 1:ndl), &
-                                           lu1(:, ndl + 1), &
-                                           result)!, wrk2d)
+                call ThomasCirculant_5_Reduce(lu1(:, 1:ndl/2), &
+                                              lu1(:, ndl/2 + 1:ndl), &
+                                              lu1(:, ndl + 1), &
+                                              result)!, wrk2d)
             end select
 
-        else
+        else    ! biased
+            if (present(ibc)) then
+                ibc_loc = ibc
+            else
+                ibc_loc = BCS_NONE
+            end if
+
+            nmin = 1; nmax = g%size
+            if (any([BCS_ND, BCS_NN] == ibc_loc)) then
+                result(:, 1) = 0.0_wp                   ! homogeneous Neumann bcs
+                nmin = nmin + 1
+            end if
+            if (any([BCS_DN, BCS_NN] == ibc_loc)) then
+                result(:, g%size) = 0.0_wp              ! homogeneous Neumann bcs
+                nmax = nmax - 1
+            end if
+            nsize = nmax - nmin + 1
+
+            ! Calculate RHS in system of equations A u' = B u
+            call g%matmul(g%rhs, u, result, ibc_loc, g%rhs_b, g%rhs_t)
+
+            ! Solve for u' in system of equations A u' = B u
             ip = ibc_loc*5
 
             select case (g%nb_diag(1))
@@ -423,9 +456,9 @@ contains
         if (g%periodic) then
             select case (ndl)
             case (3)
-                call ThomasCirculantSMW_3_Initialize(g%lu(:, 1:ndl/2), &
-                                                g%lu(:, ndl/2 + 1:ndl), &
-                                                g%lu(1, ndl + 1))
+                call ThomasCirculant_3_Initialize(g%lu(:, 1:ndl/2), &
+                                                  g%lu(:, ndl/2 + 1:ndl), &
+                                                  g%lu(1, ndl + 1))
             end select
 
         else
@@ -436,18 +469,31 @@ contains
 
         ! -------------------------------------------------------------------
         ! Procedure pointers to matrix multiplication to calculate the right-hand side
-        if (any([FDM_COM4_DIRECT, FDM_COM6_DIRECT, FDM_COM6_DIRECT_HYPER] == g%mode_fdm)) then
+        if (periodic) then
             select case (ndr)
+            case (3)
+                g%matmul_halo => MatMul_Halo_3d_sym
             case (5)
-                g%matmul => MatMul_5d
-            end select
-        else
-            select case (ndr)
-            case (5)
-                g%matmul => MatMul_5d_sym
+                g%matmul_halo => MatMul_Halo_5d_sym
             case (7)
-                g%matmul => MatMul_7d_sym
+                g%matmul_halo => MatMul_Halo_7d_sym
             end select
+
+        else
+            if (any([FDM_COM4_DIRECT, FDM_COM6_DIRECT, FDM_COM6_DIRECT_HYPER] == g%mode_fdm)) then
+                select case (ndr)
+                case (5)
+                    g%matmul => MatMul_5d
+                end select
+            else
+                select case (ndr)
+                case (5)
+                    g%matmul => MatMul_5d_sym
+                case (7)
+                    g%matmul => MatMul_7d_sym
+                end select
+            end if
+
         end if
 
         return
@@ -546,36 +592,41 @@ contains
         real(wp), intent(out) :: wrk2d(nlines)
 
         ! -------------------------------------------------------------------
-        integer(wi) ip, ndl
+        integer(wi) ip, ndl, ndr
 
         ! ###################################################################
-        ! Calculate RHS in system of equations A u' = B u
-        if (g%periodic) then
-            call g%matmul(g%rhs, u, result, BCS_PERIODIC)
-        else
-            call g%matmul(g%rhs, u, result, BCS_DD)
-        end if
-
-        if (g%need_1der) then           ! add Jacobian correction A_2 dx2 du
-            ip = g%nb_diag(2)           ! so far, only tridiagonal systems
-            call MatMul_3d_add(g%rhs(:, ip + 1:ip + 3), du, result)
-        end if
-
-        ! -------------------------------------------------------------------
-        ! Solve for u' in system of equations A u' = B u
         ndl = g%nb_diag(1)
+        ndr = g%nb_diag(2)
 
         if (g%periodic) then
+            ! Calculate RHS in system of equations A u' = B u
+            call g%matmul_halo(rhs=g%rhs(1, 1:ndr), &
+                               u=u, &
+                               u_halo_m=u(:, g%size - ndr/2 + 1:g%size), &
+                               u_halo_p=u(:, 1:ndr/2), &
+                               f=result)
+
+            ! Solve for u' in system of equations A u' = B u
             select case (g%nb_diag(1))
             case (3)
                 call Thomas3_SolveL(lu(:, 1:ndl/2), result)
                 call Thomas3_SolveU(lu(:, ndl/2 + 1:ndl), result)
-                call ThomasCirculantSMW_3_Reduce(lu(:, 1:ndl/2), &
-                                           lu(:, ndl/2 + 1:ndl), &
-                                           lu(:, ndl + 1), &
-                                           result, wrk2d)
+                call ThomasCirculant_3_Reduce(lu(:, 1:ndl/2), &
+                                              lu(:, ndl/2 + 1:ndl), &
+                                              lu(:, ndl + 1), &
+                                              result, wrk2d)
             end select
-        else
+
+        else    ! biased
+            ! Calculate RHS in system of equations A u' = B u
+            call g%matmul(g%rhs, u, result, BCS_DD)
+
+            if (g%need_1der) then           ! add Jacobian correction A_2 dx2 du
+                ip = g%nb_diag(2)           ! so far, only tridiagonal systems
+                call MatMul_3d_add(g%rhs(:, ip + 1:ip + 3), du, result)
+            end if
+
+            ! Solve for u' in system of equations A u' = B u
             select case (g%nb_diag(1))
             case (3)
                 call Thomas3_SolveL(lu(:, 1:ndl/2), result)

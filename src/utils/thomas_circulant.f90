@@ -12,16 +12,16 @@ module Thomas_Circulant
     implicit none
     private
 
-    public :: ThomasCirculantSMW_3_Initialize
-    public :: ThomasCirculantSMW_3_Reduce
+    public :: ThomasCirculant_3_Initialize
+    public :: ThomasCirculant_3_Reduce
 
-    public :: ThomasCirculantSMW_5_Initialize
-    public :: ThomasCirculantSMW_5_Reduce
+    public :: ThomasCirculant_5_Initialize
+    public :: ThomasCirculant_5_Reduce
 
 contains
     !########################################################################
     !########################################################################
-    subroutine ThomasCirculantSMW_3_Initialize(L, U, z_mem)
+    subroutine ThomasCirculant_3_Initialize(L, U, z_mem)
         real(wp), intent(inout) :: L(:, :), U(:, :)
         real(wp), intent(inout) :: z_mem(1, size(L, 1))
 
@@ -77,11 +77,11 @@ contains
 #undef z
 
         return
-    end subroutine ThomasCirculantSMW_3_Initialize
+    end subroutine ThomasCirculant_3_Initialize
 
     !########################################################################
     !########################################################################
-    subroutine ThomasCirculantSMW_3_Reduce(L, U, z, f, wrk)
+    subroutine ThomasCirculant_3_Reduce(L, U, z, f, wrk)
         real(wp), intent(in) :: L(:, :), U(:, :), z(:)
         real(wp), intent(inout) :: f(:, :)          ! forcing and solution
         real(wp), intent(inout) :: wrk(:)
@@ -106,7 +106,7 @@ contains
         ! end do
 
         return
-    end subroutine ThomasCirculantSMW_3_Reduce
+    end subroutine ThomasCirculant_3_Reduce
 
     ! #######################################################################
     ! #######################################################################
@@ -119,7 +119,7 @@ contains
 #define z1(i) z_mem(1,i)
 #define z2(i) z_mem(2,i)
 
-    subroutine ThomasCirculantSMW_5_Initialize(L, U, z_mem)
+    subroutine ThomasCirculant_5_Initialize(L, U, z_mem)
         real(wp), intent(inout) :: L(:, :), U(:, :)
         real(wp), intent(inout) :: z_mem(2, size(L, 1))
 
@@ -167,11 +167,11 @@ contains
         end if
 
         return
-    end subroutine ThomasCirculantSMW_5_Initialize
+    end subroutine ThomasCirculant_5_Initialize
 
     ! #######################################################################
     ! #######################################################################
-    subroutine ThomasCirculantSMW_5_Reduce(L, U, z_mem, f)
+    subroutine ThomasCirculant_5_Reduce(L, U, z_mem, f)
         real(wp), intent(in) :: L(:, :), U(:, :)
         real(wp), intent(in) :: z_mem(2, size(L, 1))
         real(wp), intent(inout) :: f(:, :)          ! forcing and solution
@@ -226,6 +226,6 @@ contains
         end do
 
         return
-    end subroutine ThomasCirculantSMW_5_Reduce
+    end subroutine ThomasCirculant_5_Reduce
 
 end module Thomas_Circulant

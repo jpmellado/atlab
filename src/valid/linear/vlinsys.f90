@@ -5,7 +5,7 @@ program vLinSys
     implicit none
 
     interface matmul
-        procedure matmul_biased, matmul_circulant
+        procedure matmul_biased, matmul_biased_solveL
     end interface matmul
 
     integer(wi), parameter :: nlines = 1
@@ -13,12 +13,15 @@ program vLinSys
     integer, parameter :: ndmax = 7
     integer nd
 
-    real(wp) :: lhs(nsize, ndmax + 2), lhs_loc(nsize, ndmax + 2)
+    real(wp) :: rhs(nsize, ndmax), lhs(nsize, ndmax + 2)
     real(wp) :: u(nlines, nsize), f(nlines, nsize)
     real(wp) :: wrk(nlines)       ! for circulant case
 
     integer :: nseed
     integer, allocatable :: seed(:)
+
+    integer ic
+    integer, parameter :: list_of_cases(1:3) = [3, 5, 7]
 
     character(len=32) str
     logical, parameter :: circulant = .false.
@@ -39,116 +42,93 @@ program vLinSys
 
     ! ###################################################################
     ! generate random data for f = Au
-    call random_number(lhs)     ! diagonals in matrix A
+    call random_number(rhs)     ! diagonals in matrix A
     call random_number(u)       ! solution u
 
     ! ###################################################################
-    nd = 3
+    do ic = 1, size(list_of_cases)
+        nd = list_of_cases(ic)
 
-    ! -------------------------------------------------------------------
-    print *, new_line('a'), 'Solve biased triadiagonal system'
+        ! -------------------------------------------------------------------
+        print *, new_line('a'), 'Solve biased system, bands ', nd
 
-    ! compute forcing
-    call matmul(lhs(:, 1:nd), u, f, &
-                rhs_b=lhs(1:nd/2, 1:nd), &
-                rhs_t=lhs(nsize - nd/2 + 1:nsize, 1:nd))
+        lhs(:, 1:nd) = rhs(:, 1:nd)
+        call Thomas_FactorLU_InPlace(lhs(:, 1:nd/2), &
+                                     lhs(:, nd/2 + 1:nd))
+        ! select case (nd)
+        ! case (3)
+        !     call Thomas3_FactorLU_InPlace(lhs(:, 1:nd/2), &
+        !                                   lhs(:, nd/2 + 1:nd))
+        ! case (5)
+        !     call Thomas5_FactorLU_InPlace(lhs(:, 1:nd/2), &
+        !                                   lhs(:, nd/2 + 1:nd))
+        ! case (7)
+        !     call Thomas7_FactorLU_InPlace(lhs(:, 1:nd/2), &
+        !                                   lhs(:, nd/2 + 1:nd))
+        ! end select
 
-    lhs_loc(:, 1:nd) = lhs(:, 1:nd)
-    ! call Thomas3_FactorLU_InPlace(lhs_loc(:, 1:nd/2), &
-    !                               lhs_loc(:, nd/2 + 1:nd))
-    ! call Thomas3_SolveL(lhs_loc(:, 1:nd/2), f)
-    ! call Thomas3_SolveU(lhs_loc(:, nd/2 + 1:nd), f)
-    call Thomas_FactorLU_InPlace(lhs_loc(:, 1:nd/2), &
-                                 lhs_loc(:, nd/2 + 1:nd))
-    call Thomas_SolveL(lhs_loc(:, 1:nd/2), f)
-    call Thomas_SolveU(lhs_loc(:, nd/2 + 1:nd), f)
+        ! compute forcing
+        call matmul(rhs(:, 1:nd), u, f, &
+                    rhs_b=rhs(1:nd/2, 1:nd), &
+                    rhs_t=rhs(nsize - nd/2 + 1:nsize, 1:nd), &
+                    L=lhs(:, 1:nd/2))
 
-    write (str, *) nd
-    call check(f, u, 'linsys-'//trim(adjustl(str))//'.dat')
+        ! call Thomas_SolveL(lhs(:, 1:nd/2), f)
+        call Thomas_SolveU(lhs(:, nd/2 + 1:nd), f)
 
-    ! -------------------------------------------------------------------
-    print *, new_line('a'), 'Solve circulant triadiagonal system'
+        ! select case (nd)
+        ! case (3)
+        !     call Thomas3_SolveL(lhs(:, 1:nd/2), f)
+        !     call Thomas3_SolveU(lhs(:, nd/2 + 1:nd), f)
+        ! case (5)
+        !     call Thomas5_SolveL(lhs(:, 1:nd/2), f)
+        !     call Thomas5_SolveU(lhs(:, nd/2 + 1:nd), f)
+        ! case (7)
+        !     call Thomas7_SolveL(lhs(:, 1:nd/2), f)
+        !     call Thomas7_SolveU(lhs(:, nd/2 + 1:nd), f)
+        ! end select
 
-    ! compute forcing
-    call matmul(lhs(:, 1:nd), u, f)
+        write (str, *) nd
+        call check(f, u, 'linsys-'//trim(adjustl(str))//'.dat')
 
-    lhs_loc(:, 1:nd) = lhs(:, 1:nd)
-    call ThomasCirc3_SMW_Initialize(lhs_loc(:, 1:nd/2), &
-                                    lhs_loc(:, nd/2 + 1:nd), &
-                                    lhs_loc(1, nd + 1))
-    call ThomasCirc3_SMW_Solve(lhs_loc(:, 1:nd/2), &
-                               lhs_loc(:, nd/2 + 1:nd), &
-                               lhs_loc(:, nd + 1), &
-                               f, wrk)
+        ! -------------------------------------------------------------------
+        print *, new_line('a'), 'Solve circulant system, bands', nd
 
-    write (str, *) nd
-    call check(f, u, 'linsys-'//trim(adjustl(str))//'.dat')
+        lhs(:, 1:nd) = rhs(:, 1:nd)
+        select case (nd)
+        case (3)
+            call ThomasCirc3_SMW_Initialize(lhs(:, 1:nd/2), &
+                                            lhs(:, nd/2 + 1:nd), &
+                                            lhs(1, nd + 1))
+        case (5)
+            call ThomasCirc5_SMW_Initialize(lhs(:, 1:nd/2), &
+                                            lhs(:, nd/2 + 1:nd), &
+                                            lhs(1, nd + 1))
+        case (7)
+            cycle
+        end select
 
-    ! ###################################################################
-    nd = 5
+        ! compute forcing
+        call matmul_halo(rhs(:, 1:nd), u, u(:, nsize - nd/2 + 1:nsize), u(:, 1:nd/2), f)
 
-    ! -------------------------------------------------------------------
-    print *, new_line('a'), 'Solve biased pentadiagonal system'
+        select case (nd)
+        case (3)
+            call ThomasCirc3_SMW_Solve(lhs(:, 1:nd/2), &
+                                       lhs(:, nd/2 + 1:nd), &
+                                       lhs(:, nd + 1), &
+                                       f, wrk)
+        case (5)
+            call ThomasCirc5_SMW_Solve(lhs(:, 1:nd/2), &
+                                       lhs(:, nd/2 + 1:nd), &
+                                       lhs(:, nd + 1), &
+                                       f)
+        case (7)
+        end select
 
-    ! compute forcing
-    call matmul(lhs(:, 1:nd), u, f, &
-                rhs_b=lhs(1:nd/2, 1:nd), &
-                rhs_t=lhs(nsize - nd/2 + 1:nsize, 1:nd))
+        write (str, *) nd
+        call check(f, u, 'linsys-'//trim(adjustl(str))//'.dat')
 
-    lhs_loc(:, 1:nd) = lhs(:, 1:nd)
-    ! call Thomas5_FactorLU_InPlace(lhs_loc(:, 1:nd/2), &
-    !                               lhs_loc(:, nd/2 + 1:nd))
-    ! call Thomas5_SolveL(lhs_loc(:, 1:nd/2), f)
-    ! call Thomas5_SolveU(lhs_loc(:, nd/2 + 1:nd), f)
-    call Thomas_FactorLU_InPlace(lhs_loc(:, 1:nd/2), &
-                                 lhs_loc(:, nd/2 + 1:nd))
-    call Thomas_SolveL(lhs_loc(:, 1:nd/2), f)
-    call Thomas_SolveU(lhs_loc(:, nd/2 + 1:nd), f)
-
-    write (str, *) nd
-    call check(f, u, 'linsys-'//trim(adjustl(str))//'.dat')
-
-    ! -------------------------------------------------------------------
-    print *, new_line('a'), 'Solve circulant pentadiagonal system'
-
-    ! compute forcing
-    call matmul(lhs(:, 1:nd), u, f)
-
-    lhs_loc(:, 1:nd) = lhs(:, 1:nd)
-    call ThomasCirc5_SMW_Initialize(lhs_loc(:, 1:nd/2), &
-                                    lhs_loc(:, nd/2 + 1:nd), &
-                                    lhs_loc(1, nd + 1))
-    call ThomasCirc5_SMW_Solve(lhs_loc(:, 1:nd/2), &
-                               lhs_loc(:, nd/2 + 1:nd), &
-                               lhs_loc(:, nd + 1), &
-                               f)
-
-    write (str, *) nd
-    call check(f, u, 'linsys-'//trim(adjustl(str))//'.dat')
-
-    ! ###################################################################
-    nd = 7
-
-    ! -------------------------------------------------------------------
-    print *, new_line('a'), 'Solve biased heptadiagonal system'
-
-    ! compute forcing
-    call matmul(lhs(:, 1:nd), u, f, &
-                rhs_b=lhs(1:nd/2, 1:nd), &
-                rhs_t=lhs(nsize - nd/2 + 1:nsize, 1:nd))
-
-    lhs_loc(:, 1:nd) = lhs(:, 1:nd)
-    ! call Thomas7_FactorLU_InPlace(lhs_loc(:, 1:nd/2), &
-    !                               lhs_loc(:, nd/2 + 1:nd))
-    ! call Thomas7_SolveL(lhs_loc(:, 1:nd/2), f)
-    ! call Thomas7_SolveU(lhs_loc(:, nd/2 + 1:nd), f)
-    call Thomas_FactorLU_InPlace(lhs_loc(:, 1:nd/2), &
-                                 lhs_loc(:, nd/2 + 1:nd))
-    call Thomas_SolveL(lhs_loc(:, 1:nd/2), f)
-    call Thomas_SolveU(lhs_loc(:, nd/2 + 1:nd), f)
-
-    write (str, *) nd
-    call check(f, u, 'linsys-'//trim(adjustl(str))//'.dat')
+    end do
 
     stop
 
@@ -163,15 +143,11 @@ contains
         real(wp), intent(out) :: f(:, :)
         real(wp), intent(in) :: rhs_b(:, :), rhs_t(:, :)
 
-        integer(wi) nx, ir, nmin, nmax
+        integer(wi) nx, ir
         integer(wi) ndr, idr, ic
         integer nx_b, ndr_b, idr_b, nx_t, ndr_t, idr_t
 
         ! ###################################################################
-        nx = size(rhs, 1)       ! size of the system
-        ndr = size(rhs, 2)      ! # of diagonals
-        idr = ndr/2 + 1         ! index of centerline diagonal
-
         ! -------------------------------------------------------------------
         ! lower boundary
         nx_b = size(rhs_b, 1)
@@ -195,62 +171,18 @@ contains
             end do
         end do
 
-        ! do ir = 1, nx_b
-        !     f(:, ir) = rhs_b(ir, idr_b)*u(:, ir)
-        !     do ic = 1, idr_b - 1
-        !         f(:, ir) = f(:, ir) + &
-        !                    rhs_b(ir, idr_b + ic)*u(:, ir + ic)
-        !         if (ir - ic >= 1) then
-        !             ! print *, ir, ic, idr - ic, ir - ic
-        !             f(:, ir) = f(:, ir) + &
-        !                        rhs_b(ir, idr_b - ic)*u(:, ir - ic)
-        !         end if
-        !     end do
-        ! end do
-
-        nmin = nx_b + 1
-
         ! -------------------------------------------------------------------
+        ! interior points
+        nx = size(rhs, 1)       ! size of the system
+        ndr = size(rhs, 2)      ! # of diagonals
+        idr = ndr/2 + 1         ! index of centerline diagonal
+
         ! upper boundary
         nx_t = size(rhs_t, 1)
         ndr_t = size(rhs_t, 2)
         idr_t = ndr_t/2 + 1
 
-        do ir = 0, ndr_t/2 - 1
-            f(:, nx - ir) = rhs_t(nx_t - ir, idr_t + ir)*u(:, nx)
-            do ic = 1, ndr_t/2 + ir
-                f(:, nx - ir) = f(:, nx - ir) + &
-                                rhs_t(nx_t - ir, idr_t + ir - ic)*u(:, nx - ic)
-            end do
-        end do
-
-        do ir = ndr_t/2, nx_t - 1
-            f(:, nx - ir) = rhs_t(nx_t - ir, idr_t)*u(:, nx - ir)
-            do ic = 1, ndr_t/2
-                f(:, nx - ir) = f(:, nx - ir) + &
-                                rhs_t(nx_t - ir, idr_t - ic)*u(:, nx - ir - ic) + &
-                                rhs_t(nx_t - ir, idr_t + ic)*u(:, nx - ir + ic)
-            end do
-        end do
-
-        ! do ir = 0, nx_t - 1
-        !     f(:, nx - ir) = rhs_t(nx_t - ir, idr_t)*u(:, nx - ir)
-        !     do ic = 1, idr_t - 1
-        !         f(:, nx - ir) = f(:, nx - ir) + &
-        !                         rhs_t(nx_t - ir, idr_t - ic)*u(:, nx - ir - ic)
-        !         if (ic - ir <= 0) then
-        !             ! print *, n, ic, idr + ic, n + ic
-        !             f(:, nx - ir) = f(:, nx - ir) + &
-        !                             rhs_t(nx_t - ir, idr_t + ic)*u(:, nx - ir + ic)
-        !         end if
-        !     end do
-        ! end do
-
-        nmax = nx - nx_t
-
-        ! -------------------------------------------------------------------
-        ! interior points
-        do ir = nmin, nmax
+        do ir = nx_b + 1, nx - nx_t
             f(:, ir) = rhs(ir, idr)*u(:, ir)
             do ic = 1, idr - 1
                 f(:, ir) = f(:, ir) + &
@@ -259,8 +191,122 @@ contains
             end do
         end do
 
+        ! -------------------------------------------------------------------
+        ! upper boundary
+        do ir = nx_t - 1, ndr_t/2, -1
+            f(:, nx - ir) = rhs_t(nx_t - ir, idr_t)*u(:, nx - ir)
+            do ic = 1, ndr_t/2
+                f(:, nx - ir) = f(:, nx - ir) + &
+                                rhs_t(nx_t - ir, idr_t - ic)*u(:, nx - ir - ic) + &
+                                rhs_t(nx_t - ir, idr_t + ic)*u(:, nx - ir + ic)
+            end do
+        end do
+
+        do ir = ndr_t/2 - 1, 0, -1
+            f(:, nx - ir) = rhs_t(nx_t - ir, idr_t + ir)*u(:, nx)
+            do ic = 1, ndr_t/2 + ir
+                f(:, nx - ir) = f(:, nx - ir) + &
+                                rhs_t(nx_t - ir, idr_t + ir - ic)*u(:, nx - ic)
+            end do
+        end do
+
         return
     end subroutine matmul_biased
+
+    subroutine matmul_biased_solveL(rhs, u, f, rhs_b, rhs_t, L)
+        real(wp), intent(in) :: rhs(:, :)
+        real(wp), intent(in) :: u(:, :)
+        real(wp), intent(out) :: f(:, :)
+        real(wp), intent(in) :: rhs_b(:, :), rhs_t(:, :)
+        real(wp), intent(in) :: L(:, :)
+
+        integer(wi) nx, ir
+        integer(wi) ndr, idr, ic
+        integer nx_b, ndr_b, idr_b, nx_t, ndr_t, idr_t
+        integer(wi) ndl
+
+        ! ###################################################################
+        ndl = size(L, 2)
+
+        ! -------------------------------------------------------------------
+        ! lower boundary
+        nx_b = size(rhs_b, 1)
+        ndr_b = size(rhs_b, 2)
+        idr_b = ndr_b/2 + 1
+
+        do ir = 1, ndr_b/2
+            f(:, ir) = rhs_b(ir, idr_b - ir + 1)*u(:, 1)
+            do ic = 2, ndr_b/2 + ir
+                f(:, ir) = f(:, ir) + &
+                           rhs_b(ir, idr_b - ir + ic)*u(:, ic)
+            end do
+            do ic = 1, min(ir - 1, ndl)  ! solve L
+                f(:, ir) = f(:, ir) + f(:, ir - ic)*L(ir, ndl - ic + 1)
+            end do
+        end do
+
+        do ir = idr_b, nx_b
+            f(:, ir) = rhs_b(ir, idr_b)*u(:, ir)
+            do ic = 1, ndr_b/2
+                f(:, ir) = f(:, ir) + &
+                           rhs_b(ir, idr_b + ic)*u(:, ir + ic) + &
+                           rhs_b(ir, idr_b - ic)*u(:, ir - ic)
+            end do
+            do ic = 1, min(ir - 1, ndl)  ! solve L
+                f(:, ir) = f(:, ir) + f(:, ir - ic)*L(ir, ndl - ic + 1)
+            end do
+        end do
+
+        ! -------------------------------------------------------------------
+        ! interior points
+        nx = size(rhs, 1)       ! size of the system
+        ndr = size(rhs, 2)      ! # of diagonals
+        idr = ndr/2 + 1         ! index of centerline diagonal
+
+        ! upper boundary
+        nx_t = size(rhs_t, 1)
+        ndr_t = size(rhs_t, 2)
+        idr_t = ndr_t/2 + 1
+
+        do ir = nx_b + 1, nx - nx_t
+            f(:, ir) = rhs(ir, idr)*u(:, ir)
+            do ic = 1, idr - 1
+                f(:, ir) = f(:, ir) + &
+                           rhs(ir, idr - ic)*u(:, ir - ic) + &
+                           rhs(ir, idr + ic)*u(:, ir + ic)
+            end do
+            do ic = 1, ndl      ! solve L
+                f(:, ir) = f(:, ir) + f(:, ir - ic)*L(ir, ndl - ic + 1)
+            end do
+        end do
+
+        ! -------------------------------------------------------------------
+        ! upper boundary
+        do ir = nx_t - 1, ndr_t/2, -1
+            f(:, nx - ir) = rhs_t(nx_t - ir, idr_t)*u(:, nx - ir)
+            do ic = 1, ndr_t/2
+                f(:, nx - ir) = f(:, nx - ir) + &
+                                rhs_t(nx_t - ir, idr_t - ic)*u(:, nx - ir - ic) + &
+                                rhs_t(nx_t - ir, idr_t + ic)*u(:, nx - ir + ic)
+            end do
+            do ic = 1, ndl      ! solve L
+                f(:, nx - ir) = f(:, nx - ir) + f(:, nx - ir - ic)*L(nx - ir, ndl - ic + 1)
+            end do
+        end do
+
+        do ir = ndr_t/2 - 1, 0, -1
+            f(:, nx - ir) = rhs_t(nx_t - ir, idr_t + ir)*u(:, nx)
+            do ic = 1, ndr_t/2 + ir
+                f(:, nx - ir) = f(:, nx - ir) + &
+                                rhs_t(nx_t - ir, idr_t + ir - ic)*u(:, nx - ic)
+            end do
+            do ic = 1, ndl      ! solve L
+                f(:, nx - ir) = f(:, nx - ir) + f(:, nx - ir - ic)*L(nx - ir, ndl - ic + 1)
+            end do
+        end do
+
+        return
+    end subroutine matmul_biased_solveL
 
     ! ###################################################################
     ! ###################################################################
@@ -289,13 +335,58 @@ contains
         end do
 
         ! -------------------------------------------------------------------
+        ! interior points
+        do ir = idr, nx - idr + 1
+            f(:, ir) = rhs(ir, idr)*u(:, ir)
+            do ic = 1, idr - 1
+                f(:, ir) = f(:, ir) + &
+                           rhs(ir, idr - ic)*u(:, ir - ic) + &
+                           rhs(ir, idr + ic)*u(:, ir + ic)
+            end do
+        end do
+
+        ! -------------------------------------------------------------------
         ! upper boundary
-        do ir = 0, idr - 2
+        do ir = idr - 2, 0, -1
             f(:, nx - ir) = rhs(nx - ir, idr)*u(:, nx - ir)
             do ic = 1, idr - 1
                 f(:, nx - ir) = f(:, nx - ir) + &
                                 rhs(nx - ir, idr - ic)*u(:, nx - ir - ic) + &
                                 rhs(nx - ir, idr + ic)*u(:, mod(nx - ir + ic - 1, nx) + 1)
+            end do
+        end do
+
+        return
+    end subroutine matmul_circulant
+
+    ! ###################################################################
+    ! ###################################################################
+    subroutine matmul_halo(rhs, u, u_halo_m, u_halo_p, f)
+        real(wp), intent(in) :: rhs(:, :)
+        real(wp), intent(in) :: u(:, :)
+        real(wp), intent(in) :: u_halo_m(:, :)      ! minus, coming from left
+        real(wp), intent(in) :: u_halo_p(:, :)      ! plus, coming from right
+        real(wp), intent(out) :: f(:, :)
+
+        integer(wi) nx, ir
+        integer(wi) ndr, idr, ic
+
+        ! ###################################################################
+        ndr = size(rhs, 2)      ! # of diagonals
+        idr = ndr/2 + 1         ! index of centerline diagonal
+        nx = size(rhs, 1)       ! size of the system
+
+        ! -------------------------------------------------------------------
+        ! lower boundary
+        do ir = 1, ndr/2
+            f(:, ir) = rhs(ir, idr - ir + 1)*u(:, 1)
+            do ic = 2, ndr/2 + ir
+                f(:, ir) = f(:, ir) + &
+                           rhs(ir, idr - ir + ic)*u(:, ic)
+            end do
+            do ic = 0, ndr/2 - ir
+                f(:, ir) = f(:, ir) + &
+                           rhs(ir, idr - ir - ic)*u_halo_m(:, ndr/2 - ic)
             end do
         end do
 
@@ -310,8 +401,22 @@ contains
             end do
         end do
 
+        ! -------------------------------------------------------------------
+        ! upper boundary
+        do ir = ndr/2 - 1, 0, -1
+            f(:, nx - ir) = rhs(nx - ir, idr + ir)*u(:, nx)
+            do ic = 1, ndr/2 + ir
+                f(:, nx - ir) = f(:, nx - ir) + &
+                                rhs(nx - ir, idr + ir - ic)*u(:, nx - ic)
+            end do
+            do ic = 1, ndr/2 - ir
+                f(:, nx - ir) = f(:, nx - ir) + &
+                                rhs(nx - ir, idr + ir + ic)*u_halo_p(:, ic)
+            end do
+        end do
+
         return
-    end subroutine matmul_circulant
+    end subroutine matmul_halo
 
     ! ###################################################################
     ! ###################################################################

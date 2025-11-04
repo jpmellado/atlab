@@ -91,15 +91,13 @@ program vThomas3_Split
 
         lhs_loc = lhs
         if (periodic) then
-            ! call Thomas3C_SMW_LU(lhs_loc(:, 1), lhs_loc(:, 2), lhs_loc(:, 3), z)
-            ! call Thomas3C_SMW_Solve(lhs_loc(:, 1), lhs_loc(:, 2), lhs_loc(:, 3), z, u_loc, wrk)
-            call ThomasCirc3_SMW_Initialize(lhs_loc(:, 1:1), &
+            call ThomasCirculantSMW_3_Initialize(lhs_loc(:, 1:1), &
                                             lhs_loc(:, 2:3), z)
-            call ThomasCirc3_SMW_Solve(lhs_loc(:, 1:1), &
+            call Thomas3_SolveL(lhs_loc(:, 1:1), u_loc)
+            call Thomas3_SolveU(lhs_loc(:, 2:3), u_loc)
+            call ThomasCirculantSMW_3_Reduce(lhs_loc(:, 1:1), &
                                        lhs_loc(:, 2:3), z, u_loc, wrk)
         else
-            ! call Thomas3_FactorLU(nsize, lhs_loc(:, 1), lhs_loc(:, 2), lhs_loc(:, 3))
-            ! call Thomas3_SolveLU(nsize, nlines, lhs_loc(:, 1), lhs_loc(:, 2), lhs_loc(:, 3), u_loc)
             call Thomas3_FactorLU_InPlace(lhs_loc(:, 1:1), &
                                           lhs_loc(:, 2:3))
             call Thomas3_SolveL(lhs_loc(:, 1:1), u_loc)
@@ -118,13 +116,17 @@ program vThomas3_Split
             split(k)%block_id = k
 
             lhs_loc = lhs
-            call Thomas3_Split_Initialize(lhs_loc(:, 1:1), lhs_loc(:, 2:3), &
+            call Thomas_Split_3_Initialize(lhs_loc(:, 1:1), lhs_loc(:, 2:3), &
                                           points, split(k))
             data(k)%p => u_loc(1:nlines, split(k)%nmin:split(k)%nmax)
 
         end do
 
-        call Thomas3_Split_Solve_Serial(split, data)
+        do k = 1, nblocks
+            call Thomas3_SolveL(split(k)%lhs(:, 1:1), data(k)%p(:, :))
+            call Thomas3_SolveU(split(k)%lhs(:, 2:3), data(k)%p(:, :))
+        end do
+        call ThomasSplit_3_Reduce_Serial(split, data)
 
         call check(u_loc, u, 'linear.dat')
 
@@ -144,14 +146,16 @@ program vThomas3_Split
     split_mpi%n_ranks = ims_npro
 
     lhs_loc = lhs
-    call Thomas3_Split_Initialize(lhs_loc(:, 1:1), lhs_loc(:, 2:3), &
+    call Thomas_Split_3_Initialize(lhs_loc(:, 1:1), lhs_loc(:, 2:3), &
                                   points, split_mpi)
 
     u_loc(:, :) = f(:, :)   ! Each processor will only see its part of the array
 
     ! Solve and reduce
     allocate (wrk2d(nlines, 2))
-    call Thomas3_Split_Solve_MPI(split_mpi, u_loc(1:nlines, split_mpi%nmin:split_mpi%nmax), wrk2d(:, 1), wrk2d(:, 2))
+    call Thomas3_SolveL(split_mpi%lhs(:, 1:1), u_loc(1:nlines, split_mpi%nmin:split_mpi%nmax))
+    call Thomas3_SolveU(split_mpi%lhs(:, 2:3), u_loc(1:nlines, split_mpi%nmin:split_mpi%nmax))
+    call ThomasSplit_3_Reduce_MPI(split_mpi, u_loc(1:nlines, split_mpi%nmin:split_mpi%nmax), wrk2d(:, 1), wrk2d(:, 2))
 
     ! each processor checks its part
     call check(u_loc(1:nlines, split_mpi%nmin:split_mpi%nmax), u(1:nlines, split_mpi%nmin:split_mpi%nmax))

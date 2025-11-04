@@ -97,11 +97,11 @@ program vLinSys
         lhs(:, 1:nd) = rhs(:, 1:nd)
         select case (nd)
         case (3)
-            call ThomasCirc3_SMW_Initialize(lhs(:, 1:nd/2), &
+            call ThomasCirculantSMW_3_Initialize(lhs(:, 1:nd/2), &
                                             lhs(:, nd/2 + 1:nd), &
                                             lhs(1, nd + 1))
         case (5)
-            call ThomasCirc5_SMW_Initialize(lhs(:, 1:nd/2), &
+            call ThomasCirculantSMW_5_Initialize(lhs(:, 1:nd/2), &
                                             lhs(:, nd/2 + 1:nd), &
                                             lhs(1, nd + 1))
         case (7)
@@ -113,12 +113,16 @@ program vLinSys
 
         select case (nd)
         case (3)
-            call ThomasCirc3_SMW_Solve(lhs(:, 1:nd/2), &
+            call Thomas3_SolveL(lhs(:, 1:nd/2), f)
+            call Thomas3_SolveU(lhs(:, nd/2 + 1:nd), f)
+            call ThomasCirculantSMW_3_Reduce(lhs(:, 1:nd/2), &
                                        lhs(:, nd/2 + 1:nd), &
                                        lhs(:, nd + 1), &
                                        f, wrk)
         case (5)
-            call ThomasCirc5_SMW_Solve(lhs(:, 1:nd/2), &
+            call Thomas5_SolveL(lhs(:, 1:nd/2), f)
+            call Thomas5_SolveU(lhs(:, nd/2 + 1:nd), f)
+            call ThomasCirculantSMW_5_Reduce(lhs(:, 1:nd/2), &
                                        lhs(:, nd/2 + 1:nd), &
                                        lhs(:, nd + 1), &
                                        f)

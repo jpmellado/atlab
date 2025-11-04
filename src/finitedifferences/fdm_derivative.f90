@@ -112,11 +112,11 @@ contains
 
             select case (ndl)
             case (3)
-                call ThomasCirc3_SMW_Initialize(g%lu(:, 1:ndl/2), &
+                call ThomasCirculantSMW_3_Initialize(g%lu(:, 1:ndl/2), &
                                                 g%lu(:, ndl/2 + 1:ndl), &
                                                 g%lu(1, ndl + 1))
             case (5)
-                call ThomasCirc5_SMW_Initialize(g%lu(:, 1:ndl/2), &
+                call ThomasCirculantSMW_5_Initialize(g%lu(:, 1:ndl/2), &
                                                 g%lu(:, ndl/2 + 1:ndl), &
                                                 g%lu(1, ndl + 1))
             end select
@@ -361,12 +361,16 @@ contains
         if (g%periodic) then
             select case (g%nb_diag(1))
             case (3)
-                call ThomasCirc3_SMW_Solve(lu1(:, 1:ndl/2), &
+                call Thomas3_SolveL(lu1(:, 1:ndl/2), result)
+                call Thomas3_SolveU(lu1(:, ndl/2 + 1:ndl), result)
+                call ThomasCirculantSMW_3_Reduce(lu1(:, 1:ndl/2), &
                                            lu1(:, ndl/2 + 1:ndl), &
                                            lu1(:, ndl + 1), &
                                            result, wrk2d)
             case (5)
-                call ThomasCirc5_SMW_Solve(lu1(:, 1:ndl/2), &
+                call Thomas5_SolveL(lu1(:, 1:ndl/2), result)
+                call Thomas5_SolveU(lu1(:, ndl/2 + 1:ndl), result)
+                call ThomasCirculantSMW_5_Reduce(lu1(:, 1:ndl/2), &
                                            lu1(:, ndl/2 + 1:ndl), &
                                            lu1(:, ndl + 1), &
                                            result)!, wrk2d)
@@ -419,7 +423,7 @@ contains
         if (g%periodic) then
             select case (ndl)
             case (3)
-                call ThomasCirc3_SMW_Initialize(g%lu(:, 1:ndl/2), &
+                call ThomasCirculantSMW_3_Initialize(g%lu(:, 1:ndl/2), &
                                                 g%lu(:, ndl/2 + 1:ndl), &
                                                 g%lu(1, ndl + 1))
             end select
@@ -564,7 +568,9 @@ contains
         if (g%periodic) then
             select case (g%nb_diag(1))
             case (3)
-                call ThomasCirc3_SMW_Solve(lu(:, 1:ndl/2), &
+                call Thomas3_SolveL(lu(:, 1:ndl/2), result)
+                call Thomas3_SolveU(lu(:, ndl/2 + 1:ndl), result)
+                call ThomasCirculantSMW_3_Reduce(lu(:, 1:ndl/2), &
                                            lu(:, ndl/2 + 1:ndl), &
                                            lu(:, ndl + 1), &
                                            result, wrk2d)

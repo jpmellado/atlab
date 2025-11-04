@@ -5,6 +5,7 @@ module FDM_Derivative_MPISplit
     use TLab_Constants, only: wp, wi, efile
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, stagger_on
     use TLabMPI_VARS
+    use Thomas
     use Thomas_Split
     use Matmul_Halo
     implicit none
@@ -75,7 +76,7 @@ contains
 
         allocate (lhs_loc(nsize, nd))
         lhs_loc(1:nsize, 1:nd) = g%lhs(1:nsize, 1:nd)
-        call Thomas3_Split_Initialize(lhs_loc(:, 1:1), lhs_loc(:, 2:3), &
+        call Thomas_Split_3_Initialize(lhs_loc(:, 1:1), lhs_loc(:, 2:3), &
                                       [(k, k=nsize/gSplit%thomas3%n_ranks, nsize, nsize/gSplit%thomas3%n_ranks)], &
                                       gSplit%thomas3)
 
@@ -117,7 +118,9 @@ contains
 
         call gSplit%matmul(gSplit%rhs, u, u_halo_m, u_halo_p, result)
         
-        call Thomas3_Split_Solve_MPI(gSplit%thomas3, result, wrk2d(:, 1), wrk2d(:, 2))
+        call Thomas3_SolveL(gSplit%thomas3%lhs(:, 1:1), result)
+        call Thomas3_SolveU(gSplit%thomas3%lhs(:, 2:3), result)
+        call ThomasSplit_3_Reduce_MPI(gSplit%thomas3, result, wrk2d(:, 1), wrk2d(:, 2))
 
         return
     end subroutine FDM_MPISplit_Solve

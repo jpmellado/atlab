@@ -13,10 +13,10 @@ module Thomas_Split
     implicit none
     private
 
-    public :: Thomas3_Split_Initialize
-    public :: Thomas3_Split_Solve_Serial
+    public :: Thomas_Split_3_Initialize
+    public :: ThomasSplit_3_Reduce_Serial
 #ifdef USE_MPI
-    public :: Thomas3_Split_Solve_MPI
+    public :: ThomasSplit_3_Reduce_MPI
 #endif
 
     type, public :: thomas3_split_dt
@@ -39,7 +39,7 @@ module Thomas_Split
 contains
     !########################################################################
     !########################################################################
-    subroutine Thomas3_Split_Initialize(L, U, points, split)
+    subroutine Thomas_Split_3_Initialize(L, U, points, split)
         real(wp), intent(inout) :: L(:, :), U(:, :)
         integer(wi), intent(in) :: points(:)   ! sequence of splitting points in ascending order
         type(thomas3_split_dt), intent(inout) :: split
@@ -188,11 +188,11 @@ contains
             return
         end subroutine Splitting
 
-    end subroutine Thomas3_Split_Initialize
+    end subroutine Thomas_Split_3_Initialize
 
     !########################################################################
     !########################################################################
-    subroutine Thomas3_Split_Solve_Serial(split, f)
+    subroutine ThomasSplit_3_Reduce_Serial(split, f)
         type(thomas3_split_dt), intent(in) :: split(:)
         type(data_dt), intent(inout) :: f(:)
 
@@ -204,19 +204,6 @@ contains
         !########################################################################
         nblocks = size(split)
         nlines = size(f(1)%p, 1)
-
-        ! Solving block system Am in each block
-        ! this part involves lhs and could be out of this routine.
-        ! this routine is then called Thomas3_Split_Reduction
-        do k = 1, nblocks                       ! loop over blocks
-            ! nsize = split(k)%nmax - split(k)%nmin + 1
-            nsize = size(f(k)%p, 2)
-            call Thomas3_SolveL(split(k)%lhs(:, 1:1), f(k)%p(:, :))
-            call Thomas3_SolveU(split(k)%lhs(:, 2:3), f(k)%p(:, :))
-        end do
-
-        ! -------------------------------------------------------------------
-        ! Reduction step
 
         ! pass x(:,1) to previous block
         allocate (xp(nlines, nblocks))
@@ -265,12 +252,12 @@ contains
         deallocate (xp, alpha)
 
         return
-    end subroutine Thomas3_Split_Solve_Serial
+    end subroutine ThomasSplit_3_Reduce_Serial
 
 #ifdef USE_MPI
     !########################################################################
     !########################################################################
-    subroutine Thomas3_Split_Solve_MPI(split, f, alpha, tmp)
+    subroutine ThomasSplit_3_Reduce_MPI(split, f, alpha, tmp)
         use mpi_f08
 
         type(thomas3_split_dt), intent(in) :: split
@@ -285,12 +272,6 @@ contains
         integer source, dest, tag
 
         !########################################################################
-        ! Solving block system Am in each block
-        call Thomas3_SolveL(split%lhs(:, 1:1), f)
-        call Thomas3_SolveU(split%lhs(:, 2:3), f)
-
-        !########################################################################
-        ! Reduction step
         ! Assume circulant matrix and need alpha_0
 
         nblocks = split%n_ranks
@@ -341,7 +322,7 @@ contains
         ! end do
 
         return
-    end subroutine Thomas3_Split_Solve_MPI
+    end subroutine ThomasSplit_3_Reduce_MPI
 #endif
 
 end module Thomas_Split

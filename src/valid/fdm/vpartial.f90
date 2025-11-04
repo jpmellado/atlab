@@ -7,8 +7,6 @@ program VPARTIAL
     use TLab_Arrays, only: wrk1d, wrk2d, txc
     use TLab_Grid, only: grid_dt
     use Thomas
-    ! use Thomas3
-    ! use Thomas5
     use FDM, only: fdm_dt, FDM_CreatePlan
     use FDM_Derivative
     use FDM_derivative_Neumann
@@ -49,14 +47,15 @@ program VPARTIAL
 
     ! ###################################################################
     ! Initialize
-    imax = 1
-    jmax = 1
+    imax = 2
+    jmax = 3
     kmax = 768
     nlines = imax*jmax
 
     x%size = kmax
     x%scale = 1.0_wp
-    x%periodic = .false.
+    ! x%periodic = .false.
+    x%periodic = .true.
     allocate (x%nodes(kmax))
 
     isize_field = imax*jmax*kmax
@@ -123,17 +122,17 @@ program VPARTIAL
     wk = 6.0_wp
 
     do i = 1, kmax
-        ! ! single-mode
-        ! u(:, i) = 1.0_wp + sin(2.0_wp*pi_wp/g%scale*wk*(x%nodes(i) - x_0*x%scale)) ! + pi_wp/4.0_wp)
-        ! du1_a(:, i) = (2.0_wp*pi_wp/g%scale*wk) &
-        !               *cos(2.0_wp*pi_wp/g%scale*wk*(x%nodes(i) - x_0*x%scale))! + pi_wp/4.0_wp)
-        ! du2_a(:, i) = -(2.0_wp*pi_wp/g%scale*wk)**2 &
-        !               *sin(2.0_wp*pi_wp/g%scale*wk*(x%nodes(i) - x_0*x%scale))! + pi_wp/4.0_wp)
-        ! Gaussian
-        u(:, i) = exp(-(x%nodes(i) - x_0*g%scale)**2/(2.0_wp*(g%scale/wk)**2))
-        du1_a(:, i) = -(x%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*u(:, i)
-        du2_a(:, i) = -(x%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*du1_a(:, i) &
-                      - 1.0_wp/(g%scale/wk)**2*u(:, i)
+        ! single-mode
+        u(:, i) = 1.0_wp + sin(2.0_wp*pi_wp/g%scale*wk*(x%nodes(i) - x_0*x%scale)) ! + pi_wp/4.0_wp)
+        du1_a(:, i) = (2.0_wp*pi_wp/g%scale*wk) &
+                      *cos(2.0_wp*pi_wp/g%scale*wk*(x%nodes(i) - x_0*x%scale))! + pi_wp/4.0_wp)
+        du2_a(:, i) = -(2.0_wp*pi_wp/g%scale*wk)**2 &
+                      *sin(2.0_wp*pi_wp/g%scale*wk*(x%nodes(i) - x_0*x%scale))! + pi_wp/4.0_wp)
+        ! ! Gaussian
+        ! u(:, i) = exp(-(x%nodes(i) - x_0*g%scale)**2/(2.0_wp*(g%scale/wk)**2))
+        ! du1_a(:, i) = -(x%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*u(:, i)
+        ! du2_a(:, i) = -(x%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*du1_a(:, i) &
+        !               - 1.0_wp/(g%scale/wk)**2*u(:, i)
         ! ! exponential
         ! ! u(:, i) = exp(-x%nodes(i)*wk)
         ! ! du1_a(:, i) = -wk*u(:, i)

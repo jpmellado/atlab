@@ -1,5 +1,9 @@
 #include "tlab_error.h"
 
+! Using Sherman-Morrison-Woodbury formula
+! Adapted from 10.1016/j.camwa.2011.12.044
+! Marginally slower because one more call to memory for array f, but clearer
+
 module Thomas_Circulant
     use TLab_Constants, only: wp, wi, small_wp !, roundoff_wp
     use TLab_Constants, only: efile!, lfile
@@ -8,20 +12,16 @@ module Thomas_Circulant
     implicit none
     private
 
-    public :: ThomasCirc3_SMW_Initialize
-    public :: ThomasCirc3_SMW_Solve
+    public :: ThomasCirculantSMW_3_Initialize
+    public :: ThomasCirculantSMW_3_Reduce
 
-    public :: ThomasCirc5_SMW_Initialize
-    public :: ThomasCirc5_SMW_Solve
+    public :: ThomasCirculantSMW_5_Initialize
+    public :: ThomasCirculantSMW_5_Reduce
 
 contains
     !########################################################################
     !########################################################################
-    ! Using Sherman-Morrison-Woodbury formula
-    ! Adapted from 10.1016/j.camwa.2011.12.044
-    ! Marginally slower because one more call to memory for array f, but clearer
-
-    subroutine ThomasCirc3_SMW_Initialize(L, U, z_mem)
+    subroutine ThomasCirculantSMW_3_Initialize(L, U, z_mem)
         real(wp), intent(inout) :: L(:, :), U(:, :)
         real(wp), intent(inout) :: z_mem(1, size(L, 1))
 
@@ -77,11 +77,11 @@ contains
 #undef z
 
         return
-    end subroutine ThomasCirc3_SMW_Initialize
+    end subroutine ThomasCirculantSMW_3_Initialize
 
     !########################################################################
     !########################################################################
-    subroutine ThomasCirc3_SMW_Solve(L, U, z, f, wrk)
+    subroutine ThomasCirculantSMW_3_Reduce(L, U, z, f, wrk)
         real(wp), intent(in) :: L(:, :), U(:, :), z(:)
         real(wp), intent(inout) :: f(:, :)          ! forcing and solution
         real(wp), intent(inout) :: wrk(:)
@@ -91,9 +91,6 @@ contains
 
         ! ###################################################################
         if (size(f, 1) <= 0) return
-
-        call Thomas3_SolveL(L, f)
-        call Thomas3_SolveU(U, f)
 
         nmax = size(f, 2)
         wrk(:) = U(nmax, 2)*f(:, 1) + L(1, 1)*f(:, nmax)
@@ -109,7 +106,7 @@ contains
         ! end do
 
         return
-    end subroutine ThomasCirc3_SMW_Solve
+    end subroutine ThomasCirculantSMW_3_Reduce
 
     ! #######################################################################
     ! #######################################################################
@@ -122,7 +119,7 @@ contains
 #define z1(i) z_mem(1,i)
 #define z2(i) z_mem(2,i)
 
-    subroutine ThomasCirc5_SMW_Initialize(L, U, z_mem)
+    subroutine ThomasCirculantSMW_5_Initialize(L, U, z_mem)
         real(wp), intent(inout) :: L(:, :), U(:, :)
         real(wp), intent(inout) :: z_mem(2, size(L, 1))
 
@@ -170,11 +167,11 @@ contains
         end if
 
         return
-    end subroutine ThomasCirc5_SMW_Initialize
+    end subroutine ThomasCirculantSMW_5_Initialize
 
     ! #######################################################################
     ! #######################################################################
-    subroutine ThomasCirc5_SMW_Solve(L, U, z_mem, f)
+    subroutine ThomasCirculantSMW_5_Reduce(L, U, z_mem, f)
         real(wp), intent(in) :: L(:, :), U(:, :)
         real(wp), intent(in) :: z_mem(2, size(L, 1))
         real(wp), intent(inout) :: f(:, :)          ! forcing and solution
@@ -187,9 +184,6 @@ contains
 
         ! #######################################################################
         if (size(f, 1) <= 0) return
-
-        call Thomas5_SolveL(L, f)
-        call Thomas5_SolveU(U, f)
 
         nmax = size(f, 2)
 
@@ -232,6 +226,6 @@ contains
         end do
 
         return
-    end subroutine ThomasCirc5_SMW_Solve
+    end subroutine ThomasCirculantSMW_5_Reduce
 
 end module Thomas_Circulant

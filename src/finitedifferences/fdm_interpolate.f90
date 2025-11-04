@@ -9,8 +9,8 @@
 module FDM_Interpolate
     use TLab_Constants, only: wp, wi, pi_wp, efile
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, stagger_on
+    use Thomas
     use Thomas_Circulant
-    ! use Thomas3
     use FDM_Com0_Jacobian
     implicit none
     private
@@ -58,7 +58,7 @@ contains
 
         ! LU decomposition
         ! call Thomas3C_SMW_LU(var%lu0i(:, 1), var%lu0i(:, 2), var%lu0i(:, 3), var%lu0i(:, 4))
-        call ThomasCirc3_SMW_Initialize(var%lu0i(:, 1:2), &
+        call ThomasCirculantSMW_3_Initialize(var%lu0i(:, 1:2), &
                                         var%lu0i(:, 2:3), &
                                         var%lu0i(1, 4))
 
@@ -74,7 +74,7 @@ contains
 
         ! LU decomposition
         ! call Thomas3C_SMW_LU(var%lu1i(:, 1), var%lu1i(:, 2), var%lu1i(:, 3), var%lu1i(:, 4))
-        call ThomasCirc3_SMW_Initialize(var%lu1i(:, 1:2), &
+        call ThomasCirculantSMW_3_Initialize(var%lu1i(:, 1:2), &
                                         var%lu1i(:, 2:3), &
                                         var%lu1i(1, 4))
 
@@ -121,8 +121,9 @@ contains
             case DEFAULT
                 call FDM_C0INTVP6P_RHS(g%size, nlines, u, result)
             end select
-            ! call Thomas3C_SMW_Solve(g%lu0i(:, 1), g%lu0i(:, 2), g%lu0i(:, 3), g%lu0i(:, 4), result, wrk2d)
-            call ThomasCirc3_SMW_Solve(g%lu0i(:, 1:1), &
+            call Thomas3_SolveL(g%lu0i(:, 1:1), result)
+            call Thomas3_SolveU(g%lu0i(:, 2:3), result)
+            call ThomasCirculantSMW_3_Reduce(g%lu0i(:, 1:1), &
                                        g%lu0i(:, 2:3), &
                                        g%lu0i(:, 4), &
                                        result, wrk2d)
@@ -133,8 +134,9 @@ contains
             case DEFAULT
                 call FDM_C0INTPV6P_RHS(g%size, nlines, u, result)
             end select
-            ! call Thomas3C_SMW_Solve(g%lu0i(:, 1), g%lu0i(:, 2), g%lu0i(:, 3), g%lu0i(:, 4), result, wrk2d)
-            call ThomasCirc3_SMW_Solve(g%lu0i(:, 1:1), &
+            call Thomas3_SolveL(g%lu0i(:, 1:1), result)
+            call Thomas3_SolveU(g%lu0i(:, 2:3), result)
+            call ThomasCirculantSMW_3_Reduce(g%lu0i(:, 1:1), &
                                        g%lu0i(:, 2:3), &
                                        g%lu0i(:, 4), &
                                        result, wrk2d)
@@ -162,8 +164,9 @@ contains
             case default
                 call FDM_C1INTVP6P_RHS(g%size, nlines, u, result)
             end select
-            ! call Thomas3C_SMW_Solve(g%lu1i(:, 1), g%lu1i(:, 2), g%lu1i(:, 3), g%lu1i(:, 4), result, wrk2d)
-            call ThomasCirc3_SMW_Solve(g%lu1i(:, 1:1), &
+            call Thomas3_SolveL(g%lu1i(:, 1:1), result)
+            call Thomas3_SolveU(g%lu1i(:, 2:3), result)
+            call ThomasCirculantSMW_3_Reduce(g%lu1i(:, 1:1), &
                                        g%lu1i(:, 2:3), &
                                        g%lu1i(:, 4), &
                                        result, wrk2d)
@@ -173,8 +176,9 @@ contains
             case default
                 call FDM_C1INTPV6P_RHS(g%size, nlines, u, result)
             end select
-            ! call Thomas3C_SMW_Solve(g%lu1i(:, 1), g%lu1i(:, 2), g%lu1i(:, 3), g%lu1i(:, 4), result, wrk2d)
-            call ThomasCirc3_SMW_Solve(g%lu1i(:, 1:1), &
+            call Thomas3_SolveL(g%lu1i(:, 1:1), result)
+            call Thomas3_SolveU(g%lu1i(:, 2:3), result)
+            call ThomasCirculantSMW_3_Reduce(g%lu1i(:, 1:1), &
                                        g%lu1i(:, 2:3), &
                                        g%lu1i(:, 4), &
                                        result, wrk2d)

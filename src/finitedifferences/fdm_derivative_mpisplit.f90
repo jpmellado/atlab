@@ -8,6 +8,7 @@ module FDM_Derivative_MPISplit
     use Thomas
     use Thomas_Split
     use Matmul_Halo
+    use Matmul_Halo_Thomas
     implicit none
     private
 
@@ -16,19 +17,32 @@ module FDM_Derivative_MPISplit
 
     type, public :: fdm_derivative_split_dt
         real(wp), allocatable :: rhs(:)
-        procedure(matmul_interface), pointer, nopass :: matmul  ! matrix multiplication to calculate the right-hand side
+        procedure(matmul_halo_ice), pointer, nopass :: matmul_halo
+        procedure(matmul_halo_thomas_ice), pointer, nopass :: matmul_halo_thomas
         type(thomas3_split_dt) thomas3
     end type fdm_derivative_split_dt
 
     ! -----------------------------------------------------------------------
     abstract interface
-        subroutine matmul_interface(rhs, u, u_halo_m, u_halo_p, f)
+        subroutine matmul_halo_ice(rhs, u, u_halo_m, u_halo_p, f)
             use TLab_Constants, only: wp
             real(wp), intent(in) :: rhs(:)              ! diagonals of B
             real(wp), intent(in) :: u(:, :)             ! vector u
             real(wp), intent(in) :: u_halo_m(:, :)      ! minus, coming from left
             real(wp), intent(in) :: u_halo_p(:, :)      ! plus, coming from right
             real(wp), intent(out) :: f(:, :)            ! vector f = B u
+        end subroutine
+    end interface
+
+    abstract interface
+        subroutine matmul_halo_thomas_ice(rhs, u, u_halo_m, u_halo_p, f, L)
+            use TLab_Constants, only: wp
+            real(wp), intent(in) :: rhs(:)              ! diagonals of B
+            real(wp), intent(in) :: u(:, :)             ! vector u
+            real(wp), intent(in) :: u_halo_m(:, :)      ! minus, coming from left
+            real(wp), intent(in) :: u_halo_p(:, :)      ! plus, coming from right
+            real(wp), intent(out) :: f(:, :)            ! vector f = B u
+            real(wp), intent(in) :: L(:, :)
         end subroutine
     end interface
 
@@ -77,21 +91,27 @@ contains
         allocate (lhs_loc(nsize, nd))
         lhs_loc(1:nsize, 1:nd) = g%lhs(1:nsize, 1:nd)
         call Thomas_Split_3_Initialize(lhs_loc(:, 1:1), lhs_loc(:, 2:3), &
-                                      [(k, k=nsize/gSplit%thomas3%n_ranks, nsize, nsize/gSplit%thomas3%n_ranks)], &
-                                      gSplit%thomas3)
+                                       [(k, k=nsize/gSplit%thomas3%n_ranks, nsize, nsize/gSplit%thomas3%n_ranks)], &
+                                       gSplit%thomas3)
 
         select case (g%nb_diag(2))
         case (3)
-            if (order == 1) gSplit%matmul => MatMul_Halo_3d_antisym
-            if (order == 2) gSplit%matmul => MatMul_Halo_3d_sym
+            ! if (order == 1) gSplit%matmul_halo => MatMul_Halo_3d_antisym
+            ! if (order == 2) gSplit%matmul_halo => MatMul_Halo_3d_sym
+            if (order == 1) gSplit%matmul_halo_thomas => MatMul_Halo_3_antisym_ThomasL_3
+            if (order == 2) gSplit%matmul_halo_thomas => MatMul_Halo_3_sym_ThomasL_3
 
         case (5)
-            if (order == 1) gSplit%matmul => MatMul_Halo_5d_antisym
-            if (order == 2) gSplit%matmul => MatMul_Halo_5d_sym
+            ! if (order == 1) gSplit%matmul_halo => MatMul_Halo_5d_antisym
+            ! if (order == 2) gSplit%matmul_halo => MatMul_Halo_5d_sym
+            if (order == 1) gSplit%matmul_halo_thomas => MatMul_Halo_5_antisym_ThomasL_3
+            if (order == 2) gSplit%matmul_halo_thomas => MatMul_Halo_5_sym_ThomasL_3
 
         case (7)
-            ! if (order == 1) gSplit%matmul => MatMul_Halo_7d_antisym
-            if (order == 2) gSplit%matmul => MatMul_Halo_7d_sym
+            ! if (order == 1) gSplit%matmul_halo => MatMul_Halo_7d_antisym
+            ! if (order == 2) gSplit%matmul_halo => MatMul_Halo_7d_sym
+            if (order == 1) gSplit%matmul_halo_thomas => MatMul_Halo_7_antisym_ThomasL_3
+            if (order == 2) gSplit%matmul_halo_thomas => MatMul_Halo_7_sym_ThomasL_3
 
         case default
             call TLab_Write_ASCII(efile, __FILE__//'. Undeveloped number of diagonals.')
@@ -116,9 +136,10 @@ contains
         real(wp), intent(out) :: result(nlines, nsize)      ! derivative of u
         real(wp), intent(inout) :: wrk2d(nlines, 2)
 
-        call gSplit%matmul(gSplit%rhs, u, u_halo_m, u_halo_p, result)
-        
-        call Thomas3_SolveL(gSplit%thomas3%lhs(:, 1:1), result)
+        ! call gSplit%matmul_halo(gSplit%rhs, u, u_halo_m, u_halo_p, result)
+        call gSplit%matmul_halo_thomas(gSplit%rhs, u, u_halo_m, u_halo_p, result, gSplit%thomas3%lhs(:, 1:1))
+
+        ! call Thomas3_SolveL(gSplit%thomas3%lhs(:, 1:1), result)
         call Thomas3_SolveU(gSplit%thomas3%lhs(:, 2:3), result)
         call ThomasSplit_3_Reduce_MPI(gSplit%thomas3, result, wrk2d(:, 1), wrk2d(:, 2))
 

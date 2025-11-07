@@ -4,7 +4,6 @@ module Matmul_Halo
     private
 
     public :: MatMul_Halo_X             ! Generic procedures
-    public :: MatMul_Halo_X_SolveL
 
     public :: MatMul_Halo_3d_antisym    ! Particular procedures
     public :: MatMul_Halo_3d_sym
@@ -74,82 +73,6 @@ contains
 
         return
     end subroutine MatMul_Halo_X
-
-    ! ###################################################################
-    ! ###################################################################
-    ! Assumes that ndl is less or equal than ndr/2
-    subroutine MatMul_Halo_X_solveL(rhs, u, u_halo_m, u_halo_p, f, L)
-        real(wp), intent(in) :: rhs(:, :)
-        real(wp), intent(in) :: u(:, :)
-        real(wp), intent(in) :: u_halo_m(:, :)      ! minus, coming from left
-        real(wp), intent(in) :: u_halo_p(:, :)      ! plus, coming from right
-        real(wp), intent(out) :: f(:, :)
-        real(wp), intent(in) :: L(:, :)
-
-        integer(wi) nx, ir
-        integer(wi) ndr, idr, ic
-        integer(wi) ndl
-
-        ! ###################################################################
-        ndr = size(rhs, 2)      ! # of diagonals
-        idr = ndr/2 + 1         ! index of centerline diagonal
-        nx = size(rhs, 1)       ! size of the system
-
-        ndl = size(L, 2)
-        if (ndr/2 < ndl) then
-            print *, __FILE__//'Error'
-        end if
-
-        ! -------------------------------------------------------------------
-        ! lower boundary
-        do ir = 1, ndr/2
-            f(:, ir) = rhs(ir, idr - ir + 1)*u(:, 1)
-            do ic = 2, ndr/2 + ir
-                f(:, ir) = f(:, ir) + &
-                           rhs(ir, idr - ir + ic)*u(:, ic)
-            end do
-            do ic = 0, ndr/2 - ir
-                f(:, ir) = f(:, ir) + &
-                           rhs(ir, idr - ir - ic)*u_halo_m(:, ndr/2 - ic)
-            end do
-            do ic = 1, min(ir - 1, ndl)  ! solve L
-                f(:, ir) = f(:, ir) + f(:, ir - ic)*L(ir, ndl - ic + 1)
-            end do
-        end do
-
-        ! -------------------------------------------------------------------
-        ! interior points
-        do ir = idr, nx - idr + 1
-            f(:, ir) = rhs(ir, idr)*u(:, ir)
-            do ic = 1, idr - 1
-                f(:, ir) = f(:, ir) + &
-                           rhs(ir, idr - ic)*u(:, ir - ic) + &
-                           rhs(ir, idr + ic)*u(:, ir + ic)
-            end do
-            do ic = 1, ndl      ! solve L
-                f(:, ir) = f(:, ir) + f(:, ir - ic)*L(ir, ndl - ic + 1)
-            end do
-        end do
-
-        ! -------------------------------------------------------------------
-        ! upper boundary
-        do ir = ndr/2 - 1, 0, -1
-            f(:, nx - ir) = rhs(nx - ir, idr + ir)*u(:, nx)
-            do ic = 1, ndr/2 + ir
-                f(:, nx - ir) = f(:, nx - ir) + &
-                                rhs(nx - ir, idr + ir - ic)*u(:, nx - ic)
-            end do
-            do ic = 1, ndr/2 - ir
-                f(:, nx - ir) = f(:, nx - ir) + &
-                                rhs(nx - ir, idr + ir + ic)*u_halo_p(:, ic)
-            end do
-            do ic = 1, ndl      ! solve L
-                f(:, nx - ir) = f(:, nx - ir) + f(:, nx - ir - ic)*L(nx - ir, ndl - ic + 1)
-            end do
-        end do
-
-        return
-    end subroutine MatMul_Halo_X_solveL
 
     !########################################################################
     !########################################################################

@@ -9,6 +9,7 @@ module FDM_Derivative
     use Thomas_Circulant
     use Matmul
     use Matmul_Halo
+    use Matmul_Halo_Thomas
     use FDM_Base
     use FDM_ComX_Direct
     use FDM_Com1_Jacobian
@@ -32,6 +33,7 @@ module FDM_Derivative
         real(wp), allocatable :: lu(:, :)           ! memory space for LU decomposition
 
         procedure(matmul_halo_ice), pointer, nopass :: matmul_halo
+        procedure(matmul_halo_thomas_ice), pointer, nopass :: matmul_halo_thomas
         procedure(matmul_ice), pointer, nopass :: matmul
         procedure(thomas_ice), pointer, nopass :: thomasL, thomasU
 
@@ -92,6 +94,18 @@ module FDM_Derivative
             use TLab_Constants, only: wp
             real(wp), intent(in) :: A(:, :)
             real(wp), intent(inout) :: f(:, :)          ! RHS and solution
+        end subroutine
+    end interface
+
+    abstract interface
+        subroutine matmul_halo_thomas_ice(rhs, u, u_halo_m, u_halo_p, f, L)
+            use TLab_Constants, only: wp
+            real(wp), intent(in) :: rhs(:)              ! diagonals of B
+            real(wp), intent(in) :: u(:, :)             ! vector u
+            real(wp), intent(in) :: u_halo_m(:, :)      ! minus, coming from left
+            real(wp), intent(in) :: u_halo_p(:, :)      ! plus, coming from right
+            real(wp), intent(out) :: f(:, :)            ! vector f = B u
+            real(wp), intent(in) :: L(:, :)
         end subroutine
     end interface
 
@@ -181,11 +195,16 @@ contains
         if (periodic) then
             select case (ndr)
             case (3)
-                g%matmul_halo => MatMul_Halo_3d_antisym
+                ! g%matmul_halo => MatMul_Halo_3d_antisym
+                if (ndl == 3) g%matmul_halo_thomas => MatMul_Halo_3_antisym_ThomasL_3
             case (5)
-                g%matmul_halo => MatMul_Halo_5d_antisym
+                ! g%matmul_halo => MatMul_Halo_5d_antisym
+                if (ndl == 3) g%matmul_halo_thomas => MatMul_Halo_5_antisym_ThomasL_3
+                if (ndl == 5) g%matmul_halo_thomas => MatMul_Halo_5_antisym_ThomasL_5
             case (7)
-                g%matmul_halo => MatMul_Halo_7d_antisym
+                ! g%matmul_halo => MatMul_Halo_7d_antisym
+                if (ndl == 3) g%matmul_halo_thomas => MatMul_Halo_7_antisym_ThomasL_3
+                if (ndl == 5) g%matmul_halo_thomas => MatMul_Halo_7_antisym_ThomasL_5
             end select
 
         else
@@ -389,26 +408,28 @@ contains
 
         if (g%periodic) then
             ! Calculate RHS in system of equations A u' = B u
-            call g%matmul_halo(rhs=g%rhs(1, 1:ndr), &
-                               u=u, &
-                               u_halo_m=u(:, g%size - ndr/2 + 1:g%size), &
-                               u_halo_p=u(:, 1:ndr/2), &
-                               f=result)
+            ! call g%matmul_halo(rhs=g%rhs(1, 1:ndr), &
+            !                    u=u, &
+            !                    u_halo_m=u(:, g%size - ndr/2 + 1:g%size), &
+            !                    u_halo_p=u(:, 1:ndr/2), &
+            !                    f=result)
+            call g%matmul_halo_thomas(rhs=g%rhs(1, 1:ndr), &
+                                      u=u, &
+                                      u_halo_m=u(:, g%size - ndr/2 + 1:g%size), &
+                                      u_halo_p=u(:, 1:ndr/2), &
+                                      f=result, &
+                                      L=lu1(:, 1:ndl/2))
 
             ! Solve for u' in system of equations A u' = B u
-            call g%thomasL(lu1(:, 1:ndl/2), result)
+            ! call g%thomasL(lu1(:, 1:ndl/2), result)
             call g%thomasU(lu1(:, ndl/2 + 1:ndl), result)
             select case (g%nb_diag(1))
             case (3)
-                ! call Thomas3_SolveL(lu1(:, 1:ndl/2), result)
-                ! call Thomas3_SolveU(lu1(:, ndl/2 + 1:ndl), result)
                 call ThomasCirculant_3_Reduce(lu1(:, 1:ndl/2), &
                                               lu1(:, ndl/2 + 1:ndl), &
                                               lu1(:, ndl + 1), &
                                               result, wrk2d)
             case (5)
-                ! call Thomas5_SolveL(lu1(:, 1:ndl/2), result)
-                ! call Thomas5_SolveU(lu1(:, ndl/2 + 1:ndl), result)
                 call ThomasCirculant_5_Reduce(lu1(:, 1:ndl/2), &
                                               lu1(:, ndl/2 + 1:ndl), &
                                               lu1(:, ndl + 1), &
@@ -441,14 +462,6 @@ contains
 
             call g%thomasL(lu1(nmin:nmax, ip + 1:ip + ndl/2), result(:, nmin:nmax))
             call g%thomasU(lu1(nmin:nmax, ip + ndl/2 + 1:ip + ndl), result(:, nmin:nmax))
-            ! select case (g%nb_diag(1))
-            ! case (3)
-            !     call Thomas3_SolveL(lu1(nmin:nmax, ip + 1:ip + ndl/2), result(:, nmin:nmax))
-            !     call Thomas3_SolveU(lu1(nmin:nmax, ip + ndl/2 + 1:ip + ndl), result(:, nmin:nmax))
-            ! case (5)
-            !     call Thomas5_SolveL(lu1(nmin:nmax, ip + 1:ip + ndl/2), result(:, nmin:nmax))
-            !     call Thomas5_SolveU(lu1(nmin:nmax, ip + ndl/2 + 1:ip + ndl), result(:, nmin:nmax))
-            ! end select
 
         end if
 
@@ -515,11 +528,16 @@ contains
         if (periodic) then
             select case (ndr)
             case (3)
-                g%matmul_halo => MatMul_Halo_3d_sym
+                ! g%matmul_halo => MatMul_Halo_3d_sym
+                if (ndl == 3) g%matmul_halo_thomas => MatMul_Halo_3_sym_ThomasL_3
             case (5)
-                g%matmul_halo => MatMul_Halo_5d_sym
+                ! g%matmul_halo => MatMul_Halo_5d_sym
+                if (ndl == 3) g%matmul_halo_thomas => MatMul_Halo_5_sym_ThomasL_3
+                if (ndl == 5) g%matmul_halo_thomas => MatMul_Halo_5_sym_ThomasL_5
             case (7)
-                g%matmul_halo => MatMul_Halo_7d_sym
+                ! g%matmul_halo => MatMul_Halo_7d_sym
+                if (ndl == 3) g%matmul_halo_thomas => MatMul_Halo_7_sym_ThomasL_3
+                if (ndl == 5) g%matmul_halo_thomas => MatMul_Halo_7_sym_ThomasL_5
             end select
 
         else
@@ -643,19 +661,23 @@ contains
 
         if (g%periodic) then
             ! Calculate RHS in system of equations A u' = B u
-            call g%matmul_halo(rhs=g%rhs(1, 1:ndr), &
-                               u=u, &
-                               u_halo_m=u(:, g%size - ndr/2 + 1:g%size), &
-                               u_halo_p=u(:, 1:ndr/2), &
-                               f=result)
+            ! call g%matmul_halo(rhs=g%rhs(1, 1:ndr), &
+            !                    u=u, &
+            !                    u_halo_m=u(:, g%size - ndr/2 + 1:g%size), &
+            !                    u_halo_p=u(:, 1:ndr/2), &
+            !                    f=result)
+            call g%matmul_halo_thomas(rhs=g%rhs(1, 1:ndr), &
+                                      u=u, &
+                                      u_halo_m=u(:, g%size - ndr/2 + 1:g%size), &
+                                      u_halo_p=u(:, 1:ndr/2), &
+                                      f=result, &
+                                      L=lu(:, 1:ndl/2))
 
             ! Solve for u' in system of equations A u' = B u
-            call g%thomasL(lu(:, 1:ndl/2), result)
+            ! call g%thomasL(lu(:, 1:ndl/2), result)
             call g%thomasU(lu(:, ndl/2 + 1:ndl), result)
             select case (g%nb_diag(1))
             case (3)
-                ! call Thomas3_SolveL(lu(:, 1:ndl/2), result)
-                ! call Thomas3_SolveU(lu(:, ndl/2 + 1:ndl), result)
                 call ThomasCirculant_3_Reduce(lu(:, 1:ndl/2), &
                                               lu(:, ndl/2 + 1:ndl), &
                                               lu(:, ndl + 1), &
@@ -674,11 +696,6 @@ contains
             ! Solve for u' in system of equations A u' = B u
             call g%thomasL(lu(:, 1:ndl/2), result)
             call g%thomasU(lu(:, ndl/2 + 1:ndl), result)
-            ! select case (g%nb_diag(1))
-            ! case (3)
-            !     call Thomas3_SolveL(lu(:, 1:ndl/2), result)
-            !     call Thomas3_SolveU(lu(:, ndl/2 + 1:ndl), result)
-            ! end select
 
         end if
 

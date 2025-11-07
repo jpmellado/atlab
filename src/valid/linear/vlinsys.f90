@@ -1,6 +1,7 @@
 program vLinSys
     use TLab_Constants, only: wp, wi, BCS_NONE
     use Matmul_Halo
+    use Matmul_Halo_Thomas
     use Thomas
     use Thomas_Circulant
     implicit none
@@ -101,40 +102,40 @@ program vLinSys
         select case (nd)
         case (3)
             call ThomasCirculant_3_Initialize(lhs(:, 1:nd/2), &
-                                                 lhs(:, nd/2 + 1:nd), &
-                                                 lhs(1, nd + 1))
+                                              lhs(:, nd/2 + 1:nd), &
+                                              lhs(1, nd + 1))
         case (5)
             call ThomasCirculant_5_Initialize(lhs(:, 1:nd/2), &
-                                                 lhs(:, nd/2 + 1:nd), &
-                                                 lhs(1, nd + 1))
+                                              lhs(:, nd/2 + 1:nd), &
+                                              lhs(1, nd + 1))
         case (7)
             cycle
         end select
 
         ! compute forcing
         ! call MatMul_Halo_X(rhs(:, 1:nd), u, u(:, nsize - nd/2 + 1:nsize), u(:, 1:nd/2), f)
-        call MatMul_Halo_X_solveL(rhs=rhs(:, 1:nd), &
-                                  u=u, &
-                                  u_halo_m=u(:, nsize - nd/2 + 1:nsize), &
-                                  u_halo_p=u(:, 1:nd/2), &
-                                  f=f, &
-                                  L=lhs(:, 1:nd/2))
+        call MatMul_Halo_X_ThomasL_Y(rhs=rhs(:, 1:nd), &
+                                     u=u, &
+                                     u_halo_m=u(:, nsize - nd/2 + 1:nsize), &
+                                     u_halo_p=u(:, 1:nd/2), &
+                                     f=f, &
+                                     L=lhs(:, 1:nd/2))
 
         select case (nd)
         case (3)
             ! call Thomas3_SolveL(lhs(:, 1:nd/2), f)
             call Thomas3_SolveU(lhs(:, nd/2 + 1:nd), f)
             call ThomasCirculant_3_Reduce(lhs(:, 1:nd/2), &
-                                             lhs(:, nd/2 + 1:nd), &
-                                             lhs(:, nd + 1), &
-                                             f, wrk)
+                                          lhs(:, nd/2 + 1:nd), &
+                                          lhs(:, nd + 1), &
+                                          f, wrk)
         case (5)
             ! call Thomas5_SolveL(lhs(:, 1:nd/2), f)
             call Thomas5_SolveU(lhs(:, nd/2 + 1:nd), f)
             call ThomasCirculant_5_Reduce(lhs(:, 1:nd/2), &
-                                             lhs(:, nd/2 + 1:nd), &
-                                             lhs(:, nd + 1), &
-                                             f)
+                                          lhs(:, nd/2 + 1:nd), &
+                                          lhs(:, nd + 1), &
+                                          f)
         case (7)
         end select
 

@@ -2,12 +2,13 @@ program vLinSys
     use TLab_Constants, only: wp, wi, BCS_NONE
     use Matmul_Halo
     use Matmul_Halo_Thomas
+    use MatMulDevel
     use Thomas
     use Thomas_Circulant
     implicit none
 
     interface matmul
-        procedure matmul_biased, matmul_biased_solveL
+        procedure MatMul_X, MatMul_X_ThomasL_Y
     end interface matmul
 
     integer(wi), parameter :: nlines = 1
@@ -46,6 +47,10 @@ program vLinSys
     ! generate random data for f = Au
     call random_number(rhs)     ! diagonals in matrix A
     call random_number(u)       ! solution u
+
+    ! The points at the boundary, can have a longer stencil by using the left of the rhs array
+    rhs(1, 1) = 0.0_wp
+    rhs(nsize, minval(list_of_cases):) = 0.0_wp
 
     ! ###################################################################
     do ic = 1, size(list_of_cases)
@@ -147,190 +152,6 @@ program vLinSys
     stop
 
 contains
-    ! ###################################################################
-    ! ###################################################################
-    ! calculate f = A u, where A is narrow banded with diagonals given by rhs
-    ! Allowing for different band size at the bottom and at the top
-    subroutine matmul_biased(rhs, rhs_b, rhs_t, u, f)
-        real(wp), intent(in) :: rhs(:, :)
-        real(wp), intent(in) :: rhs_b(:, :), rhs_t(:, :)
-        real(wp), intent(in) :: u(:, :)
-        real(wp), intent(out) :: f(:, :)
-
-        integer(wi) nx, ir
-        integer(wi) ndr, idr, ic
-        integer nx_b, ndr_b, idr_b, nx_t, ndr_t, idr_t
-
-        ! ###################################################################
-        ! -------------------------------------------------------------------
-        ! lower boundary
-        nx_b = size(rhs_b, 1)
-        ndr_b = size(rhs_b, 2)
-        idr_b = ndr_b/2 + 1
-
-        do ir = 1, ndr_b/2
-            f(:, ir) = rhs_b(ir, idr_b - ir + 1)*u(:, 1)
-            do ic = 2, ndr_b/2 + ir
-                f(:, ir) = f(:, ir) + &
-                           rhs_b(ir, idr_b - ir + ic)*u(:, ic)
-            end do
-        end do
-
-        do ir = idr_b, nx_b
-            f(:, ir) = rhs_b(ir, idr_b)*u(:, ir)
-            do ic = 1, ndr_b/2
-                f(:, ir) = f(:, ir) + &
-                           rhs_b(ir, idr_b + ic)*u(:, ir + ic) + &
-                           rhs_b(ir, idr_b - ic)*u(:, ir - ic)
-            end do
-        end do
-
-        ! -------------------------------------------------------------------
-        ! interior points
-        nx = size(rhs, 1)       ! size of the system
-        ndr = size(rhs, 2)      ! # of diagonals
-        idr = ndr/2 + 1         ! index of centerline diagonal
-
-        ! upper boundary
-        nx_t = size(rhs_t, 1)
-        ndr_t = size(rhs_t, 2)
-        idr_t = ndr_t/2 + 1
-
-        do ir = nx_b + 1, nx - nx_t
-            f(:, ir) = rhs(ir, idr)*u(:, ir)
-            do ic = 1, idr - 1
-                f(:, ir) = f(:, ir) + &
-                           rhs(ir, idr - ic)*u(:, ir - ic) + &
-                           rhs(ir, idr + ic)*u(:, ir + ic)
-            end do
-        end do
-
-        ! -------------------------------------------------------------------
-        ! upper boundary
-        do ir = nx_t - 1, ndr_t/2, -1
-            f(:, nx - ir) = rhs_t(nx_t - ir, idr_t)*u(:, nx - ir)
-            do ic = 1, ndr_t/2
-                f(:, nx - ir) = f(:, nx - ir) + &
-                                rhs_t(nx_t - ir, idr_t - ic)*u(:, nx - ir - ic) + &
-                                rhs_t(nx_t - ir, idr_t + ic)*u(:, nx - ir + ic)
-            end do
-        end do
-
-        do ir = ndr_t/2 - 1, 0, -1
-            f(:, nx - ir) = rhs_t(nx_t - ir, idr_t + ir)*u(:, nx)
-            do ic = 1, ndr_t/2 + ir
-                f(:, nx - ir) = f(:, nx - ir) + &
-                                rhs_t(nx_t - ir, idr_t + ir - ic)*u(:, nx - ic)
-            end do
-        end do
-
-        return
-    end subroutine matmul_biased
-
-    ! ###################################################################
-    ! ###################################################################
-    ! Assumes that ndl is less or equal than nx_b, nx_t
-    subroutine matmul_biased_solveL(rhs, rhs_b, rhs_t, u, f, L)
-        real(wp), intent(in) :: rhs(:, :)
-        real(wp), intent(in) :: rhs_b(:, :), rhs_t(:, :)
-        real(wp), intent(in) :: u(:, :)
-        real(wp), intent(out) :: f(:, :)
-        real(wp), intent(in) :: L(:, :)
-
-        integer(wi) nx, ir
-        integer(wi) ndr, idr, ic
-        integer nx_b, ndr_b, idr_b, nx_t, ndr_t, idr_t
-        integer(wi) ndl
-
-        ! ###################################################################
-        ! interior points
-        nx = size(rhs, 1)       ! size of the system
-        ndr = size(rhs, 2)      ! # of diagonals
-        idr = ndr/2 + 1         ! index of centerline diagonal
-
-        ! lower boundary
-        nx_b = size(rhs_b, 1)
-        ndr_b = size(rhs_b, 2)
-        idr_b = ndr_b/2 + 1
-
-        ! upper boundary
-        nx_t = size(rhs_t, 1)
-        ndr_t = size(rhs_t, 2)
-        idr_t = ndr_t/2 + 1
-
-        ! array L
-        ndl = size(L, 2)
-        if (any([nx_b, nx_t] < ndl)) then
-            print *, __FILE__//'Error'
-        end if
-
-        ! -------------------------------------------------------------------
-        ! lower boundary
-        do ir = 1, ndr_b/2
-            f(:, ir) = rhs_b(ir, idr_b - ir + 1)*u(:, 1)
-            do ic = 2, ndr_b/2 + ir
-                f(:, ir) = f(:, ir) + &
-                           rhs_b(ir, idr_b - ir + ic)*u(:, ic)
-            end do
-            do ic = 1, min(ir - 1, ndl)  ! solve L
-                f(:, ir) = f(:, ir) + f(:, ir - ic)*L(ir, ndl - ic + 1)
-            end do
-        end do
-
-        do ir = idr_b, nx_b
-            f(:, ir) = rhs_b(ir, idr_b)*u(:, ir)
-            do ic = 1, ndr_b/2
-                f(:, ir) = f(:, ir) + &
-                           rhs_b(ir, idr_b + ic)*u(:, ir + ic) + &
-                           rhs_b(ir, idr_b - ic)*u(:, ir - ic)
-            end do
-            do ic = 1, min(ir - 1, ndl)  ! solve L
-                f(:, ir) = f(:, ir) + f(:, ir - ic)*L(ir, ndl - ic + 1)
-            end do
-        end do
-
-        ! -------------------------------------------------------------------
-        ! interior points
-        do ir = nx_b + 1, nx - nx_t
-            f(:, ir) = rhs(ir, idr)*u(:, ir)
-            do ic = 1, idr - 1
-                f(:, ir) = f(:, ir) + &
-                           rhs(ir, idr - ic)*u(:, ir - ic) + &
-                           rhs(ir, idr + ic)*u(:, ir + ic)
-            end do
-            do ic = 1, ndl      ! solve L
-                f(:, ir) = f(:, ir) + f(:, ir - ic)*L(ir, ndl - ic + 1)
-            end do
-        end do
-
-        ! -------------------------------------------------------------------
-        ! upper boundary
-        do ir = nx_t - 1, ndr_t/2, -1
-            f(:, nx - ir) = rhs_t(nx_t - ir, idr_t)*u(:, nx - ir)
-            do ic = 1, ndr_t/2
-                f(:, nx - ir) = f(:, nx - ir) + &
-                                rhs_t(nx_t - ir, idr_t - ic)*u(:, nx - ir - ic) + &
-                                rhs_t(nx_t - ir, idr_t + ic)*u(:, nx - ir + ic)
-            end do
-            do ic = 1, ndl      ! solve L
-                f(:, nx - ir) = f(:, nx - ir) + f(:, nx - ir - ic)*L(nx - ir, ndl - ic + 1)
-            end do
-        end do
-
-        do ir = ndr_t/2 - 1, 0, -1
-            f(:, nx - ir) = rhs_t(nx_t - ir, idr_t + ir)*u(:, nx)
-            do ic = 1, ndr_t/2 + ir
-                f(:, nx - ir) = f(:, nx - ir) + &
-                                rhs_t(nx_t - ir, idr_t + ir - ic)*u(:, nx - ic)
-            end do
-            do ic = 1, ndl      ! solve L
-                f(:, nx - ir) = f(:, nx - ir) + f(:, nx - ir - ic)*L(nx - ir, ndl - ic + 1)
-            end do
-        end do
-
-        return
-    end subroutine matmul_biased_solveL
-
     ! ###################################################################
     ! ###################################################################
     subroutine check(u, u_ref, name)

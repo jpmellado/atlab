@@ -38,19 +38,41 @@ contains
 
             nmin = 1; nmax = g%size
             if (any([BCS_ND, BCS_NN] == ibc)) then
-                z(1, 1) = u(1, 1)
+                ! z(1, 1) = u(1, 1)
+                bcs_hb(1) = u(1, 1)
                 nmin = nmin + 1
             end if
             if (any([BCS_DN, BCS_NN] == ibc)) then
-                z(1, g%size) = u(1, g%size)
+                ! z(1, g%size) = u(1, g%size)
+                bcs_ht(1) = u(1, g%size)
                 nmax = nmax - 1
             end if
             nsize = nmax - nmin + 1
 
             ! -------------------------------------------------------------------
             ! Calculate RHS in system of equations A u' = B u
-            call g%matmul(g%rhs, u, z, ibc, g%rhs_b, g%rhs_t, bcs_hb, bcs_ht)
+            ! call g%matmul(g%rhs, u, z, ibc, g%rhs_b, g%rhs_t, bcs_hb, bcs_ht)
+            select case (ibc)
+            case (BCS_ND)
+                call g%matmuldevel(rhs=g%rhs(:, 1:ndr), &
+                                   rhs_b=g%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
+                                   rhs_t=g%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
+                                   u=u, &
+                                   f=z, bcs_b=bcs_hb(:))
+            case (BCS_DN)
+                call g%matmuldevel(rhs=g%rhs(:, 1:ndr), &
+                                   rhs_b=g%rhs(1:ndr/2, 1:ndr), &
+                                   rhs_t=g%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
+                                   u=u, &
+                                   f=z, bcs_t=bcs_ht(:))
+            case (BCS_NN)
+                call g%matmuldevel(rhs=g%rhs(:, 1:ndr), &
+                                   rhs_b=g%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
+                                   rhs_t=g%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
+                                   u=u, &
+                                   f=z, bcs_b=bcs_hb(:), bcs_t=bcs_ht(:))
 
+            end select
             ! -------------------------------------------------------------------
             ! Solve for u' in system of equations A u' = B u
             ip = ibc*5
@@ -95,7 +117,7 @@ contains
         integer ndl, idl, ndr, idr, ic
         integer ibc
         integer(wi) nmin, nmax, nsize, n, ip
-        real(wp) bcs_hb(1), bcs_ht(1)
+        real(wp) bcs_hb(1)!, bcs_ht(1)
 
         ! ###################################################################
         ibc = BCS_ND
@@ -114,12 +136,17 @@ contains
             u(1, :) = 0.0_wp                ! Create delta-function forcing term
             u(1, n) = 1.0_wp
 
-            z(1, 1) = u(1, 1)
+            ! z(1, 1) = u(1, 1)
+            bcs_hb(1) = u(1, 1)
 
             ! -------------------------------------------------------------------
             ! Calculate RHS in system of equations A u' = B u
-            call g%matmul(g%rhs, u, z, ibc, g%rhs_b, g%rhs_t, bcs_hb, bcs_ht)
-
+            ! call g%matmul(g%rhs, u, z, ibc, g%rhs_b, g%rhs_t, bcs_hb, bcs_ht)
+            call g%matmuldevel(rhs=g%rhs(:, 1:ndr), &
+                               rhs_b=g%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
+                               rhs_t=g%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
+                               u=u, &
+                               f=z, bcs_b=bcs_hb(:))
             ! -------------------------------------------------------------------
             ! Solve for u' in system of equations A u' = B u
             ip = ibc*5
@@ -159,7 +186,7 @@ contains
         integer ndl, idl, ndr, idr, ic
         integer ibc
         integer(wi) nmin, nmax, nsize, n, ip
-        real(wp) bcs_hb(1), bcs_ht(1)
+        real(wp) bcs_ht(1)
 
         ! ###################################################################
         ibc = BCS_DN
@@ -178,13 +205,19 @@ contains
             u(1, :) = 0.0_wp                ! Create delta-function forcing term
             u(1, n) = 1.0_wp
 
-            z(1, g%size) = u(1, g%size)
+            ! z(1, g%size) = u(1, g%size)
+            bcs_ht(1) = u(1, g%size)
 
             ! -------------------------------------------------------------------
             ! Calculate RHS in system of equations A u' = B u
-            call g%matmul(g%rhs, u, z, ibc, g%rhs_b, g%rhs_t, bcs_hb, bcs_ht)
+            ! call g%matmul(g%rhs, u, z, ibc, g%rhs_b, g%rhs_t, bcs_hb, bcs_ht)
+            call g%matmuldevel(rhs=g%rhs(:, 1:ndr), &
+                               rhs_b=g%rhs(1:ndr/2, 1:ndr), &
+                               rhs_t=g%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
+                               u=u, &
+                               f=z, bcs_t=bcs_ht(:))
 
-            ! -------------------------------------------------------------------
+                               ! -------------------------------------------------------------------
             ! Solve for u' in system of equations A u' = B u
             ip = ibc*5
             select case (ndl)

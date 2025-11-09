@@ -5,14 +5,14 @@ module Matmul_Halo
 
     public :: MatMul_Halo_X             ! Generic procedures
 
-    public :: MatMul_Halo_3d_antisym    ! Particular procedures
-    public :: MatMul_Halo_3d_sym
+    public :: MatMul_Halo_3_antisym     ! Particular procedures to accelerate
+    public :: MatMul_Halo_3_sym
 
-    public :: MatMul_Halo_5d_antisym
-    public :: MatMul_Halo_5d_sym
+    public :: MatMul_Halo_5_antisym
+    public :: MatMul_Halo_5_sym
 
-    public :: MatMul_Halo_7d_antisym
-    public :: MatMul_Halo_7d_sym
+    public :: MatMul_Halo_7_antisym
+    public :: MatMul_Halo_7_sym
 
 contains
     ! ###################################################################
@@ -76,7 +76,7 @@ contains
 
     !########################################################################
     !########################################################################
-    subroutine MatMul_Halo_3d_antisym(rhs, u, u_halo_m, u_halo_p, f)
+    subroutine MatMul_Halo_3_antisym(rhs, u, u_halo_m, u_halo_p, f)
         real(wp), intent(in) :: rhs(:)              ! diagonals of B
         real(wp), intent(in) :: u(:, :)             ! vector u
         real(wp), intent(in) :: u_halo_m(:, :)      ! minus, coming from left
@@ -106,11 +106,11 @@ contains
         f(:, n) = u_halo_p(:, 1) - u(:, n - 1)
 
         return
-    end subroutine MatMul_Halo_3d_antisym
+    end subroutine MatMul_Halo_3_antisym
 
     !########################################################################
     !########################################################################
-    subroutine MatMul_Halo_3d_sym(rhs, u, u_halo_m, u_halo_p, f)
+    subroutine MatMul_Halo_3_sym(rhs, u, u_halo_m, u_halo_p, f)
         real(wp), intent(in) :: rhs(:)              ! diagonals of B
         real(wp), intent(in) :: u(:, :)             ! vector u
         real(wp), intent(in) :: u_halo_m(:, :)      ! minus, coming from left
@@ -145,11 +145,11 @@ contains
                   + u_halo_p(:, 1) + u(:, n - 1)
 
         return
-    end subroutine MatMul_Halo_3d_sym
+    end subroutine MatMul_Halo_3_sym
 
     !########################################################################
     !########################################################################
-    subroutine MatMul_Halo_5d_antisym(rhs, u, u_halo_m, u_halo_p, f)
+    subroutine MatMul_Halo_5_antisym(rhs, u, u_halo_m, u_halo_p, f)
         real(wp), intent(in) :: rhs(:)              ! diagonals of B
         real(wp), intent(in) :: u(:, :)             ! vector u
         real(wp), intent(in) :: u_halo_m(:, :)      ! minus, coming from left
@@ -192,11 +192,11 @@ contains
                   + r5_loc*(u_halo_p(:, 2) - u(:, n - 2))
 
         return
-    end subroutine MatMul_Halo_5d_antisym
+    end subroutine MatMul_Halo_5_antisym
 
     !########################################################################
     !########################################################################
-    subroutine MatMul_Halo_5d_sym(rhs, u, u_halo_m, u_halo_p, f)
+    subroutine MatMul_Halo_5_sym(rhs, u, u_halo_m, u_halo_p, f)
         real(wp), intent(in) :: rhs(:)              ! diagonals of B
         real(wp), intent(in) :: u(:, :)             ! vector u
         real(wp), intent(in) :: u_halo_m(:, :)      ! minus, coming from left
@@ -246,11 +246,11 @@ contains
                   + r5_loc*(u_halo_p(:, 2) + u(:, n - 2))
 
         return
-    end subroutine MatMul_Halo_5d_sym
+    end subroutine MatMul_Halo_5_sym
 
     !########################################################################
     !########################################################################
-    subroutine MatMul_Halo_7d_antisym(rhs, u, u_halo_m, u_halo_p, f)
+    subroutine MatMul_Halo_7_antisym(rhs, u, u_halo_m, u_halo_p, f)
         real(wp), intent(in) :: rhs(:)              ! diagonals of B
         real(wp), intent(in) :: u(:, :)             ! vector u
         real(wp), intent(in) :: u_halo_m(:, :)      ! minus, coming from left
@@ -309,11 +309,11 @@ contains
                   + r7_loc*(u_halo_p(:, 3) - u(:, n - 3))
 
         return
-    end subroutine MatMul_Halo_7d_antisym
+    end subroutine MatMul_Halo_7_antisym
 
     !########################################################################
     !########################################################################
-    subroutine MatMul_Halo_7d_sym(rhs, u, u_halo_m, u_halo_p, f)
+    subroutine MatMul_Halo_7_sym(rhs, u, u_halo_m, u_halo_p, f)
         real(wp), intent(in) :: rhs(:)              ! diagonals of B
         real(wp), intent(in) :: u(:, :)             ! vector u
         real(wp), intent(in) :: u_halo_m(:, :)      ! minus, coming from left
@@ -381,6 +381,6 @@ contains
                   + r7_loc*(u_halo_p(:, 3) + u(:, n - 3))
 
         return
-    end subroutine MatMul_Halo_7d_sym
+    end subroutine MatMul_Halo_7_sym
 
 end module Matmul_Halo

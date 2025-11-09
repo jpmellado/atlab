@@ -8,6 +8,7 @@ module FDM_Derivative
     use Thomas
     use Thomas_Circulant
     use Matmul
+    use MatmulDevel
     use Matmul_Halo
     use Matmul_Halo_Thomas
     use FDM_Base
@@ -28,13 +29,15 @@ module FDM_Derivative
         real(wp) :: rhs_b(4 + 1, 0:7), rhs_t(0:4, 7)    ! Neumann boundary conditions, max. # of diagonals is 7, # rows is 7/2+1
         real(wp), allocatable :: lhs(:, :)          ! memory space for LHS
         real(wp), allocatable :: rhs(:, :)          ! memory space for RHS
+        real(wp), allocatable :: rhs_b1(:, :), rhs_t1(:, :)
         real(wp), allocatable :: mwn(:)             ! memory space for modified wavenumbers
         !
         real(wp), allocatable :: lu(:, :)           ! memory space for LU decomposition
 
         procedure(matmul_halo_ice), pointer, nopass :: matmul_halo
         procedure(matmul_halo_thomas_ice), pointer, nopass :: matmul_halo_thomas
-        procedure(matmul_ice), pointer, nopass :: matmul
+        ! procedure(matmul_ice), pointer, nopass :: matmul
+        procedure(matmuldevel_ice), pointer, nopass :: matmuldevel
         procedure(thomas_ice), pointer, nopass :: thomasL, thomasU
 
         ! type(fdm_bcs) :: bcs(0:3)           ! linear system for 4 different boundary conditions, 0 is the default
@@ -66,17 +69,17 @@ module FDM_Derivative
     integer, parameter, public :: FDM_COM6_DIRECT_HYPER = 13
 
     ! -----------------------------------------------------------------------
-    abstract interface
-        subroutine matmul_ice(rhs, u, f, ibc, rhs_b, rhs_t, bcs_b, bcs_t)
-            use TLab_Constants, only: wp
-            real(wp), intent(in) :: rhs(:, :)                               ! diagonals of B
-            real(wp), intent(in) :: u(:, :)                                 ! vector u
-            real(wp), intent(out) :: f(:, :)                                ! vector f = B u
-            integer, intent(in) :: ibc
-            real(wp), intent(in), optional :: rhs_b(:, 0:), rhs_t(0:, :)    ! Special bcs at bottom, top
-            real(wp), intent(out), optional :: bcs_b(:), bcs_t(:)
-        end subroutine
-    end interface
+    ! abstract interface
+    !     subroutine matmul_ice(rhs, u, f, ibc, rhs_b, rhs_t, bcs_b, bcs_t)
+    !         use TLab_Constants, only: wp
+    !         real(wp), intent(in) :: rhs(:, :)                               ! diagonals of B
+    !         real(wp), intent(in) :: u(:, :)                                 ! vector u
+    !         real(wp), intent(out) :: f(:, :)                                ! vector f = B u
+    !         integer, intent(in) :: ibc
+    !         real(wp), intent(in), optional :: rhs_b(:, 0:), rhs_t(0:, :)    ! Special bcs at bottom, top
+    !         real(wp), intent(out), optional :: bcs_b(:), bcs_t(:)
+    !     end subroutine
+    ! end interface
 
     abstract interface
         subroutine matmul_halo_ice(rhs, u, u_halo_m, u_halo_p, f)
@@ -109,6 +112,17 @@ module FDM_Derivative
         end subroutine
     end interface
 
+    abstract interface
+        subroutine matmuldevel_ice(rhs, rhs_b, rhs_t, u, f, bcs_b, bcs_t)
+            use TLab_Constants, only: wp
+            real(wp), intent(in) :: rhs(:, :)
+            real(wp), intent(in) :: rhs_b(:, :), rhs_t(:, :)
+            real(wp), intent(in) :: u(:, :)
+            real(wp), intent(out) :: f(:, :)
+            real(wp), intent(inout), optional :: bcs_b(:), bcs_t(:)
+        end subroutine
+    end interface
+
 contains
     ! ###################################################################
     ! ###################################################################
@@ -120,7 +134,7 @@ contains
         integer, intent(in) :: bcs_cases(:)
 
         ! -------------------------------------------------------------------
-        integer ndl, ndr
+        integer ndl, ndr, idl, idr, i
         integer(wi) ib, ip
         integer(wi) nmin, nmax, nsize
 
@@ -129,7 +143,9 @@ contains
 
         ! -------------------------------------------------------------------
         ndl = g%nb_diag(1)                      ! number of diagonals in lhs
+        idl = ndl/2 + 1
         ndr = g%nb_diag(2)                      ! number of diagonals in rhs
+        idr = ndr/2 + 1
 
         ! Preconditioning
         call Precon_Rhs(g%lhs(:, 1:ndl), g%rhs(:, 1:ndr), periodic=periodic)
@@ -142,8 +158,16 @@ contains
             allocate (g%lu(g%size, 5*size(bcs_cases)))
         end if
         g%lu(:, :) = 0.0_wp
+
         g%rhs_b(:, :) = 0.0_wp
         g%rhs_t(:, :) = 0.0_wp
+        ! new format; extending to ndr+2 diagonals
+        if (allocated(g%rhs_b1)) deallocate (g%rhs_b1)
+        allocate (g%rhs_b1(max(idl, idr + 1), 1:ndr + 2))
+        if (allocated(g%rhs_t1)) deallocate (g%rhs_t1)
+        allocate (g%rhs_t1(max(idl, idr + 1), 1:ndr + 2))
+        g%rhs_b1(:, :) = 0.0_wp
+        g%rhs_t1(:, :) = 0.0_wp
 
         if (periodic) then
             g%lu(:, 1:ndl) = g%lhs(:, 1:ndl)
@@ -164,6 +188,17 @@ contains
                 ip = (ib - 1)*5
 
                 call FDM_Der1_Neumann_Reduce(g%lhs(:, 1:ndl), g%rhs(:, 1:ndr), bcs_cases(ib), g%lu(:, ip + 1:ip + ndl), g%rhs_b, g%rhs_t)
+
+                ! new format; extending to ndr+2 diagonals
+                do i = 1, max(idl, idr + 1)
+                    g%rhs_b1(i, 1:ndr + 1) = g%rhs_b(i, 0:ndr)
+                    g%rhs_t1(i, 2:ndr + 2) = g%rhs_t(i - 1, 1:ndr + 1)
+                end do
+                ! longer stencil
+                i = 1
+                g%rhs_b1(i, ndr + 2) = g%rhs_b1(i, 2); g%rhs_b1(i, 2) = 0.0_wp
+                i = max(idl, idr + 1)
+                g%rhs_t1(i, 1) = g%rhs_t1(i, ndr + 1); g%rhs_t1(i, ndr + 1) = 0.0_wp
 
                 nmin = 1; nmax = g%size
                 if (any([BCS_ND, BCS_NN] == bcs_cases(ib))) nmin = nmin + 1
@@ -211,18 +246,23 @@ contains
             if (any([FDM_COM4_DIRECT, FDM_COM6_DIRECT] == g%mode_fdm)) then
                 select case (ndr)
                 case (3)
-                    g%matmul => MatMul_3d
+                    ! g%matmul => MatMul_3d
+                    g%matmuldevel => MatMul_3
                 case (5)
-                    g%matmul => MatMul_5d
+                    ! g%matmul => MatMul_5d
+                    g%matmuldevel => MatMul_5
                 end select
             else
                 select case (ndr)
                 case (3)
-                    g%matmul => MatMul_3d_antisym
+                    ! g%matmul => MatMul_3d_antisym
+                    g%matmuldevel => MatMul_3_antisym
                 case (5)
-                    g%matmul => MatMul_5d_antisym
+                    ! g%matmul => MatMul_5d_antisym
+                    g%matmuldevel => MatMul_5_antisym
                 case (7)
-                    g%matmul => MatMul_7d_antisym
+                    ! g%matmul => MatMul_7d_antisym
+                    g%matmuldevel => MatMul_7_antisym
                 end select
             end if
 
@@ -358,10 +398,6 @@ contains
             r_lhs(2:idl + 1, 1:ndl) = locRhs_b(2:idl + 1, 1:ndl)
             r_lhs(1, idl) = rhs(1, idr)
 
-            ! ! it currently normalized; to be removed
-            ! rhs_b(1, 1:ndr) = rhs_b(1, 1:ndr)/g%rhs(1, idr)
-            ! lhs(1, 1:ndl) = lhs(1, 1:ndl)/g%rhs(1, idr)
-
         end if
 
         if (any([BCS_DN, BCS_NN] == ibc)) then
@@ -374,10 +410,6 @@ contains
 
             r_lhs(nx - idl:nx - 1, 1:ndl) = locRhs_t(0:idl - 1, 1:ndl)
             r_lhs(nx, idl) = rhs(nx, idr)
-
-            ! ! it currently normalized
-            ! rhs_t(idr, 1:ndr) = rhs_t(idr, 1:ndr)/g%rhs(nx, idr)
-            ! lhs(nx, 1:ndl) = lhs(nx, 1:ndl)/g%rhs(nx, idr)
 
         end if
 
@@ -394,17 +426,19 @@ contains
         real(wp), intent(in) :: lu1(:, :)
         real(wp), intent(in) :: u(nlines, g%size)
         real(wp), intent(out) :: result(nlines, g%size)
-        real(wp), intent(inout) :: wrk2d(nlines)
+        real(wp), intent(inout) :: wrk2d(nlines, 2)
         integer, intent(in), optional :: ibc          ! Boundary condition [BCS_DD=BCS_NONE, BCS_DN, BCS_ND, BCS_NN]
 
         ! -------------------------------------------------------------------
         integer(wi) nmin, nmax, nsize, ip
-        integer ndl, ndr
+        integer ndl, ndr, idl, idr
         integer ibc_loc
 
         ! ###################################################################
         ndl = g%nb_diag(1)
+        idl = ndl/2 + 1
         ndr = g%nb_diag(2)
+        idr = ndr/2 + 1
 
         if (g%periodic) then
             ! Calculate RHS in system of equations A u' = B u
@@ -428,7 +462,7 @@ contains
                 call ThomasCirculant_3_Reduce(lu1(:, 1:ndl/2), &
                                               lu1(:, ndl/2 + 1:ndl), &
                                               lu1(:, ndl + 1), &
-                                              result, wrk2d)
+                                              result, wrk2d(:, 1))
             case (5)
                 call ThomasCirculant_5_Reduce(lu1(:, 1:ndl/2), &
                                               lu1(:, ndl/2 + 1:ndl), &
@@ -443,19 +477,59 @@ contains
                 ibc_loc = BCS_NONE
             end if
 
+#define bcs_hb(i) wrk2d(i,1)
+#define bcs_ht(i) wrk2d(i,2)
+
             nmin = 1; nmax = g%size
             if (any([BCS_ND, BCS_NN] == ibc_loc)) then
                 result(:, 1) = 0.0_wp                   ! homogeneous Neumann bcs
+                bcs_hb(:) = 0.0_wp
                 nmin = nmin + 1
             end if
             if (any([BCS_DN, BCS_NN] == ibc_loc)) then
                 result(:, g%size) = 0.0_wp              ! homogeneous Neumann bcs
+                bcs_ht(:) = 0.0_wp
                 nmax = nmax - 1
             end if
             nsize = nmax - nmin + 1
 
             ! Calculate RHS in system of equations A u' = B u
-            call g%matmul(g%rhs, u, result, ibc_loc, g%rhs_b, g%rhs_t)
+            ! call g%matmul(g%rhs, u, result, ibc_loc, g%rhs_b, g%rhs_t)
+            ! call g%matmuldevel(rhs=g%rhs(:, 1:ndr), &
+            !                    rhs_b=g%rhs(1:ndr/2, 1:ndr), &
+            !                    rhs_t=g%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
+            !                    u=u, &
+            !                    f=result)
+            select case (ibc_loc)
+            case (BCS_DD)
+                call g%matmuldevel(rhs=g%rhs(:, 1:ndr), &
+                                   rhs_b=g%rhs(1:ndr/2, 1:ndr), &
+                                   rhs_t=g%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
+                                   u=u, &
+                                   f=result)
+            case (BCS_ND)
+                call g%matmuldevel(rhs=g%rhs(:, 1:ndr), &
+                                   rhs_b=g%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
+                                   rhs_t=g%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
+                                   u=u, &
+                                   f=result, bcs_b=bcs_hb(:))
+            case (BCS_DN)
+                call g%matmuldevel(rhs=g%rhs(:, 1:ndr), &
+                                   rhs_b=g%rhs(1:ndr/2, 1:ndr), &
+                                   rhs_t=g%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
+                                   u=u, &
+                                   f=result, bcs_t=bcs_ht(:))
+            case (BCS_NN)
+                call g%matmuldevel(rhs=g%rhs(:, 1:ndr), &
+                                   rhs_b=g%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
+                                   rhs_t=g%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
+                                   u=u, &
+                                   f=result, bcs_b=bcs_hb(:), bcs_t=bcs_ht(:))
+
+            end select
+            
+#undef bcs_hb
+#undef bcs_ht
 
             ! Solve for u' in system of equations A u' = B u
             ip = ibc_loc*5
@@ -544,14 +618,17 @@ contains
             if (any([FDM_COM4_DIRECT, FDM_COM6_DIRECT, FDM_COM6_DIRECT_HYPER] == g%mode_fdm)) then
                 select case (ndr)
                 case (5)
-                    g%matmul => MatMul_5d
+                    ! g%matmul => MatMul_5d
+                    g%matmuldevel => MatMul_5
                 end select
             else
                 select case (ndr)
                 case (5)
-                    g%matmul => MatMul_5d_sym
+                    ! g%matmul => MatMul_5d_sym
+                    g%matmuldevel => MatMul_5_sym
                 case (7)
-                    g%matmul => MatMul_7d_sym
+                    ! g%matmul => MatMul_7d_sym
+                    g%matmuldevel => MatMul_7_sym
                 end select
             end if
 
@@ -686,7 +763,12 @@ contains
 
         else    ! biased
             ! Calculate RHS in system of equations A u' = B u
-            call g%matmul(g%rhs, u, result, BCS_DD)
+            ! call g%matmul(g%rhs, u, result, BCS_DD)
+            call g%matmuldevel(rhs=g%rhs(:, 1:ndr), &
+                               rhs_b=g%rhs(1:ndr/2, 1:ndr), &
+                               rhs_t=g%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
+                               u=u, &
+                               f=result)
 
             if (g%need_1der) then           ! add Jacobian correction A_2 dx2 du
                 ip = g%nb_diag(2)           ! so far, only tridiagonal systems

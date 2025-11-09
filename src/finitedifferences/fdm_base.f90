@@ -22,7 +22,6 @@ module FDM_Base
     public coef_e1n2_biased  ! coefficients for the biased, 2. order approximation to 1. order derivative
     public coef_e1n3_biased  ! coefficients for the biased, 3. order approximation to 1. order derivative
 
-    ! public FDM_BCS_Neumann      ! Initialize arrays to impose Neumann Bcs
     public FDM_Bcs_Reduce
 
 contains
@@ -188,118 +187,6 @@ contains
 
         return
     end function
-
-! ! #######################################################################
-! ! #######################################################################
-!     subroutine FDM_BCS_Neumann(ibc, lhs, rhs, rhs_b, rhs_t)
-!         integer, intent(in) :: ibc
-!         real(wp), intent(inout) :: lhs(:, :)
-!         real(wp), intent(in) :: rhs(:, :)
-!         ! real(wp), intent(inout) :: rhs_b(:, :), rhs_t(:, :)
-!         real(wp), intent(inout) :: rhs_b(:, 0:), rhs_t(0:, :)
-
-!         integer(wi) idl, ndl, idr, ndr, ir, ic, nx
-!         real(wp) dummy
-
-!         ! -------------------------------------------------------------------
-!         ndl = size(lhs, 2)
-!         idl = size(lhs, 2)/2 + 1        ! center diagonal in lhs
-!         ndr = size(rhs, 2)
-!         idr = size(rhs, 2)/2 + 1        ! center diagonal in rhs
-!         nx = size(lhs, 1)               ! # grid points
-
-!         ! For A_22, we need idl >= idr -1
-!         if (idl < idr - 1) then
-!             call TLab_Write_ASCII(efile, __FILE__//'. LHS array is too small.')
-!             call TLab_Stop(DNS_ERROR_UNDEVELOP)
-!         end if
-!         ! For b_21, we need idr >= idl
-!         if (idr < idl) then
-!             call TLab_Write_ASCII(efile, __FILE__//'. RHS array is too small.')
-!             call TLab_Stop(DNS_ERROR_UNDEVELOP)
-!         end if
-
-!         ! -------------------------------------------------------------------
-!         if (any([BCS_ND, BCS_NN] == ibc)) then
-!             ! rhs_b(1:idr, 1:ndr) = rhs(1:idr, 1:ndr)
-!             rhs_b(1:idr + 1, 1:ndr) = rhs(1:idr + 1, 1:ndr)
-
-!             dummy = 1.0_wp/rhs(1, idr)      ! normalize by r11
-
-!             ! reduced array B^R_{22}
-!             rhs_b(1, 1:ndr) = -rhs_b(1, 1:ndr)*dummy
-!             do ir = 1, idr - 1              ! rows
-!                 do ic = idr + 1, ndr        ! columns
-!                     rhs_b(1 + ir, ic - ir) = rhs_b(1 + ir, ic - ir) + rhs_b(1 + ir, idr - ir)*rhs_b(1, ic)
-!                 end do
-!                 ! longer stencil at the boundary
-!                 ic = ndr + 1
-!                 rhs_b(1 + ir, ic - ir) = rhs_b(1 + ir, ic - ir) + rhs_b(1 + ir, idr - ir)*rhs_b(1, 1)
-!             end do
-
-!             ! reduced array A^R_{22}
-!             lhs(1, 1:ndl) = lhs(1, 1:ndl)*dummy
-!             do ir = 1, idr - 1              ! rows
-!                 do ic = idl + 1, ndl        ! columns
-!                     lhs(1 + ir, ic - ir) = lhs(1 + ir, ic - ir) - rhs_b(1 + ir, idr - ir)*lhs(1, ic)
-!                 end do
-!                 ! vector a^R_{21} stored in rhs
-!                 ic = idr
-!                 rhs_b(1 + ir, ic - ir) = rhs_b(1 + ir, ic - ir)*lhs(1, idl)
-!             end do
-
-!             ! finalize vector a^R_{21}
-!             do ir = 1, idl - 1
-!                 ic = idr
-!                 rhs_b(1 + ir, ic - ir) = rhs_b(1 + ir, ic - ir) - lhs(1 + ir, idl - ir)
-!             end do
-
-!             ! store a_11/b_11 in rhs
-!             rhs_b(1, idr) = lhs(1, idl)
-
-!         end if
-
-!         if (any([BCS_DN, BCS_NN] == ibc)) then
-!             ! rhs_t(1:idr, 1:ndr) = rhs(nx - idr + 1:nx, 1:ndr)
-!             rhs_t(0:idr, 1:ndr) = rhs(nx - idr:nx, 1:ndr)
-
-!             dummy = 1.0_wp/rhs(nx, idr)     ! normalize by rnn
-
-!             ! reduced array B^R_{11}
-!             rhs_t(idr, 1:ndr) = -rhs_t(idr, 1:ndr)*dummy
-!             do ir = 1, idr - 1              ! rows
-!                 do ic = 1, idr - 1          ! columns
-!                     rhs_t(idr - ir, ic + ir) = rhs(nx - ir, ic + ir) + rhs(nx - ir, idr + ir)*rhs_t(idr, ic)
-!                 end do
-!                 ! longer stencil at the boundary
-!                 ic = 0
-!                 rhs_t(idr - ir, ic + ir) = rhs_t(idr - ir, ic + ir) + rhs(nx - ir, idr + ir)*rhs_t(idr, ndr)
-!             end do
-
-!             ! reduced array A^R_{11}
-!             lhs(nx, 1:ndl) = lhs(nx, 1:ndl)*dummy
-!             do ir = 1, idr - 1              ! rows
-!                 do ic = 1, idl - 1          ! columns
-!                     lhs(nx - ir, ic + ir) = lhs(nx - ir, ic + ir) - rhs(nx - ir, idr + ir)*lhs(nx, ic)
-!                 end do
-!                 ! vector a^R_{1n} stored in rhs
-!                 ic = idr
-!                 rhs_t(idr - ir, ic + ir) = rhs_t(idr - ir, ic + ir)*lhs(nx, idl)
-!             end do
-
-!             ! finalize vector a^R_{1n}
-!             do ir = 1, idl - 1
-!                 ic = idr
-!                 rhs_t(idr - ir, ic + ir) = rhs_t(idr - ir, ic + ir) - lhs(nx - ir, idl + ir)
-!             end do
-
-!             ! store a_nn/b_nn in rhs
-!             rhs_t(idr, idr) = lhs(nx, idl)
-
-!         end if
-
-!         return
-!     end subroutine FDM_BCS_Neumann
 
 ! #######################################################################
 ! #######################################################################

@@ -16,21 +16,21 @@ module Matmul
     public MatMul_3d            ! Calculate f = B u, assuming B is tridiagonal
     public MatMul_3d_add        ! Calculate f = f + B u, assuming B is tridiagonal
     ! special cases where coefficients are constant in the interior points
-    public MatMul_3d_antisym    ! Calculate f = B u, assuming B is tridiagonal, antisymmetric
-    public MatMul_3d_sym        ! Calculate f = B u, assuming B is tridiagonal, symmetric
+    ! public MatMul_3d_antisym    ! Calculate f = B u, assuming B is tridiagonal, antisymmetric
+    ! public MatMul_3d_sym        ! Calculate f = B u, assuming B is tridiagonal, symmetric
 
     ! generic cases
     public MatMul_5d            ! Calculate f = B u, assuming B is pentadiagonal
     public MatMul_5d_add        ! Calculate f = f + B u, assuming B is pentadiagonal
     ! special cases where coefficients are constant in the interior points
-    public MatMul_5d_antisym    ! Calculate f = B u, assuming B is pentadiagonal, antisymmetric
-    public MatMul_5d_sym        ! Calculate f = B u, assuming B is pentadiagonal, symmetric
+    ! public MatMul_5d_antisym    ! Calculate f = B u, assuming B is pentadiagonal, antisymmetric
+    ! public MatMul_5d_sym        ! Calculate f = B u, assuming B is pentadiagonal, symmetric
 
     ! generic cases
     ! tbd when needed
     ! special cases where coefficients are constant in the interior points
-    public MatMul_7d_antisym    ! Calculate f = B u, assuming B is heptadiagonal, antisymmetric
-    public MatMul_7d_sym        ! Calculate f = B u, assuming B is heptadiagonal, symmetric
+    ! public MatMul_7d_antisym    ! Calculate f = B u, assuming B is heptadiagonal, antisymmetric
+    ! public MatMul_7d_sym        ! Calculate f = B u, assuming B is heptadiagonal, symmetric
 
     ! Preconditioning
     public Precon_Rhs

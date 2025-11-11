@@ -105,7 +105,7 @@ contains
         real(wp), intent(inout), optional :: bcs_b(:), bcs_t(:)
         real(wp), intent(in) :: L(:, :)
 
-        integer(wi) nx, nx_b, nx_t, ir
+        integer(wi) nx, nx_b, nx_t, ir, nx_thomas
         integer ndr, idr
 
         ! ###################################################################
@@ -139,11 +139,14 @@ contains
         ! -------------------------------------------------------------------
         if (present(bcs_t)) then
             call MatMul_X_UpperBoundary(rhs_t, u(:, nx - nx_t + 1:nx), f(:, nx - nx_t + 1:nx), bcs_t)
+            nx_thomas = nx - 1
         else
             call MatMul_X_UpperBoundary(rhs_t, u(:, nx - nx_t + 1:nx), f(:, nx - nx_t + 1:nx))
+            nx_thomas = nx
         end if
         ! Thomas step: nx_t is typically small, no need to interlace it with matmul loop
-        do ir = nx - nx_t + 1, nx
+        ! do not change last row if bcs are given
+        do ir = nx - nx_t + 1, nx_thomas
             f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 1)
         end do
 
@@ -160,7 +163,7 @@ contains
         real(wp), intent(inout), optional :: bcs_b(:), bcs_t(:)
         real(wp), intent(in) :: L(:, :)
 
-        integer(wi) nx, nx_b, nx_t, ir
+        integer(wi) nx, nx_b, nx_t, ir, nx_thomas
         integer ndr, idr
 
         ! ###################################################################
@@ -192,11 +195,14 @@ contains
         ! -------------------------------------------------------------------
         if (present(bcs_t)) then
             call MatMul_X_UpperBoundary(rhs_t, u(:, nx - nx_t + 1:nx), f(:, nx - nx_t + 1:nx), bcs_t)
+            nx_thomas = nx - 1
         else
+            nx_thomas = nx
             call MatMul_X_UpperBoundary(rhs_t, u(:, nx - nx_t + 1:nx), f(:, nx - nx_t + 1:nx))
         end if
         ! Thomas step: nx_t is typically small, no need to interlace it with matmul loop
-        do ir = nx - nx_t + 1, nx
+        ! do not change last row if bcs are given
+        do ir = nx - nx_t + 1, nx_thomas
             f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 1)
         end do
 
@@ -213,7 +219,7 @@ contains
         real(wp), intent(inout), optional :: bcs_b(:), bcs_t(:)
         real(wp), intent(in) :: L(:, :)
 
-        integer(wi) nx, nx_b, nx_t, ir
+        integer(wi) nx, nx_b, nx_t, ir, nx_thomas
         integer ndr, idr
         real(wp) r2_loc             ! center diagonal
 
@@ -248,11 +254,14 @@ contains
         ! -------------------------------------------------------------------
         if (present(bcs_t)) then
             call MatMul_X_UpperBoundary(rhs_t, u(:, nx - nx_t + 1:nx), f(:, nx - nx_t + 1:nx), bcs_t)
+            nx_thomas = nx - 1
         else
             call MatMul_X_UpperBoundary(rhs_t, u(:, nx - nx_t + 1:nx), f(:, nx - nx_t + 1:nx))
+            nx_thomas = nx
         end if
         ! Thomas step: nx_t is typically small, no need to interlace it with matmul loop
-        do ir = nx - nx_t + 1, nx
+        ! do not change last row if bcs are given
+        do ir = nx - nx_t + 1, nx_thomas
             f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 1)
         end do
 
@@ -269,7 +278,7 @@ contains
         real(wp), intent(inout), optional :: bcs_b(:), bcs_t(:)
         real(wp), intent(in) :: L(:, :)
 
-        integer(wi) nx, nx_b, nx_t, ir
+        integer(wi) nx, nx_b, nx_t, ir, nx_thomas
         integer ndr, idr
 
         ! ###################################################################
@@ -305,11 +314,14 @@ contains
         ! -------------------------------------------------------------------
         if (present(bcs_t)) then
             call MatMul_X_UpperBoundary(rhs_t, u(:, nx - nx_t + 1:nx), f(:, nx - nx_t + 1:nx), bcs_t)
+            nx_thomas = nx - 1
         else
             call MatMul_X_UpperBoundary(rhs_t, u(:, nx - nx_t + 1:nx), f(:, nx - nx_t + 1:nx))
+            nx_thomas = nx
         end if
         ! Thomas step: nx_t is typically small, no need to interlace it with matmul loop
-        do ir = nx - nx_t + 1, nx
+        ! do not change last row if bcs are given
+        do ir = nx - nx_t + 1, nx_thomas
             f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 1)
         end do
 
@@ -326,7 +338,7 @@ contains
         real(wp), intent(inout), optional :: bcs_b(:), bcs_t(:)
         real(wp), intent(in) :: L(:, :)
 
-        integer(wi) nx, nx_b, nx_t, ir
+        integer(wi) nx, nx_b, nx_t, ir, nx_thomas
         integer ndr, idr
         real(wp) r5_loc             ! 2. upper-diagonal
 
@@ -361,11 +373,14 @@ contains
         ! -------------------------------------------------------------------
         if (present(bcs_t)) then
             call MatMul_X_UpperBoundary(rhs_t, u(:, nx - nx_t + 1:nx), f(:, nx - nx_t + 1:nx), bcs_t)
+            nx_thomas = nx - 1
         else
             call MatMul_X_UpperBoundary(rhs_t, u(:, nx - nx_t + 1:nx), f(:, nx - nx_t + 1:nx))
+            nx_thomas = nx
         end if
         ! Thomas step: nx_t is typically small, no need to interlace it with matmul loop
-        do ir = nx - nx_t + 1, nx
+        ! do not change last row if bcs are given
+        do ir = nx - nx_t + 1, nx_thomas
             f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 1)
         end do
 
@@ -382,7 +397,7 @@ contains
         real(wp), intent(inout), optional :: bcs_b(:), bcs_t(:)
         real(wp), intent(in) :: L(:, :)
 
-        integer(wi) nx, nx_b, nx_t, ir
+        integer(wi) nx, nx_b, nx_t, ir, nx_thomas
         integer ndr, idr
         real(wp) r3_loc             ! center diagonal
         real(wp) r5_loc             ! 2. upper-diagonal
@@ -421,11 +436,14 @@ contains
         ! -------------------------------------------------------------------
         if (present(bcs_t)) then
             call MatMul_X_UpperBoundary(rhs_t, u(:, nx - nx_t + 1:nx), f(:, nx - nx_t + 1:nx), bcs_t)
+            nx_thomas = nx - 1
         else
             call MatMul_X_UpperBoundary(rhs_t, u(:, nx - nx_t + 1:nx), f(:, nx - nx_t + 1:nx))
+            nx_thomas = nx
         end if
         ! Thomas step: nx_t is typically small, no need to interlace it with matmul loop
-        do ir = nx - nx_t + 1, nx
+        ! do not change last row if bcs are given
+        do ir = nx - nx_t + 1, nx_thomas
             f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 1)
         end do
 
@@ -442,7 +460,7 @@ contains
         real(wp), intent(inout), optional :: bcs_b(:), bcs_t(:)
         real(wp), intent(in) :: L(:, :)
 
-        integer(wi) nx, nx_b, nx_t, ir
+        integer(wi) nx, nx_b, nx_t, ir, nx_thomas
         integer ndr, idr
 
         ! ###################################################################
@@ -481,11 +499,14 @@ contains
         ! -------------------------------------------------------------------
         if (present(bcs_t)) then
             call MatMul_X_UpperBoundary(rhs_t, u(:, nx - nx_t + 1:nx), f(:, nx - nx_t + 1:nx), bcs_t)
+            nx_thomas = nx - 1
         else
             call MatMul_X_UpperBoundary(rhs_t, u(:, nx - nx_t + 1:nx), f(:, nx - nx_t + 1:nx))
+            nx_thomas = nx
         end if
         ! Thomas step: nx_t is typically small, no need to interlace it with matmul loop
-        do ir = nx - nx_t + 1, nx
+        ! do not change last row if bcs are given
+        do ir = nx - nx_t + 1, nx_thomas
             f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 2) + f(:, ir - 2)*L(ir, 1)
         end do
 
@@ -502,7 +523,7 @@ contains
         real(wp), intent(inout), optional :: bcs_b(:), bcs_t(:)
         real(wp), intent(in) :: L(:, :)
 
-        integer(wi) nx, nx_b, nx_t, ir
+        integer(wi) nx, nx_b, nx_t, ir, nx_thomas
         integer ndr, idr
         real(wp) r5_loc             ! 2. upper-diagonal
 
@@ -539,11 +560,14 @@ contains
         ! -------------------------------------------------------------------
         if (present(bcs_t)) then
             call MatMul_X_UpperBoundary(rhs_t, u(:, nx - nx_t + 1:nx), f(:, nx - nx_t + 1:nx), bcs_t)
+            nx_thomas = nx - 1
         else
             call MatMul_X_UpperBoundary(rhs_t, u(:, nx - nx_t + 1:nx), f(:, nx - nx_t + 1:nx))
+            nx_thomas = nx
         end if
         ! Thomas step: nx_t is typically small, no need to interlace it with matmul loop
-        do ir = nx - nx_t + 1, nx
+        ! do not change last row if bcs are given
+        do ir = nx - nx_t + 1, nx_thomas
             f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 2) + f(:, ir - 2)*L(ir, 1)
         end do
 
@@ -560,7 +584,7 @@ contains
         real(wp), intent(inout), optional :: bcs_b(:), bcs_t(:)
         real(wp), intent(in) :: L(:, :)
 
-        integer(wi) nx, nx_b, nx_t, ir
+        integer(wi) nx, nx_b, nx_t, ir, nx_thomas
         integer ndr, idr
         real(wp) r3_loc             ! center diagonal
         real(wp) r5_loc             ! 2. upper-diagonal
@@ -600,11 +624,14 @@ contains
         ! -------------------------------------------------------------------
         if (present(bcs_t)) then
             call MatMul_X_UpperBoundary(rhs_t, u(:, nx - nx_t + 1:nx), f(:, nx - nx_t + 1:nx), bcs_t)
+            nx_thomas = nx - 1
         else
             call MatMul_X_UpperBoundary(rhs_t, u(:, nx - nx_t + 1:nx), f(:, nx - nx_t + 1:nx))
+            nx_thomas = nx
         end if
         ! Thomas step: nx_t is typically small, no need to interlace it with matmul loop
-        do ir = nx - nx_t + 1, nx
+        ! do not change last row if bcs are given
+        do ir = nx - nx_t + 1, nx_thomas
             f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 2) + f(:, ir - 2)*L(ir, 1)
         end do
 
@@ -623,7 +650,7 @@ contains
         real(wp), intent(inout), optional :: bcs_b(:), bcs_t(:)
         real(wp), intent(in) :: L(:, :)
 
-        integer(wi) nx, nx_b, nx_t, ir
+        integer(wi) nx, nx_b, nx_t, ir, nx_thomas
         integer ndr, idr
         real(wp) r3_loc             ! center diagonal
         real(wp) r5_loc             ! 2. upper-diagonal
@@ -679,8 +706,10 @@ contains
         ! -------------------------------------------------------------------
         if (present(bcs_t)) then
             call MatMul_X_UpperBoundary(rhs_t, u(:, nx - nx_t + 1:nx), f(:, nx - nx_t + 1:nx), bcs_t)
+            nx_thomas = nx - 1
         else
             call MatMul_X_UpperBoundary(rhs_t, u(:, nx - nx_t + 1:nx), f(:, nx - nx_t + 1:nx))
+            nx_thomas = nx
         end if
         ! Add second array
         do ir = nx - nx_t + 1, nx - 1
@@ -695,7 +724,8 @@ contains
                    + u_add(:, ir - 1)*rhs_add(ir, 1) &
                    + u_add(:, ir)*rhs_add(ir, 2)
         ! Thomas step: nx_t is typically small, no need to interlace it with matmul loop
-        do ir = nx - nx_t + 1, nx
+        ! do not change last row if bcs are given
+        do ir = nx - nx_t + 1, nx_thomas
             f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 1)
         end do
 
@@ -714,7 +744,7 @@ contains
         real(wp), intent(inout), optional :: bcs_b(:), bcs_t(:)
         real(wp), intent(in) :: L(:, :)
 
-        integer(wi) nx, nx_b, nx_t, ir
+        integer(wi) nx, nx_b, nx_t, ir, nx_thomas
         integer ndr, idr
         real(wp) r3_loc             ! center diagonal
         real(wp) r5_loc             ! 2. upper-diagonal
@@ -772,8 +802,10 @@ contains
         ! -------------------------------------------------------------------
         if (present(bcs_t)) then
             call MatMul_X_UpperBoundary(rhs_t, u(:, nx - nx_t + 1:nx), f(:, nx - nx_t + 1:nx), bcs_t)
+            nx_thomas = nx - 1
         else
             call MatMul_X_UpperBoundary(rhs_t, u(:, nx - nx_t + 1:nx), f(:, nx - nx_t + 1:nx))
+            nx_thomas = nx
         end if
         ! Add second array
         do ir = nx - nx_t + 1, nx - 1
@@ -788,7 +820,8 @@ contains
                    + u_add(:, ir - 1)*rhs_add(ir, 1) &
                    + u_add(:, ir)*rhs_add(ir, 2)
         ! Thomas step: nx_t is typically small, no need to interlace it with matmul loop
-        do ir = nx - nx_t + 1, nx
+        ! do not change last row if bcs are given
+        do ir = nx - nx_t + 1, nx_thomas
             f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 2) + f(:, ir - 2)*L(ir, 1)
         end do
 
@@ -805,7 +838,7 @@ contains
         real(wp), intent(inout), optional :: bcs_b(:), bcs_t(:)
         real(wp), intent(in) :: L(:, :)
 
-        integer(wi) nx, nx_b, nx_t, ir
+        integer(wi) nx, nx_b, nx_t, ir, nx_thomas
         integer ndr, idr
         real(wp) r6_loc             ! 2. upper diagonal
         real(wp) r7_loc             ! 3. upper diagonal
@@ -844,11 +877,14 @@ contains
         ! -------------------------------------------------------------------
         if (present(bcs_t)) then
             call MatMul_X_UpperBoundary(rhs_t, u(:, nx - nx_t + 1:nx), f(:, nx - nx_t + 1:nx), bcs_t)
+            nx_thomas = nx - 1
         else
             call MatMul_X_UpperBoundary(rhs_t, u(:, nx - nx_t + 1:nx), f(:, nx - nx_t + 1:nx))
+            nx_thomas = nx
         end if
         ! Thomas step: nx_t is typically small, no need to interlace it with matmul loop
-        do ir = nx - nx_t + 1, nx
+        ! do not change last row if bcs are given
+        do ir = nx - nx_t + 1, nx_thomas
             f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 1)
         end do
 
@@ -865,7 +901,7 @@ contains
         real(wp), intent(inout), optional :: bcs_b(:), bcs_t(:)
         real(wp), intent(in) :: L(:, :)
 
-        integer(wi) nx, nx_b, nx_t, ir
+        integer(wi) nx, nx_b, nx_t, ir, nx_thomas
         integer ndr, idr
         real(wp) r4_loc             ! center diagonal
         real(wp) r6_loc             ! 2. upper-diagonal
@@ -906,11 +942,14 @@ contains
         ! -------------------------------------------------------------------
         if (present(bcs_t)) then
             call MatMul_X_UpperBoundary(rhs_t, u(:, nx - nx_t + 1:nx), f(:, nx - nx_t + 1:nx), bcs_t)
+            nx_thomas = nx - 1
         else
             call MatMul_X_UpperBoundary(rhs_t, u(:, nx - nx_t + 1:nx), f(:, nx - nx_t + 1:nx))
+            nx_thomas = nx
         end if
         ! Thomas step: nx_t is typically small, no need to interlace it with matmul loop
-        do ir = nx - nx_t + 1, nx
+        ! do not change last row if bcs are given
+        do ir = nx - nx_t + 1, nx_thomas
             f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 1)
         end do
 
@@ -927,7 +966,7 @@ contains
         real(wp), intent(inout), optional :: bcs_b(:), bcs_t(:)
         real(wp), intent(in) :: L(:, :)
 
-        integer(wi) nx, nx_b, nx_t, ir
+        integer(wi) nx, nx_b, nx_t, ir, nx_thomas
         integer ndr, idr
         real(wp) r6_loc             ! 2. upper diagonal
         real(wp) r7_loc             ! 3. upper diagonal
@@ -968,11 +1007,14 @@ contains
         ! -------------------------------------------------------------------
         if (present(bcs_t)) then
             call MatMul_X_UpperBoundary(rhs_t, u(:, nx - nx_t + 1:nx), f(:, nx - nx_t + 1:nx), bcs_t)
+            nx_thomas = nx - 1
         else
             call MatMul_X_UpperBoundary(rhs_t, u(:, nx - nx_t + 1:nx), f(:, nx - nx_t + 1:nx))
+            nx_thomas = nx
         end if
         ! Thomas step: nx_t is typically small, no need to interlace it with matmul loop
-        do ir = nx - nx_t + 1, nx
+        ! do not change last row if bcs are given
+        do ir = nx - nx_t + 1, nx_thomas
             f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 2) + f(:, ir - 2)*L(ir, 1)
         end do
 
@@ -989,7 +1031,7 @@ contains
         real(wp), intent(inout), optional :: bcs_b(:), bcs_t(:)
         real(wp), intent(in) :: L(:, :)
 
-        integer(wi) nx, nx_b, nx_t, ir
+        integer(wi) nx, nx_b, nx_t, ir, nx_thomas
         integer ndr, idr
         real(wp) r4_loc             ! center diagonal
         real(wp) r6_loc             ! 2. upper-diagonal
@@ -1032,11 +1074,14 @@ contains
         ! -------------------------------------------------------------------
         if (present(bcs_t)) then
             call MatMul_X_UpperBoundary(rhs_t, u(:, nx - nx_t + 1:nx), f(:, nx - nx_t + 1:nx), bcs_t)
+            nx_thomas = nx - 1
         else
             call MatMul_X_UpperBoundary(rhs_t, u(:, nx - nx_t + 1:nx), f(:, nx - nx_t + 1:nx))
+            nx_thomas = nx
         end if
         ! Thomas step: nx_t is typically small, no need to interlace it with matmul loop
-        do ir = nx - nx_t + 1, nx
+        ! do not change last row if bcs are given
+        do ir = nx - nx_t + 1, nx_thomas
             f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 2) + f(:, ir - 2)*L(ir, 1)
         end do
 
@@ -1055,7 +1100,7 @@ contains
         real(wp), intent(inout), optional :: bcs_b(:), bcs_t(:)
         real(wp), intent(in) :: L(:, :)
 
-        integer(wi) nx, nx_b, nx_t, ir
+        integer(wi) nx, nx_b, nx_t, ir, nx_thomas
         integer ndr, idr
         real(wp) r4_loc             ! center diagonal
         real(wp) r6_loc             ! 2. upper-diagonal
@@ -1114,8 +1159,10 @@ contains
         ! -------------------------------------------------------------------
         if (present(bcs_t)) then
             call MatMul_X_UpperBoundary(rhs_t, u(:, nx - nx_t + 1:nx), f(:, nx - nx_t + 1:nx), bcs_t)
+            nx_thomas = nx - 1
         else
             call MatMul_X_UpperBoundary(rhs_t, u(:, nx - nx_t + 1:nx), f(:, nx - nx_t + 1:nx))
+            nx_thomas = nx
         end if
         ! Add second array
         do ir = nx - nx_t + 1, nx - 1
@@ -1130,7 +1177,8 @@ contains
                    + u_add(:, ir - 1)*rhs_add(ir, 1) &
                    + u_add(:, ir)*rhs_add(ir, 2)
         ! Thomas step: nx_t is typically small, no need to interlace it with matmul loop
-        do ir = nx - nx_t + 1, nx
+        ! do not change last row if bcs are given
+        do ir = nx - nx_t + 1, nx_thomas
             f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 1)
         end do
 
@@ -1149,7 +1197,7 @@ contains
         real(wp), intent(inout), optional :: bcs_b(:), bcs_t(:)
         real(wp), intent(in) :: L(:, :)
 
-        integer(wi) nx, nx_b, nx_t, ir
+        integer(wi) nx, nx_b, nx_t, ir, nx_thomas
         integer ndr, idr
         real(wp) r4_loc             ! center diagonal
         real(wp) r6_loc             ! 2. upper-diagonal
@@ -1210,8 +1258,10 @@ contains
         ! -------------------------------------------------------------------
         if (present(bcs_t)) then
             call MatMul_X_UpperBoundary(rhs_t, u(:, nx - nx_t + 1:nx), f(:, nx - nx_t + 1:nx), bcs_t)
+            nx_thomas = nx - 1
         else
             call MatMul_X_UpperBoundary(rhs_t, u(:, nx - nx_t + 1:nx), f(:, nx - nx_t + 1:nx))
+            nx_thomas = nx
         end if
         ! Add second array
         do ir = nx - nx_t + 1, nx - 1
@@ -1226,7 +1276,8 @@ contains
                    + u_add(:, ir - 1)*rhs_add(ir, 1) &
                    + u_add(:, ir)*rhs_add(ir, 2)
         ! Thomas step: nx_t is typically small, no need to interlace it with matmul loop
-        do ir = nx - nx_t + 1, nx
+        ! do not change last row if bcs are given
+        do ir = nx - nx_t + 1, nx_thomas
             f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 2) + f(:, ir - 2)*L(ir, 1)
         end do
 

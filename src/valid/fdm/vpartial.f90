@@ -67,7 +67,6 @@ program VPARTIAL
     inb_txc = 9
 
     call TLab_Initialize_Memory(__FILE__)
-
     u(1:nlines, 1:kmax) => txc(1:imax*jmax*kmax, 1)
 
     du1_a(1:nlines, 1:kmax) => txc(1:imax*jmax*kmax, 2)
@@ -228,13 +227,13 @@ program VPARTIAL
 
                 nmin = 1; nmax = g%size
                 if (any([BCS_ND, BCS_NN] == ibc)) then
-                    ! du1_n(:, 1) = du1_a(:, 1)
-                    bcs_hb(:) = du1_a(:, 1)
+                    du1_n(:, 1) = du1_a(:, 1)
+                    bcs_hb(1:nlines) = du1_a(1:nlines, 1)
                     nmin = nmin + 1
                 end if
                 if (any([BCS_DN, BCS_NN] == ibc)) then
-                    ! du1_n(:, kmax) = du1_a(:, kmax)
-                    bcs_ht(:) = du1_a(:, kmax)
+                    du1_n(:, kmax) = du1_a(:, kmax)
+                    bcs_ht(1:nlines) = du1_a(1:nlines, kmax)
                     nmax = nmax - 1
                 end if
                 nsize = nmax - nmin + 1
@@ -266,7 +265,7 @@ program VPARTIAL
                                             rhs_b=g%der1%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
                                             rhs_t=g%der1%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
                                             u=u, &
-                                            f=du1_n, bcs_b=bcs_hb(:))
+                                            f=du1_n, bcs_b=bcs_hb(1:nlines))
                     ! call g%der1%matmuldevel_thomas(rhs=g%der1%rhs(:, 1:ndr), &
                     !                                rhs_b=g%der1%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
                     !                                rhs_t=g%der1%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
@@ -278,7 +277,7 @@ program VPARTIAL
                                             rhs_b=g%der1%rhs(1:ndr/2, 1:ndr), &
                                             rhs_t=g%der1%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
                                             u=u, &
-                                            f=du1_n, bcs_t=bcs_ht(:))
+                                            f=du1_n, bcs_t=bcs_ht(1:nlines))
                     ! call g%der1%matmuldevel_thomas(rhs=g%der1%rhs(:, 1:ndr), &
                     !                                rhs_b=g%der1%rhs(1:ndr/2, 1:ndr), &
                     !                                rhs_t=g%der1%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
@@ -290,7 +289,7 @@ program VPARTIAL
                                             rhs_b=g%der1%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
                                             rhs_t=g%der1%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
                                             u=u, &
-                                            f=du1_n, bcs_b=bcs_hb(:), bcs_t=bcs_ht(:))
+                                            f=du1_n, bcs_b=bcs_hb(1:nlines), bcs_t=bcs_ht(1:nlines))
                     ! call g%der1%matmuldevel_thomas(rhs=g%der1%rhs(:, 1:ndr), &
                     !                                rhs_b=g%der1%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
                     !                                rhs_t=g%der1%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
@@ -306,8 +305,8 @@ program VPARTIAL
                 call g%der1%thomasU(g%der1%lu(nmin:nmax, ip + ndl/2 + 1:ip + ndl), du1_n(:, nmin:nmax))
 
                 write (str, *) im
-                call check(u(:, nmin:nmax), du1_a(:, nmin:nmax), du1_n(:, nmin:nmax), 'partial-'//trim(adjustl(str))//'.dat')
-
+                call check(u, du1_a, du1_n, 'partial-'//trim(adjustl(str))//'.dat')
+!
                 if (any([BCS_ND, BCS_NN] == ibc)) then
                     do ic = 1, idl - 1
                         bcs_hb(1:nlines) = bcs_hb(1:nlines) + g%der1%lu(1, ip + idl + ic)*du1_n(:, 1 + ic)
@@ -448,12 +447,12 @@ program VPARTIAL
                 nmin = 1; nmax = g%size
                 if (any([BCS_MIN, BCS_BOTH] == ibc)) then
                     ! du1_n(:, 1) = u(:, 1)           ! boundary condition
-                    ! bcs_hb(:) = u(:, 1)
+                    ! bcs_hb(1:nlines) = u(1:nlines, 1)
                     nmin = nmin + 1
                 end if
                 if (any([BCS_MAX, BCS_BOTH] == ibc)) then
                     ! du1_n(:, kmax) = u(:, kmax)
-                    ! bcs_ht(:) = u(:, kmax)
+                    ! bcs_ht(1:nlines) = u(1:nlines, kmax)
                     nmax = nmax - 1
                 end if
                 nsize = nmax - nmin + 1
@@ -492,13 +491,13 @@ program VPARTIAL
                                             rhs_b=g%der1%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
                                             rhs_t=g%der1%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
                                             u=u, &
-                                            f=du1_n)!, bcs_b=bcs_hb(:))
+                                            f=du1_n)!, bcs_b=bcs_hb(1:nlines))
                     ! call g%der1%matmuldevel_thomas(rhs=g%der1%rhs(:, 1:ndr), &
                     !                                rhs_b=g%der1%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
                     !                                rhs_t=g%der1%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
                     !                                u=u, &
                     !                                L=g%der1%lu(:, 1:ndl/2), &
-                    !                                f=du1_n)!, bcs_b=bcs_hb(:))
+                    !                                f=du1_n)!, bcs_b=bcs_hb(1:nlines))
                 case (BCS_MAX)
                     call g%der1%matmuldevel(rhs=g%der1%rhs(:, 1:ndr), &
                                             rhs_b=g%der1%rhs(1:ndr/2, 1:ndr), &
@@ -510,7 +509,7 @@ program VPARTIAL
                     !                                rhs_t=g%der1%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
                     !                                u=u, &
                     !                                L=g%der1%lu(:, 1:ndl/2), &
-                    !                                f=du1_n)!, bcs_t=bcs_ht(:))
+                    !                                f=du1_n)!, bcs_t=bcs_ht(1:nlines))
                 case (BCS_BOTH)
                     call g%der1%matmuldevel(rhs=g%der1%rhs(:, 1:ndr), &
                                             rhs_b=g%der1%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
@@ -522,7 +521,7 @@ program VPARTIAL
                     !                                rhs_t=g%der1%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
                     !                                u=u, &
                     !                                L=g%der1%lu(:, 1:ndl/2), &
-                    !                                f=du1_n)!, bcs_b=bcs_hb(:), bcs_t=bcs_ht(:))
+                    !                                f=du1_n)!, bcs_b=bcs_hb(1:nlines), bcs_t=bcs_ht(1:nlines))
 
                 end select
 

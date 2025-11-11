@@ -11,6 +11,7 @@ module FDM_Integral
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
     use Thomas
     use Matmul
+    use Preconditioning
     use FDM_Derivative, only: fdm_derivative_dt
     use FDM_Base
     implicit none

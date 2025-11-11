@@ -3,6 +3,7 @@ program vLinSys
     use Matmul_Halo
     use Matmul_Halo_Thomas
     use MatMulDevel
+    use MatMul_Thomas
     use Thomas
     use Thomas_Circulant
     implicit none

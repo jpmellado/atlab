@@ -244,9 +244,10 @@ program VPARTIAL
                 ndr = g%der1%nb_diag(2)
                 idr = ndr/2 + 1
 
+                ip = ibc*5
+
                 ! -------------------------------------------------------------------
                 ! Calculate RHS in system of equations A u' = B u
-                ! call g%der1%matmul(g%der1%rhs, u, du1_n, ibc, g%der1%rhs_b, g%der1%rhs_t, bcs_hb(:), bcs_ht(:))
                 select case (ibc)
                 case (BCS_DD)
                     call g%der1%matmuldevel(rhs=g%der1%rhs(:, 1:ndr), &
@@ -254,38 +255,55 @@ program VPARTIAL
                                             rhs_t=g%der1%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
                                             u=u, &
                                             f=du1_n)
+                    ! call g%der1%matmuldevel_thomas(rhs=g%der1%rhs(:, 1:ndr), &
+                    !                                rhs_b=g%der1%rhs(1:ndr/2, 1:ndr), &
+                    !                                rhs_t=g%der1%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
+                    !                                u=u, &
+                    !                                L=g%der1%lu(:, ip + 1:ip + ndl/2), &
+                    !                                f=du1_n)
                 case (BCS_ND)
                     call g%der1%matmuldevel(rhs=g%der1%rhs(:, 1:ndr), &
                                             rhs_b=g%der1%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
                                             rhs_t=g%der1%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
                                             u=u, &
                                             f=du1_n, bcs_b=bcs_hb(:))
+                    ! call g%der1%matmuldevel_thomas(rhs=g%der1%rhs(:, 1:ndr), &
+                    !                                rhs_b=g%der1%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
+                    !                                rhs_t=g%der1%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
+                    !                                u=u, &
+                    !                                L=g%der1%lu(:, ip + 1:ip + ndl/2), &
+                    !                                f=du1_n, bcs_b=bcs_hb(:))
                 case (BCS_DN)
                     call g%der1%matmuldevel(rhs=g%der1%rhs(:, 1:ndr), &
                                             rhs_b=g%der1%rhs(1:ndr/2, 1:ndr), &
                                             rhs_t=g%der1%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
                                             u=u, &
                                             f=du1_n, bcs_t=bcs_ht(:))
+                    ! call g%der1%matmuldevel_thomas(rhs=g%der1%rhs(:, 1:ndr), &
+                    !                                rhs_b=g%der1%rhs(1:ndr/2, 1:ndr), &
+                    !                                rhs_t=g%der1%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
+                    !                                u=u, &
+                    !                                L=g%der1%lu(:, ip + 1:ip + ndl/2), &
+                    !                                f=du1_n, bcs_t=bcs_ht(:))
                 case (BCS_NN)
                     call g%der1%matmuldevel(rhs=g%der1%rhs(:, 1:ndr), &
                                             rhs_b=g%der1%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
                                             rhs_t=g%der1%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
                                             u=u, &
                                             f=du1_n, bcs_b=bcs_hb(:), bcs_t=bcs_ht(:))
+                    ! call g%der1%matmuldevel_thomas(rhs=g%der1%rhs(:, 1:ndr), &
+                    !                                rhs_b=g%der1%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
+                    !                                rhs_t=g%der1%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
+                    !                                u=u, &
+                    !                                L=g%der1%lu(:, ip + 1:ip + ndl/2), &
+                    !                                f=du1_n, bcs_b=bcs_hb(:), bcs_t=bcs_ht(:))
 
                 end select
+
                 ! -------------------------------------------------------------------
                 ! Solve for u' in system of equations A u' = B u
-                ip = ibc*5
-
-                select case (ndl)
-                case (3)
-                    call Thomas3_SolveL(g%der1%lu(nmin:nmax, ip + 1:ip + ndl/2), du1_n(:, nmin:nmax))
-                    call Thomas3_SolveU(g%der1%lu(nmin:nmax, ip + ndl/2 + 1:ip + ndl), du1_n(:, nmin:nmax))
-                case (5)
-                    call Thomas5_SolveL(g%der1%lu(nmin:nmax, ip + 1:ip + ndl/2), du1_n(:, nmin:nmax))
-                    call Thomas5_SolveU(g%der1%lu(nmin:nmax, ip + ndl/2 + 1:ip + ndl), du1_n(:, nmin:nmax))
-                end select
+                call g%der1%thomasL(g%der1%lu(nmin:nmax, ip + 1:ip + ndl/2), du1_n(:, nmin:nmax))
+                call g%der1%thomasU(g%der1%lu(nmin:nmax, ip + ndl/2 + 1:ip + ndl), du1_n(:, nmin:nmax))
 
                 write (str, *) im
                 call check(u(:, nmin:nmax), du1_a(:, nmin:nmax), du1_n(:, nmin:nmax), 'partial-'//trim(adjustl(str))//'.dat')
@@ -468,7 +486,6 @@ program VPARTIAL
 
                 ! -------------------------------------------------------------------
                 ! Calculate RHS in system of equations A u' = B u
-                ! call g%der1%matmul(g%der1%rhs, u, du1_n, ibc, g%der1%rhs_b, g%der1%rhs_t, bcs_hb(1:nlines), bcs_ht(1:nlines))
                 select case (ibc)
                 case (BCS_MIN)
                     call g%der1%matmuldevel(rhs=g%der1%rhs(:, 1:ndr), &
@@ -476,29 +493,43 @@ program VPARTIAL
                                             rhs_t=g%der1%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
                                             u=u, &
                                             f=du1_n)!, bcs_b=bcs_hb(:))
+                    ! call g%der1%matmuldevel_thomas(rhs=g%der1%rhs(:, 1:ndr), &
+                    !                                rhs_b=g%der1%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
+                    !                                rhs_t=g%der1%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
+                    !                                u=u, &
+                    !                                L=g%der1%lu(:, 1:ndl/2), &
+                    !                                f=du1_n)!, bcs_b=bcs_hb(:))
                 case (BCS_MAX)
                     call g%der1%matmuldevel(rhs=g%der1%rhs(:, 1:ndr), &
                                             rhs_b=g%der1%rhs(1:ndr/2, 1:ndr), &
                                             rhs_t=g%der1%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
                                             u=u, &
                                             f=du1_n)!, bcs_t=bcs_ht(:))
+                    ! call g%der1%matmuldevel_thomas(rhs=g%der1%rhs(:, 1:ndr), &
+                    !                                rhs_b=g%der1%rhs(1:ndr/2, 1:ndr), &
+                    !                                rhs_t=g%der1%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
+                    !                                u=u, &
+                    !                                L=g%der1%lu(:, 1:ndl/2), &
+                    !                                f=du1_n)!, bcs_t=bcs_ht(:))
                 case (BCS_BOTH)
                     call g%der1%matmuldevel(rhs=g%der1%rhs(:, 1:ndr), &
                                             rhs_b=g%der1%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
                                             rhs_t=g%der1%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
                                             u=u, &
                                             f=du1_n)!, bcs_b=bcs_hb(:), bcs_t=bcs_ht(:))
+                    ! call g%der1%matmuldevel_thomas(rhs=g%der1%rhs(:, 1:ndr), &
+                    !                                rhs_b=g%der1%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
+                    !                                rhs_t=g%der1%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
+                    !                                u=u, &
+                    !                                L=g%der1%lu(:, 1:ndl/2), &
+                    !                                f=du1_n)!, bcs_b=bcs_hb(:), bcs_t=bcs_ht(:))
 
                 end select
 
-                select case (g%der1%nb_diag(1))
-                case (3)
-                    call Thomas3_SolveL(g%der1%lu(nmin:nmax, 1:ndl/2), du1_n(:, nmin:nmax))
-                    call Thomas3_SolveU(g%der1%lu(nmin:nmax, ndl/2 + 1:ndl), du1_n(:, nmin:nmax))
-                case (5)
-                    call Thomas5_SolveL(g%der1%lu(nmin:nmax, 1:ndl/2), du1_n(:, nmin:nmax))
-                    call Thomas5_SolveU(g%der1%lu(nmin:nmax, ndl/2 + 1:ndl), du1_n(:, nmin:nmax))
-                end select
+                ! -------------------------------------------------------------------
+                ! Solve for u' in system of equations A u' = B u
+                call g%der1%thomasL(g%der1%lu(nmin:nmax, 1:ndl/2), du1_n(:, nmin:nmax))
+                call g%der1%thomasU(g%der1%lu(nmin:nmax, ndl/2 + 1:ndl), du1_n(:, nmin:nmax))
 
                 if (any([BCS_MIN, BCS_BOTH] == ibc)) then
                     ! du1_n(:, 1) = bcs_hb(1:nlines)

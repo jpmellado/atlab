@@ -49,41 +49,53 @@ contains
             end if
             nsize = nmax - nmin + 1
 
+            ip = ibc*5
+
             ! -------------------------------------------------------------------
             ! Calculate RHS in system of equations A u' = B u
-            ! call g%matmul(g%rhs, u, z, ibc, g%rhs_b, g%rhs_t, bcs_hb, bcs_ht)
             select case (ibc)
             case (BCS_ND)
-                call g%matmuldevel(rhs=g%rhs(:, 1:ndr), &
-                                   rhs_b=g%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
-                                   rhs_t=g%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
-                                   u=u, &
-                                   f=z, bcs_b=bcs_hb(:))
+                ! call g%matmuldevel(rhs=g%rhs(:, 1:ndr), &
+                !                    rhs_b=g%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
+                !                    rhs_t=g%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
+                !                    u=u, &
+                !                    f=z, bcs_b=bcs_hb(:))
+                call g%matmuldevel_thomas(rhs=g%rhs(:, 1:ndr), &
+                                          rhs_b=g%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
+                                          rhs_t=g%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
+                                          u=u, &
+                                          L=g%lu(:, ip + 1:ip + ndl/2), &
+                                          f=z, bcs_b=bcs_hb(:))
             case (BCS_DN)
-                call g%matmuldevel(rhs=g%rhs(:, 1:ndr), &
-                                   rhs_b=g%rhs(1:ndr/2, 1:ndr), &
-                                   rhs_t=g%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
-                                   u=u, &
-                                   f=z, bcs_t=bcs_ht(:))
+                ! call g%matmuldevel(rhs=g%rhs(:, 1:ndr), &
+                !                    rhs_b=g%rhs(1:ndr/2, 1:ndr), &
+                !                    rhs_t=g%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
+                !                    u=u, &
+                !                    f=z, bcs_t=bcs_ht(:))
+                call g%matmuldevel_thomas(rhs=g%rhs(:, 1:ndr), &
+                                          rhs_b=g%rhs(1:ndr/2, 1:ndr), &
+                                          rhs_t=g%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
+                                          u=u, &
+                                          L=g%lu(:, ip + 1:ip + ndl/2), &
+                                          f=z, bcs_t=bcs_ht(:))
             case (BCS_NN)
-                call g%matmuldevel(rhs=g%rhs(:, 1:ndr), &
-                                   rhs_b=g%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
-                                   rhs_t=g%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
-                                   u=u, &
-                                   f=z, bcs_b=bcs_hb(:), bcs_t=bcs_ht(:))
+                ! call g%matmuldevel(rhs=g%rhs(:, 1:ndr), &
+                !                    rhs_b=g%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
+                !                    rhs_t=g%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
+                !                    u=u, &
+                !                    f=z, bcs_b=bcs_hb(:), bcs_t=bcs_ht(:))
+                call g%matmuldevel_thomas(rhs=g%rhs(:, 1:ndr), &
+                                          rhs_b=g%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
+                                          rhs_t=g%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
+                                          u=u, &
+                                          L=g%lu(:, ip + 1:ip + ndl/2), &
+                                          f=z, bcs_b=bcs_hb(:), bcs_t=bcs_ht(:))
 
             end select
             ! -------------------------------------------------------------------
             ! Solve for u' in system of equations A u' = B u
-            ip = ibc*5
-            select case (ndl)
-            case (3)
-                call Thomas3_SolveL(g%lu(nmin:nmax, ip + 1:ip + ndl/2), z(:, nmin:nmax))
-                call Thomas3_SolveU(g%lu(nmin:nmax, ip + ndl/2 + 1:ip + ndl), z(:, nmin:nmax))
-            case (5)
-                call Thomas5_SolveL(g%lu(nmin:nmax, ip + 1:ip + ndl/2), z(:, nmin:nmax))
-                call Thomas5_SolveU(g%lu(nmin:nmax, ip + ndl/2 + 1:ip + ndl), z(:, nmin:nmax))
-            end select
+            ! call g%thomasL(g%lu(nmin:nmax, ip + 1:ip + ndl/2), z(:, nmin:nmax))
+            call g%thomasU(g%lu(nmin:nmax, ip + ndl/2 + 1:ip + ndl), z(:, nmin:nmax))
 
             if (any([BCS_ND, BCS_NN] == ibc)) then
                 do ic = 1, idl - 1
@@ -139,25 +151,26 @@ contains
             ! z(1, 1) = u(1, 1)
             bcs_hb(1) = u(1, 1)
 
+            ip = ibc*5
+
             ! -------------------------------------------------------------------
             ! Calculate RHS in system of equations A u' = B u
-            ! call g%matmul(g%rhs, u, z, ibc, g%rhs_b, g%rhs_t, bcs_hb, bcs_ht)
-            call g%matmuldevel(rhs=g%rhs(:, 1:ndr), &
-                               rhs_b=g%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
-                               rhs_t=g%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
-                               u=u, &
-                               f=z, bcs_b=bcs_hb(:))
+            ! call g%matmuldevel(rhs=g%rhs(:, 1:ndr), &
+            !                    rhs_b=g%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
+            !                    rhs_t=g%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
+            !                    u=u, &
+            !                    f=z, bcs_b=bcs_hb(:))
+            call g%matmuldevel_thomas(rhs=g%rhs(:, 1:ndr), &
+                                      rhs_b=g%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
+                                      rhs_t=g%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
+                                      u=u, &
+                                      L=g%lu(:, ip + 1:ip + ndl/2), &
+                                      f=z, bcs_b=bcs_hb(:))
+
             ! -------------------------------------------------------------------
             ! Solve for u' in system of equations A u' = B u
-            ip = ibc*5
-            select case (ndl)
-            case (3)
-                call Thomas3_SolveL(g%lu(nmin:nmax, ip + 1:ip + ndl/2), z(:, nmin:nmax))
-                call Thomas3_SolveU(g%lu(nmin:nmax, ip + ndl/2 + 1:ip + ndl), z(:, nmin:nmax))
-            case (5)
-                call Thomas5_SolveL(g%lu(nmin:nmax, ip + 1:ip + ndl/2), z(:, nmin:nmax))
-                call Thomas5_SolveU(g%lu(nmin:nmax, ip + ndl/2 + 1:ip + ndl), z(:, nmin:nmax))
-            end select
+            ! call g%thomasL(g%lu(nmin:nmax, ip + 1:ip + ndl/2), z(:, nmin:nmax))
+            call g%thomasU(g%lu(nmin:nmax, ip + ndl/2 + 1:ip + ndl), z(:, nmin:nmax))
 
             do ic = 1, idl - 1
                 bcs_hb(1) = bcs_hb(1) + g%lu(1, ip + idl + ic)*z(1, 1 + ic)
@@ -201,6 +214,8 @@ contains
         ndr = g%nb_diag(2)
         idr = ndr/2 + 1
 
+        ip = ibc*5
+
         do n = g%size, 1, -1
             u(1, :) = 0.0_wp                ! Create delta-function forcing term
             u(1, n) = 1.0_wp
@@ -210,24 +225,22 @@ contains
 
             ! -------------------------------------------------------------------
             ! Calculate RHS in system of equations A u' = B u
-            ! call g%matmul(g%rhs, u, z, ibc, g%rhs_b, g%rhs_t, bcs_hb, bcs_ht)
-            call g%matmuldevel(rhs=g%rhs(:, 1:ndr), &
-                               rhs_b=g%rhs(1:ndr/2, 1:ndr), &
-                               rhs_t=g%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
-                               u=u, &
-                               f=z, bcs_t=bcs_ht(:))
+            ! call g%matmuldevel(rhs=g%rhs(:, 1:ndr), &
+            !                    rhs_b=g%rhs(1:ndr/2, 1:ndr), &
+            !                    rhs_t=g%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
+            !                    u=u, &
+            !                    f=z, bcs_t=bcs_ht(:))
+            call g%matmuldevel_thomas(rhs=g%rhs(:, 1:ndr), &
+                                      rhs_b=g%rhs(1:ndr/2, 1:ndr), &
+                                      rhs_t=g%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
+                                      u=u, &
+                                      L=g%lu(:, ip + 1:ip + ndl/2), &
+                                      f=z, bcs_t=bcs_ht(:))
 
-                               ! -------------------------------------------------------------------
+            ! -------------------------------------------------------------------
             ! Solve for u' in system of equations A u' = B u
-            ip = ibc*5
-            select case (ndl)
-            case (3)
-                call Thomas3_SolveL(g%lu(nmin:nmax, ip + 1:ip + ndl/2), z(:, nmin:nmax))
-                call Thomas3_SolveU(g%lu(nmin:nmax, ip + ndl/2 + 1:ip + ndl), z(:, nmin:nmax))
-            case (5)
-                call Thomas5_SolveL(g%lu(nmin:nmax, ip + 1:ip + ndl/2), z(:, nmin:nmax))
-                call Thomas5_SolveU(g%lu(nmin:nmax, ip + ndl/2 + 1:ip + ndl), z(:, nmin:nmax))
-            end select
+            ! call g%thomasL(g%lu(nmin:nmax, ip + 1:ip + ndl/2), z(:, nmin:nmax))
+            call g%thomasU(g%lu(nmin:nmax, ip + ndl/2 + 1:ip + ndl), z(:, nmin:nmax))
 
             do ic = 1, idl - 1
                 bcs_ht(1) = bcs_ht(1) + g%lu(g%size, ip + idl - ic)*z(1, g%size - ic)

@@ -3,7 +3,6 @@ module FDM_derivative_Neumann
     use TLab_Constants, only: wp, wi, roundoff_wp
     use TLab_Constants, only: BCS_ND, BCS_DN, BCS_NN
     use FDM_Derivative
-    use Thomas
     implicit none
     private
 
@@ -32,24 +31,22 @@ contains
         ndr = g%nb_diag(2)
         idr = ndr/2 + 1
 
+        ip = ibc*5
+
         do n = 1, g%size
             u(1, :) = 0.0_wp                ! Create delta-function forcing term
             u(1, n) = 1.0_wp
 
             nmin = 1; nmax = g%size
             if (any([BCS_ND, BCS_NN] == ibc)) then
-                ! z(1, 1) = u(1, 1)
                 bcs_hb(1) = u(1, 1)
                 nmin = nmin + 1
             end if
             if (any([BCS_DN, BCS_NN] == ibc)) then
-                ! z(1, g%size) = u(1, g%size)
                 bcs_ht(1) = u(1, g%size)
                 nmax = nmax - 1
             end if
             nsize = nmax - nmin + 1
-
-            ip = ibc*5
 
             ! -------------------------------------------------------------------
             ! Calculate RHS in system of equations A u' = B u
@@ -144,14 +141,13 @@ contains
         ndr = g%nb_diag(2)
         idr = ndr/2 + 1
 
+        ip = ibc*5
+
         do n = 1, g%size
             u(1, :) = 0.0_wp                ! Create delta-function forcing term
             u(1, n) = 1.0_wp
 
-            ! z(1, 1) = u(1, 1)
             bcs_hb(1) = u(1, 1)
-
-            ip = ibc*5
 
             ! -------------------------------------------------------------------
             ! Calculate RHS in system of equations A u' = B u
@@ -220,7 +216,6 @@ contains
             u(1, :) = 0.0_wp                ! Create delta-function forcing term
             u(1, n) = 1.0_wp
 
-            ! z(1, g%size) = u(1, g%size)
             bcs_ht(1) = u(1, g%size)
 
             ! -------------------------------------------------------------------

@@ -116,11 +116,14 @@ contains
         ! -------------------------------------------------------------------
         if (present(bcs_b)) then
             call MatMul_X_LowerBoundary(rhs_b, u, f, bcs_b)
+            nx_thomas = 3
         else
             call MatMul_X_LowerBoundary(rhs_b, u, f)
+            nx_thomas = 2
         end if
         ! Thomas step: nx_b is typically small, no need to interlace it with matmul loop
-        do ir = 2, nx_b
+        ! skip first row if bcs are given
+        do ir = nx_thomas, nx_b
             f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 1)
         end do
 
@@ -145,7 +148,7 @@ contains
             nx_thomas = nx
         end if
         ! Thomas step: nx_t is typically small, no need to interlace it with matmul loop
-        ! do not change last row if bcs are given
+        ! skip last row if bcs are given
         do ir = nx - nx_t + 1, nx_thomas
             f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 1)
         end do
@@ -174,11 +177,14 @@ contains
         ! -------------------------------------------------------------------
         if (present(bcs_b)) then
             call MatMul_X_LowerBoundary(rhs_b, u, f, bcs_b)
+            nx_thomas = 3
         else
             call MatMul_X_LowerBoundary(rhs_b, u, f)
+            nx_thomas = 2
         end if
         ! Thomas step: nx_b is typically small, no need to interlace it with matmul loop
-        do ir = 2, nx_b
+        ! skip first row if bcs are given
+        do ir = nx_thomas, nx_b
             f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 1)
         end do
 
@@ -201,7 +207,7 @@ contains
             call MatMul_X_UpperBoundary(rhs_t, u(:, nx - nx_t + 1:nx), f(:, nx - nx_t + 1:nx))
         end if
         ! Thomas step: nx_t is typically small, no need to interlace it with matmul loop
-        ! do not change last row if bcs are given
+        ! skip last row if bcs are given
         do ir = nx - nx_t + 1, nx_thomas
             f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 1)
         end do
@@ -231,11 +237,14 @@ contains
         ! -------------------------------------------------------------------
         if (present(bcs_b)) then
             call MatMul_X_LowerBoundary(rhs_b, u, f, bcs_b)
+            nx_thomas = 3
         else
             call MatMul_X_LowerBoundary(rhs_b, u, f)
+            nx_thomas = 2
         end if
         ! Thomas step: nx_b is typically small, no need to interlace it with matmul loop
-        do ir = 2, nx_b
+        ! skip first row if bcs are given
+        do ir = nx_thomas, nx_b
             f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 1)
         end do
 
@@ -260,7 +269,7 @@ contains
             nx_thomas = nx
         end if
         ! Thomas step: nx_t is typically small, no need to interlace it with matmul loop
-        ! do not change last row if bcs are given
+        ! skip last row if bcs are given
         do ir = nx - nx_t + 1, nx_thomas
             f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 1)
         end do
@@ -289,11 +298,14 @@ contains
         ! -------------------------------------------------------------------
         if (present(bcs_b)) then
             call MatMul_X_LowerBoundary(rhs_b, u, f, bcs_b)
+            nx_thomas = 3
         else
             call MatMul_X_LowerBoundary(rhs_b, u, f)
+            nx_thomas = 2
         end if
         ! Thomas step: nx_b is typically small, no need to interlace it with matmul loop
-        do ir = 2, nx_b
+        ! skip first row if bcs are given
+        do ir = nx_thomas, nx_b
             f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 1)
         end do
 
@@ -320,7 +332,7 @@ contains
             nx_thomas = nx
         end if
         ! Thomas step: nx_t is typically small, no need to interlace it with matmul loop
-        ! do not change last row if bcs are given
+        ! skip last row if bcs are given
         do ir = nx - nx_t + 1, nx_thomas
             f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 1)
         end do
@@ -350,11 +362,14 @@ contains
         ! -------------------------------------------------------------------
         if (present(bcs_b)) then
             call MatMul_X_LowerBoundary(rhs_b, u, f, bcs_b)
+            nx_thomas = 3
         else
             call MatMul_X_LowerBoundary(rhs_b, u, f)
+            nx_thomas = 2
         end if
         ! Thomas step: nx_b is typically small, no need to interlace it with matmul loop
-        do ir = 2, nx_b
+        ! skip first row if bcs are given
+        do ir = nx_thomas, nx_b
             f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 1)
         end do
 
@@ -379,7 +394,7 @@ contains
             nx_thomas = nx
         end if
         ! Thomas step: nx_t is typically small, no need to interlace it with matmul loop
-        ! do not change last row if bcs are given
+        ! skip last row if bcs are given
         do ir = nx - nx_t + 1, nx_thomas
             f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 1)
         end do
@@ -410,11 +425,14 @@ contains
         ! -------------------------------------------------------------------
         if (present(bcs_b)) then
             call MatMul_X_LowerBoundary(rhs_b, u, f, bcs_b)
+            nx_thomas = 3
         else
             call MatMul_X_LowerBoundary(rhs_b, u, f)
+            nx_thomas = 2
         end if
         ! Thomas step: nx_b is typically small, no need to interlace it with matmul loop
-        do ir = 2, nx_b
+        ! skip first row if bcs are given
+        do ir = nx_thomas, nx_b
             f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 1)
         end do
 
@@ -442,7 +460,7 @@ contains
             nx_thomas = nx
         end if
         ! Thomas step: nx_t is typically small, no need to interlace it with matmul loop
-        ! do not change last row if bcs are given
+        ! skip last row if bcs are given
         do ir = nx - nx_t + 1, nx_thomas
             f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 1)
         end do
@@ -471,13 +489,16 @@ contains
         ! -------------------------------------------------------------------
         if (present(bcs_b)) then
             call MatMul_X_LowerBoundary(rhs_b, u, f, bcs_b)
+            nx_thomas = 3
         else
             call MatMul_X_LowerBoundary(rhs_b, u, f)
+            nx_thomas = 2
         end if
         ! Thomas step: nx_b is typically small, no need to interlace it with matmul loop
-        ir = 2
+        ! skip first row if bcs are given
+        ir = nx_thomas
         f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 2)
-        do ir = 3, nx_b
+        do ir = nx_thomas + 1, nx_b
             f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 2) + f(:, ir - 2)*L(ir, 1)
         end do
 
@@ -505,7 +526,7 @@ contains
             nx_thomas = nx
         end if
         ! Thomas step: nx_t is typically small, no need to interlace it with matmul loop
-        ! do not change last row if bcs are given
+        ! skip last row if bcs are given
         do ir = nx - nx_t + 1, nx_thomas
             f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 2) + f(:, ir - 2)*L(ir, 1)
         end do
@@ -535,13 +556,16 @@ contains
         ! -------------------------------------------------------------------
         if (present(bcs_b)) then
             call MatMul_X_LowerBoundary(rhs_b, u, f, bcs_b)
+            nx_thomas = 3
         else
             call MatMul_X_LowerBoundary(rhs_b, u, f)
+            nx_thomas = 2
         end if
         ! Thomas step: nx_b is typically small, no need to interlace it with matmul loop
-        ir = 2
+        ! skip first row if bcs are given
+        ir = nx_thomas
         f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 2)
-        do ir = 3, nx_b
+        do ir = nx_thomas + 1, nx_b
             f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 2) + f(:, ir - 2)*L(ir, 1)
         end do
 
@@ -566,7 +590,7 @@ contains
             nx_thomas = nx
         end if
         ! Thomas step: nx_t is typically small, no need to interlace it with matmul loop
-        ! do not change last row if bcs are given
+        ! skip last row if bcs are given
         do ir = nx - nx_t + 1, nx_thomas
             f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 2) + f(:, ir - 2)*L(ir, 1)
         end do
@@ -597,13 +621,16 @@ contains
         ! -------------------------------------------------------------------
         if (present(bcs_b)) then
             call MatMul_X_LowerBoundary(rhs_b, u, f, bcs_b)
+            nx_thomas = 3
         else
             call MatMul_X_LowerBoundary(rhs_b, u, f)
+            nx_thomas = 2
         end if
         ! Thomas step: nx_b is typically small, no need to interlace it with matmul loop
-        ir = 2
+        ! skip first row if bcs are given
+        ir = nx_thomas
         f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 2)
-        do ir = 3, nx_b
+        do ir = nx_thomas + 1, nx_b
             f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 2) + f(:, ir - 2)*L(ir, 1)
         end do
 
@@ -630,7 +657,7 @@ contains
             nx_thomas = nx
         end if
         ! Thomas step: nx_t is typically small, no need to interlace it with matmul loop
-        ! do not change last row if bcs are given
+        ! skip last row if bcs are given
         do ir = nx - nx_t + 1, nx_thomas
             f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 2) + f(:, ir - 2)*L(ir, 1)
         end do
@@ -663,8 +690,10 @@ contains
         ! -------------------------------------------------------------------
         if (present(bcs_b)) then
             call MatMul_X_LowerBoundary(rhs_b, u, f, bcs_b)
+            nx_thomas = 3
         else
             call MatMul_X_LowerBoundary(rhs_b, u, f)
+            nx_thomas = 2
         end if
         ! Add second array
         ir = 1
@@ -679,7 +708,8 @@ contains
                        + u_add(:, ir + 1)*rhs_add(ir, 3)
         end do
         ! Thomas step: nx_b is typically small, no need to interlace it with matmul loop
-        do ir = 2, nx_b
+        ! skip first row if bcs are given
+        do ir = nx_thomas, nx_b
             f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 1)
         end do
 
@@ -724,7 +754,7 @@ contains
                    + u_add(:, ir - 1)*rhs_add(ir, 1) &
                    + u_add(:, ir)*rhs_add(ir, 2)
         ! Thomas step: nx_t is typically small, no need to interlace it with matmul loop
-        ! do not change last row if bcs are given
+        ! skip last row if bcs are given
         do ir = nx - nx_t + 1, nx_thomas
             f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 1)
         end do
@@ -757,8 +787,10 @@ contains
         ! -------------------------------------------------------------------
         if (present(bcs_b)) then
             call MatMul_X_LowerBoundary(rhs_b, u, f, bcs_b)
+            nx_thomas = 3
         else
             call MatMul_X_LowerBoundary(rhs_b, u, f)
+            nx_thomas = 2
         end if
         ! Add second array
         ir = 1
@@ -773,9 +805,10 @@ contains
                        + u_add(:, ir + 1)*rhs_add(ir, 3)
         end do
         ! Thomas step: nx_b is typically small, no need to interlace it with matmul loop
-        ir = 2
+        ! skip first row if bcs are given
+        ir = nx_thomas
         f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 2)
-        do ir = 3, nx_b
+        do ir = nx_thomas + 1, nx_b
             f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 2) + f(:, ir - 2)*L(ir, 1)
         end do
 
@@ -820,7 +853,7 @@ contains
                    + u_add(:, ir - 1)*rhs_add(ir, 1) &
                    + u_add(:, ir)*rhs_add(ir, 2)
         ! Thomas step: nx_t is typically small, no need to interlace it with matmul loop
-        ! do not change last row if bcs are given
+        ! skip last row if bcs are given
         do ir = nx - nx_t + 1, nx_thomas
             f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 2) + f(:, ir - 2)*L(ir, 1)
         end do
@@ -851,11 +884,14 @@ contains
         ! -------------------------------------------------------------------
         if (present(bcs_b)) then
             call MatMul_X_LowerBoundary(rhs_b, u, f, bcs_b)
+            nx_thomas = 3
         else
             call MatMul_X_LowerBoundary(rhs_b, u, f)
+            nx_thomas = 2
         end if
         ! Thomas step: nx_b is typically small, no need to interlace it with matmul loop
-        do ir = 2, nx_b
+        ! skip first row if bcs are given
+        do ir = nx_thomas, nx_b
             f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 1)
         end do
 
@@ -883,7 +919,7 @@ contains
             nx_thomas = nx
         end if
         ! Thomas step: nx_t is typically small, no need to interlace it with matmul loop
-        ! do not change last row if bcs are given
+        ! skip last row if bcs are given
         do ir = nx - nx_t + 1, nx_thomas
             f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 1)
         end do
@@ -915,11 +951,14 @@ contains
         ! -------------------------------------------------------------------
         if (present(bcs_b)) then
             call MatMul_X_LowerBoundary(rhs_b, u, f, bcs_b)
+            nx_thomas = 3
         else
             call MatMul_X_LowerBoundary(rhs_b, u, f)
+            nx_thomas = 2
         end if
         ! Thomas step: nx_b is typically small, no need to interlace it with matmul loop
-        do ir = 2, nx_b
+        ! skip first row if bcs are given
+        do ir = nx_thomas, nx_b
             f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 1)
         end do
 
@@ -948,7 +987,7 @@ contains
             nx_thomas = nx
         end if
         ! Thomas step: nx_t is typically small, no need to interlace it with matmul loop
-        ! do not change last row if bcs are given
+        ! skip last row if bcs are given
         do ir = nx - nx_t + 1, nx_thomas
             f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 1)
         end do
@@ -979,13 +1018,16 @@ contains
         ! -------------------------------------------------------------------
         if (present(bcs_b)) then
             call MatMul_X_LowerBoundary(rhs_b, u, f, bcs_b)
+            nx_thomas = 3
         else
             call MatMul_X_LowerBoundary(rhs_b, u, f)
+            nx_thomas = 2
         end if
         ! Thomas step: nx_b is typically small, no need to interlace it with matmul loop
-        ir = 2
+        ! skip first row if bcs are given
+        ir = nx_thomas
         f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 2)
-        do ir = 3, nx_b
+        do ir = nx_thomas + 1, nx_b
             f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 2) + f(:, ir - 2)*L(ir, 1)
         end do
 
@@ -1013,7 +1055,7 @@ contains
             nx_thomas = nx
         end if
         ! Thomas step: nx_t is typically small, no need to interlace it with matmul loop
-        ! do not change last row if bcs are given
+        ! skip last row if bcs are given
         do ir = nx - nx_t + 1, nx_thomas
             f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 2) + f(:, ir - 2)*L(ir, 1)
         end do
@@ -1045,13 +1087,16 @@ contains
         ! -------------------------------------------------------------------
         if (present(bcs_b)) then
             call MatMul_X_LowerBoundary(rhs_b, u, f, bcs_b)
+            nx_thomas = 3
         else
             call MatMul_X_LowerBoundary(rhs_b, u, f)
+            nx_thomas = 2
         end if
         ! Thomas step: nx_b is typically small, no need to interlace it with matmul loop
-        ir = 2
+        ! skip first row if bcs are given
+        ir = nx_thomas
         f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 2)
-        do ir = 3, nx_b
+        do ir = nx_thomas + 1, nx_b
             f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 2) + f(:, ir - 2)*L(ir, 1)
         end do
 
@@ -1080,7 +1125,7 @@ contains
             nx_thomas = nx
         end if
         ! Thomas step: nx_t is typically small, no need to interlace it with matmul loop
-        ! do not change last row if bcs are given
+        ! skip last row if bcs are given
         do ir = nx - nx_t + 1, nx_thomas
             f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 2) + f(:, ir - 2)*L(ir, 1)
         end do
@@ -1114,8 +1159,10 @@ contains
         ! -------------------------------------------------------------------
         if (present(bcs_b)) then
             call MatMul_X_LowerBoundary(rhs_b, u, f, bcs_b)
+            nx_thomas = 3
         else
             call MatMul_X_LowerBoundary(rhs_b, u, f)
+            nx_thomas = 2
         end if
         ! Add second array
         ir = 1
@@ -1130,7 +1177,8 @@ contains
                        + u_add(:, ir + 1)*rhs_add(ir, 3)
         end do
         ! Thomas step: nx_b is typically small, no need to interlace it with matmul loop
-        do ir = 2, nx_b
+        ! skip first row if bcs are given
+        do ir = nx_thomas, nx_b
             f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 1)
         end do
 
@@ -1177,7 +1225,7 @@ contains
                    + u_add(:, ir - 1)*rhs_add(ir, 1) &
                    + u_add(:, ir)*rhs_add(ir, 2)
         ! Thomas step: nx_t is typically small, no need to interlace it with matmul loop
-        ! do not change last row if bcs are given
+        ! skip last row if bcs are given
         do ir = nx - nx_t + 1, nx_thomas
             f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 1)
         end do
@@ -1211,8 +1259,10 @@ contains
         ! -------------------------------------------------------------------
         if (present(bcs_b)) then
             call MatMul_X_LowerBoundary(rhs_b, u, f, bcs_b)
+            nx_thomas = 3
         else
             call MatMul_X_LowerBoundary(rhs_b, u, f)
+            nx_thomas = 2
         end if
         ! Add second array
         ir = 1
@@ -1227,9 +1277,10 @@ contains
                        + u_add(:, ir + 1)*rhs_add(ir, 3)
         end do
         ! Thomas step: nx_b is typically small, no need to interlace it with matmul loop
-        ir = 2
+        ! skip first row if bcs are given
+        ir = nx_thomas
         f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 2)
-        do ir = 3, nx_b
+        do ir = nx_thomas + 1, nx_b
             f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 2) + f(:, ir - 2)*L(ir, 1)
         end do
 
@@ -1276,7 +1327,7 @@ contains
                    + u_add(:, ir - 1)*rhs_add(ir, 1) &
                    + u_add(:, ir)*rhs_add(ir, 2)
         ! Thomas step: nx_t is typically small, no need to interlace it with matmul loop
-        ! do not change last row if bcs are given
+        ! skip last row if bcs are given
         do ir = nx - nx_t + 1, nx_thomas
             f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 2) + f(:, ir - 2)*L(ir, 1)
         end do

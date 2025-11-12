@@ -11,7 +11,6 @@ module BoundaryConditions
 
     public :: BCS_Initialize
     public :: BCS_Neumann_Z
-    ! public :: BCS_Neumann_Z_Old
     public :: BCS_SURFACE_Z
 
     type bcs_dt
@@ -29,8 +28,6 @@ module BoundaryConditions
     logical, public :: BcsDrift
 
     ! -------------------------------------------------------------------
-    ! integer(wi) nmin, nmax, nsize
-
     ! Boundary conditions
     integer, parameter, public :: DNS_BCS_NONE = 0
     integer, parameter, public :: DNS_BCS_DIRICHLET = 1

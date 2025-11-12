@@ -7,7 +7,6 @@ module FDM_Derivative
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
     use Thomas
     use Thomas_Circulant
-    use Matmul
     use MatmulDevel
     use Matmul_Thomas
     use Matmul_Halo
@@ -38,7 +37,7 @@ module FDM_Derivative
 
         ! procedure(matmul_halo_ice), pointer, nopass :: matmul_halo => null()
         procedure(matmul_halo_thomas_ice), pointer, nopass :: matmul_halo_thomas => null()
-        procedure(matmuldevel_ice), pointer, nopass :: matmuldevel => null()
+        ! procedure(matmuldevel_ice), pointer, nopass :: matmuldevel => null()
         ! procedure(matmuldevel_add_ice), pointer, nopass :: matmuldevel_add => null()
         procedure(matmuldevel_thomas_ice), pointer, nopass :: matmuldevel_thomas => null()
         procedure(matmuldevel_add_thomas_ice), pointer, nopass :: matmuldevel_add_thomas => null()
@@ -290,24 +289,24 @@ contains
             if (any([FDM_COM4_DIRECT, FDM_COM6_DIRECT] == g%mode_fdm)) then
                 select case (ndr)
                 case (3)
-                    g%matmuldevel => MatMul_3
+                    ! g%matmuldevel => MatMul_3
                     if (ndl == 3) g%matmuldevel_thomas => MatMul_3_ThomasL_3
                 case (5)
-                    g%matmuldevel => MatMul_5
+                    ! g%matmuldevel => MatMul_5
                     if (ndl == 3) g%matmuldevel_thomas => MatMul_5_ThomasL_3
                     if (ndl == 5) g%matmuldevel_thomas => MatMul_5_ThomasL_5
                 end select
             else
                 select case (ndr)
                 case (3)
-                    g%matmuldevel => MatMul_3_antisym
+                    ! g%matmuldevel => MatMul_3_antisym
                     if (ndl == 3) g%matmuldevel_thomas => MatMul_3_antisym_ThomasL_3
                 case (5)
-                    g%matmuldevel => MatMul_5_antisym
+                    ! g%matmuldevel => MatMul_5_antisym
                     if (ndl == 3) g%matmuldevel_thomas => MatMul_5_antisym_ThomasL_3
                     if (ndl == 5) g%matmuldevel_thomas => MatMul_5_antisym_ThomasL_5
                 case (7)
-                    g%matmuldevel => MatMul_7_antisym
+                    ! g%matmuldevel => MatMul_7_antisym
                     if (ndl == 3) g%matmuldevel_thomas => MatMul_7_antisym_ThomasL_3
                     if (ndl == 5) g%matmuldevel_thomas => MatMul_7_antisym_ThomasL_5
                 end select

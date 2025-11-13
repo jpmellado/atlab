@@ -194,9 +194,9 @@ contains
         allocate (fdmi%rhs(nx, ndl))
 
         if (allocated(fdmi%rhs_b1)) deallocate (fdmi%rhs_b1)
-        allocate (fdmi%rhs_b1(max(idl, idr + 1), 1:ndr + 2))
+        allocate (fdmi%rhs_b1(max(idr, idl + 1), 1:ndl + 2))
         if (allocated(fdmi%rhs_t1)) deallocate (fdmi%rhs_t1)
-        allocate (fdmi%rhs_t1(max(idl, idr + 1), 1:ndr + 2))
+        allocate (fdmi%rhs_t1(max(idr, idl + 1), 1:ndl + 2))
 
         ! -------------------------------------------------------------------
         ! new rhs diagonals (array A), independent of lambda
@@ -268,15 +268,15 @@ contains
         ! new format; extending to ndr+2 diagonals
         fdmi%rhs_b1(:, :) = 0.0_wp
         fdmi%rhs_t1(:, :) = 0.0_wp
-        do ir = 1, max(idl, idr + 1)
-            fdmi%rhs_b1(ir, 1:ndr + 1) = fdmi%rhs_b(ir, 0:ndr)
-            fdmi%rhs_t1(ir, 2:ndr + 2) = fdmi%rhs_t(ir - 1, 1:ndr + 1)
+        do ir = 1, max(idr, idl + 1)
+            fdmi%rhs_b1(ir, 1:ndl + 1) = fdmi%rhs_b(ir, 0:ndl)
+            fdmi%rhs_t1(ir, 2:ndl + 2) = fdmi%rhs_t(ir - 1, 1:ndl + 1)
         end do
         ! arrange for longer stencil
         ir = 1
-        fdmi%rhs_b1(ir, ndr + 2) = fdmi%rhs_b1(ir, 2); fdmi%rhs_b1(ir, 2) = 0.0_wp
-        ir = max(idl, idr + 1)
-        fdmi%rhs_t1(ir, 1) = fdmi%rhs_t1(ir, ndr + 1); fdmi%rhs_t1(ir, ndr + 1) = 0.0_wp
+        fdmi%rhs_b1(ir, ndl + 2) = fdmi%rhs_b1(ir, 2); fdmi%rhs_b1(ir, 2) = 0.0_wp
+        ir = max(idr, idl + 1)
+        fdmi%rhs_t1(ir, 1) = fdmi%rhs_t1(ir, ndl + 1); fdmi%rhs_t1(ir, ndl + 1) = 0.0_wp
 
         return
     end subroutine FDM_Int1_CreateSystem
@@ -310,11 +310,13 @@ contains
 
         select case (fdmi%bc)
         case (BCS_MIN)
-            result(:, nx) = f(:, nx)
-            ! bcs_ht(:) = f(:, nx)
+            ! result(:, nx) = f(:, nx)
+            bcs_hb(:) = result(:, 1)
+            bcs_ht(:) = f(:, nx)
         case (BCS_MAX)
-            result(:, 1) = f(:, 1)
-            ! bcs_hb(:) = f(:, 1)
+            ! result(:, 1) = f(:, 1)
+            bcs_hb(:) = f(:, 1)
+            bcs_ht(:) = result(:, nx)
         end select
 
         ! select case (ndr)
@@ -331,17 +333,18 @@ contains
         !                    bcs_b=bcs_hb(:), &
         !                    bcs_t=bcs_ht(:))
         ! end select
-        call fdmi%matmul(rhsi, f, result, BCS_BOTH, &
-                         rhs_b=fdmi%rhs_b, &
-                         rhs_t=fdmi%rhs_t, &
-                         bcs_b=bcs_hb(:), &
-                         bcs_t=bcs_ht(:))
-        ! call fdmi%matmuldevel(rhs=rhsi(:, 1:ndr), &
-        !                    rhs_b=fdmi%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
-        !                    rhs_t=fdmi%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
-        !                    u=f, &
-        !                    f=result, &
-        !                    bcs_b=bcs_hb(:), bcs_t=bcs_ht(:))
+        ! call fdmi%matmul(rhsi, f, result, BCS_BOTH, &
+        !                  rhs_b=fdmi%rhs_b, &
+        !                  rhs_t=fdmi%rhs_t, &
+        !                  bcs_b=bcs_hb(:), &
+        !                  bcs_t=bcs_ht(:))
+        call fdmi%matmuldevel(rhs=rhsi(:, 1:ndr), &
+                              rhs_b=fdmi%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
+                              rhs_t=fdmi%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
+                              u=f, &
+                              f=result, &
+                              bcs_b=bcs_hb(:), &
+                              bcs_t=bcs_ht(:))
 
         ! select case (ndl)
         ! case (3)

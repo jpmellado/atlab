@@ -27,13 +27,13 @@ module FDM_Derivative
         logical :: periodic = .false.
         logical :: need_1der = .false.              ! In nonuniform, Jacobian formulation, need 1. order derivative for the 2. order one
         integer nb_diag(2)                          ! # of left and right diagonals  (max 5/7)
-        real(wp) :: rhs_b(4 + 1, 0:7), rhs_t(0:4, 7)    ! Neumann boundary conditions, max. # of diagonals is 7, # rows is 7/2+1
-        real(wp), allocatable :: lhs(:, :)          ! memory space for LHS
-        real(wp), allocatable :: rhs(:, :)          ! memory space for RHS
-        real(wp), allocatable :: rhs_b1(:, :), rhs_t1(:, :)
-        real(wp), allocatable :: mwn(:)             ! memory space for modified wavenumbers
+        ! real(wp) :: rhs_b(4 + 1, 0:7), rhs_t(0:4, 7)    ! Neumann boundary conditions, max. # of diagonals is 7, # rows is 7/2+1
+        real(wp), allocatable :: lhs(:, :)                  ! memory space for LHS
+        real(wp), allocatable :: rhs(:, :)                  ! memory space for RHS
+        real(wp), allocatable :: rhs_b1(:, :), rhs_t1(:, :) ! Neumann boundary conditions
+        real(wp), allocatable :: mwn(:)                     ! memory space for modified wavenumbers
         !
-        real(wp), allocatable :: lu(:, :)           ! memory space for LU decomposition
+        real(wp), allocatable :: lu(:, :)                   ! memory space for LU decomposition
 
         ! procedure(matmul_halo_ice), pointer, nopass :: matmul_halo => null()
         procedure(matmul_halo_thomas_ice), pointer, nopass :: matmul_halo_thomas => null()
@@ -202,9 +202,9 @@ contains
         end if
         g%lu(:, :) = 0.0_wp
 
-        g%rhs_b(:, :) = 0.0_wp
-        g%rhs_t(:, :) = 0.0_wp
-        ! new format; extending to ndr+2 diagonals
+        ! g%rhs_b(:, :) = 0.0_wp
+        ! g%rhs_t(:, :) = 0.0_wp
+        ! extending rhs at teh boundaries to ndr+2 diagonals
         if (allocated(g%rhs_b1)) deallocate (g%rhs_b1)
         allocate (g%rhs_b1(max(idl, idr + 1), 1:ndr + 2))
         if (allocated(g%rhs_t1)) deallocate (g%rhs_t1)
@@ -230,14 +230,15 @@ contains
             do ib = 1, size(bcs_cases)
                 ip = (ib - 1)*5
 
-                call FDM_Der1_Neumann_Reduce(g%lhs(:, 1:ndl), g%rhs(:, 1:ndr), bcs_cases(ib), g%lu(:, ip + 1:ip + ndl), g%rhs_b, g%rhs_t)
+                ! call FDM_Der1_Neumann_Reduce(g%lhs(:, 1:ndl), g%rhs(:, 1:ndr), bcs_cases(ib), g%lu(:, ip + 1:ip + ndl), g%rhs_b, g%rhs_t)
+                call FDM_Der1_Neumann_Reduce(g%lhs(:, 1:ndl), g%rhs(:, 1:ndr), bcs_cases(ib), g%lu(:, ip + 1:ip + ndl), g%rhs_b1, g%rhs_t1(:,2:))
 
                 ! new format; extending to ndr+2 diagonals
-                do i = 1, max(idl, idr + 1)
-                    g%rhs_b1(i, 1:ndr + 1) = g%rhs_b(i, 0:ndr)
-                    g%rhs_t1(i, 2:ndr + 2) = g%rhs_t(i - 1, 1:ndr + 1)
-                end do
-                ! longer stencil
+                ! do i = 1, max(idl, idr + 1)
+                !     g%rhs_b1(i, 1:ndr + 1) = g%rhs_b(i, 0:ndr)
+                !     g%rhs_t1(i, 2:ndr + 2) = g%rhs_t(i - 1, 1:ndr + 1)
+                ! end do
+                ! arrange for longer stencil; check FDM_Der1_Neumann_Reduce
                 i = 1
                 g%rhs_b1(i, ndr + 2) = g%rhs_b1(i, 2); g%rhs_b1(i, 2) = 0.0_wp
                 i = max(idl, idr + 1)

@@ -462,18 +462,22 @@ program VPARTIAL
                 ndr = g%der1%nb_diag(2)
                 idr = g%der1%nb_diag(2)/2 + 1
 
-                g%der1%rhs_b = 0.0_wp
-                g%der1%rhs_t = 0.0_wp
-                g%der1%lu(:, 1:ndl) = g%der1%lhs(:, 1:ndl)
-                call FDM_Bcs_Reduce(ibc, g%der1%lu(:, 1:ndl), g%der1%rhs(:, 1:ndr), g%der1%rhs_b, g%der1%rhs_t)
-
+                ! g%der1%rhs_b = 0.0_wp
+                ! g%der1%rhs_t = 0.0_wp
                 ! new format; extending to ndr+2 diagonals
                 g%der1%rhs_b1 = 0.0_wp
                 g%der1%rhs_t1 = 0.0_wp
-                do i = 1, max(idl, idr + 1)
-                    g%der1%rhs_b1(i, 1:ndr + 1) = g%der1%rhs_b(i, 0:ndr)
-                    g%der1%rhs_t1(i, 2:ndr + 2) = g%der1%rhs_t(i - 1, 1:ndr + 1)
-                end do
+                g%der1%lu(:, 1:ndl) = g%der1%lhs(:, 1:ndl)
+                ! call FDM_Bcs_Reduce(ibc, g%der1%lu(:, 1:ndl), g%der1%rhs(:, 1:ndr), g%der1%rhs_b, g%der1%rhs_t)
+                call FDM_Bcs_Reduce(ibc, g%der1%lu(:, 1:ndl), g%der1%rhs(:, 1:ndr), g%der1%rhs_b1, g%der1%rhs_t1(:,2:))
+
+                ! new format; extending to ndr+2 diagonals
+                ! g%der1%rhs_b1 = 0.0_wp
+                ! g%der1%rhs_t1 = 0.0_wp
+                ! do i = 1, max(idl, idr + 1)
+                !     g%der1%rhs_b1(i, 1:ndr + 1) = g%der1%rhs_b(i, 0:ndr)
+                !     g%der1%rhs_t1(i, 2:ndr + 2) = g%der1%rhs_t(i - 1, 1:ndr + 1)
+                ! end do
                 ! longer stencil
                 i = 1
                 g%der1%rhs_b1(i, ndr + 2) = g%der1%rhs_b1(i, 2); g%der1%rhs_b1(i, 2) = 0.0_wp

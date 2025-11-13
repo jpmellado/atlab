@@ -226,7 +226,7 @@ contains
                     ! fdm_int1(BCS_MAX, i, j)%rhs(z%size, idl) = fdm_int1(BCS_MAX, i, j)%rhs(z%size, idl)*norm ! not this one
                     ! fdm_int1(BCS_MAX, i, j)%rhs_b(:, :) = fdm_int1(BCS_MAX, i, j)%rhs_b(:, :)*norm
                     ! fdm_int1(BCS_MAX, i, j)%rhs_t(:, :) = fdm_int1(BCS_MAX, i, j)%rhs_t(:, :)*norm
-                    ! fdm_int1(BCS_MAX, i, j)%lhs(z%size, idr) = fdm_int1(BCS_MAX, i, j)%lhs(z%size, idr)*norm 
+                    ! fdm_int1(BCS_MAX, i, j)%lhs(z%size, idr) = fdm_int1(BCS_MAX, i, j)%lhs(z%size, idr)*norm
 
                     if (any(i_sing == i) .and. any(j_sing == j)) then
                     else                                        ! free memory that is independent of lambda

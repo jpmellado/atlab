@@ -116,16 +116,16 @@ module FDM_Derivative
         end subroutine
     end interface
 
-    abstract interface
-        subroutine matmuldevel_ice(rhs, rhs_b, rhs_t, u, f, bcs_b, bcs_t)
-            use TLab_Constants, only: wp
-            real(wp), intent(in) :: rhs(:, :)
-            real(wp), intent(in) :: rhs_b(:, :), rhs_t(:, :)
-            real(wp), intent(in) :: u(:, :)
-            real(wp), intent(out) :: f(:, :)
-            real(wp), intent(inout), optional :: bcs_b(:), bcs_t(:)
-        end subroutine
-    end interface
+    ! abstract interface
+    !     subroutine matmuldevel_ice(rhs, rhs_b, rhs_t, u, f, bcs_b, bcs_t)
+    !         use TLab_Constants, only: wp
+    !         real(wp), intent(in) :: rhs(:, :)
+    !         real(wp), intent(in) :: rhs_b(:, :), rhs_t(:, :)
+    !         real(wp), intent(in) :: u(:, :)
+    !         real(wp), intent(out) :: f(:, :)
+    !         real(wp), intent(inout), optional :: bcs_b(:), bcs_t(:)
+    !     end subroutine
+    ! end interface
 
     abstract interface
         subroutine matmuldevel_add_ice(rhs, rhs_b, rhs_t, u, f, rhs_add, u_add, bcs_b, bcs_t)

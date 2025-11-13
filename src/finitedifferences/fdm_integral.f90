@@ -11,6 +11,7 @@ module FDM_Integral
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
     use Thomas
     use Matmul
+    use MatMulDevel
     use Preconditioning
     use FDM_Derivative, only: fdm_derivative_dt
     use FDM_Base
@@ -19,12 +20,18 @@ module FDM_Integral
 
     type, public :: fdm_integral_dt
         sequence
-        integer mode_fdm                            ! original finite-difference method; only informative
-        real(wp) :: lambda                          ! constant of the equation
-        integer :: bc                               ! type of boundary condition, [ BCS_MIN, BCS_MAX ]
-        real(wp) :: rhs_b(1:5, 0:7), rhs_t(0:4, 8)  ! # of diagonals is 7, # rows is 7/2+1
-        real(wp), allocatable :: lhs(:, :)          ! Often overwritten to LU decomposition.
+        integer mode_fdm                                    ! original finite-difference method; only informative
+        real(wp) :: lambda                                  ! constant of the equation
+        integer :: bc                                       ! type of boundary condition, [ BCS_MIN, BCS_MAX ]
+        real(wp) :: rhs_b(1:5, 0:7), rhs_t(0:4, 8)          ! # of diagonals is 7, # rows is 7/2+1
+        real(wp), allocatable :: lhs(:, :)                  ! Often overwritten to LU decomposition.
         real(wp), allocatable :: rhs(:, :)
+        real(wp), allocatable :: rhs_b1(:, :), rhs_t1(:, :) ! boundary conditions
+        procedure(matmuldevel_thomas_ice), pointer, nopass :: matmuldevel_thomas => null()
+        procedure(thomas_ice), pointer, nopass :: thomasL => null()
+        procedure(thomas_ice), pointer, nopass :: thomasU => null()
+        procedure(matmuldevel_ice), pointer, nopass :: matmuldevel => null()
+        procedure(matmul_ice), pointer, nopass :: matmul => null()
     end type fdm_integral_dt
     ! This type is used in elliptic operators for different eigenvalues. This can lead to fragmented memory.
     ! One could use pointers instead of allocatable for lhs and rhs, and point the pointers to the
@@ -37,6 +44,50 @@ module FDM_Integral
     public FDM_Int2_Initialize                      ! Prepare to solve (u')' - \lamba^2 u = f
     ! public FDM_Int2_CreateSystem
     public FDM_Int2_Solve
+
+    ! -----------------------------------------------------------------------
+    abstract interface
+        subroutine thomas_ice(A, f)
+            use TLab_Constants, only: wp
+            real(wp), intent(in) :: A(:, :)
+            real(wp), intent(inout) :: f(:, :)          ! RHS and solution
+        end subroutine
+    end interface
+
+    abstract interface
+        subroutine matmuldevel_ice(rhs, rhs_b, rhs_t, u, f, bcs_b, bcs_t)
+            use TLab_Constants, only: wp
+            real(wp), intent(in) :: rhs(:, :)
+            real(wp), intent(in) :: rhs_b(:, :), rhs_t(:, :)
+            real(wp), intent(in) :: u(:, :)
+            real(wp), intent(out) :: f(:, :)
+            real(wp), intent(inout), optional :: bcs_b(:), bcs_t(:)
+        end subroutine
+    end interface
+
+    abstract interface
+        subroutine matmuldevel_thomas_ice(rhs, rhs_b, rhs_t, u, f, L, bcs_b, bcs_t)
+            use TLab_Constants, only: wp
+            real(wp), intent(in) :: rhs(:, :)
+            real(wp), intent(in) :: rhs_b(:, :), rhs_t(:, :)
+            real(wp), intent(in) :: u(:, :)
+            real(wp), intent(out) :: f(:, :)
+            real(wp), intent(in) :: L(:, :)
+            real(wp), intent(inout), optional :: bcs_b(:), bcs_t(:)
+        end subroutine
+    end interface
+
+    abstract interface
+        subroutine matmul_ice(rhs, u, f, ibc, rhs_b, rhs_t, bcs_b, bcs_t)
+            use TLab_Constants, only: wp
+            real(wp), intent(in) :: rhs(:, :)                               ! diagonals of B
+            real(wp), intent(in) :: u(:, :)                                 ! vector u
+            real(wp), intent(out) :: f(:, :)                                ! vector f = B u
+            integer, intent(in) :: ibc
+            real(wp), intent(in), optional :: rhs_b(:, 0:), rhs_t(0:, :)    ! Special bcs at bottom, top
+            real(wp), intent(out), optional :: bcs_b(:), bcs_t(:)
+        end subroutine
+    end interface
 
 contains
     !########################################################################
@@ -64,17 +115,46 @@ contains
         type(fdm_integral_dt), intent(inout) :: fdmi    ! int_plan to be created; inout because otherwise allocatable arrays are deallocated
 
         ! -------------------------------------------------------------------
-        integer(wi) nx, nd
+        integer(wi) nx, ndl, ndr
 
         !########################################################################
         call FDM_Int1_CreateSystem(g, lambda, ibc, fdmi)
 
         ! LU decomposition
         nx = size(fdmi%lhs, 1)              ! # of grid points
-        nd = size(fdmi%lhs, 2)              ! # of diagonals
+        ndl = size(fdmi%lhs, 2)             ! # of diagonals
+        ndr = size(fdmi%rhs, 2)             ! # of diagonals
 
-        call Thomas_FactorLU_InPlace(fdmi%lhs(2:nx - 1, 1:nd/2), &
-                                     fdmi%lhs(2:nx - 1, nd/2 + 1:nd))
+        call Thomas_FactorLU_InPlace(fdmi%lhs(2:nx - 1, 1:ndl/2), &
+                                     fdmi%lhs(2:nx - 1, ndl/2 + 1:ndl))
+
+        ! -------------------------------------------------------------------
+        ! Procedure pointers to linear solvers
+        select case (ndl)
+        case (3)
+            fdmi%thomasL => Thomas3_SolveL
+            fdmi%thomasU => Thomas3_SolveU
+        case (5)
+            fdmi%thomasL => Thomas5_SolveL
+            fdmi%thomasU => Thomas5_SolveU
+        case (7)
+            fdmi%thomasL => Thomas7_SolveL
+            fdmi%thomasU => Thomas7_SolveU
+        end select
+
+        ! -------------------------------------------------------------------
+        ! Procedure pointers to matrix multiplication to calculate the right-hand side
+        select case (ndr)
+        case (3)
+            fdmi%matmul => MatMul_3d
+            fdmi%matmuldevel => MatMul_3
+            ! if (ndl == 3) g%matmuldevel_thomas => MatMul_3_ThomasL_3
+        case (5)
+            fdmi%matmul => MatMul_5d
+            fdmi%matmuldevel => MatMul_5
+            ! if (ndl == 3) g%matmuldevel_thomas => MatMul_5_ThomasL_3
+            ! if (ndl == 5) g%matmuldevel_thomas => MatMul_5_ThomasL_5
+        end select
 
         return
     end subroutine FDM_Int1_Initialize
@@ -112,6 +192,11 @@ contains
         if (allocated(fdmi%rhs)) deallocate (fdmi%rhs)
         allocate (fdmi%lhs(nx, ndr))
         allocate (fdmi%rhs(nx, ndl))
+
+        if (allocated(fdmi%rhs_b1)) deallocate (fdmi%rhs_b1)
+        allocate (fdmi%rhs_b1(max(idl, idr + 1), 1:ndr + 2))
+        if (allocated(fdmi%rhs_t1)) deallocate (fdmi%rhs_t1)
+        allocate (fdmi%rhs_t1(max(idl, idr + 1), 1:ndr + 2))
 
         ! -------------------------------------------------------------------
         ! new rhs diagonals (array A), independent of lambda
@@ -180,6 +265,19 @@ contains
                         fdmi%rhs_b(1:max(idr, idl + 1), 0:ndl + 1), &
                         fdmi%rhs_t(0:max(idr, idl + 1) - 1, 1:ndl + 2))
 
+        ! new format; extending to ndr+2 diagonals
+        fdmi%rhs_b1(:, :) = 0.0_wp
+        fdmi%rhs_t1(:, :) = 0.0_wp
+        do ir = 1, max(idl, idr + 1)
+            fdmi%rhs_b1(ir, 1:ndr + 1) = fdmi%rhs_b(ir, 0:ndr)
+            fdmi%rhs_t1(ir, 2:ndr + 2) = fdmi%rhs_t(ir - 1, 1:ndr + 1)
+        end do
+        ! arrange for longer stencil
+        ir = 1
+        fdmi%rhs_b1(ir, ndr + 2) = fdmi%rhs_b1(ir, 2); fdmi%rhs_b1(ir, 2) = 0.0_wp
+        ir = max(idl, idr + 1)
+        fdmi%rhs_t1(ir, 1) = fdmi%rhs_t1(ir, ndr + 1); fdmi%rhs_t1(ir, ndr + 1) = 0.0_wp
+
         return
     end subroutine FDM_Int1_CreateSystem
 
@@ -207,69 +305,61 @@ contains
         ndr = size(rhsi, 2)
         idr = ndr/2 + 1
 
+#define bcs_hb(i) wrk2d(i,1)
+#define bcs_ht(i) wrk2d(i,2)
+
         select case (fdmi%bc)
         case (BCS_MIN)
             result(:, nx) = f(:, nx)
+            ! bcs_ht(:) = f(:, nx)
         case (BCS_MAX)
             result(:, 1) = f(:, 1)
+            ! bcs_hb(:) = f(:, 1)
         end select
 
-        select case (ndr)
-        case (3)
-            call MatMul_3d(rhsi, f, result, BCS_BOTH, &
-                           rhs_b=fdmi%rhs_b, &
-                           rhs_t=fdmi%rhs_t, &
-                           bcs_b=wrk2d(:, 1), &
-                           bcs_t=wrk2d(:, 2))
-        case (5)
-            call MatMul_5d(rhsi, f, result, BCS_BOTH, &
-                           rhs_b=fdmi%rhs_b, &
-                           rhs_t=fdmi%rhs_t, &
-                           bcs_b=wrk2d(:, 1), &
-                           bcs_t=wrk2d(:, 2))
-        end select
+        ! select case (ndr)
+        ! case (3)
+        !     call MatMul_3d(rhsi, f, result, BCS_BOTH, &
+        !                    rhs_b=fdmi%rhs_b, &
+        !                    rhs_t=fdmi%rhs_t, &
+        !                    bcs_b=bcs_hb(:), &
+        !                    bcs_t=bcs_ht(:))
+        ! case (5)
+        !     call MatMul_5d(rhsi, f, result, BCS_BOTH, &
+        !                    rhs_b=fdmi%rhs_b, &
+        !                    rhs_t=fdmi%rhs_t, &
+        !                    bcs_b=bcs_hb(:), &
+        !                    bcs_t=bcs_ht(:))
+        ! end select
+        call fdmi%matmul(rhsi, f, result, BCS_BOTH, &
+                         rhs_b=fdmi%rhs_b, &
+                         rhs_t=fdmi%rhs_t, &
+                         bcs_b=bcs_hb(:), &
+                         bcs_t=bcs_ht(:))
+        ! call fdmi%matmuldevel(rhs=rhsi(:, 1:ndr), &
+        !                    rhs_b=fdmi%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
+        !                    rhs_t=fdmi%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
+        !                    u=f, &
+        !                    f=result, &
+        !                    bcs_b=bcs_hb(:), bcs_t=bcs_ht(:))
 
-        select case (ndl)
-        case (3)
-            call Thomas3_SolveL(fdmi%lhs(2:nx - 1, 1:ndl/2), result(:, 2:nx - 1))
-            call Thomas3_SolveU(fdmi%lhs(2:nx - 1, ndl/2 + 1:ndl), result(:, 2:nx - 1))
-        case (5)
-            call Thomas5_SolveL(fdmi%lhs(2:nx - 1, 1:ndl/2), result(:, 2:nx - 1))
-            call Thomas5_SolveU(fdmi%lhs(2:nx - 1, ndl/2 + 1:ndl), result(:, 2:nx - 1))
-        case (7)
-            call Thomas7_SolveL(fdmi%lhs(2:nx - 1, 1:ndl/2), result(:, 2:nx - 1))
-            call Thomas7_SolveU(fdmi%lhs(2:nx - 1, ndl/2 + 1:ndl), result(:, 2:nx - 1))
-        end select
+        ! select case (ndl)
+        ! case (3)
+        !     call Thomas3_SolveL(fdmi%lhs(2:nx - 1, 1:ndl/2), result(:, 2:nx - 1))
+        !     call Thomas3_SolveU(fdmi%lhs(2:nx - 1, ndl/2 + 1:ndl), result(:, 2:nx - 1))
+        ! case (5)
+        !     call Thomas5_SolveL(fdmi%lhs(2:nx - 1, 1:ndl/2), result(:, 2:nx - 1))
+        !     call Thomas5_SolveU(fdmi%lhs(2:nx - 1, ndl/2 + 1:ndl), result(:, 2:nx - 1))
+        ! case (7)
+        !     call Thomas7_SolveL(fdmi%lhs(2:nx - 1, 1:ndl/2), result(:, 2:nx - 1))
+        !     call Thomas7_SolveU(fdmi%lhs(2:nx - 1, ndl/2 + 1:ndl), result(:, 2:nx - 1))
+        ! end select
+        call fdmi%thomasL(fdmi%lhs(2:nx - 1, 1:ndl/2), result(:, 2:nx - 1))
+        call fdmi%thomasU(fdmi%lhs(2:nx - 1, ndl/2 + 1:ndl), result(:, 2:nx - 1))
 
-        if (any([BCS_MAX] == fdmi%bc)) then
-            result(:, 1) = wrk2d(:, 1)
-            do ic = 1, idl - 1
-                result(:, 1) = result(:, 1) + fdmi%lhs(1, idl + ic)*result(:, 1 + ic)
-            end do
-            result(:, 1) = result(:, 1) + fdmi%lhs(1, 1)*result(:, 1 + ic)
-
-            result(:, 1) = result(:, 1)/fdmi%lhs(1, idl)
-
-            if (present(du_boundary)) then      ! calculate u'n
-                du_boundary(:) = result(:, nx)*fdmi%lhs(nx, idl)
-                do ic = 1, idl - 1
-                    du_boundary(:) = du_boundary(:) + fdmi%lhs(nx, idl - ic)*result(:, nx - ic)
-                end do
-                ic = idl                        ! longer stencil at the boundary
-                du_boundary(:) = du_boundary(:) + fdmi%lhs(nx, ndl)*result(:, nx - ic)
-
-                do ic = 1, idr - 1
-                    du_boundary(:) = du_boundary(:) + rhsi(nx, idr - ic)*f(:, nx - ic)
-                end do
-
-                du_boundary(:) = du_boundary(:)/rhsi(nx, idr)
-
-            end if
-
-        end if
-
-        if (any([BCS_MIN] == fdmi%bc)) then
-            result(:, nx) = wrk2d(:, 2)
+        select case (fdmi%bc)
+        case (BCS_MIN)
+            result(:, nx) = bcs_ht(:)
             do ic = 1, idl - 1
                 result(:, nx) = result(:, nx) + fdmi%lhs(nx, idl - ic)*result(:, nx - ic)
             end do
@@ -293,7 +383,35 @@ contains
 
             end if
 
-        end if
+        case (BCS_MAX)
+            result(:, 1) = bcs_hb(:)
+            do ic = 1, idl - 1
+                result(:, 1) = result(:, 1) + fdmi%lhs(1, idl + ic)*result(:, 1 + ic)
+            end do
+            result(:, 1) = result(:, 1) + fdmi%lhs(1, 1)*result(:, 1 + ic)
+
+            result(:, 1) = result(:, 1)/fdmi%lhs(1, idl)
+
+            if (present(du_boundary)) then      ! calculate u'n
+                du_boundary(:) = result(:, nx)*fdmi%lhs(nx, idl)
+                do ic = 1, idl - 1
+                    du_boundary(:) = du_boundary(:) + fdmi%lhs(nx, idl - ic)*result(:, nx - ic)
+                end do
+                ic = idl                        ! longer stencil at the boundary
+                du_boundary(:) = du_boundary(:) + fdmi%lhs(nx, ndl)*result(:, nx - ic)
+
+                do ic = 1, idr - 1
+                    du_boundary(:) = du_boundary(:) + rhsi(nx, idr - ic)*f(:, nx - ic)
+                end do
+
+                du_boundary(:) = du_boundary(:)/rhsi(nx, idr)
+
+            end if
+
+        end select
+
+#undef bcs_hb
+#undef bcs_ht
 
         return
     end subroutine FDM_Int1_Solve
@@ -324,17 +442,46 @@ contains
         type(fdm_integral_dt), intent(inout) :: fdmi    ! int_plan to be created; inout because otherwise allocatable arrays are deallocated
 
         ! -------------------------------------------------------------------
-        integer(wi) nx, nd
+        integer(wi) nx, ndl, ndr
 
         !########################################################################
         call FDM_Int2_CreateSystem(x, g, lambda2, ibc, fdmi)
 
         ! LU decomposition
         nx = size(fdmi%lhs, 1)              ! # of grid points
-        nd = size(fdmi%lhs, 2)              ! # of diagonals
+        ndl = size(fdmi%lhs, 2)             ! # of diagonals
+        ndr = size(fdmi%rhs, 2)             ! # of diagonals
 
-        call Thomas_FactorLU_InPlace(fdmi%lhs(2:nx - 1, 1:nd/2), &
-                                     fdmi%lhs(2:nx - 1, nd/2 + 1:nd))
+        call Thomas_FactorLU_InPlace(fdmi%lhs(2:nx - 1, 1:ndl/2), &
+                                     fdmi%lhs(2:nx - 1, ndl/2 + 1:ndl))
+
+        ! -------------------------------------------------------------------
+        ! Procedure pointers to linear solvers
+        select case (ndl)
+        case (3)
+            fdmi%thomasL => Thomas3_SolveL
+            fdmi%thomasU => Thomas3_SolveU
+        case (5)
+            fdmi%thomasL => Thomas5_SolveL
+            fdmi%thomasU => Thomas5_SolveU
+        case (7)
+            fdmi%thomasL => Thomas7_SolveL
+            fdmi%thomasU => Thomas7_SolveU
+        end select
+
+        ! -------------------------------------------------------------------
+        ! Procedure pointers to matrix multiplication to calculate the right-hand side
+        select case (ndr)
+        case (3)
+            fdmi%matmul => MatMul_3d
+            fdmi%matmuldevel => MatMul_3
+            ! if (ndl == 3) g%matmuldevel_thomas => MatMul_3_ThomasL_3
+        case (5)
+            fdmi%matmul => MatMul_5d
+            fdmi%matmuldevel => MatMul_5
+            ! if (ndl == 3) g%matmuldevel_thomas => MatMul_5_ThomasL_3
+            ! if (ndl == 5) g%matmuldevel_thomas => MatMul_5_ThomasL_5
+        end select
 
         return
     end subroutine FDM_Int2_Initialize
@@ -608,51 +755,79 @@ contains
         real(wp), intent(inout) :: wrk2d(nlines, 2)
 
         ! -------------------------------------------------------------------
-        integer(wi) :: nx, ndl, ndr
+        integer(wi) :: nx, ndl, ndr, idl, idr
 
         ! ###################################################################
         nx = size(fdmi%lhs, 1)
-        ndl = size(fdmi%lhs, 2)
-        ndr = size(rhsi, 2)
 
-        select case (ndr)
-        case (3)
-            call MatMul_3d(rhsi, f, result, BCS_BOTH, &
-                           rhs_b=fdmi%rhs_b(1:3, 0:3), rhs_t=fdmi%rhs_t(0:2, 1:4), &
-                           bcs_b=wrk2d(:, 1), bcs_t=wrk2d(:, 2))
-        case (5)
-            call MatMul_5d(rhsi, f, result, BCS_BOTH, &
-                           rhs_b=fdmi%rhs_b(1:4, 0:5), rhs_t=fdmi%rhs_t(0:3, 1:6), &
-                           bcs_b=wrk2d(:, 1), bcs_t=wrk2d(:, 2))
-        end select
+        ndl = size(fdmi%lhs, 2)
+        idl = ndl/2 + 1
+        ndr = size(rhsi, 2)
+        idr = ndr/2 + 1
+
+#define bcs_hb(i) wrk2d(i,1)
+#define bcs_ht(i) wrk2d(i,2)
+
+        ! select case (ndr)
+        ! case (3)
+        !     call MatMul_3d(rhsi, f, result, BCS_BOTH, &
+        !                 !    rhs_b=fdmi%rhs_b(1:3, 0:3), &
+        !                 !    rhs_t=fdmi%rhs_t(0:2, 1:4), &
+        !                    rhs_b=fdmi%rhs_b(1:idr + 1, 0:ndr), &
+        !                    rhs_t=fdmi%rhs_t(0:idr, 1:ndr + 1), &
+        !                    bcs_b=wrk2d(:, 1), bcs_t=wrk2d(:, 2))
+        ! case (5)
+        !     call MatMul_5d(rhsi, f, result, BCS_BOTH, &
+        !                 !    rhs_b=fdmi%rhs_b(1:4, 0:5), &
+        !                 !    rhs_t=fdmi%rhs_t(0:3, 1:6), &
+        !                    rhs_b=fdmi%rhs_b(1:idr + 1, 0:ndr), &
+        !                    rhs_t=fdmi%rhs_t(0:idr, 1:ndr + 1), &
+        !                    bcs_b=wrk2d(:, 1), bcs_t=wrk2d(:, 2))
+        ! end select
+        call fdmi%matmul(rhsi, f, result, BCS_BOTH, &
+                         rhs_b=fdmi%rhs_b(1:idr + 1, 0:ndr), &
+                         rhs_t=fdmi%rhs_t(0:idr, 1:ndr + 1), &
+                         bcs_b=bcs_hb(:), &
+                         bcs_t=bcs_ht(:))
+        ! call fdmi%matmuldevel(rhs=rhsi(:, 1:ndr), &
+        !                    rhs_b=fdmi%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
+        !                    rhs_t=fdmi%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
+        !                    u=f, &
+        !                    f=result, &
+        !                    bcs_b=bcs_hb(:), bcs_t=bcs_ht(:))
 
         ! Solve pentadiagonal linear system
-        select case (ndl)
-        case (3)
-            call Thomas3_SolveL(fdmi%lhs(2:nx - 1, 1:ndl/2), result(:, 2:nx - 1))
-            call Thomas3_SolveU(fdmi%lhs(2:nx - 1, ndl/2 + 1:ndl), result(:, 2:nx - 1))
-        case (5)
-            call Thomas5_SolveL(fdmi%lhs(2:nx - 1, 1:ndl/2), result(:, 2:nx - 1))
-            call Thomas5_SolveU(fdmi%lhs(2:nx - 1, ndl/2 + 1:ndl), result(:, 2:nx - 1))
-        case (7)
-            call Thomas7_SolveL(fdmi%lhs(2:nx - 1, 1:ndl/2), result(:, 2:nx - 1))
-            call Thomas7_SolveU(fdmi%lhs(2:nx - 1, ndl/2 + 1:ndl), result(:, 2:nx - 1))
-        end select
+        ! select case (ndl)
+        ! case (3)
+        !     call Thomas3_SolveL(fdmi%lhs(2:nx - 1, 1:ndl/2), result(:, 2:nx - 1))
+        !     call Thomas3_SolveU(fdmi%lhs(2:nx - 1, ndl/2 + 1:ndl), result(:, 2:nx - 1))
+        ! case (5)
+        !     call Thomas5_SolveL(fdmi%lhs(2:nx - 1, 1:ndl/2), result(:, 2:nx - 1))
+        !     call Thomas5_SolveU(fdmi%lhs(2:nx - 1, ndl/2 + 1:ndl), result(:, 2:nx - 1))
+        ! case (7)
+        !     call Thomas7_SolveL(fdmi%lhs(2:nx - 1, 1:ndl/2), result(:, 2:nx - 1))
+        !     call Thomas7_SolveU(fdmi%lhs(2:nx - 1, ndl/2 + 1:ndl), result(:, 2:nx - 1))
+        ! end select
+        call fdmi%thomasL(fdmi%lhs(2:nx - 1, 1:ndl/2), result(:, 2:nx - 1))
+        call fdmi%thomasU(fdmi%lhs(2:nx - 1, ndl/2 + 1:ndl), result(:, 2:nx - 1))
 
         !   Corrections to the BCS_DD to account for Neumann
         if (any([BCS_ND, BCS_NN] == fdmi%bc)) then
-            result(:, 1) = wrk2d(:, 1) &
+            result(:, 1) = bcs_hb(:) &
                            + fdmi%lhs(1, 1)*result(:, 2) &
                            + fdmi%lhs(1, 2)*result(:, 3) &
                            + fdmi%lhs(1, 3)*result(:, 4)
         end if
 
         if (any([BCS_DN, BCS_NN] == fdmi%bc)) then
-            result(:, nx) = wrk2d(:, 2) &
+            result(:, nx) = bcs_ht(:) &
                             + fdmi%lhs(nx, ndl)*result(:, nx - 1) &
                             + fdmi%lhs(nx, ndl - 1)*result(:, nx - 2) &
                             + fdmi%lhs(nx, ndl - 2)*result(:, nx - 3)
         end if
+
+#undef bcs_hb
+#undef bcs_ht
 
         return
     end subroutine FDM_Int2_Solve

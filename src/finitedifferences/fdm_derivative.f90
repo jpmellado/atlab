@@ -7,10 +7,10 @@ module FDM_Derivative
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
     use Thomas
     use Thomas_Circulant
-    use MatmulDevel
-    use Matmul_Thomas
-    use Matmul_Halo
-    use Matmul_Halo_Thomas
+    ! use MatMul
+    use MatMul_Thomas
+    ! use MatMul_Halo
+    use MatMul_Halo_Thomas
     use Preconditioning
     use FDM_Base
     use FDM_ComX_Direct
@@ -27,7 +27,6 @@ module FDM_Derivative
         logical :: periodic = .false.
         logical :: need_1der = .false.              ! In nonuniform, Jacobian formulation, need 1. order derivative for the 2. order one
         integer nb_diag(2)                          ! # of left and right diagonals  (max 5/7)
-        ! real(wp) :: rhs_b(4 + 1, 0:7), rhs_t(0:4, 7)    ! Neumann boundary conditions, max. # of diagonals is 7, # rows is 7/2+1
         real(wp), allocatable :: lhs(:, :)                  ! memory space for LHS
         real(wp), allocatable :: rhs(:, :)                  ! memory space for RHS
         real(wp), allocatable :: rhs_b1(:, :), rhs_t1(:, :) ! Neumann boundary conditions
@@ -37,10 +36,10 @@ module FDM_Derivative
 
         ! procedure(matmul_halo_ice), pointer, nopass :: matmul_halo => null()
         procedure(matmul_halo_thomas_ice), pointer, nopass :: matmul_halo_thomas => null()
-        ! procedure(matmuldevel_ice), pointer, nopass :: matmuldevel => null()
-        ! procedure(matmuldevel_add_ice), pointer, nopass :: matmuldevel_add => null()
-        procedure(matmuldevel_thomas_ice), pointer, nopass :: matmuldevel_thomas => null()
-        procedure(matmuldevel_add_thomas_ice), pointer, nopass :: matmuldevel_add_thomas => null()
+        ! procedure(matmul_ice), pointer, nopass :: matmul => null()
+        ! procedure(matmul_add_ice), pointer, nopass :: matmul_add => null()
+        procedure(matmul_thomas_ice), pointer, nopass :: matmul_thomas => null()
+        procedure(matmul_add_thomas_ice), pointer, nopass :: matmul_add_thomas => null()
         procedure(thomas_ice), pointer, nopass :: thomasL => null()
         procedure(thomas_ice), pointer, nopass :: thomasU => null()
 
@@ -73,17 +72,13 @@ module FDM_Derivative
     integer, parameter, public :: FDM_COM6_DIRECT_HYPER = 13
 
     ! -----------------------------------------------------------------------
-    ! abstract interface
-    !     subroutine matmul_ice(rhs, u, f, ibc, rhs_b, rhs_t, bcs_b, bcs_t)
-    !         use TLab_Constants, only: wp
-    !         real(wp), intent(in) :: rhs(:, :)                               ! diagonals of B
-    !         real(wp), intent(in) :: u(:, :)                                 ! vector u
-    !         real(wp), intent(out) :: f(:, :)                                ! vector f = B u
-    !         integer, intent(in) :: ibc
-    !         real(wp), intent(in), optional :: rhs_b(:, 0:), rhs_t(0:, :)    ! Special bcs at bottom, top
-    !         real(wp), intent(out), optional :: bcs_b(:), bcs_t(:)
-    !     end subroutine
-    ! end interface
+    abstract interface
+        subroutine thomas_ice(A, f)
+            use TLab_Constants, only: wp
+            real(wp), intent(in) :: A(:, :)
+            real(wp), intent(inout) :: f(:, :)          ! RHS and solution
+        end subroutine
+    end interface
 
     abstract interface
         subroutine matmul_halo_ice(rhs, u, u_halo_m, u_halo_p, f)
@@ -93,14 +88,6 @@ module FDM_Derivative
             real(wp), intent(in) :: u_halo_m(:, :)      ! minus, coming from left
             real(wp), intent(in) :: u_halo_p(:, :)      ! plus, coming from right
             real(wp), intent(out) :: f(:, :)            ! vector f = B u
-        end subroutine
-    end interface
-
-    abstract interface
-        subroutine thomas_ice(A, f)
-            use TLab_Constants, only: wp
-            real(wp), intent(in) :: A(:, :)
-            real(wp), intent(inout) :: f(:, :)          ! RHS and solution
         end subroutine
     end interface
 
@@ -117,7 +104,7 @@ module FDM_Derivative
     end interface
 
     ! abstract interface
-    !     subroutine matmuldevel_ice(rhs, rhs_b, rhs_t, u, f, bcs_b, bcs_t)
+    !     subroutine matmul_ice(rhs, rhs_b, rhs_t, u, f, bcs_b, bcs_t)
     !         use TLab_Constants, only: wp
     !         real(wp), intent(in) :: rhs(:, :)
     !         real(wp), intent(in) :: rhs_b(:, :), rhs_t(:, :)
@@ -127,21 +114,21 @@ module FDM_Derivative
     !     end subroutine
     ! end interface
 
-    abstract interface
-        subroutine matmuldevel_add_ice(rhs, rhs_b, rhs_t, u, f, rhs_add, u_add, bcs_b, bcs_t)
-            use TLab_Constants, only: wp
-            real(wp), intent(in) :: rhs(:, :)
-            real(wp), intent(in) :: rhs_b(:, :), rhs_t(:, :)
-            real(wp), intent(in) :: u(:, :)
-            real(wp), intent(out) :: f(:, :)
-            real(wp), intent(in) :: rhs_add(:, :)
-            real(wp), intent(in) :: u_add(:, :)
-            real(wp), intent(inout), optional :: bcs_b(:), bcs_t(:)
-        end subroutine
-    end interface
+    ! abstract interface
+    !     subroutine matmul_add_ice(rhs, rhs_b, rhs_t, u, f, rhs_add, u_add, bcs_b, bcs_t)
+    !         use TLab_Constants, only: wp
+    !         real(wp), intent(in) :: rhs(:, :)
+    !         real(wp), intent(in) :: rhs_b(:, :), rhs_t(:, :)
+    !         real(wp), intent(in) :: u(:, :)
+    !         real(wp), intent(out) :: f(:, :)
+    !         real(wp), intent(in) :: rhs_add(:, :)
+    !         real(wp), intent(in) :: u_add(:, :)
+    !         real(wp), intent(inout), optional :: bcs_b(:), bcs_t(:)
+    !     end subroutine
+    ! end interface
 
     abstract interface
-        subroutine matmuldevel_thomas_ice(rhs, rhs_b, rhs_t, u, f, L, bcs_b, bcs_t)
+        subroutine matmul_thomas_ice(rhs, rhs_b, rhs_t, u, f, L, bcs_b, bcs_t)
             use TLab_Constants, only: wp
             real(wp), intent(in) :: rhs(:, :)
             real(wp), intent(in) :: rhs_b(:, :), rhs_t(:, :)
@@ -153,7 +140,7 @@ module FDM_Derivative
     end interface
 
     abstract interface
-        subroutine matmuldevel_add_thomas_ice(rhs, rhs_b, rhs_t, u, f, rhs_add, u_add, L, bcs_b, bcs_t)
+        subroutine matmul_add_thomas_ice(rhs, rhs_b, rhs_t, u, f, rhs_add, u_add, L, bcs_b, bcs_t)
             use TLab_Constants, only: wp
             real(wp), intent(in) :: rhs(:, :)
             real(wp), intent(in) :: rhs_b(:, :), rhs_t(:, :)
@@ -202,8 +189,6 @@ contains
         end if
         g%lu(:, :) = 0.0_wp
 
-        ! g%rhs_b(:, :) = 0.0_wp
-        ! g%rhs_t(:, :) = 0.0_wp
         ! extending rhs at the boundaries to ndr+2 diagonals
         if (allocated(g%rhs_b1)) deallocate (g%rhs_b1)
         allocate (g%rhs_b1(max(idl, idr + 1), 1:ndr + 2))
@@ -230,7 +215,6 @@ contains
             do ib = 1, size(bcs_cases)
                 ip = (ib - 1)*5
 
-                ! call FDM_Der1_Neumann_Reduce(g%lhs(:, 1:ndl), g%rhs(:, 1:ndr), bcs_cases(ib), g%lu(:, ip + 1:ip + ndl), g%rhs_b, g%rhs_t)
                 call FDM_Der1_Neumann_Reduce(g%lhs(:, 1:ndl), g%rhs(:, 1:ndr), bcs_cases(ib), g%lu(:, ip + 1:ip + ndl), g%rhs_b1, g%rhs_t1(:,2:))
 
                 ! new format; extending to ndr+2 diagonals
@@ -290,26 +274,26 @@ contains
             if (any([FDM_COM4_DIRECT, FDM_COM6_DIRECT] == g%mode_fdm)) then
                 select case (ndr)
                 case (3)
-                    ! g%matmuldevel => MatMul_3
-                    if (ndl == 3) g%matmuldevel_thomas => MatMul_3_ThomasL_3
+                    ! g%matmul => MatMul_3
+                    if (ndl == 3) g%matmul_thomas => MatMul_3_ThomasL_3
                 case (5)
-                    ! g%matmuldevel => MatMul_5
-                    if (ndl == 3) g%matmuldevel_thomas => MatMul_5_ThomasL_3
-                    if (ndl == 5) g%matmuldevel_thomas => MatMul_5_ThomasL_5
+                    ! g%matmul => MatMul_5
+                    if (ndl == 3) g%matmul_thomas => MatMul_5_ThomasL_3
+                    if (ndl == 5) g%matmul_thomas => MatMul_5_ThomasL_5
                 end select
             else
                 select case (ndr)
                 case (3)
-                    ! g%matmuldevel => MatMul_3_antisym
-                    if (ndl == 3) g%matmuldevel_thomas => MatMul_3_antisym_ThomasL_3
+                    ! g%matmul => MatMul_3_antisym
+                    if (ndl == 3) g%matmul_thomas => MatMul_3_antisym_ThomasL_3
                 case (5)
-                    ! g%matmuldevel => MatMul_5_antisym
-                    if (ndl == 3) g%matmuldevel_thomas => MatMul_5_antisym_ThomasL_3
-                    if (ndl == 5) g%matmuldevel_thomas => MatMul_5_antisym_ThomasL_5
+                    ! g%matmul => MatMul_5_antisym
+                    if (ndl == 3) g%matmul_thomas => MatMul_5_antisym_ThomasL_3
+                    if (ndl == 5) g%matmul_thomas => MatMul_5_antisym_ThomasL_5
                 case (7)
-                    ! g%matmuldevel => MatMul_7_antisym
-                    if (ndl == 3) g%matmuldevel_thomas => MatMul_7_antisym_ThomasL_3
-                    if (ndl == 5) g%matmuldevel_thomas => MatMul_7_antisym_ThomasL_5
+                    ! g%matmul => MatMul_7_antisym
+                    if (ndl == 3) g%matmul_thomas => MatMul_7_antisym_ThomasL_3
+                    if (ndl == 5) g%matmul_thomas => MatMul_7_antisym_ThomasL_5
                 end select
             end if
 
@@ -544,25 +528,25 @@ contains
 
             select case (ibc_loc)
             case (BCS_DD)
-                ! call g%matmuldevel(rhs=g%rhs(:, 1:ndr), &
+                ! call g%matmul(rhs=g%rhs(:, 1:ndr), &
                 !                    rhs_b=g%rhs(1:ndr/2, 1:ndr), &
                 !                    rhs_t=g%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
                 !                    u=u, &
                 !                    f=result)
-                call g%matmuldevel_thomas(rhs=g%rhs(:, 1:ndr), &
+                call g%matmul_thomas(rhs=g%rhs(:, 1:ndr), &
                                           rhs_b=g%rhs(1:ndr/2, 1:ndr), &
                                           rhs_t=g%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
                                           u=u, &
                                           f=result, &
                                           L=lu1(:, ip + 1:ip + ndl/2))
             case (BCS_ND)
-                ! call g%matmuldevel(rhs=g%rhs(:, 1:ndr), &
+                ! call g%matmul(rhs=g%rhs(:, 1:ndr), &
                 !                    rhs_b=g%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
                 !                    rhs_t=g%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
                 !                    u=u, &
                 !                    f=result, &
                 !                    bcs_b=bcs_hb(:))
-                call g%matmuldevel_thomas(rhs=g%rhs(:, 1:ndr), &
+                call g%matmul_thomas(rhs=g%rhs(:, 1:ndr), &
                                           rhs_b=g%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
                                           rhs_t=g%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
                                           u=u, &
@@ -570,13 +554,13 @@ contains
                                           L=lu1(:, ip + 1:ip + ndl/2), &
                                           bcs_b=bcs_hb(:))
             case (BCS_DN)
-                ! call g%matmuldevel(rhs=g%rhs(:, 1:ndr), &
+                ! call g%matmul(rhs=g%rhs(:, 1:ndr), &
                 !                    rhs_b=g%rhs(1:ndr/2, 1:ndr), &
                 !                    rhs_t=g%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
                 !                    u=u, &
                 !                    f=result, &
                 !                    bcs_t=bcs_ht(:))
-                call g%matmuldevel_thomas(rhs=g%rhs(:, 1:ndr), &
+                call g%matmul_thomas(rhs=g%rhs(:, 1:ndr), &
                                           rhs_b=g%rhs(1:ndr/2, 1:ndr), &
                                           rhs_t=g%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
                                           u=u, &
@@ -584,13 +568,13 @@ contains
                                           L=lu1(:, ip + 1:ip + ndl/2), &
                                           bcs_t=bcs_ht(:))
             case (BCS_NN)
-                ! call g%matmuldevel(rhs=g%rhs(:, 1:ndr), &
+                ! call g%matmul(rhs=g%rhs(:, 1:ndr), &
                 !                    rhs_b=g%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
                 !                    rhs_t=g%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
                 !                    u=u, &
                 !                    f=result, &
                 !                    bcs_b=bcs_hb(:), bcs_t=bcs_ht(:))
-                call g%matmuldevel_thomas(rhs=g%rhs(:, 1:ndr), &
+                call g%matmul_thomas(rhs=g%rhs(:, 1:ndr), &
                                           rhs_b=g%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
                                           rhs_t=g%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
                                           u=u, &
@@ -688,26 +672,26 @@ contains
             if (any([FDM_COM4_DIRECT, FDM_COM6_DIRECT, FDM_COM6_DIRECT_HYPER] == g%mode_fdm)) then
                 select case (ndr)
                 case (5)
-                    ! g%matmuldevel => MatMul_5
-                    if (ndl == 3) g%matmuldevel_thomas => MatMul_5_ThomasL_3
-                    if (ndl == 5) g%matmuldevel_thomas => MatMul_5_ThomasL_5
+                    ! g%matmul => MatMul_5
+                    if (ndl == 3) g%matmul_thomas => MatMul_5_ThomasL_3
+                    if (ndl == 5) g%matmul_thomas => MatMul_5_ThomasL_5
                 end select
             else
                 select case (ndr)
                 case (5)
-                    ! g%matmuldevel => MatMul_5_sym
-                    if (ndl == 3) g%matmuldevel_thomas => MatMul_5_sym_ThomasL_3
-                    if (ndl == 5) g%matmuldevel_thomas => MatMul_5_sym_ThomasL_5
-                    ! g%matmuldevel_add => MatMul_5_sym_add_3
-                    if (ndl == 3) g%matmuldevel_add_thomas => MatMul_5_sym_add_3_ThomasL_3
-                    if (ndl == 5) g%matmuldevel_add_thomas => MatMul_5_sym_add_3_ThomasL_5
+                    ! g%matmul => MatMul_5_sym
+                    if (ndl == 3) g%matmul_thomas => MatMul_5_sym_ThomasL_3
+                    if (ndl == 5) g%matmul_thomas => MatMul_5_sym_ThomasL_5
+                    ! g%matmul_add => MatMul_5_sym_add_3
+                    if (ndl == 3) g%matmul_add_thomas => MatMul_5_sym_add_3_ThomasL_3
+                    if (ndl == 5) g%matmul_add_thomas => MatMul_5_sym_add_3_ThomasL_5
                 case (7)
-                    ! g%matmuldevel => MatMul_7_sym
-                    if (ndl == 3) g%matmuldevel_thomas => MatMul_7_sym_ThomasL_3
-                    if (ndl == 5) g%matmuldevel_thomas => MatMul_7_sym_ThomasL_5
-                    ! g%matmuldevel_add => MatMul_7_sym_add_3
-                    if (ndl == 3) g%matmuldevel_add_thomas => MatMul_7_sym_add_3_ThomasL_3
-                    if (ndl == 5) g%matmuldevel_add_thomas => MatMul_7_sym_add_3_ThomasL_5
+                    ! g%matmul => MatMul_7_sym
+                    if (ndl == 3) g%matmul_thomas => MatMul_7_sym_ThomasL_3
+                    if (ndl == 5) g%matmul_thomas => MatMul_7_sym_ThomasL_5
+                    ! g%matmul_add => MatMul_7_sym_add_3
+                    if (ndl == 3) g%matmul_add_thomas => MatMul_7_sym_add_3_ThomasL_3
+                    if (ndl == 5) g%matmul_add_thomas => MatMul_7_sym_add_3_ThomasL_5
                 end select
             end if
 
@@ -844,14 +828,14 @@ contains
             ! Calculate RHS in system of equations A u' = B u
             if (g%need_1der) then           ! add Jacobian correction A_2 dx2 du
                 ip = g%nb_diag(2)           ! so far, only tridiagonal systems
-                ! call g%matmuldevel_add(rhs=g%rhs(:, 1:ndr), &
+                ! call g%matmul_add(rhs=g%rhs(:, 1:ndr), &
                 !                        rhs_b=g%rhs(1:ndr/2, 1:ndr), &
                 !                        rhs_t=g%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
                 !                        u=u, &
                 !                        rhs_add=g%rhs(:, ip + 1:ip + 3), &
                 !                        u_add=du, &
                 !                        f=result)
-                call g%matmuldevel_add_thomas(rhs=g%rhs(:, 1:ndr), &
+                call g%matmul_add_thomas(rhs=g%rhs(:, 1:ndr), &
                                               rhs_b=g%rhs(1:ndr/2, 1:ndr), &
                                               rhs_t=g%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
                                               u=u, &
@@ -860,12 +844,12 @@ contains
                                               f=result, &
                                               L=lu(:, 1:ndl/2))
             else
-                ! call g%matmuldevel(rhs=g%rhs(:, 1:ndr), &
+                ! call g%matmul(rhs=g%rhs(:, 1:ndr), &
                 !                    rhs_b=g%rhs(1:ndr/2, 1:ndr), &
                 !                    rhs_t=g%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
                 !                    u=u, &
                 !                    f=result)
-                call g%matmuldevel_thomas(rhs=g%rhs(:, 1:ndr), &
+                call g%matmul_thomas(rhs=g%rhs(:, 1:ndr), &
                                           rhs_b=g%rhs(1:ndr/2, 1:ndr), &
                                           rhs_t=g%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
                                           u=u, &

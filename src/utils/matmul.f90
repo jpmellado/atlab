@@ -2,7 +2,7 @@
 ! Allowing for different band size at the bottom and at the top
 ! The points at the boundary, can have a longer stencil by using the left of the rhs array
 
-module MatMulDevel
+module MatMul
     use TLab_Constants, only: wp, wi
     implicit none
     private
@@ -779,4 +779,4 @@ contains
         return
     end subroutine MatMul_X_UpperBoundary
 
-end module MatMulDevel
+end module MatMul

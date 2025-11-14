@@ -10,7 +10,7 @@ module FDM_Integral
     use TLab_Constants, only: BCS_DD, BCS_ND, BCS_DN, BCS_NN, BCS_MIN, BCS_MAX, BCS_BOTH
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
     use Thomas
-    use MatMulDevel
+    use MatMul
     use MatMul_Thomas
     use Preconditioning
     use FDM_Derivative, only: fdm_derivative_dt
@@ -27,8 +27,8 @@ module FDM_Integral
         real(wp), allocatable :: lhs(:, :)                  ! Often overwritten to LU decomposition.
         real(wp), allocatable :: rhs(:, :)
         real(wp), allocatable :: rhs_b1(:, :), rhs_t1(:, :) ! boundary conditions
-        procedure(matmuldevel_ice), pointer, nopass :: matmuldevel => null()
-        procedure(matmuldevel_thomas_ice), pointer, nopass :: matmuldevel_thomas => null()
+        procedure(matmul_ice), pointer, nopass :: matmul => null()
+        procedure(matmul_thomas_ice), pointer, nopass :: matmul_thomas => null()
         procedure(thomas_ice), pointer, nopass :: thomasL => null()
         procedure(thomas_ice), pointer, nopass :: thomasU => null()
     end type fdm_integral_dt
@@ -54,7 +54,7 @@ module FDM_Integral
     end interface
 
     abstract interface
-        subroutine matmuldevel_ice(rhs, rhs_b, rhs_t, u, f, bcs_b, bcs_t)
+        subroutine matmul_ice(rhs, rhs_b, rhs_t, u, f, bcs_b, bcs_t)
             use TLab_Constants, only: wp
             real(wp), intent(in) :: rhs(:, :)
             real(wp), intent(in) :: rhs_b(:, :), rhs_t(:, :)
@@ -65,7 +65,7 @@ module FDM_Integral
     end interface
 
     abstract interface
-        subroutine matmuldevel_thomas_ice(rhs, rhs_b, rhs_t, u, f, L, bcs_b, bcs_t)
+        subroutine matmul_thomas_ice(rhs, rhs_b, rhs_t, u, f, L, bcs_b, bcs_t)
             use TLab_Constants, only: wp
             real(wp), intent(in) :: rhs(:, :)
             real(wp), intent(in) :: rhs_b(:, :), rhs_t(:, :)
@@ -133,14 +133,14 @@ contains
         ! Procedure pointers to matrix multiplication to calculate the right-hand side
         select case (ndr)
         case (3)
-            ! fdmi%matmuldevel => MatMul_3
-            if (ndl == 3) fdmi%matmuldevel_thomas => MatMul_3_ThomasL_3
-            if (ndl == 5) fdmi%matmuldevel_thomas => MatMul_3_ThomasL_5
+            ! fdmi%matmul => MatMul_3
+            if (ndl == 3) fdmi%matmul_thomas => MatMul_3_ThomasL_3
+            if (ndl == 5) fdmi%matmul_thomas => MatMul_3_ThomasL_5
         case (5)
-            ! fdmi%matmuldevel => MatMul_5
-            if (ndl == 3) fdmi%matmuldevel_thomas => MatMul_5_ThomasL_3
-            if (ndl == 5) fdmi%matmuldevel_thomas => MatMul_5_ThomasL_5
-            if (ndl == 7) fdmi%matmuldevel_thomas => MatMul_5_ThomasL_7
+            ! fdmi%matmul => MatMul_5
+            if (ndl == 3) fdmi%matmul_thomas => MatMul_5_ThomasL_3
+            if (ndl == 5) fdmi%matmul_thomas => MatMul_5_ThomasL_5
+            if (ndl == 7) fdmi%matmul_thomas => MatMul_5_ThomasL_7
         end select
 
         return
@@ -301,14 +301,14 @@ contains
             bcs_ht(:) = result(:, nx)
         end select
 
-        ! call fdmi%matmuldevel(rhs=rhsi(:, 1:ndr), &
+        ! call fdmi%matmul(rhs=rhsi(:, 1:ndr), &
         !                       rhs_b=fdmi%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
         !                       rhs_t=fdmi%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
         !                       u=f, &
         !                       f=result, &
         !                       bcs_b=bcs_hb(:), &
         !                       bcs_t=bcs_ht(:))
-        call fdmi%matmuldevel_thomas(rhs=rhsi(:, 1:ndr), &
+        call fdmi%matmul_thomas(rhs=rhsi(:, 1:ndr), &
                                      rhs_b=fdmi%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
                                      rhs_t=fdmi%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
                                      u=f, &
@@ -436,14 +436,14 @@ contains
         ! Procedure pointers to matrix multiplication to calculate the right-hand side
         select case (ndr)
         case (3)
-            ! fdmi%matmuldevel => MatMul_3
-            if (ndl == 3) fdmi%matmuldevel_thomas => MatMul_3_ThomasL_3
-            if (ndl == 5) fdmi%matmuldevel_thomas => MatMul_3_ThomasL_5
+            ! fdmi%matmul => MatMul_3
+            if (ndl == 3) fdmi%matmul_thomas => MatMul_3_ThomasL_3
+            if (ndl == 5) fdmi%matmul_thomas => MatMul_3_ThomasL_5
         case (5)
-            ! fdmi%matmuldevel => MatMul_5
-            if (ndl == 3) fdmi%matmuldevel_thomas => MatMul_5_ThomasL_3
-            if (ndl == 5) fdmi%matmuldevel_thomas => MatMul_5_ThomasL_5
-            if (ndl == 7) fdmi%matmuldevel_thomas => MatMul_5_ThomasL_7
+            ! fdmi%matmul => MatMul_5
+            if (ndl == 3) fdmi%matmul_thomas => MatMul_5_ThomasL_3
+            if (ndl == 5) fdmi%matmul_thomas => MatMul_5_ThomasL_5
+            if (ndl == 7) fdmi%matmul_thomas => MatMul_5_ThomasL_7
         end select
 
         return
@@ -734,13 +734,13 @@ contains
 
         bcs_hb(:) = result(:, 1)
         bcs_ht(:) = result(:, nx)
-        ! call fdmi%matmuldevel(rhs=rhsi(:, 1:ndr), &
+        ! call fdmi%matmul(rhs=rhsi(:, 1:ndr), &
         !                       rhs_b=fdmi%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
         !                       rhs_t=fdmi%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
         !                       u=f, &
         !                       f=result, &
         !                       bcs_b=bcs_hb(:), bcs_t=bcs_ht(:))
-        call fdmi%matmuldevel_thomas(rhs=rhsi(:, 1:ndr), &
+        call fdmi%matmul_thomas(rhs=rhsi(:, 1:ndr), &
                                      rhs_b=fdmi%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
                                      rhs_t=fdmi%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
                                      u=f, &

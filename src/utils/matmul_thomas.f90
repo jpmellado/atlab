@@ -4,7 +4,7 @@
 
 module MatMul_Thomas
     use TLab_Constants, only: wp, wi
-    use MatMulDevel, only: MatMul_X_LowerBoundary, MatMul_X_UpperBoundary
+    use MatMul, only: MatMul_X_LowerBoundary, MatMul_X_UpperBoundary
     implicit none
     private
 

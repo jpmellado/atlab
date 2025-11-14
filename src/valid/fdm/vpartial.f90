@@ -248,48 +248,48 @@ program VPARTIAL
                 ! Calculate RHS in system of equations A u' = B u
                 select case (ibc)
                 case (BCS_DD)
-                    ! call g%der1%matmuldevel(rhs=g%der1%rhs(:, 1:ndr), &
+                    ! call g%der1%matmul(rhs=g%der1%rhs(:, 1:ndr), &
                     !                         rhs_b=g%der1%rhs(1:ndr/2, 1:ndr), &
                     !                         rhs_t=g%der1%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
                     !                         u=u, &
                     !                         f=du1_n)
-                    call g%der1%matmuldevel_thomas(rhs=g%der1%rhs(:, 1:ndr), &
+                    call g%der1%matmul_thomas(rhs=g%der1%rhs(:, 1:ndr), &
                                                    rhs_b=g%der1%rhs(1:ndr/2, 1:ndr), &
                                                    rhs_t=g%der1%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
                                                    u=u, &
                                                    L=g%der1%lu(:, ip + 1:ip + ndl/2), &
                                                    f=du1_n)
                 case (BCS_ND)
-                    ! call g%der1%matmuldevel(rhs=g%der1%rhs(:, 1:ndr), &
+                    ! call g%der1%matmul(rhs=g%der1%rhs(:, 1:ndr), &
                     !                         rhs_b=g%der1%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
                     !                         rhs_t=g%der1%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
                     !                         u=u, &
                     !                         f=du1_n, bcs_b=bcs_hb(1:nlines))
-                    call g%der1%matmuldevel_thomas(rhs=g%der1%rhs(:, 1:ndr), &
+                    call g%der1%matmul_thomas(rhs=g%der1%rhs(:, 1:ndr), &
                                                    rhs_b=g%der1%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
                                                    rhs_t=g%der1%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
                                                    u=u, &
                                                    L=g%der1%lu(:, ip + 1:ip + ndl/2), &
                                                    f=du1_n, bcs_b=bcs_hb(1:nlines))
                 case (BCS_DN)
-                    ! call g%der1%matmuldevel(rhs=g%der1%rhs(:, 1:ndr), &
+                    ! call g%der1%matmul(rhs=g%der1%rhs(:, 1:ndr), &
                     !                         rhs_b=g%der1%rhs(1:ndr/2, 1:ndr), &
                     !                         rhs_t=g%der1%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
                     !                         u=u, &
                     !                         f=du1_n, bcs_t=bcs_ht(1:nlines))
-                    call g%der1%matmuldevel_thomas(rhs=g%der1%rhs(:, 1:ndr), &
+                    call g%der1%matmul_thomas(rhs=g%der1%rhs(:, 1:ndr), &
                                                    rhs_b=g%der1%rhs(1:ndr/2, 1:ndr), &
                                                    rhs_t=g%der1%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
                                                    u=u, &
                                                    L=g%der1%lu(:, ip + 1:ip + ndl/2), &
                                                    f=du1_n, bcs_t=bcs_ht(1:nlines))
                 case (BCS_NN)
-                    ! call g%der1%matmuldevel(rhs=g%der1%rhs(:, 1:ndr), &
+                    ! call g%der1%matmul(rhs=g%der1%rhs(:, 1:ndr), &
                     !                         rhs_b=g%der1%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
                     !                         rhs_t=g%der1%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
                     !                         u=u, &
                     !                         f=du1_n, bcs_b=bcs_hb(1:nlines), bcs_t=bcs_ht(1:nlines))
-                    call g%der1%matmuldevel_thomas(rhs=g%der1%rhs(:, 1:ndr), &
+                    call g%der1%matmul_thomas(rhs=g%der1%rhs(:, 1:ndr), &
                                                    rhs_b=g%der1%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
                                                    rhs_t=g%der1%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
                                                    u=u, &
@@ -490,36 +490,36 @@ program VPARTIAL
                 ! Calculate RHS in system of equations A u' = B u
                 select case (ibc)
                 case (BCS_MIN)
-                    ! call g%der1%matmuldevel(rhs=g%der1%rhs(:, 1:ndr), &
+                    ! call g%der1%matmul(rhs=g%der1%rhs(:, 1:ndr), &
                     !                         rhs_b=g%der1%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
                     !                         rhs_t=g%der1%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
                     !                         u=u, &
                     !                         f=du1_n)!, bcs_b=bcs_hb(1:nlines))
-                    call g%der1%matmuldevel_thomas(rhs=g%der1%rhs(:, 1:ndr), &
+                    call g%der1%matmul_thomas(rhs=g%der1%rhs(:, 1:ndr), &
                                                    rhs_b=g%der1%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
                                                    rhs_t=g%der1%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
                                                    u=u, &
                                                    L=g%der1%lu(:, 1:ndl/2), &
                                                    f=du1_n, bcs_b=bcs_hb(1:nlines))
                 case (BCS_MAX)
-                    ! call g%der1%matmuldevel(rhs=g%der1%rhs(:, 1:ndr), &
+                    ! call g%der1%matmul(rhs=g%der1%rhs(:, 1:ndr), &
                     !                         rhs_b=g%der1%rhs(1:ndr/2, 1:ndr), &
                     !                         rhs_t=g%der1%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
                     !                         u=u, &
                     !                         f=du1_n)!, bcs_t=bcs_ht(:))
-                    call g%der1%matmuldevel_thomas(rhs=g%der1%rhs(:, 1:ndr), &
+                    call g%der1%matmul_thomas(rhs=g%der1%rhs(:, 1:ndr), &
                                                    rhs_b=g%der1%rhs(1:ndr/2, 1:ndr), &
                                                    rhs_t=g%der1%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
                                                    u=u, &
                                                    L=g%der1%lu(:, 1:ndl/2), &
                                                    f=du1_n, bcs_t=bcs_ht(1:nlines))
                 case (BCS_BOTH)
-                    ! call g%der1%matmuldevel(rhs=g%der1%rhs(:, 1:ndr), &
+                    ! call g%der1%matmul(rhs=g%der1%rhs(:, 1:ndr), &
                     !                         rhs_b=g%der1%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
                     !                         rhs_t=g%der1%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
                     !                         u=u, &
                     !                         f=du1_n)!, bcs_b=bcs_hb(:), bcs_t=bcs_ht(:))
-                    call g%der1%matmuldevel_thomas(rhs=g%der1%rhs(:, 1:ndr), &
+                    call g%der1%matmul_thomas(rhs=g%der1%rhs(:, 1:ndr), &
                                                    rhs_b=g%der1%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
                                                    rhs_t=g%der1%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
                                                    u=u, &

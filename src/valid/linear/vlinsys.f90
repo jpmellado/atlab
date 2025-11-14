@@ -2,7 +2,7 @@ program vLinSys
     use TLab_Constants, only: wp, wi, BCS_NONE
     use Matmul_Halo
     use Matmul_Halo_Thomas
-    use MatMulDevel
+    use MatMul
     use MatMul_Thomas
     use Thomas
     use Thomas_Circulant

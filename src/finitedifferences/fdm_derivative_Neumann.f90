@@ -52,36 +52,36 @@ contains
             ! Calculate RHS in system of equations A u' = B u
             select case (ibc)
             case (BCS_ND)
-                ! call g%matmuldevel(rhs=g%rhs(:, 1:ndr), &
+                ! call g%matmul(rhs=g%rhs(:, 1:ndr), &
                 !                    rhs_b=g%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
                 !                    rhs_t=g%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
                 !                    u=u, &
                 !                    f=z, bcs_b=bcs_hb(:))
-                call g%matmuldevel_thomas(rhs=g%rhs(:, 1:ndr), &
+                call g%matmul_thomas(rhs=g%rhs(:, 1:ndr), &
                                           rhs_b=g%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
                                           rhs_t=g%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
                                           u=u, &
                                           L=g%lu(:, ip + 1:ip + ndl/2), &
                                           f=z, bcs_b=bcs_hb(:))
             case (BCS_DN)
-                ! call g%matmuldevel(rhs=g%rhs(:, 1:ndr), &
+                ! call g%matmul(rhs=g%rhs(:, 1:ndr), &
                 !                    rhs_b=g%rhs(1:ndr/2, 1:ndr), &
                 !                    rhs_t=g%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
                 !                    u=u, &
                 !                    f=z, bcs_t=bcs_ht(:))
-                call g%matmuldevel_thomas(rhs=g%rhs(:, 1:ndr), &
+                call g%matmul_thomas(rhs=g%rhs(:, 1:ndr), &
                                           rhs_b=g%rhs(1:ndr/2, 1:ndr), &
                                           rhs_t=g%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
                                           u=u, &
                                           L=g%lu(:, ip + 1:ip + ndl/2), &
                                           f=z, bcs_t=bcs_ht(:))
             case (BCS_NN)
-                ! call g%matmuldevel(rhs=g%rhs(:, 1:ndr), &
+                ! call g%matmul(rhs=g%rhs(:, 1:ndr), &
                 !                    rhs_b=g%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
                 !                    rhs_t=g%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
                 !                    u=u, &
                 !                    f=z, bcs_b=bcs_hb(:), bcs_t=bcs_ht(:))
-                call g%matmuldevel_thomas(rhs=g%rhs(:, 1:ndr), &
+                call g%matmul_thomas(rhs=g%rhs(:, 1:ndr), &
                                           rhs_b=g%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
                                           rhs_t=g%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
                                           u=u, &
@@ -151,12 +151,12 @@ contains
 
             ! -------------------------------------------------------------------
             ! Calculate RHS in system of equations A u' = B u
-            ! call g%matmuldevel(rhs=g%rhs(:, 1:ndr), &
+            ! call g%matmul(rhs=g%rhs(:, 1:ndr), &
             !                    rhs_b=g%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
             !                    rhs_t=g%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
             !                    u=u, &
             !                    f=z, bcs_b=bcs_hb(:))
-            call g%matmuldevel_thomas(rhs=g%rhs(:, 1:ndr), &
+            call g%matmul_thomas(rhs=g%rhs(:, 1:ndr), &
                                       rhs_b=g%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
                                       rhs_t=g%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
                                       u=u, &
@@ -220,12 +220,12 @@ contains
 
             ! -------------------------------------------------------------------
             ! Calculate RHS in system of equations A u' = B u
-            ! call g%matmuldevel(rhs=g%rhs(:, 1:ndr), &
+            ! call g%matmul(rhs=g%rhs(:, 1:ndr), &
             !                    rhs_b=g%rhs(1:ndr/2, 1:ndr), &
             !                    rhs_t=g%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
             !                    u=u, &
             !                    f=z, bcs_t=bcs_ht(:))
-            call g%matmuldevel_thomas(rhs=g%rhs(:, 1:ndr), &
+            call g%matmul_thomas(rhs=g%rhs(:, 1:ndr), &
                                       rhs_b=g%rhs(1:ndr/2, 1:ndr), &
                                       rhs_t=g%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
                                       u=u, &

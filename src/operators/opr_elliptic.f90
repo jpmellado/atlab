@@ -256,6 +256,9 @@ contains
                     else
                         call FDM_Int2_Initialize(fdm_loc%nodes(:), fdm_loc%der2, lambda(i, j), BCS_NN, fdm_int2(i, j))
                     end if
+                    fdm_int2(i, j)%rhs = fdm_int2(i, j)%rhs*norm
+                    fdm_int2(i, j)%rhs_t1 = fdm_int2(i, j)%rhs_t1*norm
+                    fdm_int2(i, j)%rhs_b1 = fdm_int2(i, j)%rhs_b1*norm
 
                     ! free memory that is independent of lambda
                     rhs_d(:, :) = fdm_int2(i, j)%rhs(:, :)
@@ -377,8 +380,6 @@ contains
         p(1:nx, 1:ny, nz) = bcs_ht(1:nx, 1:ny)
         call OPR_Fourier_XY_Forward(p(:, 1, 1), c_tmp1, c_tmp2)
 
-        tmp1 = tmp1*norm
-
         ! ###################################################################
         ! Solve FDE \hat{p}''-\lambda \hat{p} = \hat{f}
 #define f(k,i,j) tmp1(k,i,j)
@@ -400,6 +401,7 @@ contains
                 case default            ! Need to calculate and factorize LHS
                     call FDM_Int2_Initialize(fdm_loc%nodes(:), fdm_loc%der2, lambda(i, j), ibc, fdm_int2_loc)
                     call FDM_Int2_Solve(2, fdm_int2_loc, fdm_int2_loc%rhs, f(:, i, j), u(:, i, j), wrk2d)
+                    u(:, i, j) = u(:, i, j)*norm
 
                 end select
 
@@ -419,9 +421,9 @@ contains
 
     !########################################################################
     !#
-    !# Solve Lap a + \alpha a = f using Fourier in xOy planes, to rewrite the problem as
+    !# Solve Lap a + lpha a = f using Fourier in xOy planes, to rewrite the problem as
     !#
-    !#      \hat{a}''-(\lambda-\alpha) \hat{a} = \hat{f}
+    !#      \hat{a}''-(\lambda-lpha) \hat{a} = \hat{f}
     !#
     !# where \lambda = kx^2+ky^2
     !#
@@ -452,7 +454,7 @@ contains
         tmp1 = tmp1*norm
 
         ! ###################################################################
-        ! Solve FDE (\hat{p}')'-(\lambda+\alpha) \hat{p} = \hat{f}
+        ! Solve FDE (\hat{p}')'-(\lambda+lpha) \hat{p} = \hat{f}
 #define f(k,i,j) tmp1(k,i,j)
 #define u(k,i,j) tmp2(k,i,j)
 #define v(k,i,j) p_wrk3d_loc(k,i,j)
@@ -520,7 +522,7 @@ contains
         tmp1 = tmp1*norm
 
         ! ###################################################################
-        ! Solve FDE \hat{p}''-(\lambda+\alpha) \hat{p} = \hat{f}
+        ! Solve FDE \hat{p}''-(\lambda+lpha) \hat{p} = \hat{f}
 #define f(k,i,j) tmp1(k,i,j)
 #define u(k,i,j) tmp2(k,i,j)
 

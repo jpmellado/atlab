@@ -42,7 +42,7 @@ contains
         nmin = 1; nmax = nx
 
         ! -------------------------------------------------------------------
-        ! top boundary
+        ! bottom boundary
         if (present(rhs_b)) then
             nx_b = size(rhs_b, 1)
             ndr_b = size(rhs_b, 2)

@@ -32,7 +32,7 @@ module FDM_Integral
         procedure(thomas_ice), pointer, nopass :: thomasL => null()
         procedure(thomas_ice), pointer, nopass :: thomasU => null()
         procedure(matmuldevel_ice), pointer, nopass :: matmuldevel => null()
-        procedure(matmul_ice), pointer, nopass :: matmul => null()
+        ! procedure(matmul_ice), pointer, nopass :: matmul => null()
     end type fdm_integral_dt
     ! This type is used in elliptic operators for different eigenvalues. This can lead to fragmented memory.
     ! One could use pointers instead of allocatable for lhs and rhs, and point the pointers to the
@@ -78,17 +78,17 @@ module FDM_Integral
         end subroutine
     end interface
 
-    abstract interface
-        subroutine matmul_ice(rhs, u, f, ibc, rhs_b, rhs_t, bcs_b, bcs_t)
-            use TLab_Constants, only: wp
-            real(wp), intent(in) :: rhs(:, :)                               ! diagonals of B
-            real(wp), intent(in) :: u(:, :)                                 ! vector u
-            real(wp), intent(out) :: f(:, :)                                ! vector f = B u
-            integer, intent(in) :: ibc
-            real(wp), intent(in), optional :: rhs_b(:, 0:), rhs_t(0:, :)    ! Special bcs at bottom, top
-            real(wp), intent(out), optional :: bcs_b(:), bcs_t(:)
-        end subroutine
-    end interface
+    ! abstract interface
+    !     subroutine matmul_ice(rhs, u, f, ibc, rhs_b, rhs_t, bcs_b, bcs_t)
+    !         use TLab_Constants, only: wp
+    !         real(wp), intent(in) :: rhs(:, :)                               ! diagonals of B
+    !         real(wp), intent(in) :: u(:, :)                                 ! vector u
+    !         real(wp), intent(out) :: f(:, :)                                ! vector f = B u
+    !         integer, intent(in) :: ibc
+    !         real(wp), intent(in), optional :: rhs_b(:, 0:), rhs_t(0:, :)    ! Special bcs at bottom, top
+    !         real(wp), intent(out), optional :: bcs_b(:), bcs_t(:)
+    !     end subroutine
+    ! end interface
 
 contains
     !########################################################################
@@ -258,7 +258,7 @@ contains
 
         end select
 
-        ! new format; extending to ndr+2 diagonals
+        ! new format; extending 2 diagonals
         do ir = 1, max(idr, idl + 1)
             fdmi%rhs_b1(ir, 1:ndl + 1) = fdmi%rhs_b(ir, 0:ndl)
             fdmi%rhs_t1(ir, 2:ndl + 2) = fdmi%rhs_t(ir - 1, 1:ndl + 1)
@@ -450,11 +450,11 @@ contains
         ! Procedure pointers to matrix multiplication to calculate the right-hand side
         select case (ndr)
         case (3)
-            fdmi%matmul => MatMul_3d
+            ! fdmi%matmul => MatMul_3d
             fdmi%matmuldevel => MatMul_3
             ! if (ndl == 3) g%matmuldevel_thomas => MatMul_3_ThomasL_3
         case (5)
-            fdmi%matmul => MatMul_5d
+            ! fdmi%matmul => MatMul_5d
             fdmi%matmuldevel => MatMul_5
             ! if (ndl == 3) g%matmuldevel_thomas => MatMul_5_ThomasL_3
             ! if (ndl == 5) g%matmuldevel_thomas => MatMul_5_ThomasL_5
@@ -475,7 +475,7 @@ contains
 
         ! -------------------------------------------------------------------
         integer(wi) idl, ndl, idr, ndr, ir, nx, i
-        real(wp) dummy, rhsr_b(5, 0:7), rhsr_t(0:4, 8)
+        real(wp) rhsr_b(5, 0:7), rhsr_t(0:4, 8)
         real(wp) coef(5)
 
         ! ###################################################################
@@ -495,14 +495,33 @@ contains
         fdmi%lambda = lambda2
         fdmi%bc = ibc
 
-        if (allocated(fdmi%lhs)) deallocate (fdmi%lhs)
-        if (allocated(fdmi%rhs)) deallocate (fdmi%rhs)
-        allocate (fdmi%lhs(nx, ndr))
-        allocate (fdmi%rhs(nx, ndl))
-
         ! -------------------------------------------------------------------
         ! new rhs diagonals (array A22R), independent of lambda
+        if (allocated(fdmi%rhs)) deallocate (fdmi%rhs)
+        allocate (fdmi%rhs(nx, ndl))
         fdmi%rhs(:, :) = g%lhs(:, 1:ndl)
+
+        ! -------------------------------------------------------------------
+        ! new lhs diagonals (array C22R); remember rhs center diagonal is not saved because it was 1
+        if (allocated(fdmi%lhs)) deallocate (fdmi%lhs)
+        allocate (fdmi%lhs(nx, ndr))
+
+        fdmi%lhs(:, :) = g%rhs(:, 1:ndr)
+
+        fdmi%lhs(:, idr) = fdmi%lhs(:, idr) - lambda2*g%lhs(:, idl)             ! center diagonal
+        do i = 1, idl - 1                                                       ! off-diagonals
+            fdmi%lhs(1 + i:nx, idr - i) = fdmi%lhs(1 + i:nx, idr - i) - lambda2*g%lhs(1 + i:nx, idl - i)
+            fdmi%lhs(1:nx - i, idr + i) = fdmi%lhs(1:nx - i, idr + i) - lambda2*g%lhs(1:nx - i, idl + i)
+        end do
+
+        ! -------------------------------------------------------------------
+        ! Reduction; extending 2 diagonals the rhs at the boundaries
+        if (allocated(fdmi%rhs_b1)) deallocate (fdmi%rhs_b1)
+        if (allocated(fdmi%rhs_t1)) deallocate (fdmi%rhs_t1)
+        allocate (fdmi%rhs_b1(max(idr, idl + 1), 1:ndl + 2))
+        allocate (fdmi%rhs_t1(max(idr, idl + 1), 1:ndl + 2))
+        fdmi%rhs_b1(:, :) = 0.0_wp
+        fdmi%rhs_t1(:, :) = 0.0_wp
 
         call FDM_Bcs_Reduce(BCS_BOTH, fdmi%rhs, g%rhs(:, 1:ndr), rhsr_b, rhsr_t)
 
@@ -517,16 +536,6 @@ contains
         fdmi%rhs_t(0:idl, 1:ndl) = fdmi%rhs(nx - idl:nx, 1:ndl)
         do ir = 1, idr - 1              ! change sign in b^R_{2n} for nonzero bc
             fdmi%rhs_t(idl - ir, idl + ir) = -rhsr_t(idr - ir, idr + ir)
-        end do
-
-        ! -------------------------------------------------------------------
-        ! new lhs diagonals (array C22R); remember rhs center diagonal is not saved because it was 1
-        fdmi%lhs(:, :) = g%rhs(:, 1:ndr)
-
-        fdmi%lhs(:, idr) = fdmi%lhs(:, idr) - lambda2*g%lhs(:, idl)               ! center diagonal
-        do i = 1, idl - 1                                                       ! off-diagonals
-            fdmi%lhs(1 + i:nx, idr - i) = fdmi%lhs(1 + i:nx, idr - i) - lambda2*g%lhs(1 + i:nx, idl - i)
-            fdmi%lhs(1:nx - i, idr + i) = fdmi%lhs(1:nx - i, idr + i) - lambda2*g%lhs(1:nx - i, idl + i)
         end do
 
         ! fdmi%lhs(1:idr, 1:ndr) = rhsr_b(1:idr, 1:ndr)
@@ -617,33 +626,24 @@ contains
 
         end if
 
+        ! new format; extending 2 diagonals
+        do ir = 1, max(idr, idl + 1)
+            fdmi%rhs_b1(ir, 1:ndl + 1) = fdmi%rhs_b(ir, 0:ndl)
+            fdmi%rhs_t1(ir, 2:ndl + 2) = fdmi%rhs_t(ir - 1, 1:ndl + 1)
+        end do
+        ! arrange for longer stencil
+        ir = 1
+        fdmi%rhs_b1(ir, ndl + 2) = fdmi%rhs_b1(ir, 2); fdmi%rhs_b1(ir, 2) = 0.0_wp
+        ir = max(idr, idl + 1)
+        fdmi%rhs_t1(ir, 1) = fdmi%rhs_t1(ir, ndl + 1); fdmi%rhs_t1(ir, ndl + 1) = 0.0_wp
+
         ! -------------------------------------------------------------------
         ! normalization such that new central diagonal in rhs is 1
-        do ir = 2, max(idr, idl + 1)
-            dummy = 1.0_wp/fdmi%rhs(ir, idl)
-            fdmi%rhs_b(ir, 0:ndl) = fdmi%rhs_b(ir, 0:ndl)*dummy
-
-            dummy = 1.0_wp/fdmi%rhs(nx - ir + 1, idl)
-            fdmi%rhs_t(idl - ir + 1, 1:ndl + 1) = fdmi%rhs_t(idl - ir + 1, 1:ndl + 1)*dummy
-
-            dummy = 1.0_wp/fdmi%rhs(ir, idl)
-            fdmi%rhs(ir, 1:ndl) = fdmi%rhs(ir, 1:ndl)*dummy
-            fdmi%lhs(ir, 1:ndr) = fdmi%lhs(ir, 1:ndr)*dummy
-
-            dummy = 1.0_wp/fdmi%rhs(nx - ir + 1, idl)
-            fdmi%rhs(nx - ir + 1, 1:ndl) = fdmi%rhs(nx - ir + 1, 1:ndl)*dummy
-            fdmi%lhs(nx - ir + 1, 1:ndr) = fdmi%lhs(nx - ir + 1, 1:ndr)*dummy
-
-        end do
-
-        ! interior points: normalization such that 1. upper-diagonal is 1
-        do ir = max(idr, idl + 1) + 1, nx - max(idr, idl + 1)
-            dummy = 1.0_wp/fdmi%rhs(ir, idl + 1)
-
-            fdmi%rhs(ir, 1:ndl) = fdmi%rhs(ir, 1:ndl)*dummy
-            fdmi%lhs(ir, 1:ndr) = fdmi%lhs(ir, 1:ndr)*dummy
-
-        end do
+        ! First and last rows are not normalized
+        call Precon_Rhs(fdmi%lhs(2:nx - 1, :), &
+                        fdmi%rhs(2:nx - 1, :), &
+                        fdmi%rhs_b1(2:max(idr, idl + 1), :), &
+                        fdmi%rhs_t1(1:max(idr, idl + 1) - 1, :))
 
         return
     contains
@@ -745,46 +745,20 @@ contains
 #define bcs_hb(i) wrk2d(i,1)
 #define bcs_ht(i) wrk2d(i,2)
 
-        ! select case (ndr)
-        ! case (3)
-        !     call MatMul_3d(rhsi, f, result, BCS_BOTH, &
-        !                 !    rhs_b=fdmi%rhs_b(1:3, 0:3), &
-        !                 !    rhs_t=fdmi%rhs_t(0:2, 1:4), &
-        !                    rhs_b=fdmi%rhs_b(1:idr + 1, 0:ndr), &
-        !                    rhs_t=fdmi%rhs_t(0:idr, 1:ndr + 1), &
-        !                    bcs_b=wrk2d(:, 1), bcs_t=wrk2d(:, 2))
-        ! case (5)
-        !     call MatMul_5d(rhsi, f, result, BCS_BOTH, &
-        !                 !    rhs_b=fdmi%rhs_b(1:4, 0:5), &
-        !                 !    rhs_t=fdmi%rhs_t(0:3, 1:6), &
-        !                    rhs_b=fdmi%rhs_b(1:idr + 1, 0:ndr), &
-        !                    rhs_t=fdmi%rhs_t(0:idr, 1:ndr + 1), &
-        !                    bcs_b=wrk2d(:, 1), bcs_t=wrk2d(:, 2))
-        ! end select
-        call fdmi%matmul(rhsi, f, result, BCS_BOTH, &
-                         rhs_b=fdmi%rhs_b(1:idr + 1, 0:ndr), &
-                         rhs_t=fdmi%rhs_t(0:idr, 1:ndr + 1), &
-                         bcs_b=bcs_hb(:), &
-                         bcs_t=bcs_ht(:))
-        ! call fdmi%matmuldevel(rhs=rhsi(:, 1:ndr), &
-        !                    rhs_b=fdmi%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
-        !                    rhs_t=fdmi%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
-        !                    u=f, &
-        !                    f=result, &
-        !                    bcs_b=bcs_hb(:), bcs_t=bcs_ht(:))
+        ! call fdmi%matmul(rhsi, f, result, BCS_BOTH, &
+        !                  rhs_b=fdmi%rhs_b(1:idr + 1, 0:ndr), &
+        !                  rhs_t=fdmi%rhs_t(0:idr, 1:ndr + 1), &
+        !                  bcs_b=bcs_hb(:), &
+        !                  bcs_t=bcs_ht(:))
+        bcs_hb(:) = result(:, 1)
+        bcs_ht(:) = result(:, nx)
+        call fdmi%matmuldevel(rhs=rhsi(:, 1:ndr), &
+                              rhs_b=fdmi%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
+                              rhs_t=fdmi%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
+                              u=f, &
+                              f=result, &
+                              bcs_b=bcs_hb(:), bcs_t=bcs_ht(:))
 
-        ! Solve pentadiagonal linear system
-        ! select case (ndl)
-        ! case (3)
-        !     call Thomas3_SolveL(fdmi%lhs(2:nx - 1, 1:ndl/2), result(:, 2:nx - 1))
-        !     call Thomas3_SolveU(fdmi%lhs(2:nx - 1, ndl/2 + 1:ndl), result(:, 2:nx - 1))
-        ! case (5)
-        !     call Thomas5_SolveL(fdmi%lhs(2:nx - 1, 1:ndl/2), result(:, 2:nx - 1))
-        !     call Thomas5_SolveU(fdmi%lhs(2:nx - 1, ndl/2 + 1:ndl), result(:, 2:nx - 1))
-        ! case (7)
-        !     call Thomas7_SolveL(fdmi%lhs(2:nx - 1, 1:ndl/2), result(:, 2:nx - 1))
-        !     call Thomas7_SolveU(fdmi%lhs(2:nx - 1, ndl/2 + 1:ndl), result(:, 2:nx - 1))
-        ! end select
         call fdmi%thomasL(fdmi%lhs(2:nx - 1, 1:ndl/2), result(:, 2:nx - 1))
         call fdmi%thomasU(fdmi%lhs(2:nx - 1, ndl/2 + 1:ndl), result(:, 2:nx - 1))
 

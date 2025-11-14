@@ -204,7 +204,7 @@ contains
 
         ! g%rhs_b(:, :) = 0.0_wp
         ! g%rhs_t(:, :) = 0.0_wp
-        ! extending rhs at teh boundaries to ndr+2 diagonals
+        ! extending rhs at the boundaries to ndr+2 diagonals
         if (allocated(g%rhs_b1)) deallocate (g%rhs_b1)
         allocate (g%rhs_b1(max(idl, idr + 1), 1:ndr + 2))
         if (allocated(g%rhs_t1)) deallocate (g%rhs_t1)

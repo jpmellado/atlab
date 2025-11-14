@@ -10,7 +10,7 @@ module FDM_Integral
     use TLab_Constants, only: BCS_DD, BCS_ND, BCS_DN, BCS_NN, BCS_MIN, BCS_MAX, BCS_BOTH
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
     use Thomas
-    use Matmul
+    ! use Matmul
     use MatMul_Thomas
     use MatMulDevel
     use Preconditioning
@@ -170,7 +170,7 @@ contains
 
         ! -------------------------------------------------------------------
         integer(wi) idl, ndl, idr, ndr, ir, ic, nx, nmin, nmax
-        real(wp) rhsr_b(5, 0:7), rhsr_t(0:4, 8)
+        real(wp) locRhs_b(5, 0:7), locRhs_t(0:4, 8)
 
         ! ###################################################################
         ndl = g%nb_diag(1)
@@ -227,30 +227,30 @@ contains
         fdmi%rhs_b1(:, :) = 0.0_wp
         fdmi%rhs_t1(:, :) = 0.0_wp
 
-        rhsr_b = 0.0_wp
-        rhsr_t = 0.0_wp
-        call FDM_Bcs_Reduce(fdmi%bc, fdmi%rhs, fdmi%lhs, rhsr_b, rhsr_t)
+        locRhs_b = 0.0_wp
+        locRhs_t = 0.0_wp
+        call FDM_Bcs_Reduce(fdmi%bc, fdmi%rhs, fdmi%lhs, locRhs_b, locRhs_t)
 
         fdmi%rhs_b = 0.0_wp
         fdmi%rhs_t = 0.0_wp
         select case (fdmi%bc)
         case (BCS_MIN)
-            fdmi%lhs(1:idr, 1:ndr) = rhsr_b(1:idr, 1:ndr)
+            fdmi%lhs(1:idr, 1:ndr) = locRhs_b(1:idr, 1:ndr)
 
             fdmi%rhs_b(1:idl + 1, 1:ndl) = fdmi%rhs(1:idl + 1, 1:ndl)
             do ir = 1, idr - 1              ! change sign in b^R_{21} for nonzero bc
-                fdmi%rhs_b(1 + ir, idl - ir) = -rhsr_b(1 + ir, idr - ir)
+                fdmi%rhs_b(1 + ir, idl - ir) = -locRhs_b(1 + ir, idr - ir)
             end do
 
             ! reducing system in the opposite end to account for the case of extended stencils
             call FDM_Bcs_Reduce(BCS_MAX, fdmi%lhs, fdmi%rhs, rhs_t=fdmi%rhs_t)
 
         case (BCS_MAX)
-            fdmi%lhs(nx - idr + 1:nx, 1:ndr) = rhsr_t(1:idr, 1:ndr)
+            fdmi%lhs(nx - idr + 1:nx, 1:ndr) = locRhs_t(1:idr, 1:ndr)
 
             fdmi%rhs_t(0:idl, 1:ndl) = fdmi%rhs(nx - idl:nx, 1:ndl)
             do ir = 1, idr - 1              ! change sign in b^R_{21} for nonzero bc
-                fdmi%rhs_t(idl - ir, idl + ir) = -rhsr_t(idr - ir, idr + ir)
+                fdmi%rhs_t(idl - ir, idl + ir) = -locRhs_t(idr - ir, idr + ir)
             end do
 
             ! reducing system in the opposite end to account for the case of extended stencils
@@ -450,14 +450,14 @@ contains
         ! Procedure pointers to matrix multiplication to calculate the right-hand side
         select case (ndr)
         case (3)
-            ! fdmi%matmul => MatMul_3d
-            fdmi%matmuldevel => MatMul_3
-            ! if (ndl == 3) g%matmuldevel_thomas => MatMul_3_ThomasL_3
+            ! fdmi%matmuldevel => MatMul_3
+            if (ndl == 3) fdmi%matmuldevel_thomas => MatMul_3_ThomasL_3
+            if (ndl == 5) fdmi%matmuldevel_thomas => MatMul_3_ThomasL_5
         case (5)
-            ! fdmi%matmul => MatMul_5d
-            fdmi%matmuldevel => MatMul_5
-            ! if (ndl == 3) g%matmuldevel_thomas => MatMul_5_ThomasL_3
-            ! if (ndl == 5) g%matmuldevel_thomas => MatMul_5_ThomasL_5
+            ! fdmi%matmuldevel => MatMul_5
+            if (ndl == 3) fdmi%matmuldevel_thomas => MatMul_5_ThomasL_3
+            if (ndl == 5) fdmi%matmuldevel_thomas => MatMul_5_ThomasL_5
+            if (ndl == 7) fdmi%matmuldevel_thomas => MatMul_5_ThomasL_7
         end select
 
         return
@@ -475,7 +475,7 @@ contains
 
         ! -------------------------------------------------------------------
         integer(wi) idl, ndl, idr, ndr, ir, nx, i
-        real(wp) rhsr_b(5, 0:7), rhsr_t(0:4, 8)
+        real(wp) locRhs_b(5, 0:7), locRhs_t(0:4, 8)
         real(wp) coef(5)
 
         ! ###################################################################
@@ -523,31 +523,31 @@ contains
         fdmi%rhs_b1(:, :) = 0.0_wp
         fdmi%rhs_t1(:, :) = 0.0_wp
 
-        call FDM_Bcs_Reduce(BCS_BOTH, fdmi%rhs, g%rhs(:, 1:ndr), rhsr_b, rhsr_t)
+        call FDM_Bcs_Reduce(BCS_BOTH, fdmi%rhs, g%rhs(:, 1:ndr), locRhs_b, locRhs_t)
 
         fdmi%rhs_b = 0.0_wp
         fdmi%rhs_t = 0.0_wp
 
         fdmi%rhs_b(1:idl + 1, 1:ndl) = fdmi%rhs(1:idl + 1, 1:ndl)
         do ir = 1, idr - 1              ! change sign in b^R_{21} for nonzero bc
-            fdmi%rhs_b(1 + ir, idl - ir) = -rhsr_b(1 + ir, idr - ir)
+            fdmi%rhs_b(1 + ir, idl - ir) = -locRhs_b(1 + ir, idr - ir)
         end do
 
         fdmi%rhs_t(0:idl, 1:ndl) = fdmi%rhs(nx - idl:nx, 1:ndl)
         do ir = 1, idr - 1              ! change sign in b^R_{2n} for nonzero bc
-            fdmi%rhs_t(idl - ir, idl + ir) = -rhsr_t(idr - ir, idr + ir)
+            fdmi%rhs_t(idl - ir, idl + ir) = -locRhs_t(idr - ir, idr + ir)
         end do
 
-        ! fdmi%lhs(1:idr, 1:ndr) = rhsr_b(1:idr, 1:ndr)
+        ! fdmi%lhs(1:idr, 1:ndr) = locRhs_b(1:idr, 1:ndr)
         ! fdmi%lhs(1, idr + 1:idr + idl - 1) = fdmi%lhs(1, idr + 1:idr + idl - 1) + lambda2*fdmi%rhs_b(1, idl + 1:ndl)
-        fdmi%lhs(2:idr, 1:ndr) = rhsr_b(2:idr, 1:ndr)
+        fdmi%lhs(2:idr, 1:ndr) = locRhs_b(2:idr, 1:ndr)
         do ir = 1, idr - 1
             fdmi%lhs(1 + ir, idr - idl + 1:idr + idl - 1) = fdmi%lhs(1 + ir, idr - idl + 1:idr + idl - 1) - lambda2*fdmi%rhs_b(1 + ir, 1:ndl)
         end do
 
-        ! fdmi%lhs(nx - idr + 1:nx, 1:ndr) = rhsr_t(1:idr, 1:ndr)
+        ! fdmi%lhs(nx - idr + 1:nx, 1:ndr) = locRhs_t(1:idr, 1:ndr)
         ! fdmi%lhs(nx, idr - idl + 1:idr - 1) = fdmi%lhs(nx, idr - idl + 1:idr - 1) + lambda2*fdmi%rhs_t(idl, 1:idl - 1)
-        fdmi%lhs(nx - idr + 1:nx - 1, 1:ndr) = rhsr_t(1:idr - 1, 1:ndr)
+        fdmi%lhs(nx - idr + 1:nx - 1, 1:ndr) = locRhs_t(1:idr - 1, 1:ndr)
         do ir = 1, idr - 1
             fdmi%lhs(nx - ir, idr - idl + 1:idr + idl - 1) = fdmi%lhs(nx - ir, idr - idl + 1:idr + idl - 1) - lambda2*fdmi%rhs_t(idl - ir, 1:ndl)
         end do
@@ -732,7 +732,8 @@ contains
         real(wp), intent(inout) :: wrk2d(nlines, 2)
 
         ! -------------------------------------------------------------------
-        integer(wi) :: nx, ndl, ndr, idl, idr
+        integer(wi) :: nx
+        integer(wi) :: ndl, ndr, idl, idr, ic
 
         ! ###################################################################
         nx = size(fdmi%lhs, 1)
@@ -752,29 +753,36 @@ contains
         !                  bcs_t=bcs_ht(:))
         bcs_hb(:) = result(:, 1)
         bcs_ht(:) = result(:, nx)
-        call fdmi%matmuldevel(rhs=rhsi(:, 1:ndr), &
-                              rhs_b=fdmi%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
-                              rhs_t=fdmi%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
-                              u=f, &
-                              f=result, &
-                              bcs_b=bcs_hb(:), bcs_t=bcs_ht(:))
+        ! call fdmi%matmuldevel(rhs=rhsi(:, 1:ndr), &
+        !                       rhs_b=fdmi%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
+        !                       rhs_t=fdmi%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
+        !                       u=f, &
+        !                       f=result, &
+        !                       bcs_b=bcs_hb(:), bcs_t=bcs_ht(:))
+        call fdmi%matmuldevel_thomas(rhs=rhsi(:, 1:ndr), &
+                                     rhs_b=fdmi%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
+                                     rhs_t=fdmi%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
+                                     u=f, &
+                                     f=result, &
+                                     L=fdmi%lhs(:, 1:ndl/2), &
+                                     bcs_b=bcs_hb(:), bcs_t=bcs_ht(:))
 
-        call fdmi%thomasL(fdmi%lhs(2:nx - 1, 1:ndl/2), result(:, 2:nx - 1))
+        ! call fdmi%thomasL(fdmi%lhs(2:nx - 1, 1:ndl/2), result(:, 2:nx - 1))
         call fdmi%thomasU(fdmi%lhs(2:nx - 1, ndl/2 + 1:ndl), result(:, 2:nx - 1))
 
         !   Corrections to the BCS_DD to account for Neumann
         if (any([BCS_ND, BCS_NN] == fdmi%bc)) then
-            result(:, 1) = bcs_hb(:) &
-                           + fdmi%lhs(1, 1)*result(:, 2) &
-                           + fdmi%lhs(1, 2)*result(:, 3) &
-                           + fdmi%lhs(1, 3)*result(:, 4)
+            result(:, 1) = bcs_hb(:)
+            do ic = 1, ndl
+                result(:, 1) = result(:, 1) + fdmi%lhs(1, ic)*result(:, 1 + ic)
+            end do
         end if
 
         if (any([BCS_DN, BCS_NN] == fdmi%bc)) then
-            result(:, nx) = bcs_ht(:) &
-                            + fdmi%lhs(nx, ndl)*result(:, nx - 1) &
-                            + fdmi%lhs(nx, ndl - 1)*result(:, nx - 2) &
-                            + fdmi%lhs(nx, ndl - 2)*result(:, nx - 3)
+            result(:, nx) = bcs_ht(:)
+            do ic = 1, ndl
+                result(:, nx) = result(:, nx) + fdmi%lhs(nx, ndl - ic + 1)*result(:, nx - ic)
+            end do
         end if
 
 #undef bcs_hb

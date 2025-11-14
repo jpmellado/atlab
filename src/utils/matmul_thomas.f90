@@ -10,7 +10,8 @@ module MatMul_Thomas
 
     public :: MatMul_X_ThomasL_Y                ! Generic procedures
 
-    public :: MatMul_3_ThomasL_3                ! Particular procedures
+    public :: MatMul_3_ThomasL_3                ! Particular procedures to accelerate
+    public :: MatMul_3_ThomasL_5
     public :: MatMul_3_antisym_ThomasL_3
     public :: MatMul_3_sym_ThomasL_3            ! Check normalization below
     !                                             The first upper diagonal is normalized to 1
@@ -22,6 +23,7 @@ module MatMul_Thomas
     public :: MatMul_5_sym_ThomasL_5
     public :: MatMul_5_sym_add_3_ThomasL_3
     public :: MatMul_5_sym_add_3_ThomasL_5
+    public :: MatMul_5_ThomasL_7
 
     public :: MatMul_7_antisym_ThomasL_3
     public :: MatMul_7_sym_ThomasL_3
@@ -276,6 +278,70 @@ contains
 
         return
     end subroutine MatMul_3_sym_ThomasL_3
+
+    ! ###################################################################
+    ! ###################################################################
+    subroutine MatMul_3_ThomasL_5(rhs, rhs_b, rhs_t, u, f, L, bcs_b, bcs_t)
+        real(wp), intent(in) :: rhs(:, :)
+        real(wp), intent(in) :: rhs_b(:, :), rhs_t(:, :)
+        real(wp), intent(in) :: u(:, :)
+        real(wp), intent(out) :: f(:, :)
+        real(wp), intent(inout), optional :: bcs_b(:), bcs_t(:)
+        real(wp), intent(in) :: L(:, :)
+
+        integer(wi) nx, nx_b, nx_t, ir, nx_thomas
+        integer ndr, idr
+
+        ! ###################################################################
+        nx_b = size(rhs_b, 1)       ! size of system in lower boundary
+        nx = size(rhs, 1)           ! size of the system
+        nx_t = size(rhs_t, 1)       ! size of system in lower boundary
+
+        ! -------------------------------------------------------------------
+        if (present(bcs_b)) then
+            call MatMul_X_LowerBoundary(rhs_b, u, f, bcs_b)
+            nx_thomas = 3
+        else
+            call MatMul_X_LowerBoundary(rhs_b, u, f)
+            nx_thomas = 2
+        end if
+        ! Thomas step: nx_b is typically small, no need to interlace it with matmul loop
+        ! skip first row if bcs are given
+        ir = nx_thomas
+        f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 2)
+        do ir = nx_thomas + 1, nx_b
+            f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 2) + f(:, ir - 2)*L(ir, 1)
+        end do
+
+        ! -------------------------------------------------------------------
+        ! interior points
+        ndr = size(rhs, 2)          ! # of diagonals
+        idr = ndr/2 + 1             ! index of center diagonal
+
+        do ir = nx_b + 1, nx - nx_t
+            f(:, ir) = u(:, ir - 1)*rhs(ir, 1) &
+                       + u(:, ir)*rhs(ir, 2) &
+                       + u(:, ir + 1)*rhs(ir, 3)
+            ! Thomas step
+            f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 2) + f(:, ir - 2)*L(ir, 1)
+        end do
+
+        ! -------------------------------------------------------------------
+        if (present(bcs_t)) then
+            call MatMul_X_UpperBoundary(rhs_t, u(:, nx - nx_t + 1:nx), f(:, nx - nx_t + 1:nx), bcs_t)
+            nx_thomas = nx - 1
+        else
+            call MatMul_X_UpperBoundary(rhs_t, u(:, nx - nx_t + 1:nx), f(:, nx - nx_t + 1:nx))
+            nx_thomas = nx
+        end if
+        ! Thomas step: nx_t is typically small, no need to interlace it with matmul loop
+        ! skip last row if bcs are given
+        do ir = nx - nx_t + 1, nx_thomas
+            f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 2) + f(:, ir - 2)*L(ir, 1)
+        end do
+
+        return
+    end subroutine MatMul_3_ThomasL_5
 
     ! ###################################################################
     ! ###################################################################
@@ -860,6 +926,74 @@ contains
 
         return
     end subroutine MatMul_5_sym_add_3_ThomasL_5
+
+    ! ###################################################################
+    ! ###################################################################
+    subroutine MatMul_5_ThomasL_7(rhs, rhs_b, rhs_t, u, f, L, bcs_b, bcs_t)
+        real(wp), intent(in) :: rhs(:, :)
+        real(wp), intent(in) :: rhs_b(:, :), rhs_t(:, :)
+        real(wp), intent(in) :: u(:, :)
+        real(wp), intent(out) :: f(:, :)
+        real(wp), intent(inout), optional :: bcs_b(:), bcs_t(:)
+        real(wp), intent(in) :: L(:, :)
+
+        integer(wi) nx, nx_b, nx_t, ir, nx_thomas
+        integer ndr, idr
+
+        ! ###################################################################
+        nx_b = size(rhs_b, 1)       ! size of system in lower boundary
+        nx = size(rhs, 1)           ! size of the system
+        nx_t = size(rhs_t, 1)       ! size of system in lower boundary
+
+        ! -------------------------------------------------------------------
+        if (present(bcs_b)) then
+            call MatMul_X_LowerBoundary(rhs_b, u, f, bcs_b)
+            nx_thomas = 3
+        else
+            call MatMul_X_LowerBoundary(rhs_b, u, f)
+            nx_thomas = 2
+        end if
+        ! Thomas step: nx_b is typically small, no need to interlace it with matmul loop
+        ! skip first row if bcs are given
+        ir = nx_thomas
+        f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 3)
+        ir = nx_thomas + 1
+        f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 3) + f(:, ir - 2)*L(ir, 2)
+        do ir = nx_thomas + 2, nx_b
+            f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 3) + f(:, ir - 2)*L(ir, 2) + f(:, ir - 3)*L(ir, 1)
+        end do
+
+        ! -------------------------------------------------------------------
+        ! interior points
+        ndr = size(rhs, 2)          ! # of diagonals
+        idr = ndr/2 + 1             ! index of center diagonal
+
+        do ir = nx_b + 1, nx - nx_t
+            f(:, ir) = u(:, ir - 2)*rhs(ir, 1) &
+                       + u(:, ir - 1)*rhs(ir, 2) &
+                       + u(:, ir)*rhs(ir, 3) &
+                       + u(:, ir + 1)*rhs(ir, 4) &
+                       + u(:, ir + 2)*rhs(ir, 5)
+            ! Thomas step
+            f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 3) + f(:, ir - 2)*L(ir, 2) + f(:, ir - 3)*L(ir, 1)
+        end do
+
+        ! -------------------------------------------------------------------
+        if (present(bcs_t)) then
+            call MatMul_X_UpperBoundary(rhs_t, u(:, nx - nx_t + 1:nx), f(:, nx - nx_t + 1:nx), bcs_t)
+            nx_thomas = nx - 1
+        else
+            call MatMul_X_UpperBoundary(rhs_t, u(:, nx - nx_t + 1:nx), f(:, nx - nx_t + 1:nx))
+            nx_thomas = nx
+        end if
+        ! Thomas step: nx_t is typically small, no need to interlace it with matmul loop
+        ! skip last row if bcs are given
+        do ir = nx - nx_t + 1, nx_thomas
+            f(:, ir) = f(:, ir) + f(:, ir - 1)*L(ir, 3) + f(:, ir - 2)*L(ir, 2) + f(:, ir - 3)*L(ir, 1)
+        end do
+
+        return
+    end subroutine MatMul_5_ThomasL_7
 
     ! ###################################################################
     ! ###################################################################

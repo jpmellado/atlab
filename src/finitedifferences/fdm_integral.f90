@@ -11,6 +11,7 @@ module FDM_Integral
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
     use Thomas
     use Matmul
+    use MatMul_Thomas
     use MatMulDevel
     use Preconditioning
     use FDM_Derivative, only: fdm_derivative_dt
@@ -146,14 +147,14 @@ contains
         ! Procedure pointers to matrix multiplication to calculate the right-hand side
         select case (ndr)
         case (3)
-            fdmi%matmul => MatMul_3d
-            fdmi%matmuldevel => MatMul_3
-            ! if (ndl == 3) g%matmuldevel_thomas => MatMul_3_ThomasL_3
+            ! fdmi%matmuldevel => MatMul_3
+            if (ndl == 3) fdmi%matmuldevel_thomas => MatMul_3_ThomasL_3
+            if (ndl == 5) fdmi%matmuldevel_thomas => MatMul_3_ThomasL_5
         case (5)
-            fdmi%matmul => MatMul_5d
-            fdmi%matmuldevel => MatMul_5
-            ! if (ndl == 3) g%matmuldevel_thomas => MatMul_5_ThomasL_3
-            ! if (ndl == 5) g%matmuldevel_thomas => MatMul_5_ThomasL_5
+            ! fdmi%matmuldevel => MatMul_5
+            if (ndl == 3) fdmi%matmuldevel_thomas => MatMul_5_ThomasL_3
+            if (ndl == 5) fdmi%matmuldevel_thomas => MatMul_5_ThomasL_5
+            if (ndl == 7) fdmi%matmuldevel_thomas => MatMul_5_ThomasL_7
         end select
 
         return
@@ -188,18 +189,10 @@ contains
         fdmi%lambda = lambda
         fdmi%bc = ibc
 
-        if (allocated(fdmi%lhs)) deallocate (fdmi%lhs)
-        if (allocated(fdmi%rhs)) deallocate (fdmi%rhs)
-        allocate (fdmi%lhs(nx, ndr))
-        allocate (fdmi%rhs(nx, ndl))
-
-        if (allocated(fdmi%rhs_b1)) deallocate (fdmi%rhs_b1)
-        allocate (fdmi%rhs_b1(max(idr, idl + 1), 1:ndl + 2))
-        if (allocated(fdmi%rhs_t1)) deallocate (fdmi%rhs_t1)
-        allocate (fdmi%rhs_t1(max(idr, idl + 1), 1:ndl + 2))
-
         ! -------------------------------------------------------------------
         ! new rhs diagonals (array A), independent of lambda
+        if (allocated(fdmi%rhs)) deallocate (fdmi%rhs)
+        allocate (fdmi%rhs(nx, ndl))
         fdmi%rhs(1:nx, 1:ndl) = g%lhs(1:nx, 1:ndl)
 
         ! -------------------------------------------------------------------
@@ -208,6 +201,8 @@ contains
         !   C = B + lamnda h | 0 A_22 |     for BCS_MIN
         !
         ! and correspondingly for BCS_MAX
+        if (allocated(fdmi%lhs)) deallocate (fdmi%lhs)
+        allocate (fdmi%lhs(nx, ndr))
         fdmi%lhs(1:nx, 1:ndr) = g%rhs(1:nx, 1:ndr)
 
         select case (fdmi%bc)
@@ -224,7 +219,14 @@ contains
         end do
 
         ! -------------------------------------------------------------------
-        ! Reduction
+        ! Reduction; extending 2 diagonals the rhs at the boundaries
+        if (allocated(fdmi%rhs_b1)) deallocate (fdmi%rhs_b1)
+        if (allocated(fdmi%rhs_t1)) deallocate (fdmi%rhs_t1)
+        allocate (fdmi%rhs_b1(max(idr, idl + 1), 1:ndl + 2))
+        allocate (fdmi%rhs_t1(max(idr, idl + 1), 1:ndl + 2))
+        fdmi%rhs_b1(:, :) = 0.0_wp
+        fdmi%rhs_t1(:, :) = 0.0_wp
+
         rhsr_b = 0.0_wp
         rhsr_t = 0.0_wp
         call FDM_Bcs_Reduce(fdmi%bc, fdmi%rhs, fdmi%lhs, rhsr_b, rhsr_t)
@@ -256,18 +258,7 @@ contains
 
         end select
 
-        ! -------------------------------------------------------------------
-        ! preconditioning
-        !
-        ! so far, based on the rhs
-        ! use of lhs brings lambda to the rhs, in conflict with opr_elliptic.
-        call Precon_Rhs(fdmi%lhs, fdmi%rhs, &
-                        fdmi%rhs_b(1:max(idr, idl + 1), 0:ndl + 1), &
-                        fdmi%rhs_t(0:max(idr, idl + 1) - 1, 1:ndl + 2))
-
         ! new format; extending to ndr+2 diagonals
-        fdmi%rhs_b1(:, :) = 0.0_wp
-        fdmi%rhs_t1(:, :) = 0.0_wp
         do ir = 1, max(idr, idl + 1)
             fdmi%rhs_b1(ir, 1:ndl + 1) = fdmi%rhs_b(ir, 0:ndl)
             fdmi%rhs_t1(ir, 2:ndl + 2) = fdmi%rhs_t(ir - 1, 1:ndl + 1)
@@ -277,6 +268,13 @@ contains
         fdmi%rhs_b1(ir, ndl + 2) = fdmi%rhs_b1(ir, 2); fdmi%rhs_b1(ir, 2) = 0.0_wp
         ir = max(idr, idl + 1)
         fdmi%rhs_t1(ir, 1) = fdmi%rhs_t1(ir, ndl + 1); fdmi%rhs_t1(ir, ndl + 1) = 0.0_wp
+
+        ! -------------------------------------------------------------------
+        ! preconditioning
+        !
+        ! so far, based on the rhs
+        ! use of lhs brings lambda to the rhs, in conflict with opr_elliptic.
+        call Precon_Rhs(fdmi%lhs, fdmi%rhs, fdmi%rhs_b1, fdmi%rhs_t1)
 
         return
     end subroutine FDM_Int1_CreateSystem
@@ -310,54 +308,30 @@ contains
 
         select case (fdmi%bc)
         case (BCS_MIN)
-            ! result(:, nx) = f(:, nx)
             bcs_hb(:) = result(:, 1)
             bcs_ht(:) = f(:, nx)
         case (BCS_MAX)
-            ! result(:, 1) = f(:, 1)
             bcs_hb(:) = f(:, 1)
             bcs_ht(:) = result(:, nx)
         end select
 
-        ! select case (ndr)
-        ! case (3)
-        !     call MatMul_3d(rhsi, f, result, BCS_BOTH, &
-        !                    rhs_b=fdmi%rhs_b, &
-        !                    rhs_t=fdmi%rhs_t, &
-        !                    bcs_b=bcs_hb(:), &
-        !                    bcs_t=bcs_ht(:))
-        ! case (5)
-        !     call MatMul_5d(rhsi, f, result, BCS_BOTH, &
-        !                    rhs_b=fdmi%rhs_b, &
-        !                    rhs_t=fdmi%rhs_t, &
-        !                    bcs_b=bcs_hb(:), &
-        !                    bcs_t=bcs_ht(:))
-        ! end select
-        ! call fdmi%matmul(rhsi, f, result, BCS_BOTH, &
-        !                  rhs_b=fdmi%rhs_b, &
-        !                  rhs_t=fdmi%rhs_t, &
-        !                  bcs_b=bcs_hb(:), &
-        !                  bcs_t=bcs_ht(:))
-        call fdmi%matmuldevel(rhs=rhsi(:, 1:ndr), &
-                              rhs_b=fdmi%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
-                              rhs_t=fdmi%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
-                              u=f, &
-                              f=result, &
-                              bcs_b=bcs_hb(:), &
-                              bcs_t=bcs_ht(:))
+        ! call fdmi%matmuldevel(rhs=rhsi(:, 1:ndr), &
+        !                       rhs_b=fdmi%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
+        !                       rhs_t=fdmi%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
+        !                       u=f, &
+        !                       f=result, &
+        !                       bcs_b=bcs_hb(:), &
+        !                       bcs_t=bcs_ht(:))
+        call fdmi%matmuldevel_thomas(rhs=rhsi(:, 1:ndr), &
+                                     rhs_b=fdmi%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
+                                     rhs_t=fdmi%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
+                                     u=f, &
+                                     f=result, &
+                                     L=fdmi%lhs(:, 1:ndl/2), &
+                                     bcs_b=bcs_hb(:), &
+                                     bcs_t=bcs_ht(:))
 
-        ! select case (ndl)
-        ! case (3)
-        !     call Thomas3_SolveL(fdmi%lhs(2:nx - 1, 1:ndl/2), result(:, 2:nx - 1))
-        !     call Thomas3_SolveU(fdmi%lhs(2:nx - 1, ndl/2 + 1:ndl), result(:, 2:nx - 1))
-        ! case (5)
-        !     call Thomas5_SolveL(fdmi%lhs(2:nx - 1, 1:ndl/2), result(:, 2:nx - 1))
-        !     call Thomas5_SolveU(fdmi%lhs(2:nx - 1, ndl/2 + 1:ndl), result(:, 2:nx - 1))
-        ! case (7)
-        !     call Thomas7_SolveL(fdmi%lhs(2:nx - 1, 1:ndl/2), result(:, 2:nx - 1))
-        !     call Thomas7_SolveU(fdmi%lhs(2:nx - 1, ndl/2 + 1:ndl), result(:, 2:nx - 1))
-        ! end select
-        call fdmi%thomasL(fdmi%lhs(2:nx - 1, 1:ndl/2), result(:, 2:nx - 1))
+        ! call fdmi%thomasL(fdmi%lhs(2:nx - 1, 1:ndl/2), result(:, 2:nx - 1))
         call fdmi%thomasU(fdmi%lhs(2:nx - 1, ndl/2 + 1:ndl), result(:, 2:nx - 1))
 
         select case (fdmi%bc)

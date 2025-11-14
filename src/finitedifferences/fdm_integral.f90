@@ -10,9 +10,8 @@ module FDM_Integral
     use TLab_Constants, only: BCS_DD, BCS_ND, BCS_DN, BCS_NN, BCS_MIN, BCS_MAX, BCS_BOTH
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
     use Thomas
-    ! use Matmul
-    use MatMul_Thomas
     use MatMulDevel
+    use MatMul_Thomas
     use Preconditioning
     use FDM_Derivative, only: fdm_derivative_dt
     use FDM_Base
@@ -28,11 +27,10 @@ module FDM_Integral
         real(wp), allocatable :: lhs(:, :)                  ! Often overwritten to LU decomposition.
         real(wp), allocatable :: rhs(:, :)
         real(wp), allocatable :: rhs_b1(:, :), rhs_t1(:, :) ! boundary conditions
+        procedure(matmuldevel_ice), pointer, nopass :: matmuldevel => null()
         procedure(matmuldevel_thomas_ice), pointer, nopass :: matmuldevel_thomas => null()
         procedure(thomas_ice), pointer, nopass :: thomasL => null()
         procedure(thomas_ice), pointer, nopass :: thomasU => null()
-        procedure(matmuldevel_ice), pointer, nopass :: matmuldevel => null()
-        ! procedure(matmul_ice), pointer, nopass :: matmul => null()
     end type fdm_integral_dt
     ! This type is used in elliptic operators for different eigenvalues. This can lead to fragmented memory.
     ! One could use pointers instead of allocatable for lhs and rhs, and point the pointers to the
@@ -77,18 +75,6 @@ module FDM_Integral
             real(wp), intent(inout), optional :: bcs_b(:), bcs_t(:)
         end subroutine
     end interface
-
-    ! abstract interface
-    !     subroutine matmul_ice(rhs, u, f, ibc, rhs_b, rhs_t, bcs_b, bcs_t)
-    !         use TLab_Constants, only: wp
-    !         real(wp), intent(in) :: rhs(:, :)                               ! diagonals of B
-    !         real(wp), intent(in) :: u(:, :)                                 ! vector u
-    !         real(wp), intent(out) :: f(:, :)                                ! vector f = B u
-    !         integer, intent(in) :: ibc
-    !         real(wp), intent(in), optional :: rhs_b(:, 0:), rhs_t(0:, :)    ! Special bcs at bottom, top
-    !         real(wp), intent(out), optional :: bcs_b(:), bcs_t(:)
-    !     end subroutine
-    ! end interface
 
 contains
     !########################################################################
@@ -746,11 +732,6 @@ contains
 #define bcs_hb(i) wrk2d(i,1)
 #define bcs_ht(i) wrk2d(i,2)
 
-        ! call fdmi%matmul(rhsi, f, result, BCS_BOTH, &
-        !                  rhs_b=fdmi%rhs_b(1:idr + 1, 0:ndr), &
-        !                  rhs_t=fdmi%rhs_t(0:idr, 1:ndr + 1), &
-        !                  bcs_b=bcs_hb(:), &
-        !                  bcs_t=bcs_ht(:))
         bcs_hb(:) = result(:, 1)
         bcs_ht(:) = result(:, nx)
         ! call fdmi%matmuldevel(rhs=rhsi(:, 1:ndr), &

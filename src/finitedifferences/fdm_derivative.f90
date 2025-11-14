@@ -40,7 +40,7 @@ module FDM_Derivative
         ! procedure(matmul_add_ice), pointer, nopass :: matmul_add => null()
         procedure(matmul_thomas_ice), pointer, nopass :: matmul_thomas => null()
         procedure(matmul_add_thomas_ice), pointer, nopass :: matmul_add_thomas => null()
-        procedure(thomas_ice), pointer, nopass :: thomasL => null()
+        ! procedure(thomas_ice), pointer, nopass :: thomasL => null()
         procedure(thomas_ice), pointer, nopass :: thomasU => null()
 
         ! type(fdm_bcs) :: bcs(0:3)           ! linear system for 4 different boundary conditions, 0 is the default
@@ -164,7 +164,7 @@ contains
         integer, intent(in) :: bcs_cases(:)
 
         ! -------------------------------------------------------------------
-        integer ndl, ndr, idl, idr, i
+        integer ndl, ndr, idl, idr
         integer(wi) ib, ip
         integer(wi) nmin, nmax, nsize
 
@@ -215,18 +215,12 @@ contains
             do ib = 1, size(bcs_cases)
                 ip = (ib - 1)*5
 
-                call FDM_Der1_Neumann_Reduce(g%lhs(:, 1:ndl), g%rhs(:, 1:ndr), bcs_cases(ib), g%lu(:, ip + 1:ip + ndl), g%rhs_b1, g%rhs_t1(:,2:))
-
-                ! new format; extending to ndr+2 diagonals
-                ! do i = 1, max(idl, idr + 1)
-                !     g%rhs_b1(i, 1:ndr + 1) = g%rhs_b(i, 0:ndr)
-                !     g%rhs_t1(i, 2:ndr + 2) = g%rhs_t(i - 1, 1:ndr + 1)
-                ! end do
-                ! arrange for longer stencil; check FDM_Der1_Neumann_Reduce
-                i = 1
-                g%rhs_b1(i, ndr + 2) = g%rhs_b1(i, 2); g%rhs_b1(i, 2) = 0.0_wp
-                i = max(idl, idr + 1)
-                g%rhs_t1(i, 1) = g%rhs_t1(i, ndr + 1); g%rhs_t1(i, ndr + 1) = 0.0_wp
+                call FDM_Der1_Neumann_Reduce(g%lhs(:, 1:ndl), &
+                                             g%rhs(:, 1:ndr), &
+                                             bcs_cases(ib), &
+                                             g%lu(:, ip + 1:ip + ndl), &
+                                             g%rhs_b1, &
+                                             g%rhs_t1)
 
                 nmin = 1; nmax = g%size
                 if (any([BCS_ND, BCS_NN] == bcs_cases(ib))) nmin = nmin + 1
@@ -243,13 +237,13 @@ contains
         ! Procedure pointers to linear solvers
         select case (ndl)
         case (3)
-            g%thomasL => Thomas3_SolveL
+            ! g%thomasL => Thomas3_SolveL
             g%thomasU => Thomas3_SolveU
         case (5)
-            g%thomasL => Thomas5_SolveL
+            ! g%thomasL => Thomas5_SolveL
             g%thomasU => Thomas5_SolveU
         case (7)
-            g%thomasL => Thomas7_SolveL
+            ! g%thomasL => Thomas7_SolveL
             g%thomasU => Thomas7_SolveU
         end select
 
@@ -381,19 +375,26 @@ contains
         real(wp), intent(in) :: rhs(:, :)
         integer, intent(in) :: ibc
         real(wp), intent(out) :: r_lhs(:, :)                        ! new, reduced lhs
-        real(wp), intent(inout) :: r_rhs_b(:, 0:), r_rhs_t(0:, :)   ! new, reduced rhs
+        real(wp), intent(inout) :: r_rhs_b(:, :), r_rhs_t(:, :)     ! new, reduced rhs, extended diagonals
 
         ! -------------------------------------------------------------------
         integer(wi) idl, ndl, idr, ndr, ir, nx
+        integer(wi) idr_t, ndr_t, idr_b, ndr_b
         real(wp), allocatable :: aux(:, :)
         real(wp) locRhs_b(5, 0:7), locRhs_t(0:4, 7)
 
         ! ###################################################################
+        nx = size(lhs, 1)           ! # grid points
+
         ndl = size(lhs, 2)
         idl = ndl/2 + 1             ! center diagonal in lhs
         ndr = size(rhs, 2)
         idr = ndr/2 + 1             ! center diagonal in rhs
-        nx = size(lhs, 1)           ! # grid points
+
+        ndr_b = size(r_rhs_b, 2)    ! they can have a different number of diagonals than rhs
+        idr_b = ndr_b/2 + 1
+        ndr_t = size(r_rhs_t, 2)
+        idr_t = ndr_t/2 + 1
 
         ! For A_22, we need idl >= idr -1
         if (idl < idr - 1) then
@@ -411,7 +412,7 @@ contains
 
         ! -------------------------------------------------------------------
         r_lhs(:, 1:ndl) = lhs(:, 1:ndl)
-        aux(1:nx, 1:ndr) = rhs(1:nx, 1:ndr)       ! array changed in FDM_Bcs_Reduce
+        aux(1:nx, 1:ndr) = rhs(1:nx, 1:ndr)         ! array changed in FDM_Bcs_Reduce
 
         locRhs_b = 0.0_wp
         locRhs_t = 0.0_wp
@@ -419,28 +420,36 @@ contains
 
         ! reorganize data
         if (any([BCS_ND, BCS_NN] == ibc)) then
-            r_rhs_b = 0.0_wp
-            r_rhs_b(1:idr + 1, 1:ndr) = aux(1:idr + 1, 1:ndr)
-            r_rhs_b(1, idr) = lhs(1, idl)       ! save a_11 for nonzero bc
-            do ir = 1, idr - 1                  ! save -a^R_{21} for nonzero bc
-                r_rhs_b(1 + ir, idr - ir) = -locRhs_b(1 + ir, idl - ir)
+            r_rhs_b(:, :) = 0.0_wp
+            r_rhs_b(1:idr + 1, idr_b - ndr/2:idr_b + ndr/2) = aux(1:idr + 1, 1:ndr)
+            r_rhs_b(1, idr_b) = lhs(1, idl)         ! save a_11 for nonzero bc
+            do ir = 1, idr - 1                      ! save -a^R_{21} for nonzero bc
+                r_rhs_b(1 + ir, idr_b - ir) = -locRhs_b(1 + ir, idl - ir)
             end do
 
             r_lhs(2:idl + 1, 1:ndl) = locRhs_b(2:idl + 1, 1:ndl)
             r_lhs(1, idl) = rhs(1, idr)
 
+            ! moving extended stencil in first element of old array to natural position
+            r_rhs_b(1, idr_b + ndr/2 + 1) = r_rhs_b(1, idr_b - ndr/2)
+            r_rhs_b(1, idr_b - ndr/2) = 0.0_wp
+
         end if
 
         if (any([BCS_DN, BCS_NN] == ibc)) then
-            r_rhs_t = 0.0_wp
-            r_rhs_t(0:idr, 1:ndr) = aux(nx - idr:nx, 1:ndr)
-            r_rhs_t(idr, idr) = lhs(nx, idl)
+            r_rhs_t(:, :) = 0.0_wp
+            r_rhs_t(1:idr + 1, idr_t - ndr/2:idr_t + ndr/2) = aux(nx - idr:nx, 1:ndr)
+            r_rhs_t(idr + 1, idr_t) = lhs(nx, idl)
             do ir = 1, idr - 1              ! change sign in a^R_{21} for nonzero bc
-                r_rhs_t(idr - ir, idr + ir) = -locRhs_t(idl - ir, idl + ir)
+                r_rhs_t(idr + 1 - ir, idr_t + ir) = -locRhs_t(idl - ir, idl + ir)
             end do
 
             r_lhs(nx - idl:nx - 1, 1:ndl) = locRhs_t(0:idl - 1, 1:ndl)
             r_lhs(nx, idl) = rhs(nx, idr)
+
+            ! moving extended stencil in last element of old array to natural position
+            r_rhs_t(idr + 1, idr_t - ndr/2 - 1) = r_rhs_t(idr + 1, idr_t + ndr/2)
+            r_rhs_t(idr + 1, idr_t + ndr/2) = 0.0_wp
 
         end if
 
@@ -534,11 +543,11 @@ contains
                 !                    u=u, &
                 !                    f=result)
                 call g%matmul_thomas(rhs=g%rhs(:, 1:ndr), &
-                                          rhs_b=g%rhs(1:ndr/2, 1:ndr), &
-                                          rhs_t=g%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
-                                          u=u, &
-                                          f=result, &
-                                          L=lu1(:, ip + 1:ip + ndl/2))
+                                     rhs_b=g%rhs(1:ndr/2, 1:ndr), &
+                                     rhs_t=g%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
+                                     u=u, &
+                                     f=result, &
+                                     L=lu1(:, ip + 1:ip + ndl/2))
             case (BCS_ND)
                 ! call g%matmul(rhs=g%rhs(:, 1:ndr), &
                 !                    rhs_b=g%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
@@ -547,12 +556,12 @@ contains
                 !                    f=result, &
                 !                    bcs_b=bcs_hb(:))
                 call g%matmul_thomas(rhs=g%rhs(:, 1:ndr), &
-                                          rhs_b=g%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
-                                          rhs_t=g%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
-                                          u=u, &
-                                          f=result, &
-                                          L=lu1(:, ip + 1:ip + ndl/2), &
-                                          bcs_b=bcs_hb(:))
+                                     rhs_b=g%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
+                                     rhs_t=g%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
+                                     u=u, &
+                                     f=result, &
+                                     L=lu1(:, ip + 1:ip + ndl/2), &
+                                     bcs_b=bcs_hb(:))
             case (BCS_DN)
                 ! call g%matmul(rhs=g%rhs(:, 1:ndr), &
                 !                    rhs_b=g%rhs(1:ndr/2, 1:ndr), &
@@ -561,12 +570,12 @@ contains
                 !                    f=result, &
                 !                    bcs_t=bcs_ht(:))
                 call g%matmul_thomas(rhs=g%rhs(:, 1:ndr), &
-                                          rhs_b=g%rhs(1:ndr/2, 1:ndr), &
-                                          rhs_t=g%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
-                                          u=u, &
-                                          f=result, &
-                                          L=lu1(:, ip + 1:ip + ndl/2), &
-                                          bcs_t=bcs_ht(:))
+                                     rhs_b=g%rhs(1:ndr/2, 1:ndr), &
+                                     rhs_t=g%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
+                                     u=u, &
+                                     f=result, &
+                                     L=lu1(:, ip + 1:ip + ndl/2), &
+                                     bcs_t=bcs_ht(:))
             case (BCS_NN)
                 ! call g%matmul(rhs=g%rhs(:, 1:ndr), &
                 !                    rhs_b=g%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
@@ -575,12 +584,12 @@ contains
                 !                    f=result, &
                 !                    bcs_b=bcs_hb(:), bcs_t=bcs_ht(:))
                 call g%matmul_thomas(rhs=g%rhs(:, 1:ndr), &
-                                          rhs_b=g%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
-                                          rhs_t=g%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
-                                          u=u, &
-                                          f=result, &
-                                          L=lu1(:, ip + 1:ip + ndl/2), &
-                                          bcs_b=bcs_hb(:), bcs_t=bcs_ht(:))
+                                     rhs_b=g%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
+                                     rhs_t=g%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
+                                     u=u, &
+                                     f=result, &
+                                     L=lu1(:, ip + 1:ip + ndl/2), &
+                                     bcs_b=bcs_hb(:), bcs_t=bcs_ht(:))
 
             end select
 
@@ -641,13 +650,13 @@ contains
         ! Procedure pointers to linear solvers
         select case (ndl)
         case (3)
-            g%thomasL => Thomas3_SolveL
+            ! g%thomasL => Thomas3_SolveL
             g%thomasU => Thomas3_SolveU
         case (5)
-            g%thomasL => Thomas5_SolveL
+            ! g%thomasL => Thomas5_SolveL
             g%thomasU => Thomas5_SolveU
         case (7)
-            g%thomasL => Thomas7_SolveL
+            ! g%thomasL => Thomas7_SolveL
             g%thomasU => Thomas7_SolveU
         end select
 
@@ -836,13 +845,13 @@ contains
                 !                        u_add=du, &
                 !                        f=result)
                 call g%matmul_add_thomas(rhs=g%rhs(:, 1:ndr), &
-                                              rhs_b=g%rhs(1:ndr/2, 1:ndr), &
-                                              rhs_t=g%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
-                                              u=u, &
-                                              rhs_add=g%rhs(:, ip + 1:ip + 3), &
-                                              u_add=du, &
-                                              f=result, &
-                                              L=lu(:, 1:ndl/2))
+                                         rhs_b=g%rhs(1:ndr/2, 1:ndr), &
+                                         rhs_t=g%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
+                                         u=u, &
+                                         rhs_add=g%rhs(:, ip + 1:ip + 3), &
+                                         u_add=du, &
+                                         f=result, &
+                                         L=lu(:, 1:ndl/2))
             else
                 ! call g%matmul(rhs=g%rhs(:, 1:ndr), &
                 !                    rhs_b=g%rhs(1:ndr/2, 1:ndr), &
@@ -850,11 +859,11 @@ contains
                 !                    u=u, &
                 !                    f=result)
                 call g%matmul_thomas(rhs=g%rhs(:, 1:ndr), &
-                                          rhs_b=g%rhs(1:ndr/2, 1:ndr), &
-                                          rhs_t=g%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
-                                          u=u, &
-                                          f=result, &
-                                          L=lu(:, 1:ndl/2))
+                                     rhs_b=g%rhs(1:ndr/2, 1:ndr), &
+                                     rhs_t=g%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
+                                     u=u, &
+                                     f=result, &
+                                     L=lu(:, 1:ndl/2))
             end if
 
             ! Solve for u' in system of equations A u' = B u

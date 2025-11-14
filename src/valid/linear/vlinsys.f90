@@ -8,9 +8,9 @@ program vLinSys
     use Thomas_Circulant
     implicit none
 
-    interface matmul
+    interface matmul_ice
         procedure MatMul_X, MatMul_X_ThomasL_Y
-    end interface matmul
+    end interface matmul_ice
 
     integer(wi), parameter :: nlines = 1
     integer(wi), parameter :: nsize = 1024
@@ -76,12 +76,12 @@ program vLinSys
         ! end select
 
         ! compute forcing
-        call matmul(rhs=rhs(:, 1:nd), &
-                    rhs_b=rhs(1:nd/2, 1:nd), &
-                    rhs_t=rhs(nsize - nd/2 + 1:nsize, 1:nd), &
-                    u=u, &
-                    f=f, &
-                    L=lhs(:, 1:nd/2))
+        call matmul_ice(rhs=rhs(:, 1:nd), &
+                        rhs_b=rhs(1:nd/2, 1:nd), &
+                        rhs_t=rhs(nsize - nd/2 + 1:nsize, 1:nd), &
+                        u=u, &
+                        f=f, &
+                        L=lhs(:, 1:nd/2))
 
         ! call Thomas_SolveL(lhs(:, 1:nd/2), f)
         call Thomas_SolveU(lhs(:, nd/2 + 1:nd), f)

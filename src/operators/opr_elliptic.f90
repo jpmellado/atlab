@@ -147,13 +147,8 @@ contains
             call TLab_Allocate_Real(__FILE__, rhs_b, [z%size, nd], 'rhs_b')
             call TLab_Allocate_Real(__FILE__, rhs_t, [z%size, nd], 'rhs_t')
 
-            ! if (stagger_on) then
-            !     i_sing = [1, 1]                 ! only one singular mode + different modified wavenumbers
-            !     j_sing = [1, 1]
-            ! else
-            i_sing = [1, x%size/2 + 1]   ! global indexes, transformed below to task-local indexes.
+            i_sing = [1, x%size/2 + 1]      ! global indexes, transformed below to task-local indexes.
             j_sing = [1, y%size/2 + 1]
-            ! end if
 
         case (TYPE_DIRECT)
             OPR_Poisson => OPR_Poisson_FourierXZ_Direct
@@ -165,13 +160,12 @@ contains
             allocate (fdm_int2(isize_line, jmax))
             call TLab_Allocate_Real(__FILE__, rhs_d, [z%size, nd], 'rhs_d')
 
-            i_sing = [1, 1]                     ! 2nd order FDMs are non-zero at Nyquist
+            i_sing = [1, 1]                 ! 2nd order FDMs are non-zero at Nyquist
             j_sing = [1, 1]
 
         end select
 
 #ifdef USE_MPI
-        ! fft_offset_i = ims_offset_i/2
         fft_offset_i = ims_pro_i*isize_line
         fft_offset_j = ims_offset_j
 
@@ -180,9 +174,9 @@ contains
         fft_offset_j = 0
 #endif
 
-        i_sing = i_sing - [fft_offset_i, fft_offset_i]              ! Singular modes in task-local variables
+        i_sing = i_sing - [fft_offset_i, fft_offset_i]          ! Singular modes in task-local variables
         j_sing = j_sing - [fft_offset_j, fft_offset_j]
-        i_max = min(x%size/2 + 1 - fft_offset_i, isize_line)     ! Maximum mode is x direction
+        i_max = min(x%size/2 + 1 - fft_offset_i, isize_line)    ! Maximum mode is x direction
 
         do i = 1, i_max
 #ifdef USE_MPI
@@ -256,6 +250,7 @@ contains
                     else
                         call FDM_Int2_Initialize(fdm_loc%nodes(:), fdm_loc%der2, lambda(i, j), BCS_NN, fdm_int2(i, j))
                     end if
+                    ! multiply by the FFT normalization
                     fdm_int2(i, j)%rhs = fdm_int2(i, j)%rhs*norm
                     fdm_int2(i, j)%rhs_t1 = fdm_int2(i, j)%rhs_t1*norm
                     fdm_int2(i, j)%rhs_b1 = fdm_int2(i, j)%rhs_b1*norm
@@ -263,9 +258,6 @@ contains
                     ! free memory that is independent of lambda
                     rhs_d(:, :) = fdm_int2(i, j)%rhs(:, :)
                     if (allocated(fdm_int2(i, j)%rhs)) deallocate (fdm_int2(i, j)%rhs)
-
-                    ! idr = ndr/2 + 1
-                    ! fdm_int2(i, j)%lhs(:, idr) = fdm_int2(i, j)%lhs(:, idr)*norm
 
                 end select
 
@@ -308,8 +300,6 @@ contains
         p(1:nx, 1:ny, nz) = bcs_ht(1:nx, 1:ny)
         call OPR_Fourier_XY_Forward(p(:, 1, 1), c_tmp1, c_tmp2)
 
-        tmp1 = tmp1*norm
-
         ! ###################################################################
         ! Solve FDE \hat{p}''-\lambda \hat{p} = \hat{f}
 #define f(k,i,j) tmp1(k,i,j)
@@ -342,6 +332,9 @@ contains
                     end if
 
                 end select
+
+                ! multiply by the FFT normalization
+                u(:, i, j) = u(:, i, j)*norm
 
             end do
         end do
@@ -398,9 +391,14 @@ contains
 
                     call FDM_Int2_Solve(2, fdm_int2(i, j), rhs_d, f(:, i, j), u(:, i, j), wrk2d)
 
+                    ! multiply by the FFT normalization
+                    ! already done at initialization
+
                 case default            ! Need to calculate and factorize LHS
                     call FDM_Int2_Initialize(fdm_loc%nodes(:), fdm_loc%der2, lambda(i, j), ibc, fdm_int2_loc)
                     call FDM_Int2_Solve(2, fdm_int2_loc, fdm_int2_loc%rhs, f(:, i, j), u(:, i, j), wrk2d)
+
+                    ! multiply by the FFT normalization
                     u(:, i, j) = u(:, i, j)*norm
 
                 end select
@@ -421,9 +419,9 @@ contains
 
     !########################################################################
     !#
-    !# Solve Lap a + lpha a = f using Fourier in xOy planes, to rewrite the problem as
+    !# Solve Lap a + alpha a = f using Fourier in xOy planes, to rewrite the problem as
     !#
-    !#      \hat{a}''-(\lambda-lpha) \hat{a} = \hat{f}
+    !#      \hat{a}''-(\lambda-alpha) \hat{a} = \hat{f}
     !#
     !# where \lambda = kx^2+ky^2
     !#
@@ -451,10 +449,8 @@ contains
         a(1:nx, 1:ny, nz) = bcs_ht(1:nx, 1:ny)
         call OPR_Fourier_XY_Forward(a(:, 1, 1), c_tmp1, c_tmp2)
 
-        tmp1 = tmp1*norm
-
         ! ###################################################################
-        ! Solve FDE (\hat{p}')'-(\lambda+lpha) \hat{p} = \hat{f}
+        ! Solve FDE (\hat{p}')'-(\lambda + alpha) \hat{p} = \hat{f}
 #define f(k,i,j) tmp1(k,i,j)
 #define u(k,i,j) tmp2(k,i,j)
 #define v(k,i,j) p_wrk3d_loc(k,i,j)
@@ -480,6 +476,9 @@ contains
                     call OPR_ODE2_Factorize_DD(2, fdm_int1_loc, fdm_int1_loc(BCS_MIN)%rhs, fdm_int1_loc(BCS_MAX)%rhs, &
                                                u(:, i, j), f(:, i, j), bcs, v(:, i, j), wrk1d, wrk2d)
                 end select
+
+                ! multiply by the FFT normalization
+                u(:, i, j) = u(:, i, j)*norm
 
             end do
         end do
@@ -519,10 +518,8 @@ contains
         a(1:nx, 1:ny, nz) = bcs_ht(1:nx, 1:ny)
         call OPR_Fourier_XY_Forward(a(:, 1, 1), c_tmp1, c_tmp2)
 
-        tmp1 = tmp1*norm
-
         ! ###################################################################
-        ! Solve FDE \hat{p}''-(\lambda+lpha) \hat{p} = \hat{f}
+        ! Solve FDE \hat{p}''-(\lambda + alpha) \hat{p} = \hat{f}
 #define f(k,i,j) tmp1(k,i,j)
 #define u(k,i,j) tmp2(k,i,j)
 
@@ -534,6 +531,9 @@ contains
 
                 call FDM_Int2_Initialize(fdm_loc%nodes(:), fdm_loc%der2, lambda(i, j) - alpha, ibc, fdm_int2_loc)
                 call FDM_Int2_Solve(2, fdm_int2_loc, fdm_int2_loc%rhs, f(:, i, j), u(:, i, j), wrk2d)
+
+                ! multiply by the FFT normalization
+                u(:, i, j) = u(:, i, j)*norm
 
             end do
         end do

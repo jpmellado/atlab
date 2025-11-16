@@ -24,7 +24,7 @@ subroutine AVG_SCAL_XZ(is, q, s, s_local, dsdx, dsdy, dsdz, tmp1, tmp2, tmp3, me
     use NavierStokes
     use Thermo_Anelastic, only: ribackground, Thermo_Anelastic_Weight_InPlace
     use Thermo_Compressible, only: rho, vis
-    use Gravity, only: gravityProps, Gravity_Source
+    use Gravity, only: gravityProps, Gravity_AddSource
     use Rotation, only: coriolisProps
     use Microphysics
     use Radiation
@@ -676,7 +676,8 @@ subroutine AVG_SCAL_XZ(is, q, s, s_local, dsdx, dsdy, dsdz, tmp1, tmp2, tmp3, me
         ! call Thermo_Anelastic_BUOYANCY(imax, jmax, kmax, s, p_wrk3d)
 
     case (DNS_EQNS_BOUSSINESQ)
-        call Gravity_Source(gravityProps, imax, jmax, kmax, s, p_wrk3d)
+        p_wrk3d = 0.0_wp
+        call Gravity_AddSource(gravityProps, imax, jmax, kmax, s, p_wrk3d, 1.0_wp)
 
     case (DNS_EQNS_COMPRESSIBLE)
         p_wrk3d = rho

@@ -32,7 +32,7 @@ subroutine AVG_FLOW_XZ(q, s, dudx, dudy, dudz, dvdx, dvdy, dvdz, dwdx, dwdy, dwd
     use Thermo_AirWater, only: inb_scal_T
     use Thermo_Anelastic
     use NavierStokes
-    use Gravity, only: froude, gravityProps, Gravity_Source
+    use Gravity, only: froude, gravityProps, Gravity_AddSource
     use Rotation, only: coriolisProps
     use Averages, only: AVG_IK_V
 
@@ -686,9 +686,10 @@ subroutine AVG_FLOW_XZ(q, s, dudx, dudy, dudz, dvdx, dvdy, dvdz, dwdx, dwdy, dwd
     ! ###################################################################
     if (any([DNS_EQNS_BOUSSINESQ, DNS_EQNS_ANELASTIC] == nse_eqns)) then
 
+        dudx = 0.0_wp
         select case (nse_eqns)
         case (DNS_EQNS_BOUSSINESQ)
-            call Gravity_Source(gravityProps, imax, jmax, kmax, s, dudx)
+            call Gravity_AddSource(gravityProps, imax, jmax, kmax, s, dudx, 1.0_wp)
 
             call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, dudx, dudy)
             call AVG_IK_V(imax, jmax, kmax, dudy, bfreq_fr(1), wrk1d)
@@ -696,7 +697,7 @@ subroutine AVG_FLOW_XZ(q, s, dudx, dudy, dudz, dvdx, dvdy, dvdz, dwdx, dwdy, dwd
             bfreq_eq(:) = bfreq_fr(:)
 
         case (DNS_EQNS_ANELASTIC)
-            call Thermo_Anelastic_Buoyancy(imax, jmax, kmax, s, dudx)
+            call Thermo_Anelastic_AddBuoyancy(imax, jmax, kmax, s, dudx, 1.0_wp)
 
         end select
 

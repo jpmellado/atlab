@@ -300,6 +300,9 @@ contains
         p(1:nx, 1:ny, nz) = bcs_ht(1:nx, 1:ny)
         call OPR_Fourier_XY_Forward(p(:, 1, 1), c_tmp1, c_tmp2)
 
+        ! ! multiply by the FFT normalization
+        ! tmp1 = tmp1*norm
+
         ! ###################################################################
         ! Solve FDE \hat{p}''-\lambda \hat{p} = \hat{f}
 #define f(k,i,j) tmp1(k,i,j)
@@ -449,6 +452,9 @@ contains
         a(1:nx, 1:ny, nz) = bcs_ht(1:nx, 1:ny)
         call OPR_Fourier_XY_Forward(a(:, 1, 1), c_tmp1, c_tmp2)
 
+        ! ! multiply by the FFT normalization
+        ! tmp1 = tmp1*norm
+
         ! ###################################################################
         ! Solve FDE (\hat{p}')'-(\lambda + alpha) \hat{p} = \hat{f}
 #define f(k,i,j) tmp1(k,i,j)
@@ -517,6 +523,9 @@ contains
         a(1:nx, 1:ny, 1) = bcs_hb(1:nx, 1:ny)               ! Add boundary conditions to forcing array
         a(1:nx, 1:ny, nz) = bcs_ht(1:nx, 1:ny)
         call OPR_Fourier_XY_Forward(a(:, 1, 1), c_tmp1, c_tmp2)
+
+        ! ! multiply by the FFT normalization
+        ! tmp1 = tmp1*norm
 
         ! ###################################################################
         ! Solve FDE \hat{p}''-(\lambda + alpha) \hat{p} = \hat{f}

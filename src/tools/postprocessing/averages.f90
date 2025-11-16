@@ -20,7 +20,7 @@ program AVERAGES
     use NavierStokes
     use Thermodynamics, only: Thermo_Initialize
     use TLab_Background, only: TLab_Initialize_Background
-    use Gravity, only: Gravity_Initialize, gravityProps, Gravity_Source, bbackground
+    use Gravity, only: Gravity_Initialize, gravityProps, Gravity_AddSource, bbackground
     use SpecialForcing, only: SpecialForcing_Initialize
     use Rotation, only: Rotation_Initialize
     use Microphysics, only: Microphysics_Initialize
@@ -341,10 +341,11 @@ program AVERAGES
                 case (DNS_EQNS_BOUSSINESQ)
                     wrk1d(1:kmax, 1) = bbackground(1:kmax)
                     bbackground(1:kmax) = 0.0_wp
-                    call Gravity_Source(gravityProps, imax, jmax, kmax, s, wrk3d)
+                    wrk3d(1:isize_field) = 0.0_wp
+                    call Gravity_AddSource(gravityProps, imax, jmax, kmax, s, wrk3d, gravityProps%vector(3))
                     bbackground(1:kmax) = wrk1d(1:kmax, 1)
                 end select
-                s(1:isize_field, 1) = wrk3d(1:isize_field)*gravityProps%vector(2)
+                s(1:isize_field, 1) = wrk3d(1:isize_field)
 
                 call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, s, txc(1, 4))
                 txc(:, 4) = -txc(:, 4)

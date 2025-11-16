@@ -37,7 +37,7 @@ Workflow summary. Details of each tool and corresponding input data to be read i
 * Case06. Stably stratified density interface with discrete ICs: oscillating inversion.  
 * Case07. Unstable stratified density interface: Rayleigh-Taylor.  
 * Case08. Stably stratified shear layer.  
-* Case08. Stably stratified shear layer, using direct formulation in elliptic operators.
+* Case09. Stably stratified shear layer, using direct formulation in elliptic operators.
 
 * Case11. Wave maker in incompressible case.
 

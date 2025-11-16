@@ -20,7 +20,7 @@ program VISUALS
     use NavierStokes!, only: NavierStokes_Initialize_Parameters
     use Thermodynamics, only: Thermo_Initialize
     use TLab_Background, only: TLab_Initialize_Background
-    use Gravity, only: Gravity_Initialize, froude, gravityProps, Gravity_Source, bbackground
+    use Gravity, only: Gravity_Initialize, froude, gravityProps, Gravity_AddSource, bbackground
     use Rotation, only: Rotation_Initialize
     use Thermo_Anelastic
     use Radiation !, only: Radiation_Initialize, infraredProps
@@ -68,7 +68,7 @@ program VISUALS
     integer(wi) ij, is
     integer(wi), parameter :: iscal_offset = 9 ! to be removed
     logical iread_flow, iread_scal
-    real(wp) diff
+    real(wp) diff, dummy
     real(wp) params(MAX_PARS)
 
     ! ! Gates for the definition of the intermittency function (partition of the fields)
@@ -221,8 +221,10 @@ program VISUALS
                 case (DNS_EQNS_BOUSSINESQ)      ! Using buoyancy to calculate density
                     wrk1d(1:kmax, 1) = bbackground(1:kmax)
                     bbackground(1:kmax) = 0.0_wp
-                    call Gravity_Source(gravityProps, imax, jmax, kmax, s, txc(1, 1))
-                    txc(1:isize_field, 1) = txc(1:isize_field, 1)/froude + 1.0_wp
+                    dummy = 1.0_wp/froude
+                    txc(1:isize_field, 1) = 1.0_wp
+                    call Gravity_AddSource(gravityProps, imax, jmax, kmax, s, txc(:, 1), dummy)
+                    ! txc(1:isize_field, 1) = txc(1:isize_field, 1)/froude + 1.0_wp
                     bbackground(1:kmax) = wrk1d(1:kmax, 1)
 
                 end select
@@ -368,18 +370,19 @@ program VISUALS
                 call Write_Visuals(plot_file, txc(:, 1:1))
 
                 plot_file = 'LogPotentialEnstrophy'//time_str(1:MaskSize)
+                dummy = 1.0_wp/froude
+                txc(1:isize_field, 4) = 0.0_wp
                 select case (nse_eqns)
                 case (DNS_EQNS_BOUSSINESQ)
                     ! wrk1d(1:kmax, 1) = bbackground(1:kmax)
                     ! bbackground(1:kmax) = 0.0_wp
-                    call Gravity_Source(gravityProps, imax, jmax, kmax, s, txc(:, 4))
+                    call Gravity_AddSource(gravityProps, imax, jmax, kmax, s, txc(:, 4), dummy)
                     ! bbackground(1:kmax) = wrk1d(1:kmax, 1)
 
                 case (DNS_EQNS_ANELASTIC)
-                    call Thermo_Anelastic_Buoyancy(imax, jmax, kmax, s, txc(:, 4))
+                    call Thermo_Anelastic_AddBuoyancy(imax, jmax, kmax, s, txc(:, 4), dummy)
 
                 end select
-                txc(1:isize_field, 4) = txc(1:isize_field, 4)/froude
                 call OPR_Partial_X(OPR_P1, imax, jmax, kmax, txc(1, 4), txc(1, 1))
                 call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, txc(1, 4), txc(1, 2))
                 call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, txc(1, 4), txc(1, 3))
@@ -501,18 +504,19 @@ program VISUALS
                 ! Buoyancy
                 ! ###################################################################
             case ('Buoyancy')
+                dummy = 1.0_wp/froude
+                txc(1:isize_field, 1) = 0.0_wp
                 select case (nse_eqns)
                 case (DNS_EQNS_BOUSSINESQ)
                     wrk1d(1:kmax, 1) = bbackground(1:kmax)
                     bbackground(1:kmax) = 0.0_wp
-                    call Gravity_Source(gravityProps, imax, jmax, kmax, s, txc(1, 1))
+                    call Gravity_AddSource(gravityProps, imax, jmax, kmax, s, txc(:, 1), dummy)
                     bbackground(1:kmax) = wrk1d(1:kmax, 1)
 
                 case (DNS_EQNS_ANELASTIC)
-                    call Thermo_Anelastic_Buoyancy(imax, jmax, kmax, s, txc(:, 1))
+                    call Thermo_Anelastic_AddBuoyancy(imax, jmax, kmax, s, txc(:, 1), dummy)
 
                 end select
-                txc(1:isize_field, 1) = txc(1:isize_field, 1)/froude
                 call Write_Visuals(plot_file, txc(:, 1:1))
 
                 plot_file = 'GradientRi'//time_str(1:MaskSize)

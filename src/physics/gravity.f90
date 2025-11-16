@@ -12,7 +12,7 @@ module Gravity
     private
 
     public :: Gravity_Initialize
-    public :: Gravity_Source
+    public :: Gravity_AddSource
     public :: Gravity_Hydrostatic_Enthalpy
 
     real(wp), public, protected :: froude
@@ -109,11 +109,12 @@ contains
 
     !########################################################################
     !########################################################################
-    subroutine Gravity_Source(locProps, nx, ny, nz, s, b)
+    subroutine Gravity_AddSource(locProps, nx, ny, nz, s, b, factor)
         type(gravity_dt), intent(in) :: locProps
         integer(wi), intent(in) :: nx, ny, nz
         real(wp), intent(in) :: s(nx, ny, nz, inb_scal_array)
-        real(wp), intent(out) :: b(nx, ny, nz)
+        real(wp), intent(inout) :: b(nx, ny, nz)
+        real(wp), intent(in) :: factor
 
         ! -----------------------------------------------------------------------
         integer(wi) k, is
@@ -124,7 +125,7 @@ contains
         ! #######################################################################
         select case (locProps%type)
         case (TYPE_GRAV_HOMOGENEOUS)
-            b(:, :, :) = locProps%parameters(1)
+            b(:, :, :) = locProps%parameters(1)*factor + b(:, :, :)
 
         case (TYPE_GRAV_LINEAR)
             c1_loc = locProps%parameters(1)                     ! proportionality factors
@@ -135,21 +136,22 @@ contains
             case (1)
                 do k = 1, nz
                     dummy = ref(k) - c0_loc
-                    b(:, :, k) = c1_loc*s(:, :, k, 1) - dummy
+                    b(:, :, k) = (c1_loc*s(:, :, k, 1) - dummy)*factor + b(:, :, k)
                 end do
 
             case (2)
                 do k = 1, nz
                     dummy = ref(k) - c0_loc
-                    b(:, :, k) = c1_loc*s(:, :, k, 1) + c2_loc*s(:, :, k, 2) - dummy
+                    b(:, :, k) = (c1_loc*s(:, :, k, 1) + c2_loc*s(:, :, k, 2) - dummy)*factor + b(:, :, k)
                 end do
 
             case default
                 do k = 1, nz
-                    b(:, :, k) = c0_loc - ref(k)
+                    b(:, :, k) = (c0_loc - ref(k))*factor + b(:, :, k)
                     do is = 1, locProps%scalar(1)
-                        if (abs(locProps%parameters(is)) > small_wp) b(:, :, k) = b(:, :, k) + locProps%parameters(is)*s(:, :, k, is)
+                        if (abs(locProps%parameters(is)) > small_wp) b(:, :, k) = b(:, :, k) + (locProps%parameters(is)*s(:, :, k, is))*factor
                     end do
+
                 end do
 
             end select
@@ -160,7 +162,7 @@ contains
             c2_loc = locProps%parameters(3)
 
             do k = 1, nz
-                b(:, :, k) = c0_loc*s(:, :, k, 1) + c1_loc*s(:, :, k, 2) + c2_loc*s(:, :, k, 1)*s(:, :, k, 2) - ref(k)
+                b(:, :, k) = (c0_loc*s(:, :, k, 1) + c1_loc*s(:, :, k, 2) + c2_loc*s(:, :, k, 1)*s(:, :, k, 2) - ref(k))*factor + b(:, :, k)
             end do
 
         case (TYPE_GRAV_QUADRATIC)
@@ -168,18 +170,18 @@ contains
             c1_loc = locProps%parameters(2)
 
             do k = 1, nz
-                b(:, :, k) = c0_loc*s(:, :, k, 1)*(s(:, :, k, 1) - c1_loc) - ref(k)
+                b(:, :, k) = (c0_loc*s(:, :, k, 1)*(s(:, :, k, 1) - c1_loc) - ref(k))*factor + b(:, :, k)
             end do
 
-        case default
-            b = 0.0_wp
+            ! case default
+            !     b = 0.0_wp
 
         end select
 
 #undef ref
 
         return
-    end subroutine Gravity_Source
+    end subroutine Gravity_AddSource
 
     !########################################################################
     ! Compute hydrostatic equilibrium from profiles s=(h,q_t) where h is the enthalpy

@@ -5,8 +5,8 @@ module TLab_Sources
     use TLab_Constants, only: wp, wi, small_wp
     use TLab_Memory, only: imax, jmax, kmax, isize_field, inb_scal, inb_scal_array
     use NavierStokes, only: nse_eqns, DNS_EQNS_BOUSSINESQ, DNS_EQNS_ANELASTIC
-    use Thermo_Anelastic, only: ribackground, Thermo_Anelastic_Buoyancy, Thermo_Anelastic_Weight_Add
-    use Gravity, only: gravityProps, Gravity_Source
+    use Thermo_Anelastic, only: ribackground, Thermo_Anelastic_AddBuoyancy, Thermo_Anelastic_Weight_Add
+    use Gravity, only: gravityProps, Gravity_AddSource
     use Rotation, only: coriolisProps, Rotation_AddCoriolis
     use SpecialForcing
     use Microphysics
@@ -38,14 +38,12 @@ contains
             if (gravityProps%active(iq)) then
                 select case (nse_eqns)
                 case (DNS_EQNS_BOUSSINESQ)
-                    call Gravity_Source(gravityProps, imax, jmax, kmax, s, tmp1)
+                    call Gravity_AddSource(gravityProps, imax, jmax, kmax, s, hq(:, iq), gravityProps%vector(iq))
 
                 case (DNS_EQNS_ANELASTIC)
-                    call Thermo_Anelastic_Buoyancy(imax, jmax, kmax, s, tmp1)
+                    call Thermo_Anelastic_AddBuoyancy(imax, jmax, kmax, s, hq(:, iq), gravityProps%vector(iq))
 
                 end select
-
-                hq(:, iq) = hq(:, iq) + gravityProps%vector(iq)*tmp1(:)
 
             end if
 

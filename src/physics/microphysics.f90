@@ -286,7 +286,7 @@ contains
 
         target s, source
 
-        integer(wi) :: k, ipsat     , ij 
+        integer(wi) :: k, ipsat
         
         real(wp) :: qsat(nx*ny, nz)
 
@@ -385,12 +385,12 @@ contains
         
         real(wp), dimension(nx*ny,nz) :: s_RHS, tmp1, tmp2, qsat, diqsdql, dTdql
 
-        real(wp) :: dummy, mod_exponent, diff, eps
+        real(wp) :: mod_exponent, diff, eps
 
-        !real(wp), dimension(nx*ny,nz) :: s_active
-        real(wp), pointer :: s_active(:,:) => null()
+        real(wp), dimension(nx*ny,nz) :: s_active
+        !real(wp), pointer :: s_active(:,:) => null()
 
-        target s, tmp2
+        !target s, tmp2
 
         character(len=512) :: istr,tstr
 
@@ -478,60 +478,50 @@ contains
                     ! Calculate condensation rate as 1/Sq * ( (q_t-q_l)/q_s - 1 ) * q_l^(1+alpha)
                     ! -------------------------------------------------------------------
                     if (nse_eqns == DNS_EQNS_ANELASTIC) then
-                        call Thermo_Anelastic_Weight_OutPlace(nx, ny, nz, rbackground, s(:,:,inb_scal_ql), tmp2)
-                        s_active => tmp2
-                        !call Thermo_Anelastic_Weight_OutPlace(nx, ny, nz, rbackground, s(:,:,inb_scal_ql), s_active)
+                        !call Thermo_Anelastic_Weight_OutPlace(nx, ny, nz, rbackground, s(:,:,inb_scal_ql), tmp2)
+                        !s_active => tmp2
+                        call Thermo_Anelastic_Weight_OutPlace(nx, ny, nz, rbackground, s(:,:,inb_scal_ql), s_active)
                     else
-                        s_active => s(:,:,inb_scal_ql)
-                        !s_active = s(:,:,inb_scal_ql)
+                        !s_active => s(:,:,inb_scal_ql)
+                        s_active = s(:,:,inb_scal_ql)
                     end if
 
+                    s_active = max(s_active, 0.0_wp)
+
+                    ! --- Derivative df(q_l)/dq_l for NRmethod --- 
+                    ! ( rescaled by q_l^alpha to avoid division by zero )
+                    tmp1 = ( (s(:,:,inb_scal_qt)-s(:,:,inb_scal_ql))/qsat - 1.0_wp ) * (1.0_wp + mod_exponent)
+                    if (nse_eqns == DNS_EQNS_ANELASTIC) then
+                        call Thermo_Anelastic_Weight_InPlace(nx, ny, nz, rbackground, tmp1)
+                    end if
+                    tmp1 = tmp1  + ( -1.0_wp/qsat + (s(:,:,inb_scal_qt)-s(:,:,inb_scal_ql))*diqsdql ) * s_active
+                    tmp1 = tmp1  * damkohler*locProps%parameters(1)
+                    if (nse_eqns == DNS_EQNS_ANELASTIC) then
+                        call Thermo_Anelastic_Weight_InPlace(nx, ny, nz, ribackground, tmp1)
+                    end if
                     if (mod_exponent /= 0.0_wp) then ! to avoid the calculation of a power, if not necessary
-                        dummy = 1.0_wp + mod_exponent
-                        s_active = max(s_active, 0.0_wp)
-
-                        ! --- Derivative df(q_l)/dql for NRmethod ---
-                        do k=1,nz
-                            tmp1(:,k) = ( (s(:,k,inb_scal_qt)-s(:,k,inb_scal_ql))/qsat(:,k) - 1.0_wp ) * dummy * sign(1.0_wp,s_active(:,k))*(abs(s_active(:,k)))**(dummy-1.0_wp) !* rbackground(k)
-                        end do
-                        if (nse_eqns == DNS_EQNS_ANELASTIC) then
-                            call Thermo_Anelastic_Weight_InPlace(nx, ny, nz, rbackground, tmp1)
-                        end if
-                        tmp1 = tmp1  + ( -1.0_wp/qsat + (s(:,:,inb_scal_qt)-s(:,:,inb_scal_ql))*diqsdql ) * sign(1.0_wp,s_active)*(abs(s_active))**dummy
-                        tmp1 = tmp1  * damkohler*locProps%parameters(1)
-
-                        ! --- Source term delta f(q_l) for NRmethod ---
-                        tmp2 = damkohler*locProps%parameters(1) * ( (s(:,:,inb_scal_qt)-s(:,:,inb_scal_ql))/qsat - 1.0_wp ) * s_active**dummy
-                        !tmp2 = damkohler*locProps%parameters(1) * ( (s(:,:,inb_scal_qt)-s(:,:,inb_scal_ql))/qsat - 1.0_wp ) * sign(1.0_wp,s_active)*(abs(s_active))**dummy
-
+                        !tmp1 = sign(1.0_wp,s_active)*(abs(s_active))**(-mod_exponent) - dte*tmp1
+                        tmp1 = s_active**(-mod_exponent) - dte*tmp1
                     else
-                        s_active = max(s_active, 0.0_wp)
-
-                        ! --- Derivative df(q_l)/dql for NRmethod ---
-                        do k=1,nz
-                            tmp1(:,k) = ( (s(:,k,inb_scal_qt)-s(:,k,inb_scal_ql))/qsat(:,k) - 1.0_wp )
-                        end do
-                        if (nse_eqns == DNS_EQNS_ANELASTIC) then
-                            call Thermo_Anelastic_Weight_InPlace(nx, ny, nz, rbackground, tmp1)
-                        end if
-                        tmp1 = tmp1  + ( -1.0_wp/qsat + (s(:,:,inb_scal_qt)-s(:,:,inb_scal_ql))*diqsdql ) * s_active
-                        tmp1 = tmp1  * damkohler*locProps%parameters(1)
-
-                        ! --- Source term delta f(q_l) for NRmethod ---
-                        tmp2 = damkohler*locProps%parameters(1) * ( (s(:,:,inb_scal_qt)-s(:,:,inb_scal_ql))/qsat - 1.0_wp ) * s_active
-
+                        tmp1 = 1.0_wp - dte*tmp1
                     end if
 
+                    ! --- Source term delta f(q_l) for NRmethod ---
+                    ! ( rescaled by q_l^alpha to avoid division by zero )
+                    tmp2 = damkohler*locProps%parameters(1) * ( (s(:,:,inb_scal_qt)-s(:,:,inb_scal_ql))/qsat - 1.0_wp ) * s_active
                     if (nse_eqns == DNS_EQNS_ANELASTIC) then
                         call Thermo_Anelastic_Weight_InPlace(nx, ny, nz, ribackground, tmp2)
-                        call Thermo_Anelastic_Weight_InPlace(nx, ny, nz, ribackground, tmp1)
+                    end if
+                    if (mod_exponent /= 0.0_wp) then ! to avoid the calculation of a power, if not necessary
+                        !tmp2 = sign(1.0_wp,s_active)*(abs(s_active))**(-mod_exponent) * (s(:,:,inb_scal_ql) - s_RHS) - dte*tmp2
+                        tmp2 = s_active**(-mod_exponent) * (s(:,:,inb_scal_ql) - s_RHS) - dte*tmp2
+                    else
+                        tmp2 = s(:,:,inb_scal_ql) - s_RHS - dte*tmp2
                     end if
 
                     ! -------------------------------------------------------------------
                     ! Newton-Raphson iteration
                     ! -------------------------------------------------------------------
-                    tmp2 = s(:,:,inb_scal_ql) - dte*tmp2 - s_RHS
-                    tmp1 = 1.0_wp - dte*tmp1
                     s(:,:,inb_scal_ql) = s(:,:,inb_scal_ql) - tmp2/tmp1
 
                     diff = MAXVAL( ABS( tmp2/tmp1 / s(:,:,inb_scal_ql) ) )
@@ -554,7 +544,7 @@ contains
 
         end select
 
-        nullify (s_active)
+        !nullify (s_active)
 
     end subroutine Microphysics_Evaporation_Impl
 

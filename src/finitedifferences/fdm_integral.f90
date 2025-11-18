@@ -23,7 +23,6 @@ module FDM_Integral
         integer mode_fdm                                    ! original finite-difference method; only informative
         real(wp) :: lambda                                  ! constant of the equation
         integer :: bc                                       ! type of boundary condition, [ BCS_MIN, BCS_MAX ]
-        real(wp) :: rhs_b(1:5, 0:7), rhs_t(0:4, 8)          ! # of diagonals is 7, # rows is 7/2+1
         real(wp), allocatable :: lhs(:, :)                  ! Often overwritten to LU decomposition.
         real(wp), allocatable :: rhs(:, :)
         real(wp), allocatable :: rhs_b1(:, :), rhs_t1(:, :) ! boundary conditions
@@ -453,7 +452,7 @@ contains
         type(fdm_integral_dt), intent(inout) :: fdmi    ! int_plan to be created; inout because otherwise allocatable arrays are deallocated
 
         ! -------------------------------------------------------------------
-        integer(wi) idl, ndl, idr, ndr, ir, nx, i
+        integer(wi) idl, ndl, idr, ndr, ir, nx, ic
         real(wp) locRhs_b(5, 0:7), locRhs_t(0:4, 8)
         real(wp) coef(5)
 
@@ -478,57 +477,53 @@ contains
         ! new rhs diagonals (array A22R), independent of lambda
         if (allocated(fdmi%rhs)) deallocate (fdmi%rhs)
         allocate (fdmi%rhs(nx, ndl))
-        fdmi%rhs(:, :) = g%lhs(:, 1:ndl)
+        fdmi%rhs(1:nx, 1:ndl) = g%lhs(1:nx, 1:ndl)
 
         ! -------------------------------------------------------------------
         ! new lhs diagonals (array C22R); remember rhs center diagonal is not saved because it was 1
         if (allocated(fdmi%lhs)) deallocate (fdmi%lhs)
         allocate (fdmi%lhs(nx, ndr))
-
-        fdmi%lhs(:, :) = g%rhs(:, 1:ndr)
+        fdmi%lhs(1:nx, 1:ndr) = g%rhs(1:nx, 1:ndr)
 
         fdmi%lhs(:, idr) = fdmi%lhs(:, idr) - lambda2*g%lhs(:, idl)             ! center diagonal
-        do i = 1, idl - 1                                                       ! off-diagonals
-            fdmi%lhs(1 + i:nx, idr - i) = fdmi%lhs(1 + i:nx, idr - i) - lambda2*g%lhs(1 + i:nx, idl - i)
-            fdmi%lhs(1:nx - i, idr + i) = fdmi%lhs(1:nx - i, idr + i) - lambda2*g%lhs(1:nx - i, idl + i)
+        do ic = 1, idl - 1                                                      ! off-diagonals
+            fdmi%lhs(1 + ic:nx, idr - ic) = fdmi%lhs(1 + ic:nx, idr - ic) - lambda2*g%lhs(1 + ic:nx, idl - ic)
+            fdmi%lhs(1:nx - ic, idr + ic) = fdmi%lhs(1:nx - ic, idr + ic) - lambda2*g%lhs(1:nx - ic, idl + ic)
         end do
 
         ! -------------------------------------------------------------------
         ! Reduction; extending 2 diagonals the rhs at the boundaries
         if (allocated(fdmi%rhs_b1)) deallocate (fdmi%rhs_b1)
         if (allocated(fdmi%rhs_t1)) deallocate (fdmi%rhs_t1)
-        allocate (fdmi%rhs_b1(max(idr, idl + 1), 1:ndl + 2))
-        allocate (fdmi%rhs_t1(max(idr, idl + 1), 1:ndl + 2))
+        allocate (fdmi%rhs_b1(max(idr, idl + 1), 1:max(ndl, ndr) + 2))
+        allocate (fdmi%rhs_t1(max(idr, idl + 1), 1:max(ndl, ndr) + 2))
         fdmi%rhs_b1(:, :) = 0.0_wp
         fdmi%rhs_t1(:, :) = 0.0_wp
 
+        locRhs_b = 0.0_wp
+        locRhs_t = 0.0_wp
         call FDM_Bcs_Reduce(BCS_BOTH, fdmi%rhs, g%rhs(:, 1:ndr), locRhs_b, locRhs_t)
 
-        fdmi%rhs_b = 0.0_wp
-        fdmi%rhs_t = 0.0_wp
-
-        fdmi%rhs_b(1:idl + 1, 1:ndl) = fdmi%rhs(1:idl + 1, 1:ndl)
+        ! bcs min
+        fdmi%rhs_b1(1:idl + 1, 2:ndl + 1) = fdmi%rhs(1:idl + 1, 1:ndl)
         do ir = 1, idr - 1              ! change sign in b^R_{21} for nonzero bc
-            fdmi%rhs_b(1 + ir, idl - ir) = -locRhs_b(1 + ir, idr - ir)
+            fdmi%rhs_b1(1 + ir, 1 + idl - ir) = -locRhs_b(1 + ir, idr - ir)
         end do
 
-        fdmi%rhs_t(0:idl, 1:ndl) = fdmi%rhs(nx - idl:nx, 1:ndl)
-        do ir = 1, idr - 1              ! change sign in b^R_{2n} for nonzero bc
-            fdmi%rhs_t(idl - ir, idl + ir) = -locRhs_t(idr - ir, idr + ir)
-        end do
-
-        ! fdmi%lhs(1:idr, 1:ndr) = locRhs_b(1:idr, 1:ndr)
-        ! fdmi%lhs(1, idr + 1:idr + idl - 1) = fdmi%lhs(1, idr + 1:idr + idl - 1) + lambda2*fdmi%rhs_b(1, idl + 1:ndl)
         fdmi%lhs(2:idr, 1:ndr) = locRhs_b(2:idr, 1:ndr)
         do ir = 1, idr - 1
-            fdmi%lhs(1 + ir, idr - idl + 1:idr + idl - 1) = fdmi%lhs(1 + ir, idr - idl + 1:idr + idl - 1) - lambda2*fdmi%rhs_b(1 + ir, 1:ndl)
+            fdmi%lhs(1 + ir, idr - idl + 1:idr + idl - 1) = fdmi%lhs(1 + ir, idr - idl + 1:idr + idl - 1) - lambda2*fdmi%rhs_b1(1 + ir, 2:ndl + 1)
         end do
 
-        ! fdmi%lhs(nx - idr + 1:nx, 1:ndr) = locRhs_t(1:idr, 1:ndr)
-        ! fdmi%lhs(nx, idr - idl + 1:idr - 1) = fdmi%lhs(nx, idr - idl + 1:idr - 1) + lambda2*fdmi%rhs_t(idl, 1:idl - 1)
+        ! bcs min
+        fdmi%rhs_t1(1:idl + 1, 2:ndl + 1) = fdmi%rhs(nx - idl:nx, 1:ndl)
+        do ir = 1, idr - 1              ! change sign in b^R_{2n} for nonzero bc
+            fdmi%rhs_t1(1 + idl - ir, 1 + idl + ir) = -locRhs_t(idr - ir, idr + ir)
+        end do
+
         fdmi%lhs(nx - idr + 1:nx - 1, 1:ndr) = locRhs_t(1:idr - 1, 1:ndr)
         do ir = 1, idr - 1
-            fdmi%lhs(nx - ir, idr - idl + 1:idr + idl - 1) = fdmi%lhs(nx - ir, idr - idl + 1:idr + idl - 1) - lambda2*fdmi%rhs_t(idl - ir, 1:ndl)
+            fdmi%lhs(nx - ir, idr - idl + 1:idr + idl - 1) = fdmi%lhs(nx - ir, idr - idl + 1:idr + idl - 1) - lambda2*fdmi%rhs_t1(1 + idl - ir, 2:ndl + 1)
         end do
 
         ! -------------------------------------------------------------------
@@ -543,28 +538,21 @@ contains
             ! Solve for p_1 (see notes)
             fdmi%lhs(1, :) = 0.0_wp
             fdmi%lhs(1, 1:3) = -coef(2:4)/coef(1)               ! vector d_2
-            fdmi%rhs_b(1, :) = 0.0_wp
-            fdmi%rhs_b(1, idl) = 1.0_wp/coef(1)                 ! coefficient d_1
-            fdmi%rhs_b(1, idl + 1) = -coef(5)/coef(1)           ! vector e_2, only 1 component
+            fdmi%rhs_b1(1, :) = 0.0_wp
+            fdmi%rhs_b1(1, 1 + idl) = 1.0_wp/coef(1)                 ! coefficient d_1
+            fdmi%rhs_b1(1, 1 + idl + 1) = -coef(5)/coef(1)           ! vector e_2, only 1 component
 
             ! Construct vector d + lambda^2h^2 e, e only 1 component
-            fdmi%lhs(1, 1) = fdmi%lhs(1, 1) + lambda2*fdmi%rhs_b(1, idl + 1)
-
-            ! Derived coefficients; contribution from -b^R_{21} (see notes)
-            ! fdmi%lhs(2, 3:5) = fdmi%lhs(2, 3:5) - fdmi%rhs_b(1 + 1, idl - 1)*fdmi%lhs(1, 1:3)           ! in reduced C matrix
-            ! fdmi%lhs(3, 2:4) = fdmi%lhs(3, 2:4) - fdmi%rhs_b(1 + 2, idl - 2)*fdmi%lhs(1, 1:3)
-
-            ! fdmi%rhs_b(2, 2) = fdmi%rhs_b(2, 2) + fdmi%rhs_b(1 + 1, idl - 1)*fdmi%rhs_b(1, idl + 1)     ! in reduced A matrix
-            ! fdmi%rhs_b(3, 1) = fdmi%rhs_b(3, 1) + fdmi%rhs_b(1 + 2, idl - 2)*fdmi%rhs_b(1, idl + 1)
+            fdmi%lhs(1, 1) = fdmi%lhs(1, 1) + lambda2*fdmi%rhs_b1(1, 1 + idl + 1)
 
             do ir = 1, idr - 1
                 fdmi%lhs(1 + ir, idr - ir + 1:idr - ir + 1 + 2) = fdmi%lhs(1 + ir, idr - ir + 1:idr - ir + 1 + 2) &
-                                                                  - fdmi%rhs_b(1 + ir, idl - ir)*fdmi%lhs(1, 1:3)       ! in reduced C matrix
+                                                                  - fdmi%rhs_b1(1 + ir, 1 + idl - ir)*fdmi%lhs(1, 1:3)       ! in reduced C matrix
 
-                fdmi%rhs_b(1 + ir, idl - ir + 1) = fdmi%rhs_b(1 + ir, idl - ir + 1) &
-                                                   + fdmi%rhs_b(1 + ir, idl - ir)*fdmi%rhs_b(1, idl + 1)                ! in reduced A matrix
+                fdmi%rhs_b1(1 + ir, 1 + idl - ir + 1) = fdmi%rhs_b1(1 + ir, 1 + idl - ir + 1) &
+                                                        + fdmi%rhs_b1(1 + ir, 1 + idl - ir)*fdmi%rhs_b1(1, 1 + idl + 1)                ! in reduced A matrix
 
-                fdmi%rhs_b(1 + ir, idl - ir) = fdmi%rhs_b(1 + ir, idl - ir)*fdmi%rhs_b(1, idl)                          ! d_1 b^R_{21}
+                fdmi%rhs_b1(1 + ir, 1 + idl - ir) = fdmi%rhs_b1(1 + ir, 1 + idl - ir)*fdmi%rhs_b1(1, 1 + idl)                          ! d_1 b^R_{21}
             end do
 
         end if
@@ -579,38 +567,26 @@ contains
             ! Solve for p_n (see notes)
             fdmi%lhs(nx, :) = 0.0_wp
             fdmi%lhs(nx, ndr - 2:ndr) = -coef([4, 3, 2])/coef(1)  ! vector d_n-1
-            fdmi%rhs_t(idl, :) = 0.0_wp
-            fdmi%rhs_t(idl, idl) = 1.0_wp/coef(1)                 ! coefficient d_n
-            fdmi%rhs_t(idl, idl - 1) = -coef(5)/coef(1)           ! vector e_n-1, only 1 component
+            fdmi%rhs_t1(1 + idl, :) = 0.0_wp
+            fdmi%rhs_t1(1 + idl, 1 + idl) = 1.0_wp/coef(1)                 ! coefficient d_n
+            fdmi%rhs_t1(1 + idl, 1 + idl - 1) = -coef(5)/coef(1)           ! vector e_n-1, only 1 component
 
             ! Construct vector d + lambda^2h^2 e, e only 1 component
-            fdmi%lhs(nx, ndr) = fdmi%lhs(nx, ndr) + lambda2*fdmi%rhs_t(idl, idl - 1)
-
-            ! Derived coefficients; contribution from -b^R_{2n} (see notes)
-            ! fdmi%lhs(nx - 1, 1:3) = fdmi%lhs(nx - 1, 1:3) - fdmi%rhs_t(idl - 1, idl + 1)*fdmi%lhs(nx, ndr - 2:ndr)              ! in reduced C matrix
-            ! fdmi%lhs(nx - 2, 2:4) = fdmi%lhs(nx - 2, 2:4) - fdmi%rhs_t(idl - 2, idl + 2)*fdmi%lhs(nx, ndr - 2:ndr)
-
-            ! fdmi%rhs_t(idl - 1, idl + 0) = fdmi%rhs_t(idl - 1, idl + 0) + fdmi%rhs_t(idl - 1, idl + 1)*fdmi%rhs_t(idl, idl - 1) ! in reduced A matrix
-            ! fdmi%rhs_t(idl - 2, idl + 1) = fdmi%rhs_t(idl - 2, idl + 1) + fdmi%rhs_t(idl - 2, idl + 2)*fdmi%rhs_t(idl, idl - 1)
+            fdmi%lhs(nx, ndr) = fdmi%lhs(nx, ndr) + lambda2*fdmi%rhs_t1(1 + idl, 1 + idl - 1)
 
             do ir = 1, idr - 1
                 fdmi%lhs(nx - ir, ir - 1 + 1:ir - 1 + 3) = fdmi%lhs(nx - ir, ir - 1 + 1:ir - 1 + 3) &
-                                                           - fdmi%rhs_t(idl - ir, idl + ir)*fdmi%lhs(nx, ndr - 2:ndr)              ! in reduced C matrix
+                                                           - fdmi%rhs_t1(1 + idl - ir, 1 + idl + ir)*fdmi%lhs(nx, ndr - 2:ndr)              ! in reduced C matrix
 
-                fdmi%rhs_t(idl - ir, idl + ir - 1) = fdmi%rhs_t(idl - ir, idl + ir - 1) &
-                                                     + fdmi%rhs_t(idl - ir, idl + ir)*fdmi%rhs_t(idl, idl - 1)      ! in reduced A matrix
+                fdmi%rhs_t1(1 + idl - ir, 1 + idl + ir - 1) = fdmi%rhs_t1(1 + idl - ir, 1 + idl + ir - 1) &
+                                                              + fdmi%rhs_t1(1 + idl - ir, 1 + idl + ir)*fdmi%rhs_t1(1 + idl, 1 + idl - 1)      ! in reduced A matrix
 
-                fdmi%rhs_t(idl - ir, idl + ir) = fdmi%rhs_t(idl - ir, idl + ir)*fdmi%rhs_t(idl, idl)                ! d_n b^R_{2n}
+                fdmi%rhs_t1(1 + idl - ir, 1 + idl + ir) = fdmi%rhs_t1(1 + idl - ir, 1 + idl + ir)*fdmi%rhs_t1(1 + idl, 1 + idl)                ! d_n b^R_{2n}
             end do
 
         end if
 
-        ! new format; extending 2 diagonals
-        do ir = 1, max(idr, idl + 1)
-            fdmi%rhs_b1(ir, 1:ndl + 1) = fdmi%rhs_b(ir, 0:ndl)
-            fdmi%rhs_t1(ir, 2:ndl + 2) = fdmi%rhs_t(ir - 1, 1:ndl + 1)
-        end do
-        ! arrange for longer stencil
+        ! moving extended stencil in last element of old array to natural position
         ir = 1
         fdmi%rhs_b1(ir, ndl + 2) = fdmi%rhs_b1(ir, 2); fdmi%rhs_b1(ir, 2) = 0.0_wp
         ir = max(idr, idl + 1)

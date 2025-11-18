@@ -254,11 +254,11 @@ program VPARTIAL
                     !                         u=u, &
                     !                         f=du1_n)
                     call g%der1%matmul_thomas(rhs=g%der1%rhs(:, 1:ndr), &
-                                                   rhs_b=g%der1%rhs(1:ndr/2, 1:ndr), &
-                                                   rhs_t=g%der1%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
-                                                   u=u, &
-                                                   L=g%der1%lu(:, ip + 1:ip + ndl/2), &
-                                                   f=du1_n)
+                                              rhs_b=g%der1%rhs(1:ndr/2, 1:ndr), &
+                                              rhs_t=g%der1%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
+                                              u=u, &
+                                              L=g%der1%lu(:, ip + 1:ip + ndl/2), &
+                                              f=du1_n)
                 case (BCS_ND)
                     ! call g%der1%matmul(rhs=g%der1%rhs(:, 1:ndr), &
                     !                         rhs_b=g%der1%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
@@ -266,11 +266,11 @@ program VPARTIAL
                     !                         u=u, &
                     !                         f=du1_n, bcs_b=bcs_hb(1:nlines))
                     call g%der1%matmul_thomas(rhs=g%der1%rhs(:, 1:ndr), &
-                                                   rhs_b=g%der1%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
-                                                   rhs_t=g%der1%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
-                                                   u=u, &
-                                                   L=g%der1%lu(:, ip + 1:ip + ndl/2), &
-                                                   f=du1_n, bcs_b=bcs_hb(1:nlines))
+                                              rhs_b=g%der1%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
+                                              rhs_t=g%der1%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
+                                              u=u, &
+                                              L=g%der1%lu(:, ip + 1:ip + ndl/2), &
+                                              f=du1_n, bcs_b=bcs_hb(1:nlines))
                 case (BCS_DN)
                     ! call g%der1%matmul(rhs=g%der1%rhs(:, 1:ndr), &
                     !                         rhs_b=g%der1%rhs(1:ndr/2, 1:ndr), &
@@ -278,11 +278,11 @@ program VPARTIAL
                     !                         u=u, &
                     !                         f=du1_n, bcs_t=bcs_ht(1:nlines))
                     call g%der1%matmul_thomas(rhs=g%der1%rhs(:, 1:ndr), &
-                                                   rhs_b=g%der1%rhs(1:ndr/2, 1:ndr), &
-                                                   rhs_t=g%der1%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
-                                                   u=u, &
-                                                   L=g%der1%lu(:, ip + 1:ip + ndl/2), &
-                                                   f=du1_n, bcs_t=bcs_ht(1:nlines))
+                                              rhs_b=g%der1%rhs(1:ndr/2, 1:ndr), &
+                                              rhs_t=g%der1%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
+                                              u=u, &
+                                              L=g%der1%lu(:, ip + 1:ip + ndl/2), &
+                                              f=du1_n, bcs_t=bcs_ht(1:nlines))
                 case (BCS_NN)
                     ! call g%der1%matmul(rhs=g%der1%rhs(:, 1:ndr), &
                     !                         rhs_b=g%der1%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
@@ -290,11 +290,11 @@ program VPARTIAL
                     !                         u=u, &
                     !                         f=du1_n, bcs_b=bcs_hb(1:nlines), bcs_t=bcs_ht(1:nlines))
                     call g%der1%matmul_thomas(rhs=g%der1%rhs(:, 1:ndr), &
-                                                   rhs_b=g%der1%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
-                                                   rhs_t=g%der1%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
-                                                   u=u, &
-                                                   L=g%der1%lu(:, ip + 1:ip + ndl/2), &
-                                                   f=du1_n, bcs_b=bcs_hb(1:nlines), bcs_t=bcs_ht(1:nlines))
+                                              rhs_b=g%der1%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
+                                              rhs_t=g%der1%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
+                                              u=u, &
+                                              L=g%der1%lu(:, ip + 1:ip + ndl/2), &
+                                              f=du1_n, bcs_b=bcs_hb(1:nlines), bcs_t=bcs_ht(1:nlines))
 
                 end select
 
@@ -461,22 +461,13 @@ program VPARTIAL
                 ndr = g%der1%nb_diag(2)
                 idr = g%der1%nb_diag(2)/2 + 1
 
-                ! g%der1%rhs_b = 0.0_wp
-                ! g%der1%rhs_t = 0.0_wp
-                ! new format; extending to ndr+2 diagonals
                 g%der1%rhs_b1 = 0.0_wp
                 g%der1%rhs_t1 = 0.0_wp
                 g%der1%lu(:, 1:ndl) = g%der1%lhs(:, 1:ndl)
-                ! call FDM_Bcs_Reduce(ibc, g%der1%lu(:, 1:ndl), g%der1%rhs(:, 1:ndr), g%der1%rhs_b, g%der1%rhs_t)
-                call FDM_Bcs_Reduce(ibc, g%der1%lu(:, 1:ndl), g%der1%rhs(:, 1:ndr), g%der1%rhs_b1, g%der1%rhs_t1(:,2:))
+                ! call FDM_Bcs_Reduce(ibc, g%der1%lu(:, 1:ndl), g%der1%rhs(:, 1:ndr), g%der1%rhs_b1, g%der1%rhs_t1(:,2:))
+                call FDM_Bcs_Reduce(ibc, g%der1%lu(:, 1:ndl), g%der1%rhs(:, 1:ndr), g%der1%rhs_b1, g%der1%rhs_t1)
 
                 ! new format; extending to ndr+2 diagonals
-                ! g%der1%rhs_b1 = 0.0_wp
-                ! g%der1%rhs_t1 = 0.0_wp
-                ! do i = 1, max(idl, idr + 1)
-                !     g%der1%rhs_b1(i, 1:ndr + 1) = g%der1%rhs_b(i, 0:ndr)
-                !     g%der1%rhs_t1(i, 2:ndr + 2) = g%der1%rhs_t(i - 1, 1:ndr + 1)
-                ! end do
                 ! longer stencil
                 i = 1
                 g%der1%rhs_b1(i, ndr + 2) = g%der1%rhs_b1(i, 2); g%der1%rhs_b1(i, 2) = 0.0_wp
@@ -496,11 +487,11 @@ program VPARTIAL
                     !                         u=u, &
                     !                         f=du1_n)!, bcs_b=bcs_hb(1:nlines))
                     call g%der1%matmul_thomas(rhs=g%der1%rhs(:, 1:ndr), &
-                                                   rhs_b=g%der1%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
-                                                   rhs_t=g%der1%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
-                                                   u=u, &
-                                                   L=g%der1%lu(:, 1:ndl/2), &
-                                                   f=du1_n, bcs_b=bcs_hb(1:nlines))
+                                              rhs_b=g%der1%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
+                                              rhs_t=g%der1%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
+                                              u=u, &
+                                              L=g%der1%lu(:, 1:ndl/2), &
+                                              f=du1_n, bcs_b=bcs_hb(1:nlines))
                 case (BCS_MAX)
                     ! call g%der1%matmul(rhs=g%der1%rhs(:, 1:ndr), &
                     !                         rhs_b=g%der1%rhs(1:ndr/2, 1:ndr), &
@@ -508,11 +499,11 @@ program VPARTIAL
                     !                         u=u, &
                     !                         f=du1_n)!, bcs_t=bcs_ht(:))
                     call g%der1%matmul_thomas(rhs=g%der1%rhs(:, 1:ndr), &
-                                                   rhs_b=g%der1%rhs(1:ndr/2, 1:ndr), &
-                                                   rhs_t=g%der1%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
-                                                   u=u, &
-                                                   L=g%der1%lu(:, 1:ndl/2), &
-                                                   f=du1_n, bcs_t=bcs_ht(1:nlines))
+                                              rhs_b=g%der1%rhs(1:ndr/2, 1:ndr), &
+                                              rhs_t=g%der1%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
+                                              u=u, &
+                                              L=g%der1%lu(:, 1:ndl/2), &
+                                              f=du1_n, bcs_t=bcs_ht(1:nlines))
                 case (BCS_BOTH)
                     ! call g%der1%matmul(rhs=g%der1%rhs(:, 1:ndr), &
                     !                         rhs_b=g%der1%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
@@ -520,11 +511,11 @@ program VPARTIAL
                     !                         u=u, &
                     !                         f=du1_n)!, bcs_b=bcs_hb(:), bcs_t=bcs_ht(:))
                     call g%der1%matmul_thomas(rhs=g%der1%rhs(:, 1:ndr), &
-                                                   rhs_b=g%der1%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
-                                                   rhs_t=g%der1%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
-                                                   u=u, &
-                                                   L=g%der1%lu(:, 1:ndl/2), &
-                                                   f=du1_n, bcs_b=bcs_hb(1:nlines), bcs_t=bcs_ht(1:nlines))
+                                              rhs_b=g%der1%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
+                                              rhs_t=g%der1%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
+                                              u=u, &
+                                              L=g%der1%lu(:, 1:ndl/2), &
+                                              f=du1_n, bcs_b=bcs_hb(1:nlines), bcs_t=bcs_ht(1:nlines))
 
                 end select
 

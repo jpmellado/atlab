@@ -214,7 +214,7 @@ contains
 
         locRhs_b = 0.0_wp
         locRhs_t = 0.0_wp
-        call FDM_Bcs_Reduce(fdmi%bc, fdmi%rhs, fdmi%lhs, locRhs_b, locRhs_t)
+        call FDM_Bcs_Reduce_Old(fdmi%bc, fdmi%rhs, fdmi%lhs, locRhs_b, locRhs_t)
 
         select case (fdmi%bc)
         case (BCS_MIN)
@@ -226,7 +226,7 @@ contains
             end do
 
             ! reducing system in the opposite end to account for the case of extended stencils
-            call FDM_Bcs_Reduce(BCS_MAX, fdmi%lhs, fdmi%rhs, rhs_t=fdmi%rhs_t1(:, 2:))
+            call FDM_Bcs_Reduce_Old(BCS_MAX, fdmi%lhs, fdmi%rhs, rhs_t=fdmi%rhs_t1(:, 2:))
 
         case (BCS_MAX)
             fdmi%lhs(nx - idr + 1:nx, 1:ndr) = locRhs_t(1:idr, 1:ndr)
@@ -237,7 +237,7 @@ contains
             end do
 
             ! reducing system in the opposite end to account for the case of extended stencils
-            call FDM_Bcs_Reduce(BCS_MIN, fdmi%lhs, fdmi%rhs, rhs_b=fdmi%rhs_b1)
+            call FDM_Bcs_Reduce_Old(BCS_MIN, fdmi%lhs, fdmi%rhs, rhs_b=fdmi%rhs_b1)
 
         end select
 
@@ -502,7 +502,7 @@ contains
 
         locRhs_b = 0.0_wp
         locRhs_t = 0.0_wp
-        call FDM_Bcs_Reduce(BCS_BOTH, fdmi%rhs, g%rhs(:, 1:ndr), locRhs_b, locRhs_t)
+        call FDM_Bcs_Reduce_Old(BCS_BOTH, fdmi%rhs, g%rhs(:, 1:ndr), locRhs_b, locRhs_t)
 
         ! bcs min
         fdmi%rhs_b1(1:idl + 1, 2:ndl + 1) = fdmi%rhs(1:idl + 1, 1:ndl)

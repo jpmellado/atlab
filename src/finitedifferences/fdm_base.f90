@@ -225,15 +225,18 @@ contains
 
             ! reduced array B^R_{22}
             if (present(rhs_b)) then
-                if (size(rhs_b, 1) < max(idl, idr + 1) .or. size(rhs_b, 2) < max(ndl, ndr)) then
+                ! if (size(rhs_b, 1) < max(idl, idr + 1) .or. size(rhs_b, 2) < max(ndl, ndr)) then
+                if (size(rhs_b, 1) < idl + 1 .or. size(rhs_b, 2) < ndr) then
                     call TLab_Write_ASCII(efile, __FILE__//'. rhs_b array is too small.')
                     call TLab_Stop(DNS_ERROR_UNDEVELOP)
                 end if
                 ndr_b = size(rhs_b, 2)          ! they can have a different number of diagonals than rhs
                 idr_b = ndr_b/2 + 1
+                
+                nx_t = size(rhs_b, 1)
 
                 ! rhs_b(1:max(idl, idr + 1), 1:ndr) = rhs(1:max(idl, idr + 1), 1:ndr)
-                rhs_b(1:max(idl, idr + 1), idr_b - ndr/2:idr_b + ndr/2) = rhs(1:max(idl, idr + 1), 1:ndr)
+                rhs_b(1:nx_t, idr_b - ndr/2:idr_b + ndr/2) = rhs(1:nx_t, 1:ndr)
 
                 do ir = 1, idl - 1              ! rows
                     do ic = 0, ndr/2            ! columns; ic = 0 corresponds to vector b^R_{21}
@@ -263,7 +266,8 @@ contains
 
             ! reduced array B^R_{11}
             if (present(rhs_t)) then
-                if (size(rhs_t, 1) < max(idl, idr + 1) .or. size(rhs_t, 2) < max(ndl, ndr)) then
+                ! if (size(rhs_t, 1) < max(idl, idr + 1) .or. size(rhs_t, 2) < max(ndl, ndr)) then
+                if (size(rhs_t, 1) < idl + 1 .or. size(rhs_t, 2) < ndr) then
                     call TLab_Write_ASCII(efile, __FILE__//'. rhs_t array is too small.')
                     call TLab_Stop(DNS_ERROR_UNDEVELOP)
                 end if

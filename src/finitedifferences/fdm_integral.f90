@@ -155,7 +155,9 @@ contains
 
         ! -------------------------------------------------------------------
         integer(wi) idl, ndl, idr, ndr, ir, ic, nx, nmin, nmax
-        real(wp) locRhs_b(5, 0:7), locRhs_t(0:4, 8)
+        integer(wi) idr_t, ndr_t, idr_b, ndr_b, nx_t
+        ! real(wp) locRhs_b(5, 0:7), locRhs_t(0:4, 8)
+        real(wp) locRhs_b(7, 8), locRhs_t(7, 8)
 
         ! ###################################################################
         ndl = g%nb_diag(1)
@@ -207,45 +209,69 @@ contains
         ! Reduction; extending 2 diagonals the rhs at the boundaries
         if (allocated(fdmi%rhs_b1)) deallocate (fdmi%rhs_b1)
         if (allocated(fdmi%rhs_t1)) deallocate (fdmi%rhs_t1)
-        allocate (fdmi%rhs_b1(max(idr, idl + 1), 1:max(ndl, ndr) + 2))  ! should be ndl+2
-        allocate (fdmi%rhs_t1(max(idr, idl + 1), 1:max(ndl, ndr) + 2))
+        ! allocate (fdmi%rhs_b1(max(idr, idl + 1), 1:max(ndl, ndr) + 2))  ! should be ndl+2
+        ! allocate (fdmi%rhs_t1(max(idr, idl + 1), 1:max(ndl, ndr) + 2))
+        ! allocate (fdmi%rhs_b1(max(idr, idl + 1), 1:ndl + 2))
+        ! allocate (fdmi%rhs_t1(max(idr, idl + 1), 1:ndl + 2))
+        allocate (fdmi%rhs_b1(max(idr, idl) + 1, 1:max(ndl, ndr) + 2))
+        allocate (fdmi%rhs_t1(max(idr, idl) + 1, 1:max(ndl, ndr) + 2))
         fdmi%rhs_b1(:, :) = 0.0_wp
         fdmi%rhs_t1(:, :) = 0.0_wp
 
+        ndr_b = size(fdmi%rhs_b1, 2)    ! they can have a different number of diagonals than rhs
+        idr_b = ndr_b/2 + 1
+        ndr_t = size(fdmi%rhs_t1, 2)
+        idr_t = ndr_t/2 + 1
+
+        nx_t = size(fdmi%rhs_t1, 1)
+
         locRhs_b = 0.0_wp
         locRhs_t = 0.0_wp
-        call FDM_Bcs_Reduce_Old(fdmi%bc, fdmi%rhs, fdmi%lhs, locRhs_b, locRhs_t)
+        ! call FDM_Bcs_Reduce_Old(fdmi%bc, fdmi%rhs, fdmi%lhs, locRhs_b, locRhs_t)
+        call FDM_Bcs_Reduce(fdmi%bc, fdmi%rhs, fdmi%lhs, locRhs_b(1:nx_t, 1:ndr_b), locRhs_t(1:nx_t, 1:ndr_t))
 
         select case (fdmi%bc)
         case (BCS_MIN)
-            fdmi%lhs(1:idr, 1:ndr) = locRhs_b(1:idr, 1:ndr)
+            ! fdmi%lhs(1:idr, 1:ndr) = locRhs_b(1:idr, 1:ndr)
+            fdmi%lhs(1:nx_t, 1:ndr) = locRhs_b(1:nx_t, idr_b - ndr/2:idr_b + ndr/2)
 
-            fdmi%rhs_b1(1:idl + 1, 2:ndl + 1) = fdmi%rhs(1:idl + 1, 1:ndl)
+            ! fdmi%rhs_b1(1:idl + 1, 2:ndl + 1) = fdmi%rhs(1:idl + 1, 1:ndl)
+            fdmi%rhs_b1(1:nx_t, idr_b - ndl/2:idr_b + ndl/2) = fdmi%rhs(1:nx_t, 1:ndl)
             do ir = 1, idr - 1              ! change sign in b^R_{21} for nonzero bc
-                fdmi%rhs_b1(1 + ir, 1 + idl - ir) = -locRhs_b(1 + ir, idr - ir)
+                ! fdmi%rhs_b1(1 + ir, 1 + idl - ir) = -locRhs_b(1 + ir, idr - ir)
+                fdmi%rhs_b1(1 + ir, idr_b - ir) = -locRhs_b(1 + ir, idr_b - ir)
             end do
 
             ! reducing system in the opposite end to account for the case of extended stencils
-            call FDM_Bcs_Reduce_Old(BCS_MAX, fdmi%lhs, fdmi%rhs, rhs_t=fdmi%rhs_t1(:, 2:))
+            ! call FDM_Bcs_Reduce_Old(BCS_MAX, fdmi%lhs, fdmi%rhs, rhs_t=fdmi%rhs_t1(:, 2:))
+            call FDM_Bcs_Reduce(BCS_MAX, fdmi%lhs, fdmi%rhs, rhs_t=fdmi%rhs_t1)
 
         case (BCS_MAX)
-            fdmi%lhs(nx - idr + 1:nx, 1:ndr) = locRhs_t(1:idr, 1:ndr)
+            ! fdmi%lhs(nx - idr + 1:nx, 1:ndr) = locRhs_t(1:idr, 1:ndr)
+            fdmi%lhs(nx - nx_t + 1:nx, 1:ndr) = locRhs_t(1:nx_t, idr_t - ndr/2:idr_t + ndr/2)
 
-            fdmi%rhs_t1(1:idl + 1, 2:ndl + 1) = fdmi%rhs(nx - idl:nx, 1:ndl)
+            ! fdmi%rhs_t1(1:idl + 1, 2:ndl + 1) = fdmi%rhs(nx - idl:nx, 1:ndl)
+            fdmi%rhs_t1(1:nx_t, idr_t - ndl/2:idr_t + ndl/2) = fdmi%rhs(nx - nx_t + 1:nx, 1:ndl)
             do ir = 1, idr - 1              ! change sign in b^R_{21} for nonzero bc
-                fdmi%rhs_t1(1 + idl - ir, 1 + idl + ir) = -locRhs_t(idr - ir, idr + ir)
+                ! fdmi%rhs_t1(1 + idl - ir, 1 + idl + ir) = -locRhs_t(idr - ir, idr + ir)
+                fdmi%rhs_t1(nx_t - ir, idr_t + ir) = -locRhs_t(nx_t - ir, idr_t + ir)
             end do
 
             ! reducing system in the opposite end to account for the case of extended stencils
-            call FDM_Bcs_Reduce_Old(BCS_MIN, fdmi%lhs, fdmi%rhs, rhs_b=fdmi%rhs_b1)
+            ! call FDM_Bcs_Reduce_Old(BCS_MIN, fdmi%lhs, fdmi%rhs, rhs_b=fdmi%rhs_b1)
+            call FDM_Bcs_Reduce(BCS_MIN, fdmi%lhs, fdmi%rhs, rhs_b=fdmi%rhs_b1)
 
         end select
 
         ! moving extended stencil in last element of old array to natural position
         ir = 1
-        fdmi%rhs_b1(ir, ndl + 2) = fdmi%rhs_b1(ir, 2); fdmi%rhs_b1(ir, 2) = 0.0_wp
-        ir = max(idr, idl + 1)
-        fdmi%rhs_t1(ir, 1) = fdmi%rhs_t1(ir, ndl + 1); fdmi%rhs_t1(ir, ndl + 1) = 0.0_wp
+        ! fdmi%rhs_b1(ir, ndl + 2) = fdmi%rhs_b1(ir, 2); fdmi%rhs_b1(ir, 2) = 0.0_wp
+        fdmi%rhs_b1(ir, idr_b + ndl/2 + 1) = fdmi%rhs_b1(ir, idr_b - ndl/2)
+        fdmi%rhs_b1(ir, idr_b - ndl/2) = 0.0_wp
+        ir = nx_t
+        ! fdmi%rhs_t1(ir, 1) = fdmi%rhs_t1(ir, ndl + 1); fdmi%rhs_t1(ir, ndl + 1) = 0.0_wp
+        fdmi%rhs_t1(ir, idr_t - ndl/2 - 1) = fdmi%rhs_t1(ir, idr_t + ndl/2)
+        fdmi%rhs_t1(ir, idr_t + ndl/2) = 0.0_wp
 
         ! -------------------------------------------------------------------
         ! preconditioning
@@ -301,8 +327,10 @@ contains
         !                       bcs_b=bcs_hb(:), &
         !                       bcs_t=bcs_ht(:))
         call fdmi%matmul_thomas(rhs=rhsi(:, 1:ndr), &
-                                rhs_b=fdmi%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
-                                rhs_t=fdmi%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
+                                ! rhs_b=fdmi%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
+                                ! rhs_t=fdmi%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
+                                rhs_b=fdmi%rhs_b1, &
+                                rhs_t=fdmi%rhs_t1, &
                                 u=f, &
                                 f=result, &
                                 L=fdmi%lhs(:, 1:ndl/2), &

@@ -10,7 +10,7 @@ module BoundaryConditions
     private
 
     public :: BCS_Initialize
-    public :: BCS_Neumann_Z
+    public :: BCS_Neumann_Z, BCS_Neumann_Z_PerVolume
     public :: BCS_SURFACE_Z
 
     type bcs_dt
@@ -211,6 +211,37 @@ contains
 
         return
     end subroutine BCS_Neumann_Z
+
+    !########################################################################
+    !########################################################################
+    subroutine BCS_Neumann_Z_PerVolume(ibc, nlines, nz, u, bcs_hb, bcs_ht)
+        use Thermo_Anelastic, only: ribackground
+
+        integer(wi), intent(in) :: ibc     ! BCs at Kmin/Kmax: 1, for Neumann/-
+        !                                                      2, for -      /Neumann
+        !                                                      3, for Neumann/Neumann
+        integer(wi) nlines, nz
+        real(wp), intent(in) :: u(nlines, nz)
+        real(wp), intent(out) :: bcs_hb(nlines), bcs_ht(nlines)
+
+        integer k
+
+        ! ###################################################################
+        if (any([BCS_ND, BCS_NN] == ibc)) then
+            bcs_hb(:) = 0.0_wp                  ! zero derivative at the wall
+            do k = 2, k_bcs_b
+                bcs_hb(:) = bcs_hb(:) + c_b(k)*u(:, k)*ribackground(k)
+            end do
+        end if
+        if (any([BCS_DN, BCS_NN] == ibc)) then
+            bcs_ht(:) = 0.0_wp                  ! zero derivative at the wall
+            do k = nz - 1, nz - k_bcs_t + 1, -1
+                bcs_ht(:) = bcs_ht(:) + c_t(k)*u(:, k)*ribackground(k)
+            end do
+        end if
+
+        return
+    end subroutine BCS_Neumann_Z_PerVolume
 
     !########################################################################
     !########################################################################

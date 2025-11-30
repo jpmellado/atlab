@@ -5,7 +5,7 @@ program IniFlow
     use TLab_Memory, only: inb_flow
     use TLab_Time, only: itime, rtime
     use TLab_Arrays
-    use TLab_Pointers_3D, only: p_q
+    use TLab_Pointers_2D, only: pxy_q
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Start
     use TLab_Memory, only: TLab_Initialize_Memory
 #ifdef USE_MPI
@@ -70,7 +70,7 @@ program IniFlow
     ! Mean
     do iq = 1, 3
         do k = 1, kmax
-            p_q(:, :, k, iq) = Profiles_Calculate(qbg(iq), z%nodes(k))
+            pxy_q(:, k, iq) = Profiles_Calculate(qbg(iq), z%nodes(k))
         end do
     end do
 

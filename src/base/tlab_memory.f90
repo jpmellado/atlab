@@ -91,6 +91,9 @@ module TLab_Pointers_2D
     use TLab_Constants, only: wp
     implicit none
 
+    real(wp), pointer :: pxy_q(:, :, :) => null()
+    real(wp), pointer :: pxy_s(:, :, :) => null()
+
     real(wp), pointer :: pxy_wrk3d(:, :) => null()
     real(wp), pointer :: pxz_wrk3d(:, :) => null()
     real(wp), pointer :: pyz_wrk3d(:, :) => null()
@@ -303,6 +306,9 @@ contains
     subroutine TLab_Set_Pointers_2D()
         use TLab_Arrays
         use TLab_Pointers_2D
+
+        if (allocated(q)) pxy_q(1:imax*jmax, 1:kmax, 1:inb_flow_array) => q(1:isize_field*inb_flow_array, 1)
+        if (allocated(s)) pxy_s(1:imax*jmax, 1:kmax, 1:inb_scal_array) => s(1:isize_field*inb_scal_array, 1)
 
         if (allocated(wrk3d)) pxy_wrk3d(1:imax*jmax, 1:kmax) => wrk3d(1:isize_field)
         if (allocated(wrk3d)) pxz_wrk3d(1:imax*kmax, 1:jmax) => wrk3d(1:isize_field)

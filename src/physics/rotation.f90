@@ -8,6 +8,7 @@ module Rotation
 
     public :: Rotation_Initialize
     public :: Rotation_AddCoriolis
+    public :: Rotation_AddCoriolis_PerVolume
 
     real(wp), public, protected :: rossby
 
@@ -102,11 +103,11 @@ contains
     !########################################################################
     !########################################################################
     ! Remember that coriolisProps%vector already contains the Rossby #.
-    subroutine Rotation_AddCoriolis(locProps, nx, ny, nz, u, r)
+    subroutine Rotation_AddCoriolis(locProps, nx, ny, nz, u, result)
         type(coriolis_dt), intent(in) :: locProps
         integer(wi), intent(in) :: nx, ny, nz
         real(wp), intent(in) :: u(nx*ny*nz, *)
-        real(wp), intent(out) :: r(nx*ny*nz, *)
+        real(wp), intent(out) :: result(nx*ny*nz, *)
 
         ! -----------------------------------------------------------------------
         integer(wi) i
@@ -119,9 +120,9 @@ contains
             fy = locProps%vector(2)
             fz = locProps%vector(3)
             do i = 1, nx*ny*nz
-                r(i, 1) = r(i, 1) + fz*u(i, 2) - fy*u(i, 3)
-                r(i, 2) = r(i, 2) + fx*u(i, 3) - fz*u(i, 1)
-                r(i, 3) = r(i, 3) + fy*u(i, 1) - fx*u(i, 2)
+                result(i, 1) = result(i, 1) + fz*u(i, 2) - fy*u(i, 3)
+                result(i, 2) = result(i, 2) + fx*u(i, 3) - fz*u(i, 1)
+                result(i, 3) = result(i, 3) + fy*u(i, 1) - fx*u(i, 2)
             end do
 
         case (TYPE_COR_AGEOSTROPHIC_Z)
@@ -129,11 +130,54 @@ contains
             geo_v = sin(locProps%parameters(2)*pi_wp/180.0_wp)*locProps%parameters(1)
             fy = locProps%vector(3)
             do i = 1, nx*ny*nz
-                r(i, 1) = r(i, 1) + fy*(u(i, 2) - geo_v)
-                r(i, 2) = r(i, 2) + fy*(geo_u - u(i, 1))
+                result(i, 1) = result(i, 1) + fy*(u(i, 2) - geo_v)
+                result(i, 2) = result(i, 2) + fy*(geo_u - u(i, 1))
             end do
         end select
 
     end subroutine Rotation_AddCoriolis
+
+    !########################################################################
+    !########################################################################
+    ! Remember that coriolisProps%vector already contains the Rossby #.
+    subroutine Rotation_AddCoriolis_PerVolume(locProps, nx, ny, nz, u, result)
+        use Thermo_Anelastic, only: rbackground
+        type(coriolis_dt), intent(in) :: locProps
+        integer(wi), intent(in) :: nx, ny, nz
+        real(wp), intent(in) :: u(nx*ny, nz, *)
+        real(wp), intent(out) :: result(nx*ny, nz, *)
+
+        ! -----------------------------------------------------------------------
+        integer(wi) ij, k
+        real(wp) fx, fy, fz, geo_u, geo_v
+
+        ! #######################################################################
+        select case (locProps%type)
+        case (TYPE_COR_EXPLICIT_3D)
+            fx = locProps%vector(1)
+            fy = locProps%vector(2)
+            fz = locProps%vector(3)
+            do k = 1, nz
+                do ij = 1, nx*ny*nz
+                    result(ij, k, 1) = result(ij, k, 1) + (fz*u(ij, k, 2) - fy*u(ij, k, 3))*rbackground(k)
+                    result(ij, k, 2) = result(ij, k, 2) + (fx*u(ij, k, 3) - fz*u(ij, k, 1))*rbackground(k)
+                    result(ij, k, 3) = result(ij, k, 3) + (fy*u(ij, k, 1) - fx*u(ij, k, 2))*rbackground(k)
+                end do
+            end do
+
+        case (TYPE_COR_AGEOSTROPHIC_Z)
+            geo_u = cos(locProps%parameters(2)*pi_wp/180.0_wp)*locProps%parameters(1)
+            geo_v = sin(locProps%parameters(2)*pi_wp/180.0_wp)*locProps%parameters(1)
+            fy = locProps%vector(3)
+            do k = 1, nz
+                do ij = 1, nx*ny*nz
+                    result(ij, k, 1) = result(ij, k, 1) + fy*(u(ij, k, 2) - geo_v)*rbackground(k)
+                    result(ij, k, 2) = result(ij, k, 2) + fy*(geo_u - u(ij, k, 1))*rbackground(k)
+                end do
+            end do
+
+        end select
+
+    end subroutine Rotation_AddCoriolis_PerVolume
 
 end module Rotation

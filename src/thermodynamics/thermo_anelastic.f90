@@ -25,6 +25,7 @@ module Thermo_Anelastic
     public :: Thermo_Anelastic_T
     public :: Thermo_Anelastic_StaticL
     public :: Thermo_Anelastic_AddBuoyancy
+    public :: Thermo_Anelastic_AddBuoyancy_PerVolume
     public :: Thermo_Anelastic_Weight_InPlace
     public :: Thermo_Anelastic_Weight_OutPlace
     public :: Thermo_Anelastic_Weight_Add
@@ -387,6 +388,47 @@ contains
 
         return
     end subroutine Thermo_Anelastic_AddBuoyancy
+
+    !########################################################################
+    !########################################################################
+    subroutine Thermo_Anelastic_AddBuoyancy_PerVolume(nx, ny, nz, s, b, factor)
+        use TLab_Pointers_2D, only: pxy_wrk2d
+        integer(wi), intent(in) :: nx, ny, nz
+        real(wp), intent(in) :: s(nx*ny, nz, *)
+        real(wp), intent(inout) :: b(nx*ny, nz)
+        real(wp), intent(in) :: factor
+
+        integer(wi) k
+
+        ! ###################################################################
+#define T_LOC(ij,k) s(ij,k,inb_scal_T)
+#define TR_LOC(ij,k) pxy_wrk2d(ij,1)
+
+        select case (imixture)
+        case (MIXT_TYPE_AIR)
+            do k = 1, nz
+                b(:, k) = (R_LOC - P_LOC/T_LOC(:, k))*factor + b(:, k)
+            end do
+
+        case (MIXT_TYPE_AIRVAPOR)
+            do k = 1, nz
+                TR_LOC(:, k) = (Rd + s(:, k, 2)*Rdv)*T_LOC(:, k)                     ! Multiply by gas constant
+                b(:, k) = (R_LOC - P_LOC/TR_LOC(:, k))*factor + b(:, k)
+            end do
+
+        case (MIXT_TYPE_AIRWATER)
+            do k = 1, nz
+                TR_LOC(:, k) = (Rd + s(:, k, 2)*Rdv - s(:, k, 3)*Rv)*T_LOC(:, k)     ! Multiply by gas constant
+                b(:, k) = (R_LOC - P_LOC/TR_LOC(:, k))*factor + b(:, k)
+            end do
+
+        end select
+
+#undef T_LOC
+#undef TR_LOC
+
+        return
+    end subroutine Thermo_Anelastic_AddBuoyancy_PerVolume
 
     !########################################################################
     !########################################################################

@@ -6,7 +6,7 @@ program IniScal
     use TLab_Arrays
     use TLab_Memory, only: imax, jmax, kmax, inb_scal
     use TLab_Memory, only: TLab_Initialize_Memory
-    use TLab_Pointers_3D, only: p_s
+    use TLab_Pointers_2D, only: pxy_s
 #ifdef USE_MPI
     use TLabMPI_PROCS, only: TLabMPI_Initialize
     use TLabMPI_Transpose, only: TLabMPI_Trp_Initialize
@@ -66,7 +66,7 @@ program IniScal
     do is = 1, inb_scal
         ! Mean
         do k = 1, kmax
-            p_s(:, :, k, is) = Profiles_Calculate(sbg(is), z%nodes(k))
+            pxy_s(:, k, is) = Profiles_Calculate(sbg(is), z%nodes(k))
         end do
 
         ! Fluctuation
@@ -83,7 +83,7 @@ program IniScal
     end do
 
     ! ###################################################################
-    ! Reset to equilibrium 
+    ! Reset to equilibrium
     if (flag_mixture == 1) then
         call Thermo_Anelastic_EquilibriumPH(imax, jmax, kmax, s(:, 2), s(:, 1))
     end if

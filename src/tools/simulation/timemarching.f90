@@ -221,6 +221,9 @@ contains
         p_hq(1:imax, 1:jmax, 1:kmax, 1:inb_flow) => hq(1:imax*jmax*kmax*inb_flow, 1)
         p_hs(1:imax, 1:jmax, 1:kmax, 1:inb_scal) => hs(1:imax*jmax*kmax*inb_scal, 1)
 
+        pxy_hq(1:imax*jmax, 1:kmax, 1:inb_flow) => hq(1:imax*jmax*kmax*inb_flow, 1)
+        pxy_hs(1:imax*jmax, 1:kmax, 1:inb_scal) => hs(1:imax*jmax*kmax*inb_scal, 1)
+
         ! ###################################################################
         ! maximum diffusivities for TMarch_Courant
         schmidtfactor = 1.0_wp
@@ -584,13 +587,51 @@ contains
 
         ! #######################################################################
         ! Iterate implicit non-evaporation
-        call Microphysics_Evaporation_Impl(evaporationProps,imax,jmax,kmax,inb_scal_ql,s,dte)
-
-        ! #######################################################################
-        !call TLab_Diagnostic(imax, jmax, kmax, s) !RH: tbd after re-enforcing scalar limits -> moved to TMarch_RungeKutta
+        call Microphysics_Evaporation_Impl(evaporationProps, imax, jmax, kmax, inb_scal_ql, s, dte)
 
         return
     end subroutine TMarch_Substep_Anelastic_Explicit
+
+    !########################################################################
+    !########################################################################
+    subroutine TMarch_Substep_Anelastic_Explicit_PerVolume()
+        use TLab_Arrays, only: q, s, txc
+        use TLab_Pointers_2D, only: pxy_q, pxy_s
+        use DNS_Arrays, only: hq, hs
+        use TLab_Sources
+        use Microphysics, only: Microphysics_Evaporation_Impl, evaporationProps
+        use Thermo_AirWater, only: inb_scal_ql
+        use Thermo_Anelastic, only: ribackground
+
+        ! #######################################################################
+        ! Accumulate RHS terms
+        call TLab_Sources_Flow(q, s, hq, txc(:, 1))
+        call TLab_Sources_Scal(s, hs, txc(:, 1), txc(:, 2), txc(:, 3), txc(:, 4))
+
+        if (bufferType == BUFFER_TYPE_NUDGE) call Buffer_Nudge()
+
+        call NSE_Anelastic_PerVolume()
+
+        ! #######################################################################
+        ! Perform the time stepping
+        do is = 1, inb_flow
+            do k = 1, kmax
+                pxy_q(:, k, is) = pxy_q(:, k, is) + dte*pxy_q(:, k, is)*ribackground(k)
+            end do
+        end do
+
+        do is = 1, inb_scal
+            do k = 1, kmax
+                pxy_s(:, k, is) = pxy_s(:, k, is) + dte*pxy_hs(:, k, is)*ribackground(k)
+            end do
+        end do
+
+        ! #######################################################################
+        ! Iterate implicit non-evaporation
+        call Microphysics_Evaporation_Impl(evaporationProps, imax, jmax, kmax, inb_scal_ql, s, dte)
+
+        return
+    end subroutine TMarch_Substep_Anelastic_Explicit_PerVolume
 
     !########################################################################
     !########################################################################

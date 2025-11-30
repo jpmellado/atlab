@@ -10,6 +10,8 @@ module DNS_Arrays
 
     real(wp), pointer :: p_hq(:, :, :, :) => null()
     real(wp), pointer :: p_hs(:, :, :, :) => null()
+    real(wp), pointer :: pxy_hq(:, :, :) => null()
+    real(wp), pointer :: pxy_hs(:, :, :) => null()
 
 end module DNS_Arrays
 

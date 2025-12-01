@@ -171,10 +171,12 @@ contains
     ! ###################################################################
     ! ###################################################################
     subroutine IniBlock_K(tag, locVar, field)
-        use Averages, only: AVG1V2D
         use TLab_Memory, only: imax, jmax, kmax
         use TLab_Grid, only: z
         use IO_Fields
+        ! use NavierStokes, only: nse_eqns, DNS_EQNS_ANELASTIC
+        ! use Thermo_Anelastic, only: rbackground
+        use Averages, only: AVG1V2D
         use TLab_Time, only: itime
 #ifdef USE_MPI
         use mpi_f08, only: MPI_COMM_WORLD, MPI_REAL8
@@ -225,6 +227,13 @@ contains
         write (str, fmt_r) minval(locVar%ref(:, :, :)); line = trim(adjustl(line))//' '//trim(adjustl(str))//','
         write (str, fmt_r) maxval(locVar%ref(:, :, :)); line = trim(adjustl(line))//' '//trim(adjustl(str))//'.'
         call TLab_Write_ASCII(lfile, line)
+
+        ! if (nse_eqns == DNS_EQNS_ANELASTIC) then    ! formulation per unit volume
+        !     do k = 1, locVar%size
+        !         kglobal = k + locVar%offset
+        !         locVar%ref(:, :, k) = locVar%ref(:, :, k)*rbackground(kglobal)
+        !     end do
+        ! end if
 
         ! ###################################################################
         ! Inverse of relaxation time

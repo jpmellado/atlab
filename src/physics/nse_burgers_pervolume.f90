@@ -134,7 +134,7 @@ contains
             allocate (rho_anelastic(1)%values(nlines))
             do j = 1, nlines
                 ip = (offset + j - 1)/jmax + 1
-                rho_anelastic(1)%values(j) = ribackground(ip)
+                rho_anelastic(1)%values(j) = rbackground(ip)
             end do
 
             ! -----------------------------------------------------------------------
@@ -154,7 +154,7 @@ contains
             allocate (rho_anelastic(2)%values(nlines))
             do j = 1, nlines
                 ip = mod(offset + j - 1, z%size) + 1
-                rho_anelastic(2)%values(j) = ribackground(ip)
+                rho_anelastic(2)%values(j) = rbackground(ip)
             end do
 
         end if

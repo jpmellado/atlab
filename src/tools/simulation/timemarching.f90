@@ -327,8 +327,7 @@ contains
             case (DNS_EQNS_ANELASTIC)
                 if (rkm_mode == RKM_EXP3 .or. rkm_mode == RKM_EXP4) then
                     call TMarch_Substep_Anelastic_Explicit()
-                    ! else if (rkm_mode == RKM_IMP3_DIFFUSION) then
-                    !     call TMarch_Substep_Boussinesq_Implicit()
+                    ! call TMarch_Substep_Anelastic_Explicit_PerVolume()
                 end if
 
             case (DNS_EQNS_COMPRESSIBLE)
@@ -605,8 +604,8 @@ contains
 
         ! #######################################################################
         ! Accumulate RHS terms
-        call TLab_Sources_Flow(q, s, hq, txc(:, 1))
-        call TLab_Sources_Scal(s, hs, txc(:, 1), txc(:, 2), txc(:, 3), txc(:, 4))
+        call TLab_Sources_Flow_PerVolume(q, s, hq, txc(:, 1))
+        call TLab_Sources_Scal_PerVolume(s, hs, txc(:, 1), txc(:, 2), txc(:, 3), txc(:, 4))
 
         if (bufferType == BUFFER_TYPE_NUDGE) call Buffer_Nudge()
 

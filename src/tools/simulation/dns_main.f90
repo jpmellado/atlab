@@ -29,6 +29,7 @@ program DNS
     use OPR_Fourier, only: OPR_Fourier_Initialize
     use OPR_Elliptic, only: OPR_Elliptic_Initialize
     use NSE_Burgers, only: NSE_Burgers_Initialize
+    ! use NSE_Burgers_PerVolume, only: NSE_Burgers_PerVolume_Initialize
     use DNS_LOCAL
     use DNS_Control
     use TimeMarching
@@ -79,6 +80,7 @@ program DNS
 
     call TLab_Initialize_Background(ifile)
     call NSE_Burgers_Initialize(ifile)
+    ! call NSE_Burgers_PerVolume_Initialize(ifile)
 
     call Statistics_Initialize(ifile)
 

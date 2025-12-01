@@ -228,13 +228,6 @@ contains
         write (str, fmt_r) maxval(locVar%ref(:, :, :)); line = trim(adjustl(line))//' '//trim(adjustl(str))//'.'
         call TLab_Write_ASCII(lfile, line)
 
-        ! if (nse_eqns == DNS_EQNS_ANELASTIC) then    ! formulation per unit volume
-        !     do k = 1, locVar%size
-        !         kglobal = k + locVar%offset
-        !         locVar%ref(:, :, k) = locVar%ref(:, :, k)*rbackground(kglobal)
-        !     end do
-        ! end if
-
         ! ###################################################################
         ! Inverse of relaxation time
         allocate (locVar%tau(locVar%size))
@@ -249,6 +242,10 @@ contains
                 locVar%tau(k) = locVar%strength*((z%nodes(kglobal) - z%nodes(locVar%offset + 1))*dummy)**locVar%sigma
             if (locVar%form == FORM_POWER_MIN) &
                 locVar%tau(k) = locVar%strength*((z%nodes(locVar%offset + locVar%size) - z%nodes(kglobal))*dummy)**locVar%sigma
+
+            ! if (nse_eqns == DNS_EQNS_ANELASTIC) &   ! formulation per unit volume
+            !     locVar%tau(k) = locVar%tau(k)*rbackground(kglobal)
+
         end do
 
 #undef strength

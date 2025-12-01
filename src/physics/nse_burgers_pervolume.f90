@@ -54,7 +54,7 @@ module NSE_Burgers_PerVolume
     end type rho_anelastic_dt
     type(rho_anelastic_dt) :: rho_anelastic(3)      ! one for each direction
 
-    real(wp), dimension(:), pointer :: p_vel
+    ! real(wp), dimension(:), pointer :: p_vel
     real(wp) :: diffusivity(0:MAX_VARS)
 
 contains
@@ -73,7 +73,7 @@ contains
         ! -----------------------------------------------------------------------
         character(len=32) bakfile
 
-        integer(wi) ig, is, ip, j, ndl, idl, ic
+        integer(wi) ig, is, ip, j, ndl, idl !, ic
         integer(wi) nlines, offset
         real(wp) dummy
 
@@ -171,7 +171,7 @@ contains
 !             end select
 !         else
 ! #endif
-            NSE_Burgers_PerVolume_X => NSE_Burgers_PerVolume_X_Serial
+        NSE_Burgers_PerVolume_X => NSE_Burgers_PerVolume_X_Serial
 ! #ifdef USE_MPI
 !         end if
 ! #endif
@@ -186,7 +186,7 @@ contains
 !             end select
 !         else
 ! #endif
-            NSE_Burgers_PerVolume_Y => NSE_Burgers_PerVolume_Y_Serial
+        NSE_Burgers_PerVolume_Y => NSE_Burgers_PerVolume_Y_Serial
 ! #ifdef USE_MPI
 !         end if
 ! #endif
@@ -234,7 +234,8 @@ contains
                                     result=wrk3d, &
                                     dsdx=result, &
                                     rhou=tmp1, &
-                                    rho=rho_anelastic(1)%values(:))
+                                    rhou_out=tmp1, &
+                                    rho_xy=rho_anelastic(1)%values(:))
             else
                 call NSE_Burgers_1D(nlines, g(1), fdmDiffusion(1)%lu(:, :, is), &
                                     s=tmp1, &
@@ -425,7 +426,8 @@ contains
                                     result=wrk3d, &
                                     dsdx=result, &
                                     rhou=tmp1, &
-                                    rho=rho_anelastic(2)%values(:))
+                                    rhou_out=tmp1, &
+                                    rho_xy=rho_anelastic(2)%values(:))
             else
                 call NSE_Burgers_1D(nlines, g(2), fdmDiffusion(2)%lu(:, :, is), &
                                     s=tmp1, &
@@ -610,7 +612,7 @@ contains
                                 dsdx=wrk3d, &
                                 rhou=s, &
                                 rhou_out=rhou_out, &
-                                rho=rho_anelastic(3)%values)
+                                rho_z=rbackground) !rho_anelastic(3)%values)
 
         end if
 
@@ -629,7 +631,7 @@ contains
     !#
     !# Second derivative uses LU decomposition including diffusivity coefficient
     !########################################################################
-    subroutine NSE_Burgers_1D(nlines, g, lu2d, s, result, dsdx, rhou, rhou_out, rho)
+    subroutine NSE_Burgers_1D(nlines, g, lu2d, s, result, dsdx, rhou, rhou_out, rho_xy, rho_z)
         use FDM_Derivative, only: FDM_Der1_Solve, FDM_Der2_Solve
         integer(wi), intent(in) :: nlines                           ! # of lines to be solved
         type(fdm_dt), intent(in) :: g
@@ -639,22 +641,28 @@ contains
         real(wp), intent(inout) :: dsdx(nlines, g%size)             ! dsdx
         real(wp), intent(in) :: rhou(nlines, g%size)                ! velocity times the density
         real(wp), intent(out), optional :: rhou_out(nlines, g%size) ! velocity times the density
-        real(wp), intent(in), optional :: rho(g%size)
+        real(wp), intent(in), optional :: rho_xy(1:nlines)
+        real(wp), intent(in), optional :: rho_z(g%size)
 
         ! -------------------------------------------------------------------
-        integer(wi) k
+        integer(wi) ij, k
 
         ! ###################################################################
         ! dsdx: 1st derivative; result: 2nd derivative including diffusivity
         call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, s, dsdx, wrk2d)
         call FDM_Der2_Solve(nlines, g%der2, lu2d, s, result, dsdx, wrk2d)
 
-        if (present(rho)) then
-            do k = 1, g%size
-                rhou_out(:, k) = s(:, k)*rho(k)
-                result(:, k) = result(:, k) - rhou_out(:, k)*dsdx(:, k)
+        if (present(rho_xy)) then
+            do ij = 1, g%size
+                rhou_out(:, ij) = s(:, ij)*rho_xy(:)
+                result(:, ij) = result(:, ij) - rhou_out(:, ij)*dsdx(:, ij)
             end do
 
+        else if (present(rho_z)) then
+            do k = 1, g%size
+                rhou_out(:, k) = s(:, k)*rho_z(k)
+                result(:, k) = result(:, k) - rhou_out(:, k)*dsdx(:, k)
+            end do
         else
             result(:, :) = result(:, :) - rhou(:, :)*dsdx(:, :)
 

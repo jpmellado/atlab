@@ -326,8 +326,8 @@ contains
 
             case (DNS_EQNS_ANELASTIC)
                 if (rkm_mode == RKM_EXP3 .or. rkm_mode == RKM_EXP4) then
-                    call TMarch_Substep_Anelastic_Explicit()
-                    ! call TMarch_Substep_Anelastic_Explicit_PerVolume()
+                    ! call TMarch_Substep_Anelastic_Explicit()
+                    call TMarch_Substep_Anelastic_Explicit_PerVolume()
                 end if
 
             case (DNS_EQNS_COMPRESSIBLE)
@@ -615,7 +615,7 @@ contains
         ! Perform the time stepping
         do is = 1, inb_flow
             do k = 1, kmax
-                pxy_q(:, k, is) = pxy_q(:, k, is) + dte*pxy_q(:, k, is)*ribackground(k)
+                pxy_q(:, k, is) = pxy_q(:, k, is) + dte*pxy_hq(:, k, is)*ribackground(k)
             end do
         end do
 

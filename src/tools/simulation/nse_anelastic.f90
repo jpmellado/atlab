@@ -169,18 +169,20 @@ subroutine NSE_Anelastic_PerVolume()
     use TLab_Memory, only: imax, jmax, kmax, inb_flow, inb_scal
     use TLab_Arrays, only: s
     use TLab_Pointers, only: u, v, w, tmp1, tmp2, tmp3, tmp4, tmp5, tmp6, tmp7, tmp8, tmp9
+    use TLab_Pointers_3D, only: p_q, pxy_tmp2 => tmp2, pxy_tmp3 => tmp3, pxy_tmp4 => tmp4
     use DNS_Arrays
     use TimeMarching, only: dte, remove_divergence
-    use Thermo_Anelastic, only: rbackground
+    use Thermo_Anelastic!, only: rbackground
     use BoundaryConditions
     use OPR_Partial
+    use NSE_Burgers
     use NSE_Burgers_PerVolume
     use OPR_Elliptic
 
     implicit none
 
     ! -----------------------------------------------------------------------
-    integer(wi) iq, is
+    integer(wi) iq, is, k
     integer ibc
     real(wp) dummy
 
@@ -229,9 +231,14 @@ subroutine NSE_Anelastic_PerVolume()
     ! Forcing term
     if (remove_divergence) then ! remove residual divergence
         dummy = 1.0_wp/dte
-        tmp2(:) = hq(:, 1) + u(:)*dummy
-        tmp3(:) = hq(:, 2) + v(:)*dummy
-        tmp4(:) = hq(:, 3) + w(:)*dummy
+        ! tmp2(:) = hq(:, 1) + u(:)*dummy
+        ! tmp3(:) = hq(:, 2) + v(:)*dummy
+        ! tmp4(:) = hq(:, 3) + w(:)*dummy
+        do k = 1, kmax
+            pxy_tmp2(:, :, k) = p_hq(:, :, k, 1) + p_q(:, :, k, 1)*dummy*rbackground(k)
+            pxy_tmp3(:, :, k) = p_hq(:, :, k, 2) + p_q(:, :, k, 2)*dummy*rbackground(k)
+            pxy_tmp4(:, :, k) = p_hq(:, :, k, 3) + p_q(:, :, k, 3)*dummy*rbackground(k)
+        end do
 
         call OPR_Partial_X(OPR_P1, imax, jmax, kmax, tmp2, tmp1)
         call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, tmp3, tmp2)
@@ -243,11 +250,6 @@ subroutine NSE_Anelastic_PerVolume()
         call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, hq(:, 3), tmp3)
 
     end if
-    tmp1(:) = tmp1(:) + tmp2(:) + tmp3(:) ! forcing term in tmp1
-
-    call OPR_Partial_X(OPR_P1, imax, jmax, kmax, tmp2, tmp1)
-    call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, tmp3, tmp2)
-    call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, tmp4, tmp3)
     tmp1(:) = tmp1(:) + tmp2(:) + tmp3(:) ! forcing term in tmp1
 
     ! Neumman BCs in d/dy(p) s.t. v=0 (no-penetration)

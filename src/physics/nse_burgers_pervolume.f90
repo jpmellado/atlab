@@ -46,17 +46,10 @@ module NSE_Burgers_PerVolume
     type :: fdm_diffusion_dt
         sequence
         real(wp), allocatable :: lu(:, :, :)
-        ! type(rho_anelastic_dt) :: rho_anelastic
     end type fdm_diffusion_dt
     type(fdm_diffusion_dt) :: fdmDiffusion(3)
 
-    type :: rho_anelastic_dt
-        sequence
-        logical :: active = .false.
-        real(wp), allocatable :: values(:)
-    end type rho_anelastic_dt
-    type(rho_anelastic_dt) :: rho_anelastic(3)      ! one for each direction
-
+    real(wp), allocatable :: rho_yz(:), rho_xz(:)   ! rho in anelastic formulation, x and y directions
     real(wp) :: diffusivity(0:MAX_VARS)
 
 contains
@@ -121,42 +114,40 @@ contains
 
             ! -----------------------------------------------------------------------
             ! Density correction term in the burgers operator along X
-            rho_anelastic(1)%active = .true.
-! #ifdef USE_MPI
-!             if (ims_npro_i > 1) then
-!                 nlines = tmpi_plan_dx%nlines
-!                 offset = nlines*ims_pro_i
-!             else
-! #endif
-            nlines = jmax*kmax
-            offset = 0
-! #ifdef USE_MPI
-!             end if
-! #endif
-            allocate (rho_anelastic(1)%values(nlines))
+#ifdef USE_MPI
+            if (ims_npro_i > 1 .and. der_mode_i == TYPE_TRANSPOSE) then
+                nlines = tmpi_plan_dx%nlines
+                offset = nlines*ims_pro_i
+            else
+#endif
+                nlines = jmax*kmax
+                offset = 0
+#ifdef USE_MPI
+            end if
+#endif
+            allocate (rho_yz(nlines))
             do j = 1, nlines
                 ip = (offset + j - 1)/jmax + 1
-                rho_anelastic(1)%values(j) = rbackground(ip)
+                rho_yz(j) = rbackground(ip)
             end do
 
             ! -----------------------------------------------------------------------
             ! Density correction term in the burgers operator along Y
-            rho_anelastic(2)%active = .true.
-! #ifdef USE_MPI
-!             if (ims_npro_j > 1) then
-!                 nlines = tmpi_plan_dy%nlines
-!                 offset = nlines*ims_pro_j
-!             else
-! #endif
-            nlines = imax*kmax
-            offset = 0
-! #ifdef USE_MPI
-!             end if
-! #endif
-            allocate (rho_anelastic(2)%values(nlines))
+#ifdef USE_MPI
+            if (ims_npro_j > 1 .and. der_mode_j == TYPE_TRANSPOSE) then
+                nlines = tmpi_plan_dy%nlines
+                offset = nlines*ims_pro_j
+            else
+#endif
+                nlines = imax*kmax
+                offset = 0
+#ifdef USE_MPI
+            end if
+#endif
+            allocate (rho_xz(nlines))
             do j = 1, nlines
                 ip = mod(offset + j - 1, z%size) + 1
-                rho_anelastic(2)%values(j) = rbackground(ip)
+                rho_xz(j) = rbackground(ip)
             end do
 
         end if
@@ -167,7 +158,7 @@ contains
         if (ims_npro_i > 1) then
             select case (der_mode_i)
             case (TYPE_TRANSPOSE)
-                ! NSE_Burgers_PerVolume_X => NSE_Burgers_PerVolume_X_MPITranspose
+                NSE_Burgers_PerVolume_X => NSE_Burgers_PerVolume_X_MPITranspose
             case (TYPE_SPLIT)
                 NSE_Burgers_PerVolume_X => NSE_Burgers_PerVolume_X_MPISplit
             end select
@@ -182,7 +173,7 @@ contains
         if (ims_npro_j > 1) then
             select case (der_mode_j)
             case (TYPE_TRANSPOSE)
-                ! NSE_Burgers_PerVolume_Y => NSE_Burgers_PerVolume_Y_MPITranspose
+                NSE_Burgers_PerVolume_Y => NSE_Burgers_PerVolume_Y_MPITranspose
             case (TYPE_SPLIT)
                 NSE_Burgers_PerVolume_Y => NSE_Burgers_PerVolume_Y_MPISplit
             end select
@@ -234,7 +225,7 @@ contains
                                               der1=result, &
                                               der2=wrk3d, &
                                               rhou=tmp1, &
-                                              rho_xy=rho_anelastic(1)%values(:))
+                                              rho_xy=rho_yz(:))
             else
                 wrk3d(1:nx*ny*nz) = wrk3d(1:nx*ny*nz) - tmp1(:)*result(:)
             end if
@@ -253,51 +244,60 @@ contains
     !########################################################################
     !########################################################################
 #ifdef USE_MPI
-!     subroutine NSE_Burgers_PerVolume_X_MPITranspose(is, nx, ny, nz, s, result, tmp1, u_t)
-!         integer, intent(in) :: is                       ! scalar index; if 0, then velocity
-!         integer(wi), intent(in) :: nx, ny, nz
-!         real(wp), intent(in) :: s(nx*ny*nz)
-!         real(wp), intent(out) :: result(nx*ny*nz)
-!         real(wp), intent(out), target :: tmp1(nx*ny*nz)         ! transposed field s
-!         real(wp), intent(in), optional, target :: u_t(nx*ny*nz)
+    subroutine NSE_Burgers_PerVolume_X_MPITranspose(is, nx, ny, nz, s, result, tmp1, rhou_in)
+        integer, intent(in) :: is                       ! scalar index; if 0, then velocity
+        integer(wi), intent(in) :: nx, ny, nz
+        real(wp), intent(in) :: s(nx*ny*nz)
+        real(wp), intent(out) :: result(nx*ny*nz)
+        real(wp), intent(out) :: tmp1(nx*ny*nz)             ! transposed field s times density
+        real(wp), intent(in), optional :: rhou_in(nx*ny*nz) ! transposed field u times density
 
-!         ! -------------------------------------------------------------------
-!         integer(wi) nlines
+        ! -------------------------------------------------------------------
+        integer(wi) nlines
 
-!         ! ###################################################################
-!         if (x%size == 1) then ! Set to zero in 2D case
-!             result = 0.0_wp
-!             return
-!         end if
+        ! ###################################################################
+        if (x%size == 1) then ! Set to zero in 2D case
+            result = 0.0_wp
+            return
+        end if
 
-!         nlines = tmpi_plan_dx%nlines
+        nlines = tmpi_plan_dx%nlines
 
-!         ! Transposition: make x-direction the last one
-!         call TLabMPI_Trp_ExecI_Forward(s, result, tmpi_plan_dx)
-! #ifdef USE_ESSL
-!         call DGETMO(result, g(1)%size, g(1)%size, nlines, tmp1, nlines)
-! #else
-!         call TLab_Transpose(result, g(1)%size, nlines, g(1)%size, tmp1, nlines)
-! #endif
+        ! Transposition: make x-direction the last one
+        call TLabMPI_Trp_ExecI_Forward(s, result, tmpi_plan_dx)
+#ifdef USE_ESSL
+        call DGETMO(result, g(1)%size, g(1)%size, nlines, tmp1, nlines)
+#else
+        call TLab_Transpose(result, g(1)%size, nlines, g(1)%size, tmp1, nlines)
+#endif
 
-!         if (present(u_t)) then  ! transposed velocity is passed as argument
-!             p_vel => u_t
-!         else
-!             p_vel => tmp1
-!         end if
+        call FDM_Der1_Solve(nlines, g(1)%der1, g(1)%der1%lu, tmp1, wrk3d, wrk2d)
+        call FDM_Der2_Solve(nlines, g(1)%der2, fdmDiffusion(1)%lu(:, :, is), tmp1, result, wrk3d, wrk2d)
 
-!         call NSE_Burgers_1D(nlines, g(1), fdmDiffusion(1)%lu(:, :, is), tmp1, p_vel, result, wrk3d)
+        if (present(rhou_in)) then      ! transposed velocity (times density) is passed as argument
+            result(:) = result(:) - rhou_in(:)*wrk3d(1:nx*ny*nz)
+        else
+            if (nse_eqns == DNS_EQNS_ANELASTIC) then
+                call NSE_Burgers_1D_PerVolume(nlines, nx*ims_npro_i, &
+                                              der1=wrk3d, &
+                                              der2=result, &
+                                              rhou=tmp1, &
+                                              rho_xy=rho_yz(:))
+            else
+                result(:) = result(:) - tmp1(:)*wrk3d(1:nx*ny*nz)
+            end if
+        end if
 
-!         ! Put arrays back in the order in which they came in
-! #ifdef USE_ESSL
-!         call DGETMO(result, nlines, nlines, g(1)%size, wrk3d, g(1)%size)
-! #else
-!         call TLab_Transpose(result, nlines, g(1)%size, nlines, wrk3d, g(1)%size)
-! #endif
-!         call TLabMPI_Trp_ExecI_Backward(wrk3d, result, tmpi_plan_dx)
+        ! Put arrays back in the order in which they came in
+#ifdef USE_ESSL
+        call DGETMO(result, nlines, nlines, g(1)%size, wrk3d, g(1)%size)
+#else
+        call TLab_Transpose(result, nlines, g(1)%size, nlines, wrk3d, g(1)%size)
+#endif
+        call TLabMPI_Trp_ExecI_Backward(wrk3d, result, tmpi_plan_dx)
 
-!         return
-!     end subroutine NSE_Burgers_PerVolume_X_MPITranspose
+        return
+    end subroutine NSE_Burgers_PerVolume_X_MPITranspose
 
     !########################################################################
     !########################################################################
@@ -348,24 +348,12 @@ contains
                                                     der1=result, &
                                                     der2=wrk3d, &
                                                     rhou=tmp1, &
-                                                    rho_xy=rho_anelastic(1)%values(:), &
+                                                    rho_xy=rho_yz(:), &
                                                     diff=diffusivity(is))
             else
                 wrk3d(1:nx*ny*nz) = wrk3d(1:nx*ny*nz)*diffusivity(is) - tmp1(:)*result(:)
             end if
         end if
-
-        ! if (present(u_t)) then  ! transposed velocity is passed as argument
-        !     p_vel => u_t
-        ! else
-        !     p_vel => tmp1
-        ! end if
-
-        ! if (nse_eqns == DNS_EQNS_ANELASTIC) then
-        !     call Anelastic(ny, nz, nx, result, wrk3d, p_vel, diffusivity(is))
-        ! else
-        !     wrk3d(1:nx*ny*nz) = wrk3d(1:nx*ny*nz)*diffusivity(is) - p_vel*result
-        ! end if
 
         ! Put arrays back in the order in which they came in
 #ifdef USE_ESSL
@@ -375,24 +363,6 @@ contains
 #endif
 
         return
-        ! contains
-        !     subroutine Anelastic(ny, nz, nx, ds1, ds2, u, diff)
-        !         integer(wi), intent(in) :: ny, nz, nx
-        !         real(wp), intent(in) :: u(ny, nz, nx), ds1(ny, nz, nx)
-        !         real(wp), intent(inout) :: ds2(ny, nz, nx)
-        !         real(wp), intent(in) :: diff
-
-        !         integer(wi) i, k
-
-        !         do i = 1, nx
-        !             do k = 1, nz
-        !                 ds2(:, k, i) = ds2(:, k, i)*diff*ribackground(k) - u(:, k, i)*ds1(:, k, i)
-        !             end do
-        !         end do
-
-        !         return
-        !     end subroutine Anelastic
-
     end subroutine NSE_Burgers_PerVolume_X_MPISplit
 
 #endif
@@ -436,7 +406,7 @@ contains
                                               der1=result, &
                                               der2=wrk3d, &
                                               rhou=tmp1, &
-                                              rho_xy=rho_anelastic(2)%values(:))
+                                              rho_xy=rho_xz(:))
             else
                 wrk3d(1:nx*ny*nz) = wrk3d(1:nx*ny*nz) - tmp1(:)*result(:)
             end if
@@ -456,50 +426,60 @@ contains
     !########################################################################
     !########################################################################
 #ifdef USE_MPI
-!     subroutine NSE_Burgers_PerVolume_Y_MPITranspose(is, nx, ny, nz, s, result, tmp1, u_t)
-!         integer, intent(in) :: is                       ! scalar index; if 0, then velocity
-!         integer(wi), intent(in) :: nx, ny, nz
-!         real(wp), intent(in) :: s(nx*ny*nz)
-!         real(wp), intent(out) :: result(nx*ny*nz)
-!         real(wp), intent(out), target :: tmp1(nx*ny*nz)         ! transposed field s
-!         real(wp), intent(in), target, optional :: u_t(nx*ny*nz)
+    subroutine NSE_Burgers_PerVolume_Y_MPITranspose(is, nx, ny, nz, s, result, tmp1, rhou_in)
+        integer, intent(in) :: is                       ! scalar index; if 0, then velocity
+        integer(wi), intent(in) :: nx, ny, nz
+        real(wp), intent(in) :: s(nx*ny*nz)
+        real(wp), intent(out) :: result(nx*ny*nz)
+        real(wp), intent(out) :: tmp1(nx*ny*nz)             ! transposed field s times density
+        real(wp), intent(in), optional :: rhou_in(nx*ny*nz) ! transposed field u times density
 
-!         ! -------------------------------------------------------------------
-!         integer(wi) nlines
+        ! -------------------------------------------------------------------
+        integer(wi) nlines
 
-!         ! ###################################################################
-!         if (y%size == 1) then ! Set to zero in 2D case
-!             result = 0.0_wp
-!             return
-!         end if
+        ! ###################################################################
+        if (y%size == 1) then ! Set to zero in 2D case
+            result = 0.0_wp
+            return
+        end if
 
-!         ! Transposition: make y-direction the last one
-! #ifdef USE_ESSL
-!         call DGETMO(s, nx*ny, nx*ny, nz, wrk3d, nz)
-! #else
-!         call TLab_Transpose(s, nx*ny, nz, nx*ny, wrk3d, nz)
-! #endif
-!         call TLabMPI_Trp_ExecJ_Forward(wrk3d, tmp1, tmpi_plan_dy)
-!         nlines = tmpi_plan_dy%nlines
+        ! Transposition: make y-direction the last one
+#ifdef USE_ESSL
+        call DGETMO(s, nx*ny, nx*ny, nz, wrk3d, nz)
+#else
+        call TLab_Transpose(s, nx*ny, nz, nx*ny, wrk3d, nz)
+#endif
+        call TLabMPI_Trp_ExecJ_Forward(wrk3d, tmp1, tmpi_plan_dy)
+        nlines = tmpi_plan_dy%nlines
 
-!         if (present(u_t)) then  ! transposed velocity is passed as argument
-!             p_vel => u_t
-!         else
-!             p_vel => tmp1
-!         end if
+        call FDM_Der1_Solve(nlines, g(2)%der1, g(2)%der1%lu, tmp1, wrk3d, wrk2d)
+        call FDM_Der2_Solve(nlines, g(2)%der2, fdmDiffusion(2)%lu(:, :, is), tmp1, result, wrk3d, wrk2d)
 
-!         call NSE_Burgers_1D(nlines, g(2), fdmDiffusion(2)%lu(:, :, is), tmp1, p_vel, result, wrk3d)
+        if (present(rhou_in)) then      ! transposed velocity (times density) is passed as argument
+            result(:) = result(:) - rhou_in(:)*wrk3d(1:nx*ny*nz)
+        else
+            if (nse_eqns == DNS_EQNS_ANELASTIC) then
+                call NSE_Burgers_1D_PerVolume(nlines, ny*ims_npro_j, &
+                                              der1=wrk3d, &
+                                              der2=result, &
+                                              rhou=tmp1, &
+                                              rho_xy=rho_xz(:))
+            else
+                result(:) = result(:) - tmp1(:)*wrk3d(1:nx*ny*nz)
+            end if
 
-!         ! Put arrays back in the order in which they came in
-!         call TLabMPI_Trp_ExecJ_Backward(result, wrk3d, tmpi_plan_dy)
-! #ifdef USE_ESSL
-!         call DGETMO(wrk3d, nz, nz, nx*ny, result, nx*ny)
-! #else
-!         call TLab_Transpose(wrk3d, nz, nx*ny, nz, result, nx*ny)
-! #endif
+        end if
 
-!         return
-!     end subroutine NSE_Burgers_PerVolume_Y_MPITranspose
+        ! Put arrays back in the order in which they came in
+        call TLabMPI_Trp_ExecJ_Backward(result, wrk3d, tmpi_plan_dy)
+#ifdef USE_ESSL
+        call DGETMO(wrk3d, nz, nz, nx*ny, result, nx*ny)
+#else
+        call TLab_Transpose(wrk3d, nz, nx*ny, nz, result, nx*ny)
+#endif
+
+        return
+    end subroutine NSE_Burgers_PerVolume_Y_MPITranspose
 
     !########################################################################
     !########################################################################
@@ -550,25 +530,13 @@ contains
                                                     der1=result, &
                                                     der2=wrk3d, &
                                                     rhou=tmp1, &
-                                                    rho_xy=rho_anelastic(2)%values(:), &
+                                                    rho_xy=rho_xz(:), &
                                                     diff=diffusivity(is))
             else
                 wrk3d(1:nx*ny*nz) = wrk3d(1:nx*ny*nz)*diffusivity(is) - tmp1(:)*result(:)
             end if
 
         end if
-
-        ! if (present(u_t)) then  ! transposed velocity is passed as argument
-        !     p_vel => u_t
-        ! else
-        !     p_vel => tmp1
-        ! end if
-
-        ! if (nse_eqns == DNS_EQNS_ANELASTIC) then
-        !     call Anelastic(nz, nx*ny, result, wrk3d, p_vel, diffusivity(is))
-        ! else
-        !     wrk3d(1:nx*ny*nz) = wrk3d(1:nx*ny*nz)*diffusivity(is) - p_vel*result
-        ! end if
 
         ! Put arrays back in the order in which they came in
 #ifdef USE_ESSL
@@ -578,22 +546,6 @@ contains
 #endif
 
         return
-        ! contains
-        ! subroutine Anelastic(nz, nxy, ds1, ds2, u, diff)
-        !     integer(wi), intent(in) :: nz, nxy
-        !     real(wp), intent(in) :: u(nz, nxy), ds1(nz, nxy)
-        !     real(wp), intent(inout) :: ds2(nz, nxy)
-        !     real(wp), intent(in) :: diff
-
-        !     integer(wi) ij
-
-        !     do ij = 1, nxy
-        !         ds2(:, ij) = ds2(:, ij)*diff*ribackground(:) - u(:, ij)*ds1(:, ij)
-        !     end do
-
-        !     return
-        ! end subroutine Anelastic
-
     end subroutine NSE_Burgers_PerVolume_Y_MPISplit
 
 #endif

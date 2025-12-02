@@ -174,8 +174,8 @@ contains
         use TLab_Memory, only: imax, jmax, kmax
         use TLab_Grid, only: z
         use IO_Fields
-        ! use NavierStokes, only: nse_eqns, DNS_EQNS_ANELASTIC
-        ! use Thermo_Anelastic, only: rbackground
+        use NavierStokes, only: nse_eqns, DNS_EQNS_ANELASTIC
+        use Thermo_Anelastic, only: rbackground
         use Averages, only: AVG1V2D
         use TLab_Time, only: itime
 #ifdef USE_MPI
@@ -243,8 +243,8 @@ contains
             if (locVar%form == FORM_POWER_MIN) &
                 locVar%tau(k) = locVar%strength*((z%nodes(locVar%offset + locVar%size) - z%nodes(kglobal))*dummy)**locVar%sigma
 
-            ! if (nse_eqns == DNS_EQNS_ANELASTIC) &   ! formulation per unit volume
-            !     locVar%tau(k) = locVar%tau(k)*rbackground(kglobal)
+            if (nse_eqns == DNS_EQNS_ANELASTIC) &   ! formulation per unit volume
+                locVar%tau(k) = locVar%tau(k)*rbackground(kglobal)
 
         end do
 

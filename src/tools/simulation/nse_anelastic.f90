@@ -168,16 +168,15 @@ subroutine NSE_Anelastic_PerVolume()
     use TLab_Constants, only: wp, wi, BCS_NN
     use TLab_Memory, only: imax, jmax, kmax, inb_flow, inb_scal
     use TLab_Arrays, only: s
-    use TLab_Pointers, only: u, v, w, tmp1, tmp2, tmp3, tmp4, tmp5, tmp6, tmp7, tmp8, tmp9
+    use TLab_Pointers, only: u, v, w, tmp1, tmp2, tmp3, tmp4, tmp5, tmp6, tmp7
     use TLab_Pointers_3D, only: p_q, pxy_tmp2 => tmp2, pxy_tmp3 => tmp3, pxy_tmp4 => tmp4
     use DNS_Arrays
     use TimeMarching, only: dte, remove_divergence
-    use Thermo_Anelastic!, only: rbackground
+    use Thermo_Anelastic, only: rbackground
     use BoundaryConditions
     use OPR_Partial
-    use NSE_Burgers
     use NSE_Burgers_PerVolume
-    use OPR_Elliptic
+    use OPR_Elliptic, only: OPR_Poisson
 
     implicit none
 
@@ -199,29 +198,29 @@ subroutine NSE_Anelastic_PerVolume()
     ! Diagonal terms in horizontal directions and (transposed) velocity times density arrays
     call NSE_Burgers_PerVolume_X(0, imax, jmax, kmax, u, tmp1, tmp4)                   ! store rho u transposed in tmp4
     call NSE_Burgers_PerVolume_Y(0, imax, jmax, kmax, v, tmp2, tmp5)                   ! store rho v transposed in tmp5
-    call NSE_Burgers_PerVolume_Z(0, imax, jmax, kmax, w, tmp3, rhou_out=tmp6)          ! store rho w in tmp6
+    call NSE_Burgers_PerVolume_Z_Add(0, imax, jmax, kmax, w, hq(:, 3), tmp3, rhou_out=tmp6)          ! store rho w in tmp6
 
     ! Ox momentum equation
-    call NSE_Burgers_PerVolume_Y(0, imax, jmax, kmax, u, tmp8, tmp7, rhou_in=tmp5)     ! tmp5 contains rho v transposed
-    call NSE_Burgers_PerVolume_Z(0, imax, jmax, kmax, u, tmp9, rhou_in=tmp6)
-    hq(:, 1) = hq(:, 1) + tmp1(:) + tmp8(:) + tmp9(:)
+    call NSE_Burgers_PerVolume_Y(0, imax, jmax, kmax, u, tmp7, tmp3, rhou_in=tmp5)     ! tmp5 contains rho v transposed
+    call NSE_Burgers_PerVolume_Z_Add(0, imax, jmax, kmax, u, hq(:, 1), tmp3, rhou_in=tmp6)
+    hq(:, 1) = hq(:, 1) + tmp1(:) + tmp7(:)
 
     ! Oy momentum equation
-    call NSE_Burgers_PerVolume_X(0, imax, jmax, kmax, v, tmp1, tmp7, rhou_in=tmp4)     ! tmp4 contains rho u transposed
-    call NSE_Burgers_PerVolume_Z(0, imax, jmax, kmax, v, tmp8, rhou_in=tmp6)
-    hq(:, 2) = hq(:, 2) + tmp1(:) + tmp2(:) + tmp8(:)
+    call NSE_Burgers_PerVolume_X(0, imax, jmax, kmax, v, tmp1, tmp3, rhou_in=tmp4)     ! tmp4 contains rho u transposed
+    call NSE_Burgers_PerVolume_Z_Add(0, imax, jmax, kmax, v, hq(:, 2), tmp3, rhou_in=tmp6)
+    hq(:, 2) = hq(:, 2) + tmp1(:) + tmp2(:)
 
     ! Oz momentum equation
-    call NSE_Burgers_PerVolume_X(0, imax, jmax, kmax, w, tmp1, tmp7, rhou_in=tmp4)     ! tmp4 contains rho u transposed
-    call NSE_Burgers_PerVolume_Y(0, imax, jmax, kmax, w, tmp2, tmp7, rhou_in=tmp5)     ! tmp5 contains rho v transposed
-    hq(:, 3) = hq(:, 3) + tmp1(:) + tmp2(:) + tmp3(:)
+    call NSE_Burgers_PerVolume_X(0, imax, jmax, kmax, w, tmp1, tmp3, rhou_in=tmp4)     ! tmp4 contains rho u transposed
+    call NSE_Burgers_PerVolume_Y(0, imax, jmax, kmax, w, tmp2, tmp3, rhou_in=tmp5)     ! tmp5 contains rho v transposed
+    hq(:, 3) = hq(:, 3) + tmp1(:) + tmp2(:)
 
     ! Scalar equations
     do is = 1, inb_scal
         call NSE_Burgers_PerVolume_X(is, imax, jmax, kmax, s(:, is), tmp1, tmp7, rhou_in=tmp4)    ! tmp4 contains u transposed
         call NSE_Burgers_PerVolume_Y(is, imax, jmax, kmax, s(:, is), tmp2, tmp7, rhou_in=tmp5)    ! tmp5 contains v transposed
-        call NSE_Burgers_PerVolume_Z(is, imax, jmax, kmax, s(:, is), tmp3, rhou_in=tmp6)
-        hs(:, is) = hs(:, is) + tmp1(:) + tmp2(:) + tmp3(:)
+        call NSE_Burgers_PerVolume_Z_Add(is, imax, jmax, kmax, s(:, is), hs(:, is), tmp3, rhou_in=tmp6)
+        hs(:, is) = hs(:, is) + tmp1(:) + tmp2(:)
 
     end do
 
@@ -231,9 +230,6 @@ subroutine NSE_Anelastic_PerVolume()
     ! Forcing term
     if (remove_divergence) then ! remove residual divergence
         dummy = 1.0_wp/dte
-        ! tmp2(:) = hq(:, 1) + u(:)*dummy
-        ! tmp3(:) = hq(:, 2) + v(:)*dummy
-        ! tmp4(:) = hq(:, 3) + w(:)*dummy
         do k = 1, kmax
             pxy_tmp2(:, :, k) = p_hq(:, :, k, 1) + p_q(:, :, k, 1)*dummy*rbackground(k)
             pxy_tmp3(:, :, k) = p_hq(:, :, k, 2) + p_q(:, :, k, 2)*dummy*rbackground(k)

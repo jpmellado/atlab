@@ -121,7 +121,6 @@ contains
         ! Array sizes
         ! -------------------------------------------------------------------
         inb_txc = 7
-        ! inb_txc = 9
 
         return
     end subroutine DNS_Initialize_Parameters

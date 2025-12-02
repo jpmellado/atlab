@@ -15,7 +15,7 @@ module NSE_Burgers_PerVolume
     use NavierStokes, only: nse_eqns, DNS_EQNS_ANELASTIC
     use Thermo_Anelastic, only: ribackground, rbackground
     use NavierStokes, only: visc, schmidt
-    use OPR_Partial
+    use FDM_Derivative, only: FDM_Der1_Solve, FDM_Der2_Solve
     use LargeScaleForcing, only: subsidenceProps, TYPE_SUB_CONSTANT, wbackground
     implicit none
     private
@@ -23,7 +23,7 @@ module NSE_Burgers_PerVolume
     public :: NSE_Burgers_PerVolume_Initialize
     public :: NSE_Burgers_PerVolume_X
     public :: NSE_Burgers_PerVolume_Y
-    public :: NSE_Burgers_PerVolume_Z
+    public :: NSE_Burgers_PerVolume_Z_Add
 
     ! -----------------------------------------------------------------------
     procedure(NSE_Burgers_PerVolume_interface) :: NSE_Burgers_PerVolume_dt
@@ -47,7 +47,7 @@ module NSE_Burgers_PerVolume
     end type fdm_diffusion_dt
     type(fdm_diffusion_dt) :: fdmDiffusion(3)
 
-    type :: rho_anelastic_dt                        ! 1/rho in diffusion term in anelastic formulation
+    type :: rho_anelastic_dt
         sequence
         logical :: active = .false.
         real(wp), allocatable :: values(:)
@@ -221,27 +221,20 @@ contains
 
         nlines = ny*nz
 
+        call FDM_Der1_Solve(nlines, g(1)%der1, g(1)%der1%lu, tmp1, result, wrk2d)
+        call FDM_Der2_Solve(nlines, g(1)%der2, fdmDiffusion(1)%lu(:, :, is), tmp1, wrk3d, result, wrk2d)
+
         if (present(rhou_in)) then      ! transposed velocity (times density) is passed as argument
-            call NSE_Burgers_1D(nlines, g(1), fdmDiffusion(1)%lu(:, :, is), &
-                                s=tmp1, &
-                                result=wrk3d, &
-                                dsdx=result, &
-                                rhou=rhou_in)
+            wrk3d(1:nx*ny*nz) = wrk3d(1:nx*ny*nz) - rhou_in(:)*result(:)
         else
             if (nse_eqns == DNS_EQNS_ANELASTIC) then
-                call NSE_Burgers_1D(nlines, g(1), fdmDiffusion(1)%lu(:, :, is), &
-                                    s=tmp1, &
-                                    result=wrk3d, &
-                                    dsdx=result, &
-                                    rhou=tmp1, &
-                                    rhou_out=tmp1, &
-                                    rho_xy=rho_anelastic(1)%values(:))
+                call NSE_Burgers_1D_PerVolume(nlines, nx, &
+                                              der1=result, &
+                                              der2=wrk3d, &
+                                              rhou=tmp1, &
+                                              rho_xy=rho_anelastic(1)%values(:))
             else
-                call NSE_Burgers_1D(nlines, g(1), fdmDiffusion(1)%lu(:, :, is), &
-                                    s=tmp1, &
-                                    result=wrk3d, &
-                                    dsdx=result, &
-                                    rhou=tmp1)
+                wrk3d(1:nx*ny*nz) = wrk3d(1:nx*ny*nz) - tmp1(:)*result(:)
             end if
         end if
 
@@ -413,28 +406,22 @@ contains
 
         nlines = nx*nz
 
+        call FDM_Der1_Solve(nlines, g(2)%der1, g(2)%der1%lu, tmp1, result, wrk2d)
+        call FDM_Der2_Solve(nlines, g(2)%der2, fdmDiffusion(2)%lu(:, :, is), tmp1, wrk3d, result, wrk2d)
+
         if (present(rhou_in)) then      ! transposed velocity (times density) is passed as argument
-            call NSE_Burgers_1D(nlines, g(2), fdmDiffusion(2)%lu(:, :, is), &
-                                s=tmp1, &
-                                result=wrk3d, &
-                                dsdx=result, &
-                                rhou=rhou_in)
+            wrk3d(1:nx*ny*nz) = wrk3d(1:nx*ny*nz) - rhou_in(:)*result(:)
         else
             if (nse_eqns == DNS_EQNS_ANELASTIC) then
-                call NSE_Burgers_1D(nlines, g(2), fdmDiffusion(2)%lu(:, :, is), &
-                                    s=tmp1, &
-                                    result=wrk3d, &
-                                    dsdx=result, &
-                                    rhou=tmp1, &
-                                    rhou_out=tmp1, &
-                                    rho_xy=rho_anelastic(2)%values(:))
+                call NSE_Burgers_1D_PerVolume(nlines, ny, &
+                                              der1=result, &
+                                              der2=wrk3d, &
+                                              rhou=tmp1, &
+                                              rho_xy=rho_anelastic(2)%values(:))
             else
-                call NSE_Burgers_1D(nlines, g(2), fdmDiffusion(2)%lu(:, :, is), &
-                                    s=tmp1, &
-                                    result=wrk3d, &
-                                    dsdx=result, &
-                                    rhou=tmp1)
+                wrk3d(1:nx*ny*nz) = wrk3d(1:nx*ny*nz) - tmp1(:)*result(:)
             end if
+
         end if
 
 #undef rhou_out
@@ -578,12 +565,13 @@ contains
 
     !########################################################################
     !########################################################################
-    subroutine NSE_Burgers_PerVolume_Z(is, nx, ny, nz, s, result, rhou_in, rhou_out)
+    subroutine NSE_Burgers_PerVolume_Z_Add(is, nx, ny, nz, s, result, tmp1, rhou_in, rhou_out)
         use TLab_Pointers_2D, only: pxy_wrk3d
         integer, intent(in) :: is                       ! scalar index; if 0, then velocity
         integer(wi), intent(in) :: nx, ny, nz
         real(wp), intent(in) :: s(nx*ny, nz)
-        real(wp), intent(out) :: result(nx*ny, nz)
+        real(wp), intent(inout) :: result(nx*ny, nz)
+        real(wp), intent(inout) :: tmp1(nx*ny, nz)
         real(wp), intent(in), optional :: rhou_in(nx*ny, nz)
         real(wp), intent(out), optional :: rhou_out(nx*ny, nz)
 
@@ -592,27 +580,22 @@ contains
 
         ! ###################################################################
         if (z%size == 1) then ! Set to zero in 2D case nx*ny
-            result = 0.0_wp
             return
         end if
 
         nlines = nx*ny
 
+        call FDM_Der1_Solve(nlines, g(3)%der1, g(3)%der1%lu, s, wrk3d, wrk2d)
+        call FDM_Der2_Solve(nlines, g(3)%der2, fdmDiffusion(3)%lu(:, :, is), s, tmp1, wrk3d, wrk2d)
+
         if (present(rhou_in)) then      ! transposed velocity (times density) is passed as argument
-            call NSE_Burgers_1D(nlines, g(3), fdmDiffusion(3)%lu(:, :, is), &
-                                s=s, &
-                                result=result, &
-                                dsdx=wrk3d, &
-                                rhou=rhou_in)
+            result(:, :) = result(:, :) + tmp1(:, :) - rhou_in(:, :)*pxy_wrk3d(:, :)
 
         else                            ! Only used in anelastic formulation
-            call NSE_Burgers_1D(nlines, g(3), fdmDiffusion(3)%lu(:, :, is), &
-                                s=s, &
-                                result=result, &
-                                dsdx=wrk3d, &
-                                rhou=s, &
-                                rhou_out=rhou_out, &
-                                rho_z=rbackground) !rho_anelastic(3)%values)
+            do k = 1, nz
+                rhou_out(:, k) = s(:, k)*rbackground(k)
+                result(:, k) = result(:, k) + tmp1(:, k) - rhou_out(:, k)*pxy_wrk3d(:, k)
+            end do
 
         end if
 
@@ -623,52 +606,25 @@ contains
         end if
 
         return
-    end subroutine NSE_Burgers_PerVolume_Z
+    end subroutine NSE_Burgers_PerVolume_Z_Add
 
     !########################################################################
-    !# Apply the non-linear operator N(u)(s) = visc* d^2/dx^2 s - rho u d/dx s
-    !# along generic direction x to nlines lines of data
-    !#
-    !# Second derivative uses LU decomposition including diffusivity coefficient
     !########################################################################
-    subroutine NSE_Burgers_1D(nlines, g, lu2d, s, result, dsdx, rhou, rhou_out, rho_xy, rho_z)
-        use FDM_Derivative, only: FDM_Der1_Solve, FDM_Der2_Solve
-        integer(wi), intent(in) :: nlines                           ! # of lines to be solved
-        type(fdm_dt), intent(in) :: g
-        real(wp), intent(in) :: lu2d(:, :)                          ! LU decomposition
-        real(wp), intent(in) :: s(nlines, g%size)                   ! argument field
-        real(wp), intent(out) :: result(nlines, g%size)             ! N(u) applied to s
-        real(wp), intent(inout) :: dsdx(nlines, g%size)             ! dsdx
-        real(wp), intent(in) :: rhou(nlines, g%size)                ! velocity times the density
-        real(wp), intent(out), optional :: rhou_out(nlines, g%size) ! velocity times the density
-        real(wp), intent(in), optional :: rho_xy(1:nlines)
-        real(wp), intent(in), optional :: rho_z(g%size)
+    subroutine NSE_Burgers_1D_PerVolume(nlines, nsize, der1, der2, rhou, rho_xy)
+        integer(wi), intent(in) :: nlines, nsize
+        real(wp), intent(in) :: der1(nlines, nsize)
+        real(wp), intent(inout) :: der2(nlines, nsize)
+        real(wp), intent(inout) :: rhou(nlines, nsize)
+        real(wp), intent(in) :: rho_xy(nlines)
 
-        ! -------------------------------------------------------------------
-        integer(wi) ij, k
+        integer(wi) ij
 
-        ! ###################################################################
-        ! dsdx: 1st derivative; result: 2nd derivative including diffusivity
-        call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, s, dsdx, wrk2d)
-        call FDM_Der2_Solve(nlines, g%der2, lu2d, s, result, dsdx, wrk2d)
-
-        if (present(rho_xy)) then
-            do ij = 1, g%size
-                rhou_out(:, ij) = s(:, ij)*rho_xy(:)
-                result(:, ij) = result(:, ij) - rhou_out(:, ij)*dsdx(:, ij)
-            end do
-
-        else if (present(rho_z)) then
-            do k = 1, g%size
-                rhou_out(:, k) = s(:, k)*rho_z(k)
-                result(:, k) = result(:, k) - rhou_out(:, k)*dsdx(:, k)
-            end do
-        else
-            result(:, :) = result(:, :) - rhou(:, :)*dsdx(:, :)
-
-        end if
+        do ij = 1, nsize
+            rhou(:, ij) = rhou(:, ij)*rho_xy(:)
+            der2(:, ij) = der2(:, ij) - rhou(:, ij)*der1(:, ij)
+        end do
 
         return
-    end subroutine NSE_Burgers_1D
+    end subroutine NSE_Burgers_1D_PerVolume
 
 end module NSE_Burgers_PerVolume

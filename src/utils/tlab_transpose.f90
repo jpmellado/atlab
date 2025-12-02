@@ -73,6 +73,61 @@ end subroutine TLab_Transpose
 
 !########################################################################
 !########################################################################
+subroutine TLab_AddTranspose(a, nra, nca, ma, b, mb)
+    use TLab_Constants, only: wp, wi
+    implicit none
+
+    integer(wi), intent(in) :: nra      ! Number of rows in a
+    integer(wi), intent(in) :: nca      ! Number of columns in b
+    integer(wi), intent(in) :: ma       ! Leading dimension on the input matrix a
+    integer(wi), intent(in) :: mb       ! Leading dimension on the output matrix b
+    real(wp), intent(in) :: a(ma, *) ! Input array
+    real(wp), intent(out) :: b(mb, *) ! Transposed array
+
+! -------------------------------------------------------------------
+    integer(wi) jb, kb
+#ifdef HLRS_HAWK
+    parameter(jb=16, kb=8)
+#else
+    parameter(jb=64, kb=64)
+#endif
+
+    integer(wi) k, j, jj, kk
+    integer(wi) last_k, last_j
+
+! -------------------------------------------------------------------
+    kk = 1; jj = 1
+
+    do k = 1, nca - kb + 1, kb; 
+        do j = 1, nra - jb + 1, jb; 
+            do jj = j, j + jb - 1
+                do kk = k, k + kb - 1
+                    b(kk, jj) = b(kk, jj) + a(jj, kk)
+                end do
+            end do
+        end do
+    end do
+
+    last_k = kk
+    last_j = jj
+
+    do k = last_k, nca
+        do j = 1, nra
+            b(k, j) = b(k, j) + a(j, k)
+        end do
+    end do
+
+    do k = 1, nca
+        do j = last_j, nra
+            b(k, j) = b(k, j) + a(j, k)
+        end do
+    end do
+
+    return
+end subroutine TLab_AddTranspose
+
+!########################################################################
+!########################################################################
 subroutine TLab_Transpose_INT1(a, nra, nca, ma, b, mb)
     use TLab_Constants, only: wp, wi
     implicit none

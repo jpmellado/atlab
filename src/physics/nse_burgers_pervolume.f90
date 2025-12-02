@@ -24,24 +24,25 @@ module NSE_Burgers_PerVolume
     private
 
     public :: NSE_Burgers_PerVolume_Initialize
-    public :: NSE_Burgers_PerVolume_X
-    public :: NSE_Burgers_PerVolume_Y
-    public :: NSE_Burgers_PerVolume_Z_Add
+    public :: NSE_AddBurgers_PerVolume_X
+    public :: NSE_AddBurgers_PerVolume_Y
+    public :: NSE_AddBurgers_PerVolume_Z
 
     ! -----------------------------------------------------------------------
-    procedure(NSE_Burgers_PerVolume_interface) :: NSE_Burgers_PerVolume_dt
+    procedure(nse_burgers_ice) :: NSE_AddBurgers_PerVolume_dt
     abstract interface
-        subroutine NSE_Burgers_PerVolume_interface(is, nx, ny, nz, s, result, tmp1, rhou_in)
+        subroutine nse_burgers_ice(is, nx, ny, nz, s, rhs, result, tmp1, rhou_in)
             use TLab_Constants, only: wi, wp
             integer, intent(in) :: is                           ! scalar index; if 0, then velocity
             integer(wi), intent(in) :: nx, ny, nz
             real(wp), intent(in) :: s(nx*ny*nz)
             real(wp), intent(out) :: result(nx*ny*nz)
+            real(wp), intent(out) :: rhs(nx*ny*nz)
             real(wp), intent(out) :: tmp1(nx*ny*nz)             ! transposed field s times density
             real(wp), intent(in), optional :: rhou_in(nx*ny*nz) ! transposed field u times density
         end subroutine
     end interface
-    procedure(NSE_Burgers_PerVolume_dt), pointer :: NSE_Burgers_PerVolume_X, NSE_Burgers_PerVolume_Y
+    procedure(NSE_AddBurgers_PerVolume_dt), pointer :: NSE_AddBurgers_PerVolume_X, NSE_AddBurgers_PerVolume_Y
 
     type :: fdm_diffusion_dt
         sequence
@@ -68,9 +69,8 @@ contains
         ! -----------------------------------------------------------------------
         character(len=32) bakfile
 
-        integer(wi) ig, is, ip, j, ndl, idl !, ic
+        integer(wi) ig, is, ip, j, ndl, idl
         integer(wi) nlines, offset
-        real(wp) dummy
 
         ! ###################################################################
         ! Read input data
@@ -91,18 +91,13 @@ contains
             idl = ndl/2 + 1
             do is = 0, inb_scal ! case 0 for the reynolds number
                 if (is == 0) then
-                    dummy = visc
                     diffusivity(is) = visc
                 else
-                    dummy = visc/schmidt(is)
                     diffusivity(is) = visc/schmidt(is)
                 end if
 
                 fdmDiffusion(ig)%lu(:, :, is) = g(ig)%der2%lu(:, :)                 ! Check routines Thomas3C_LU and Thomas3C_Solve
-                fdmDiffusion(ig)%lu(:, idl, is) = g(ig)%der2%lu(:, idl)*dummy
-                ! if (g(ig)%periodic) then
-                !     fdmDiffusion(ig)%lu(:, ndl + 1, is) = g(ig)%der2%lu(:, ndl + 1)/dummy
-                ! end if
+                fdmDiffusion(ig)%lu(:, idl, is) = g(ig)%der2%lu(:, idl)*diffusivity(is)
 
             end do
         end do
@@ -158,13 +153,13 @@ contains
         if (ims_npro_i > 1) then
             select case (der_mode_i)
             case (TYPE_TRANSPOSE)
-                NSE_Burgers_PerVolume_X => NSE_Burgers_PerVolume_X_MPITranspose
+                NSE_AddBurgers_PerVolume_X => NSE_AddBurgers_PerVolume_X_MPITranspose
             case (TYPE_SPLIT)
-                NSE_Burgers_PerVolume_X => NSE_Burgers_PerVolume_X_MPISplit
+                NSE_AddBurgers_PerVolume_X => NSE_AddBurgers_PerVolume_X_MPISplit
             end select
         else
 #endif
-            NSE_Burgers_PerVolume_X => NSE_Burgers_PerVolume_X_Serial
+            NSE_AddBurgers_PerVolume_X => NSE_AddBurgers_PerVolume_X_Serial
 #ifdef USE_MPI
         end if
 #endif
@@ -173,13 +168,13 @@ contains
         if (ims_npro_j > 1) then
             select case (der_mode_j)
             case (TYPE_TRANSPOSE)
-                NSE_Burgers_PerVolume_Y => NSE_Burgers_PerVolume_Y_MPITranspose
+                NSE_AddBurgers_PerVolume_Y => NSE_AddBurgers_PerVolume_Y_MPITranspose
             case (TYPE_SPLIT)
-                NSE_Burgers_PerVolume_Y => NSE_Burgers_PerVolume_Y_MPISplit
+                NSE_AddBurgers_PerVolume_Y => NSE_AddBurgers_PerVolume_Y_MPISplit
             end select
         else
 #endif
-            NSE_Burgers_PerVolume_Y => NSE_Burgers_PerVolume_Y_Serial
+            NSE_AddBurgers_PerVolume_Y => NSE_AddBurgers_PerVolume_Y_Serial
 #ifdef USE_MPI
         end if
 #endif
@@ -188,11 +183,12 @@ contains
 
     !########################################################################
     !########################################################################
-    subroutine NSE_Burgers_PerVolume_X_Serial(is, nx, ny, nz, s, result, tmp1, rhou_in)
+    subroutine NSE_AddBurgers_PerVolume_X_Serial(is, nx, ny, nz, s, rhs, result, tmp1, rhou_in)
         integer, intent(in) :: is                           ! scalar index; if 0, then velocity
         integer(wi), intent(in) :: nx, ny, nz
         real(wp), intent(in) :: s(nx*ny*nz)
         real(wp), intent(out) :: result(nx*ny*nz)
+        real(wp), intent(out) :: rhs(nx*ny*nz)
         real(wp), intent(out) :: tmp1(nx*ny*nz)             ! transposed field s times density
         real(wp), intent(in), optional :: rhou_in(nx*ny*nz) ! transposed field u times density
 
@@ -221,11 +217,11 @@ contains
             wrk3d(1:nx*ny*nz) = wrk3d(1:nx*ny*nz) - rhou_in(:)*result(:)
         else
             if (nse_eqns == DNS_EQNS_ANELASTIC) then
-                call NSE_Burgers_1D_PerVolume(nlines, nx, &
-                                              der1=result, &
-                                              der2=wrk3d, &
-                                              rhou=tmp1, &
-                                              rho_xy=rho_yz(:))
+                call NSE_Burgers_1D(nlines, nx, &
+                                    der1=result, &
+                                    der2=wrk3d, &
+                                    rhou=tmp1, &
+                                    rho_xy=rho_yz(:))
             else
                 wrk3d(1:nx*ny*nz) = wrk3d(1:nx*ny*nz) - tmp1(:)*result(:)
             end if
@@ -234,21 +230,23 @@ contains
         ! Put arrays back in the order in which they came in
 #ifdef USE_ESSL
         call DGETMO(wrk3d, ny*nz, ny*nz, nx, result, nx)
+        rhs = rhs + result
 #else
-        call TLab_Transpose(wrk3d, ny*nz, nx, ny*nz, result, nx)
+        call TLab_AddTranspose(wrk3d, ny*nz, nx, ny*nz, rhs, nx)
 #endif
 
         return
-    end subroutine NSE_Burgers_PerVolume_X_Serial
+    end subroutine NSE_AddBurgers_PerVolume_X_Serial
 
     !########################################################################
     !########################################################################
 #ifdef USE_MPI
-    subroutine NSE_Burgers_PerVolume_X_MPITranspose(is, nx, ny, nz, s, result, tmp1, rhou_in)
+    subroutine NSE_AddBurgers_PerVolume_X_MPITranspose(is, nx, ny, nz, s, rhs, result, tmp1, rhou_in)
         integer, intent(in) :: is                       ! scalar index; if 0, then velocity
         integer(wi), intent(in) :: nx, ny, nz
         real(wp), intent(in) :: s(nx*ny*nz)
         real(wp), intent(out) :: result(nx*ny*nz)
+        real(wp), intent(out) :: rhs(nx*ny*nz)
         real(wp), intent(out) :: tmp1(nx*ny*nz)             ! transposed field s times density
         real(wp), intent(in), optional :: rhou_in(nx*ny*nz) ! transposed field u times density
 
@@ -278,11 +276,11 @@ contains
             result(:) = result(:) - rhou_in(:)*wrk3d(1:nx*ny*nz)
         else
             if (nse_eqns == DNS_EQNS_ANELASTIC) then
-                call NSE_Burgers_1D_PerVolume(nlines, nx*ims_npro_i, &
-                                              der1=wrk3d, &
-                                              der2=result, &
-                                              rhou=tmp1, &
-                                              rho_xy=rho_yz(:))
+                call NSE_Burgers_1D(nlines, nx*ims_npro_i, &
+                                    der1=wrk3d, &
+                                    der2=result, &
+                                    rhou=tmp1, &
+                                    rho_xy=rho_yz(:))
             else
                 result(:) = result(:) - tmp1(:)*wrk3d(1:nx*ny*nz)
             end if
@@ -295,19 +293,21 @@ contains
         call TLab_Transpose(result, nlines, g(1)%size, nlines, wrk3d, g(1)%size)
 #endif
         call TLabMPI_Trp_ExecI_Backward(wrk3d, result, tmpi_plan_dx)
+        rhs = rhs + result
 
         return
-    end subroutine NSE_Burgers_PerVolume_X_MPITranspose
+    end subroutine NSE_AddBurgers_PerVolume_X_MPITranspose
 
     !########################################################################
     !########################################################################
-    subroutine NSE_Burgers_PerVolume_X_MPISplit(is, nx, ny, nz, s, result, tmp1, rhou_in)
+    subroutine NSE_AddBurgers_PerVolume_X_MPISplit(is, nx, ny, nz, s, rhs, result, tmp1, rhou_in)
         use TLabMPI_PROCS, only: TLabMPI_Halos_X
         use FDM_Derivative_MPISplit
         integer, intent(in) :: is                       ! scalar index; if 0, then velocity
         integer(wi), intent(in) :: nx, ny, nz
         real(wp), intent(in) :: s(nx*ny*nz)
         real(wp), intent(out) :: result(nx*ny*nz)
+        real(wp), intent(out) :: rhs(nx*ny*nz)
         real(wp), intent(out) :: tmp1(nx*ny*nz)             ! transposed field s times density
         real(wp), intent(in), optional :: rhou_in(nx*ny*nz) ! transposed field u times density
 
@@ -344,12 +344,12 @@ contains
             wrk3d(1:nx*ny*nz) = wrk3d(1:nx*ny*nz)*diffusivity(is) - rhou_in(:)*result(:)
         else
             if (nse_eqns == DNS_EQNS_ANELASTIC) then
-                call NSE_Burgers_1D_PerVolume_Split(nlines, nx, &
-                                                    der1=result, &
-                                                    der2=wrk3d, &
-                                                    rhou=tmp1, &
-                                                    rho_xy=rho_yz(:), &
-                                                    diff=diffusivity(is))
+                call NSE_Burgers_1D_Split(nlines, nx, &
+                                          der1=result, &
+                                          der2=wrk3d, &
+                                          rhou=tmp1, &
+                                          rho_xy=rho_yz(:), &
+                                          diff=diffusivity(is))
             else
                 wrk3d(1:nx*ny*nz) = wrk3d(1:nx*ny*nz)*diffusivity(is) - tmp1(:)*result(:)
             end if
@@ -358,22 +358,24 @@ contains
         ! Put arrays back in the order in which they came in
 #ifdef USE_ESSL
         call DGETMO(wrk3d, ny*nz, ny*nz, nx, result, nx)
+        rhs = rhs + result
 #else
-        call TLab_Transpose(wrk3d, ny*nz, nx, ny*nz, result, nx)
+        call TLab_AddTranspose(wrk3d, ny*nz, nx, ny*nz, rhs, nx)
 #endif
 
         return
-    end subroutine NSE_Burgers_PerVolume_X_MPISplit
+    end subroutine NSE_AddBurgers_PerVolume_X_MPISplit
 
 #endif
 
     !########################################################################
     !########################################################################
-    subroutine NSE_Burgers_PerVolume_Y_Serial(is, nx, ny, nz, s, result, tmp1, rhou_in)
+    subroutine NSE_AddBurgers_PerVolume_Y_Serial(is, nx, ny, nz, s, rhs, result, tmp1, rhou_in)
         integer, intent(in) :: is                           ! scalar index; if 0, then velocity
         integer(wi), intent(in) :: nx, ny, nz
         real(wp), intent(in) :: s(nx*ny*nz)
         real(wp), intent(out) :: result(nx*ny*nz)
+        real(wp), intent(out) :: rhs(nx*ny*nz)
         real(wp), intent(out) :: tmp1(nx*ny*nz)             ! transposed field s times density
         real(wp), intent(in), optional :: rhou_in(nx*ny*nz) ! transposed field u times density
 
@@ -402,11 +404,11 @@ contains
             wrk3d(1:nx*ny*nz) = wrk3d(1:nx*ny*nz) - rhou_in(:)*result(:)
         else
             if (nse_eqns == DNS_EQNS_ANELASTIC) then
-                call NSE_Burgers_1D_PerVolume(nlines, ny, &
-                                              der1=result, &
-                                              der2=wrk3d, &
-                                              rhou=tmp1, &
-                                              rho_xy=rho_xz(:))
+                call NSE_Burgers_1D(nlines, ny, &
+                                    der1=result, &
+                                    der2=wrk3d, &
+                                    rhou=tmp1, &
+                                    rho_xy=rho_xz(:))
             else
                 wrk3d(1:nx*ny*nz) = wrk3d(1:nx*ny*nz) - tmp1(:)*result(:)
             end if
@@ -416,21 +418,23 @@ contains
         ! Put arrays back in the order in which they came in
 #ifdef USE_ESSL
         call DGETMO(wrk3d, nz, nz, nx*ny, result, nx*ny)
+        rhs = rhs + result
 #else
-        call TLab_Transpose(wrk3d, nz, nx*ny, nz, result, nx*ny)
+        call TLab_AddTranspose(wrk3d, nz, nx*ny, nz, rhs, nx*ny)
 #endif
 
         return
-    end subroutine NSE_Burgers_PerVolume_Y_Serial
+    end subroutine NSE_AddBurgers_PerVolume_Y_Serial
 
     !########################################################################
     !########################################################################
 #ifdef USE_MPI
-    subroutine NSE_Burgers_PerVolume_Y_MPITranspose(is, nx, ny, nz, s, result, tmp1, rhou_in)
+    subroutine NSE_AddBurgers_PerVolume_Y_MPITranspose(is, nx, ny, nz, s, rhs, result, tmp1, rhou_in)
         integer, intent(in) :: is                       ! scalar index; if 0, then velocity
         integer(wi), intent(in) :: nx, ny, nz
         real(wp), intent(in) :: s(nx*ny*nz)
         real(wp), intent(out) :: result(nx*ny*nz)
+        real(wp), intent(out) :: rhs(nx*ny*nz)
         real(wp), intent(out) :: tmp1(nx*ny*nz)             ! transposed field s times density
         real(wp), intent(in), optional :: rhou_in(nx*ny*nz) ! transposed field u times density
 
@@ -459,11 +463,11 @@ contains
             result(:) = result(:) - rhou_in(:)*wrk3d(1:nx*ny*nz)
         else
             if (nse_eqns == DNS_EQNS_ANELASTIC) then
-                call NSE_Burgers_1D_PerVolume(nlines, ny*ims_npro_j, &
-                                              der1=wrk3d, &
-                                              der2=result, &
-                                              rhou=tmp1, &
-                                              rho_xy=rho_xz(:))
+                call NSE_Burgers_1D(nlines, ny*ims_npro_j, &
+                                    der1=wrk3d, &
+                                    der2=result, &
+                                    rhou=tmp1, &
+                                    rho_xy=rho_xz(:))
             else
                 result(:) = result(:) - tmp1(:)*wrk3d(1:nx*ny*nz)
             end if
@@ -474,22 +478,24 @@ contains
         call TLabMPI_Trp_ExecJ_Backward(result, wrk3d, tmpi_plan_dy)
 #ifdef USE_ESSL
         call DGETMO(wrk3d, nz, nz, nx*ny, result, nx*ny)
+        rhs = rhs + result
 #else
-        call TLab_Transpose(wrk3d, nz, nx*ny, nz, result, nx*ny)
+        call TLab_AddTranspose(wrk3d, nz, nx*ny, nz, rhs, nx*ny)
 #endif
 
         return
-    end subroutine NSE_Burgers_PerVolume_Y_MPITranspose
+    end subroutine NSE_AddBurgers_PerVolume_Y_MPITranspose
 
     !########################################################################
     !########################################################################
-    subroutine NSE_Burgers_PerVolume_Y_MPISplit(is, nx, ny, nz, s, result, tmp1, rhou_in)
+    subroutine NSE_AddBurgers_PerVolume_Y_MPISplit(is, nx, ny, nz, s, rhs, result, tmp1, rhou_in)
         use TLabMPI_PROCS, only: TLabMPI_Halos_Y
         use FDM_Derivative_MPISplit
         integer, intent(in) :: is                       ! scalar index; if 0, then velocity
         integer(wi), intent(in) :: nx, ny, nz
         real(wp), intent(in) :: s(nx*ny*nz)
         real(wp), intent(out) :: result(nx*ny*nz)
+        real(wp), intent(out) :: rhs(nx*ny*nz)
         real(wp), intent(out) :: tmp1(nx*ny*nz)             ! transposed field s times density
         real(wp), intent(in), optional :: rhou_in(nx*ny*nz) ! transposed field u times density
 
@@ -526,12 +532,12 @@ contains
             wrk3d(1:nx*ny*nz) = wrk3d(1:nx*ny*nz)*diffusivity(is) - rhou_in(:)*result(:)
         else
             if (nse_eqns == DNS_EQNS_ANELASTIC) then
-                call NSE_Burgers_1D_PerVolume_Split(nlines, ny, &
-                                                    der1=result, &
-                                                    der2=wrk3d, &
-                                                    rhou=tmp1, &
-                                                    rho_xy=rho_xz(:), &
-                                                    diff=diffusivity(is))
+                call NSE_Burgers_1D_Split(nlines, ny, &
+                                          der1=result, &
+                                          der2=wrk3d, &
+                                          rhou=tmp1, &
+                                          rho_xy=rho_xz(:), &
+                                          diff=diffusivity(is))
             else
                 wrk3d(1:nx*ny*nz) = wrk3d(1:nx*ny*nz)*diffusivity(is) - tmp1(:)*result(:)
             end if
@@ -541,18 +547,19 @@ contains
         ! Put arrays back in the order in which they came in
 #ifdef USE_ESSL
         call DGETMO(wrk3d, nz, nz, nx*ny, result, nx*ny)
+        rhs = rhs + result
 #else
-        call TLab_Transpose(wrk3d, nz, nx*ny, nz, result, nx*ny)
+        call TLab_AddTranspose(wrk3d, nz, nx*ny, nz, rhs, nx*ny)
 #endif
 
         return
-    end subroutine NSE_Burgers_PerVolume_Y_MPISplit
+    end subroutine NSE_AddBurgers_PerVolume_Y_MPISplit
 
 #endif
 
     !########################################################################
     !########################################################################
-    subroutine NSE_Burgers_PerVolume_Z_Add(is, nx, ny, nz, s, result, tmp1, rhou_in, rhou_out)
+    subroutine NSE_AddBurgers_PerVolume_Z(is, nx, ny, nz, s, result, tmp1, rhou_in, rhou_out)
         use TLab_Pointers_2D, only: pxy_wrk3d
         integer, intent(in) :: is                       ! scalar index; if 0, then velocity
         integer(wi), intent(in) :: nx, ny, nz
@@ -593,11 +600,11 @@ contains
         end if
 
         return
-    end subroutine NSE_Burgers_PerVolume_Z_Add
+    end subroutine NSE_AddBurgers_PerVolume_Z
 
     !########################################################################
     !########################################################################
-    subroutine NSE_Burgers_1D_PerVolume(nlines, nsize, der1, der2, rhou, rho_xy)
+    subroutine NSE_Burgers_1D(nlines, nsize, der1, der2, rhou, rho_xy)
         integer(wi), intent(in) :: nlines, nsize
         real(wp), intent(in) :: der1(nlines, nsize)
         real(wp), intent(inout) :: der2(nlines, nsize)
@@ -612,12 +619,12 @@ contains
         end do
 
         return
-    end subroutine NSE_Burgers_1D_PerVolume
+    end subroutine NSE_Burgers_1D
 
     !########################################################################
     !########################################################################
 #ifdef USE_MPI
-    subroutine NSE_Burgers_1D_PerVolume_Split(nlines, nsize, der1, der2, rhou, rho_xy, diff)
+    subroutine NSE_Burgers_1D_Split(nlines, nsize, der1, der2, rhou, rho_xy, diff)
         integer(wi), intent(in) :: nlines, nsize
         real(wp), intent(in) :: der1(nlines, nsize)
         real(wp), intent(inout) :: der2(nlines, nsize)
@@ -633,7 +640,7 @@ contains
         end do
 
         return
-    end subroutine NSE_Burgers_1D_PerVolume_Split
+    end subroutine NSE_Burgers_1D_Split
 #endif
 
 end module NSE_Burgers_PerVolume

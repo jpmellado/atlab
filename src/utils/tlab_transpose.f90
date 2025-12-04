@@ -81,8 +81,8 @@ subroutine TLab_AddTranspose(a, nra, nca, ma, b, mb)
     integer(wi), intent(in) :: nca      ! Number of columns in b
     integer(wi), intent(in) :: ma       ! Leading dimension on the input matrix a
     integer(wi), intent(in) :: mb       ! Leading dimension on the output matrix b
-    real(wp), intent(in) :: a(ma, *) ! Input array
-    real(wp), intent(out) :: b(mb, *) ! Transposed array
+    real(wp), intent(in) :: a(ma, *)    ! Input array
+    real(wp), intent(inout) :: b(mb, *) ! Transposed array
 
 ! -------------------------------------------------------------------
     integer(wi) jb, kb

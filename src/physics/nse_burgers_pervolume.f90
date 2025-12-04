@@ -1,6 +1,4 @@
-#include "tlab_error.h"
-
-! Calculate the non-linear operator N(u)(s) = visc* d^2/dx^2 s - u d/dx s
+! Calculate the non-linear operator N(u)(s) = dyn_visc* d^2/dx^2 s - rho u d/dx s
 
 module NSE_Burgers_PerVolume
     use TLab_Constants, only: wp, wi, efile, lfile, BCS_NONE, MAX_VARS
@@ -37,7 +35,7 @@ module NSE_Burgers_PerVolume
             integer(wi), intent(in) :: nx, ny, nz
             real(wp), intent(in) :: s(nx*ny*nz)
             real(wp), intent(out) :: result(nx*ny*nz)
-            real(wp), intent(out) :: rhs(nx*ny*nz)
+            real(wp), intent(inout) :: rhs(nx*ny*nz)
             real(wp), intent(out) :: tmp1(nx*ny*nz)             ! transposed field s times density
             real(wp), intent(in), optional :: rhou_in(nx*ny*nz) ! transposed field u times density
         end subroutine
@@ -188,7 +186,7 @@ contains
         integer(wi), intent(in) :: nx, ny, nz
         real(wp), intent(in) :: s(nx*ny*nz)
         real(wp), intent(out) :: result(nx*ny*nz)
-        real(wp), intent(out) :: rhs(nx*ny*nz)
+        real(wp), intent(inout) :: rhs(nx*ny*nz)
         real(wp), intent(out) :: tmp1(nx*ny*nz)             ! transposed field s times density
         real(wp), intent(in), optional :: rhou_in(nx*ny*nz) ! transposed field u times density
 
@@ -242,11 +240,11 @@ contains
     !########################################################################
 #ifdef USE_MPI
     subroutine NSE_AddBurgers_PerVolume_X_MPITranspose(is, nx, ny, nz, s, rhs, result, tmp1, rhou_in)
-        integer, intent(in) :: is                       ! scalar index; if 0, then velocity
+        integer, intent(in) :: is                           ! scalar index; if 0, then velocity
         integer(wi), intent(in) :: nx, ny, nz
         real(wp), intent(in) :: s(nx*ny*nz)
         real(wp), intent(out) :: result(nx*ny*nz)
-        real(wp), intent(out) :: rhs(nx*ny*nz)
+        real(wp), intent(inout) :: rhs(nx*ny*nz)
         real(wp), intent(out) :: tmp1(nx*ny*nz)             ! transposed field s times density
         real(wp), intent(in), optional :: rhou_in(nx*ny*nz) ! transposed field u times density
 
@@ -303,11 +301,11 @@ contains
     subroutine NSE_AddBurgers_PerVolume_X_MPISplit(is, nx, ny, nz, s, rhs, result, tmp1, rhou_in)
         use TLabMPI_PROCS, only: TLabMPI_Halos_X
         use FDM_Derivative_MPISplit
-        integer, intent(in) :: is                       ! scalar index; if 0, then velocity
+        integer, intent(in) :: is                           ! scalar index; if 0, then velocity
         integer(wi), intent(in) :: nx, ny, nz
         real(wp), intent(in) :: s(nx*ny*nz)
         real(wp), intent(out) :: result(nx*ny*nz)
-        real(wp), intent(out) :: rhs(nx*ny*nz)
+        real(wp), intent(inout) :: rhs(nx*ny*nz)
         real(wp), intent(out) :: tmp1(nx*ny*nz)             ! transposed field s times density
         real(wp), intent(in), optional :: rhou_in(nx*ny*nz) ! transposed field u times density
 
@@ -375,7 +373,7 @@ contains
         integer(wi), intent(in) :: nx, ny, nz
         real(wp), intent(in) :: s(nx*ny*nz)
         real(wp), intent(out) :: result(nx*ny*nz)
-        real(wp), intent(out) :: rhs(nx*ny*nz)
+        real(wp), intent(inout) :: rhs(nx*ny*nz)
         real(wp), intent(out) :: tmp1(nx*ny*nz)             ! transposed field s times density
         real(wp), intent(in), optional :: rhou_in(nx*ny*nz) ! transposed field u times density
 
@@ -430,11 +428,11 @@ contains
     !########################################################################
 #ifdef USE_MPI
     subroutine NSE_AddBurgers_PerVolume_Y_MPITranspose(is, nx, ny, nz, s, rhs, result, tmp1, rhou_in)
-        integer, intent(in) :: is                       ! scalar index; if 0, then velocity
+        integer, intent(in) :: is                           ! scalar index; if 0, then velocity
         integer(wi), intent(in) :: nx, ny, nz
         real(wp), intent(in) :: s(nx*ny*nz)
         real(wp), intent(out) :: result(nx*ny*nz)
-        real(wp), intent(out) :: rhs(nx*ny*nz)
+        real(wp), intent(inout) :: rhs(nx*ny*nz)
         real(wp), intent(out) :: tmp1(nx*ny*nz)             ! transposed field s times density
         real(wp), intent(in), optional :: rhou_in(nx*ny*nz) ! transposed field u times density
 
@@ -491,11 +489,11 @@ contains
     subroutine NSE_AddBurgers_PerVolume_Y_MPISplit(is, nx, ny, nz, s, rhs, result, tmp1, rhou_in)
         use TLabMPI_PROCS, only: TLabMPI_Halos_Y
         use FDM_Derivative_MPISplit
-        integer, intent(in) :: is                       ! scalar index; if 0, then velocity
+        integer, intent(in) :: is                           ! scalar index; if 0, then velocity
         integer(wi), intent(in) :: nx, ny, nz
         real(wp), intent(in) :: s(nx*ny*nz)
         real(wp), intent(out) :: result(nx*ny*nz)
-        real(wp), intent(out) :: rhs(nx*ny*nz)
+        real(wp), intent(inout) :: rhs(nx*ny*nz)
         real(wp), intent(out) :: tmp1(nx*ny*nz)             ! transposed field s times density
         real(wp), intent(in), optional :: rhou_in(nx*ny*nz) ! transposed field u times density
 

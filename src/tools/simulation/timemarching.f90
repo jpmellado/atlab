@@ -536,8 +536,10 @@ contains
 
         ! #######################################################################
         ! Accumulate RHS terms
-        call TLab_Sources_Flow(q, s, hq, txc(:, 1))
-        call TLab_Sources_Scal(s, hs, txc(:, 1), txc(:, 2), txc(:, 3), txc(:, 4))
+        ! call TLab_Sources_Flow(q, s, hq, txc(:, 1))
+        ! call TLab_Sources_Scal(s, hs, txc(:, 1), txc(:, 2), txc(:, 3), txc(:, 4))
+        call TLab_Sources_Flow_PerVolume(q, s, hq, txc(:, 1))
+        call TLab_Sources_Scal_PerVolume(s, hs, txc(:, 1), txc(:, 2), txc(:, 3), txc(:, 4))
 
         if (bufferType == BUFFER_TYPE_NUDGE) call Buffer_Nudge()
 
@@ -556,40 +558,40 @@ contains
         return
     end subroutine TMarch_Substep_Boussinesq_Explicit
 
-    !########################################################################
-    !########################################################################
-    subroutine TMarch_Substep_Anelastic_Explicit()
-        use TLab_Arrays, only: q, s, txc
-        use DNS_Arrays, only: hq, hs
-        use TLab_Sources
-        use Microphysics, only: Microphysics_Evaporation_Impl, evaporationProps
-        use Thermo_AirWater, only: inb_scal_ql
+    ! !########################################################################
+    ! !########################################################################
+    ! subroutine TMarch_Substep_Anelastic_Explicit()
+    !     use TLab_Arrays, only: q, s, txc
+    !     use DNS_Arrays, only: hq, hs
+    !     use TLab_Sources
+    !     use Microphysics, only: Microphysics_Evaporation_Impl, evaporationProps
+    !     use Thermo_AirWater, only: inb_scal_ql
 
-        ! #######################################################################
-        ! Accumulate RHS terms
-        call TLab_Sources_Flow(q, s, hq, txc(:, 1))
-        call TLab_Sources_Scal(s, hs, txc(:, 1), txc(:, 2), txc(:, 3), txc(:, 4))
+    !     ! #######################################################################
+    !     ! Accumulate RHS terms
+    !     call TLab_Sources_Flow(q, s, hq, txc(:, 1))
+    !     call TLab_Sources_Scal(s, hs, txc(:, 1), txc(:, 2), txc(:, 3), txc(:, 4))
 
-        if (bufferType == BUFFER_TYPE_NUDGE) call Buffer_Nudge()
+    !     if (bufferType == BUFFER_TYPE_NUDGE) call Buffer_Nudge()
 
-        call NSE_Anelastic()
+    !     call NSE_Anelastic()
 
-        ! #######################################################################
-        ! Perform the time stepping
-        do is = 1, inb_flow
-            q(:, is) = q(:, is) + dte*hq(:, is)
-        end do
+    !     ! #######################################################################
+    !     ! Perform the time stepping
+    !     do is = 1, inb_flow
+    !         q(:, is) = q(:, is) + dte*hq(:, is)
+    !     end do
 
-        do is = 1, inb_scal
-            s(:, is) = s(:, is) + dte*hs(:, is)
-        end do
+    !     do is = 1, inb_scal
+    !         s(:, is) = s(:, is) + dte*hs(:, is)
+    !     end do
 
-        ! #######################################################################
-        ! Iterate implicit non-evaporation
-        call Microphysics_Evaporation_Impl(evaporationProps, imax, jmax, kmax, inb_scal_ql, s, dte)
+    !     ! #######################################################################
+    !     ! Iterate implicit non-evaporation
+    !     call Microphysics_Evaporation_Impl(evaporationProps, imax, jmax, kmax, inb_scal_ql, s, dte)
 
-        return
-    end subroutine TMarch_Substep_Anelastic_Explicit
+    !     return
+    ! end subroutine TMarch_Substep_Anelastic_Explicit
 
     !########################################################################
     !########################################################################

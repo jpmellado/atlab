@@ -14,13 +14,14 @@ subroutine NSE_Boussinesq()
     use TLab_Constants, only: wp, wi, BCS_NN
     use TLab_Memory, only: imax, jmax, kmax, inb_flow, inb_scal
     use TLab_Arrays, only: s
-    use TLab_Pointers, only: u, v, w, tmp1, tmp2, tmp3, tmp4, tmp5, tmp6, tmp7
+    use TLab_Pointers, only: u, v, w, tmp1, tmp2, tmp3, tmp4, tmp5!, tmp6 !, tmp7
     use DNS_Arrays
     use TimeMarching, only: dte, remove_divergence
     use BoundaryConditions
     use OPR_Partial
-    use NSE_Burgers
-    use OPR_Elliptic
+    ! use NSE_Burgers
+    use NSE_Burgers_PerVolume
+    use OPR_Elliptic, only: OPR_Poisson
 
     implicit none
 
@@ -29,51 +30,86 @@ subroutine NSE_Boussinesq()
     integer ibc
     real(wp) dummy
 
+    ! ! #######################################################################
+    ! ! Preliminaries for Scalar BC
+    ! ! (flow BCs initialized below as they are used for pressure in between)
+    ! ! #######################################################################
+    ! BcsScalKmin%ref(:, :, :) = 0.0_wp ! default is no-slip (dirichlet)
+    ! BcsScalKmax%ref(:, :, :) = 0.0_wp
+
+    ! ! Keep the old tendency of the scalar at the boundary to be used in dynamic BCs
+    ! if (any(BcsScalKmin%SfcType(1:inb_scal) == DNS_SFC_LINEAR) .or. &
+    !     any(BcsScalKmax%SfcType(1:inb_scal) == DNS_SFC_LINEAR)) then
+    !     do is = 1, inb_scal
+    !         if (BcsScalKmin%SfcType(is) == DNS_SFC_LINEAR) BcsScalKmin%ref(:, :, is) = p_hs(:, :, 1, is)
+    !         if (BcsScalKmax%SfcType(is) == DNS_SFC_LINEAR) BcsScalKmax%ref(:, :, is) = p_hs(:, :, kmax, is)
+    !     end do
+    ! end if
+
+    ! ! #######################################################################
+    ! ! Diffusion and advection terms
+    ! ! #######################################################################
+    ! ! Diagonal terms in horizontal directions and transposed velocity arrays
+    ! call NSE_Burgers_X(0, imax, jmax, kmax, u, tmp1, tmp4)                      ! store u transposed in tmp4
+    ! call NSE_Burgers_Y(0, imax, jmax, kmax, v, tmp2, tmp5)                      ! store v transposed in tmp5
+
+    ! ! Ox momentum equation
+    ! call NSE_Burgers_Y(0, imax, jmax, kmax, u, tmp6, tmp7, tmp5)                ! tmp5 contains v transposed
+    ! call NSE_Burgers_Z(0, imax, jmax, kmax, u, tmp3, w)
+    ! hq(:, 1) = hq(:, 1) + tmp1(:) + tmp6(:) + tmp3(:)
+
+    ! ! Oy momentum equation
+    ! call NSE_Burgers_X(0, imax, jmax, kmax, v, tmp6, tmp7, tmp4)                ! tmp4 contains u transposed
+    ! call NSE_Burgers_Z(0, imax, jmax, kmax, v, tmp3, w)
+    ! hq(:, 2) = hq(:, 2) + tmp6(:) + tmp2(:) + tmp3(:)
+
+    ! ! Oz momentum equation
+    ! call NSE_Burgers_X(0, imax, jmax, kmax, w, tmp1, tmp6, tmp4)                ! tmp4 contains u transposed
+    ! call NSE_Burgers_Y(0, imax, jmax, kmax, w, tmp2, tmp6, tmp5)                ! tmp5 contains v transposed
+    ! call NSE_Burgers_Z(0, imax, jmax, kmax, w, tmp3, w)
+    ! hq(:, 3) = hq(:, 3) + tmp1(:) + tmp2(:) + tmp3(:)
+
+    ! ! Scalar equations
+    ! do is = 1, inb_scal
+    !     call NSE_Burgers_X(is, imax, jmax, kmax, s(:, is), tmp1, tmp6, tmp4)    ! tmp4 contains u transposed
+    !     call NSE_Burgers_Y(is, imax, jmax, kmax, s(:, is), tmp2, tmp6, tmp5)    ! tmp5 contains v transposed
+    !     call NSE_Burgers_Z(is, imax, jmax, kmax, s(:, is), tmp3, w)
+    !     hs(:, is) = hs(:, is) + tmp1(:) + tmp2(:) + tmp3(:)
+
+    ! end do
+
     ! #######################################################################
     ! Preliminaries for Scalar BC
     ! (flow BCs initialized below as they are used for pressure in between)
     ! #######################################################################
-    BcsScalKmin%ref(:, :, :) = 0.0_wp ! default is no-slip (dirichlet)
-    BcsScalKmax%ref(:, :, :) = 0.0_wp
-
-    ! Keep the old tendency of the scalar at the boundary to be used in dynamic BCs
-    if (any(BcsScalKmin%SfcType(1:inb_scal) == DNS_SFC_LINEAR) .or. &
-        any(BcsScalKmax%SfcType(1:inb_scal) == DNS_SFC_LINEAR)) then
-        do is = 1, inb_scal
-            if (BcsScalKmin%SfcType(is) == DNS_SFC_LINEAR) BcsScalKmin%ref(:, :, is) = p_hs(:, :, 1, is)
-            if (BcsScalKmax%SfcType(is) == DNS_SFC_LINEAR) BcsScalKmax%ref(:, :, is) = p_hs(:, :, kmax, is)
-        end do
-    end if
+    BcsScalKmin%ref = 0.0_wp ! default is no-slip (dirichlet)
+    BcsScalKmax%ref = 0.0_wp
 
     ! #######################################################################
     ! Diffusion and advection terms
     ! #######################################################################
-    ! Diagonal terms in horizontal directions and transposed velocity arrays
-    call NSE_Burgers_X(0, imax, jmax, kmax, u, tmp1, tmp4)                      ! store u transposed in tmp4
-    call NSE_Burgers_Y(0, imax, jmax, kmax, v, tmp2, tmp5)                      ! store v transposed in tmp5
+    ! Diagonal terms in horizontal directions and (transposed) velocity times density arrays
+    call NSE_AddBurgers_PerVolume_X(0, imax, jmax, kmax, u, hq(:, 1), tmp1, tmp4)                   ! store rho u transposed in tmp4
+    call NSE_AddBurgers_PerVolume_Y(0, imax, jmax, kmax, v, hq(:, 2), tmp1, tmp5)                   ! store rho v transposed in tmp5
+    call NSE_AddBurgers_PerVolume_Z(0, imax, jmax, kmax, w, hq(:, 3), tmp1, rhou_in=w)              ! store rho w in tmp6
 
     ! Ox momentum equation
-    call NSE_Burgers_Y(0, imax, jmax, kmax, u, tmp6, tmp7, tmp5)                ! tmp5 contains v transposed
-    call NSE_Burgers_Z(0, imax, jmax, kmax, u, tmp3, w)
-    hq(:, 1) = hq(:, 1) + tmp1(:) + tmp6(:) + tmp3(:)
+    call NSE_AddBurgers_PerVolume_Y(0, imax, jmax, kmax, u, hq(:, 1), tmp1, tmp2, rhou_in=tmp5)     ! tmp5 contains rho v transposed
+    call NSE_AddBurgers_PerVolume_Z(0, imax, jmax, kmax, u, hq(:, 1), tmp1, rhou_in=w)              ! tmp6 contains rho 3 transposed
 
     ! Oy momentum equation
-    call NSE_Burgers_X(0, imax, jmax, kmax, v, tmp6, tmp7, tmp4)                ! tmp4 contains u transposed
-    call NSE_Burgers_Z(0, imax, jmax, kmax, v, tmp3, w)
-    hq(:, 2) = hq(:, 2) + tmp6(:) + tmp2(:) + tmp3(:)
+    call NSE_AddBurgers_PerVolume_X(0, imax, jmax, kmax, v, hq(:, 2), tmp1, tmp2, rhou_in=tmp4)     ! tmp4 contains rho u transposed
+    call NSE_AddBurgers_PerVolume_Z(0, imax, jmax, kmax, v, hq(:, 2), tmp1, rhou_in=w)              ! tmp6 contains rho 3 transposed
 
     ! Oz momentum equation
-    call NSE_Burgers_X(0, imax, jmax, kmax, w, tmp1, tmp6, tmp4)                ! tmp4 contains u transposed
-    call NSE_Burgers_Y(0, imax, jmax, kmax, w, tmp2, tmp6, tmp5)                ! tmp5 contains v transposed
-    call NSE_Burgers_Z(0, imax, jmax, kmax, w, tmp3, w)
-    hq(:, 3) = hq(:, 3) + tmp1(:) + tmp2(:) + tmp3(:)
+    call NSE_AddBurgers_PerVolume_X(0, imax, jmax, kmax, w, hq(:, 3), tmp1, tmp2, rhou_in=tmp4)     ! tmp4 contains rho u transposed
+    call NSE_AddBurgers_PerVolume_Y(0, imax, jmax, kmax, w, hq(:, 3), tmp1, tmp2, rhou_in=tmp5)     ! tmp5 contains rho v transposed
 
     ! Scalar equations
     do is = 1, inb_scal
-        call NSE_Burgers_X(is, imax, jmax, kmax, s(:, is), tmp1, tmp6, tmp4)    ! tmp4 contains u transposed
-        call NSE_Burgers_Y(is, imax, jmax, kmax, s(:, is), tmp2, tmp6, tmp5)    ! tmp5 contains v transposed
-        call NSE_Burgers_Z(is, imax, jmax, kmax, s(:, is), tmp3, w)
-        hs(:, is) = hs(:, is) + tmp1(:) + tmp2(:) + tmp3(:)
+        call NSE_AddBurgers_PerVolume_X(is, imax, jmax, kmax, s(:, is), hs(:, is), tmp1, tmp2, rhou_in=tmp4)    ! tmp4 contains u transposed
+        call NSE_AddBurgers_PerVolume_Y(is, imax, jmax, kmax, s(:, is), hs(:, is), tmp1, tmp2, rhou_in=tmp5)    ! tmp5 contains v transposed
+        call NSE_AddBurgers_PerVolume_Z(is, imax, jmax, kmax, s(:, is), hs(:, is), tmp1, rhou_in=w)          ! tmp6 contains rho 3 transposed
 
     end do
 

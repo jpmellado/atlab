@@ -6,7 +6,7 @@ program VBURGERS
     use TLab_Memory, only: imax, jmax, kmax, inb_txc
     use TLab_Memory, only: TLab_Initialize_Memory
     use TLab_Arrays
-    use TLab_Pointers_3D, only: tmp1
+    use TLab_Pointers_3D, only: tmp1, tmp2
 #ifdef USE_MPI
     use mpi_f08
     use TLabMPI_VARS
@@ -22,7 +22,7 @@ program VBURGERS
     use TLab_Grid
     use IO_Fields
     use OPR_Partial
-    use NSE_Burgers
+    use NSE_Burgers_PerVolume
     use TLab_Background, only: TLab_Initialize_Background
 
     implicit none
@@ -50,17 +50,17 @@ program VBURGERS
     call Gravity_Initialize(ifile)
     call LargeScaleForcing_Initialize(ifile)
 
-    inb_txc = 4
+    inb_txc = 5
     call TLab_Initialize_Memory(__FILE__)
 
     call OPR_Partial_Initialize(ifile)
 
     call TLab_Initialize_Background(ifile)
-    call NSE_Burgers_Initialize(ifile)
+    call NSE_Burgers_PerVolume_Initialize(ifile)
 
-    a(1:imax, 1:jmax, 1:kmax) => txc(1:imax*jmax*kmax, 2)
-    b(1:imax, 1:jmax, 1:kmax) => txc(1:imax*jmax*kmax, 3)
-    c(1:imax, 1:jmax, 1:kmax) => txc(1:imax*jmax*kmax, 4)
+    a(1:imax, 1:jmax, 1:kmax) => txc(1:imax*jmax*kmax, 3)
+    b(1:imax, 1:jmax, 1:kmax) => txc(1:imax*jmax*kmax, 4)
+    c(1:imax, 1:jmax, 1:kmax) => txc(1:imax*jmax*kmax, 5)
 
     ! ###################################################################
     ! Define forcing term
@@ -83,7 +83,8 @@ program VBURGERS
     end if
     ! call IO_Write_Fields('fieldXdirect.out', imax, jmax, kmax, itime, 1, b, io_header_s(1:1))
 
-    call NSE_Burgers_X(0, imax, jmax, kmax, a, c, tmp1)
+    c = 0.0_wp
+    call NSE_AddBurgers_PerVolume_X(0, imax, jmax, kmax, a, c, tmp1, tmp2)
     ! call IO_Write_Fields('fieldXburgers.out', imax, jmax, kmax, itime, 1, c, io_header_s(1:1))
 
     call check(b, c, tmp1)!, 'fieldX.dif')
@@ -106,7 +107,8 @@ program VBURGERS
         end if
         ! call IO_Write_Fields('fieldYdirect.out', imax, jmax, kmax, itime, 1, b, io_header_s(1:1))
 
-        call NSE_Burgers_Y(0, imax, jmax, kmax, a, c, tmp1)
+        c = 0.0_wp
+        call NSE_AddBurgers_PerVolume_Y(0, imax, jmax, kmax, a, c, tmp1, tmp2)
         ! call IO_Write_Fields('fieldYburgers.out', imax, jmax, kmax, itime, 1, c, io_header_s(1:1))
 
         call check(b, c, tmp1)!, 'fieldY.dif')
@@ -130,7 +132,8 @@ program VBURGERS
     end if
     ! call IO_Write_Fields('fieldZdirect.out', imax, jmax, kmax, itime, 1, b, io_header_s(1:1))
 
-    call NSE_Burgers_Z(0, imax, jmax, kmax, a, c, a)
+    c = 0.0_wp
+    call NSE_AddBurgers_PerVolume_Z(0, imax, jmax, kmax, a, c, tmp1, rhou_in=a)
     ! call IO_Write_Fields('fieldZburgers.out', imax, jmax, kmax, itime, 1, c, io_header_s(1:1))
 
     call check(b, c, tmp1)!, 'fieldZ.dif')

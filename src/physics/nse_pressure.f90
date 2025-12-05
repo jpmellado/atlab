@@ -7,11 +7,12 @@ module NSE_Pressure
     use TLab_Memory, only: imax, jmax, kmax, isize_field, isize_txc_field
     use TLab_Memory, only: inb_flow_array, inb_flow, inb_scal_array
     use OPR_Partial
-    use OPR_Elliptic
     use NavierStokes
     use Thermo_Anelastic, only: rbackground, Thermo_Anelastic_Weight_InPlace
-    use NSE_Burgers
+    ! use NSE_Burgers
+    use NSE_Burgers_PerVolume
     use TLab_Sources
+    use OPR_Elliptic, only: OPR_Poisson
     implicit none
     private
 
@@ -37,33 +38,53 @@ contains
         w => q(:, 3)
 
         p_hq3(1:imax, 1:jmax, 1:kmax) => hq(1:imax*jmax*kmax, 3)
-        
+
         ! #######################################################################
         ! Diffusion and advection terms
         ! Using p as auxiliary array
         ! #######################################################################
-        call NSE_Burgers_X(0, imax, jmax, kmax, u, hq(:, 1), p)          ! store u transposed in p
-        call NSE_Burgers_X(0, imax, jmax, kmax, v, hq(:, 2), tmp2, p)    ! p contains u transposed
-        call NSE_Burgers_X(0, imax, jmax, kmax, w, hq(:, 3), tmp2, p)    ! p contains u transposed
+        ! call NSE_Burgers_X(0, imax, jmax, kmax, u, hq(:, 1), p)          ! store u transposed in p
+        ! call NSE_Burgers_X(0, imax, jmax, kmax, v, hq(:, 2), tmp2, p)    ! p contains u transposed
+        ! call NSE_Burgers_X(0, imax, jmax, kmax, w, hq(:, 3), tmp2, p)    ! p contains u transposed
 
-        call NSE_Burgers_Y(0, imax, jmax, kmax, u, tmp1, p)              ! store v transposed in p
-        hq(:, 1) = hq(:, 1) + tmp1(:)
-        call NSE_Burgers_Y(0, imax, jmax, kmax, v, tmp1, tmp2, p)        ! p contains v transposed
-        hq(:, 2) = hq(:, 2) + tmp1(:)
-        call NSE_Burgers_Y(0, imax, jmax, kmax, w, tmp1, tmp2, p)        ! p contains v transposed
-        hq(:, 3) = hq(:, 3) + tmp1(:)
+        ! call NSE_Burgers_Y(0, imax, jmax, kmax, u, tmp1, p)              ! store v transposed in p
+        ! hq(:, 1) = hq(:, 1) + tmp1(:)
+        ! call NSE_Burgers_Y(0, imax, jmax, kmax, v, tmp1, tmp2, p)        ! p contains v transposed
+        ! hq(:, 2) = hq(:, 2) + tmp1(:)
+        ! call NSE_Burgers_Y(0, imax, jmax, kmax, w, tmp1, tmp2, p)        ! p contains v transposed
+        ! hq(:, 3) = hq(:, 3) + tmp1(:)
 
-        call NSE_Burgers_Z(0, imax, jmax, kmax, u, tmp1, w)
-        hq(:, 1) = hq(:, 1) + tmp1(:)
-        call NSE_Burgers_Z(0, imax, jmax, kmax, v, tmp1, w)
-        hq(:, 2) = hq(:, 2) + tmp1(:)
-        call NSE_Burgers_Z(0, imax, jmax, kmax, w, tmp1, w)
-        hq(:, 3) = hq(:, 3) + tmp1(:)
+        ! call NSE_Burgers_Z(0, imax, jmax, kmax, u, tmp1, w)
+        ! hq(:, 1) = hq(:, 1) + tmp1(:)
+        ! call NSE_Burgers_Z(0, imax, jmax, kmax, v, tmp1, w)
+        ! hq(:, 2) = hq(:, 2) + tmp1(:)
+        ! call NSE_Burgers_Z(0, imax, jmax, kmax, w, tmp1, w)
+        ! hq(:, 3) = hq(:, 3) + tmp1(:)
+
+        hq = 0.0_wp
+
+        call NSE_AddBurgers_PerVolume_X(0, imax, jmax, kmax, u, hq(:, 1), tmp1, p)                   ! store rho u transposed in p
+        call NSE_AddBurgers_PerVolume_X(0, imax, jmax, kmax, v, hq(:, 2), tmp1, tmp2, rhou_in=p)
+        call NSE_AddBurgers_PerVolume_X(0, imax, jmax, kmax, w, hq(:, 3), tmp1, tmp2, rhou_in=p)
+
+        call NSE_AddBurgers_PerVolume_Y(0, imax, jmax, kmax, v, hq(:, 2), tmp1, p)                   ! store rho v transposed in p
+        call NSE_AddBurgers_PerVolume_Y(0, imax, jmax, kmax, u, hq(:, 1), tmp1, tmp2, rhou_in=p)
+        call NSE_AddBurgers_PerVolume_Y(0, imax, jmax, kmax, w, hq(:, 3), tmp1, tmp2, rhou_in=p)
+        if (nse_eqns == DNS_EQNS_ANELASTIC) then
+            call NSE_AddBurgers_PerVolume_Z(0, imax, jmax, kmax, w, hq(:, 3), tmp1, rhou_out=p)          ! store rho w in tmp6
+            call NSE_AddBurgers_PerVolume_Z(0, imax, jmax, kmax, u, hq(:, 1), tmp1, rhou_in=p)
+            call NSE_AddBurgers_PerVolume_Z(0, imax, jmax, kmax, v, hq(:, 2), tmp1, rhou_in=p)
+        else
+            call NSE_AddBurgers_PerVolume_Z(0, imax, jmax, kmax, w, hq(:, 3), tmp1, rhou_in=w)          ! store rho w in tmp6
+            call NSE_AddBurgers_PerVolume_Z(0, imax, jmax, kmax, u, hq(:, 1), tmp1, rhou_in=w)
+            call NSE_AddBurgers_PerVolume_Z(0, imax, jmax, kmax, v, hq(:, 2), tmp1, rhou_in=w)
+        end if
 
         ! #######################################################################
         ! Add forcing terms
         ! #######################################################################
-        call TLab_Sources_Flow(q, s, hq, tmp1)
+        ! call TLab_Sources_Flow(q, s, hq, tmp1)
+        call TLab_Sources_Flow_PerVolume(q, s, hq, tmp1)
 
         ! We are missing the buffer nudging here.
 
@@ -71,11 +92,11 @@ contains
         ! Pressure term
         ! #######################################################################
         ! Forcing term
-        if (nse_eqns == DNS_EQNS_ANELASTIC) then
-            call Thermo_Anelastic_Weight_InPlace(imax, jmax, kmax, rbackground, hq(:, 1))
-            call Thermo_Anelastic_Weight_InPlace(imax, jmax, kmax, rbackground, hq(:, 2))
-            call Thermo_Anelastic_Weight_InPlace(imax, jmax, kmax, rbackground, hq(:, 3))
-        end if
+        ! if (nse_eqns == DNS_EQNS_ANELASTIC) then
+        !     call Thermo_Anelastic_Weight_InPlace(imax, jmax, kmax, rbackground, hq(:, 1))
+        !     call Thermo_Anelastic_Weight_InPlace(imax, jmax, kmax, rbackground, hq(:, 2))
+        !     call Thermo_Anelastic_Weight_InPlace(imax, jmax, kmax, rbackground, hq(:, 3))
+        ! end if
         call OPR_Partial_X(OPR_P1, imax, jmax, kmax, hq(:, 1), p)
         call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, hq(:, 2), tmp1)
         call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, hq(:, 3), tmp2)

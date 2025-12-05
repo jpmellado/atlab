@@ -60,7 +60,8 @@ subroutine TLab_Transpose(a, nra, nca, ma, b, mb)
         end do
     end do
 
-    do k = 1, nca
+    ! do k = 1, nca
+    do k = 1, last_k - 1
         do j = last_j, nra
             b(k, j) = a(j, k)
         end do
@@ -117,7 +118,8 @@ subroutine TLab_AddTranspose(a, nra, nca, ma, b, mb)
         end do
     end do
 
-    do k = 1, nca
+    ! do k = 1, nca
+    do k = 1, last_k - 1
         do j = last_j, nra
             b(k, j) = b(k, j) + a(j, k)
         end do
@@ -168,7 +170,8 @@ subroutine TLab_Transpose_INT1(a, nra, nca, ma, b, mb)
         end do
     end do
 
-    do k = 1, nca
+    ! do k = 1, nca
+    do k = 1, last_k - 1
         do j = last_j, nra
             b(k, j) = a(j, k)
         end do
@@ -223,7 +226,8 @@ subroutine TLab_Transpose_COMPLEX(a, nra, nca, ma, b, mb)
         end do
     end do
 
-    do k = 1, nca
+    ! do k = 1, nca
+    do k = 1, last_k - 1
         do j = last_j, nra
             b(k, j) = a(j, k)
         end do

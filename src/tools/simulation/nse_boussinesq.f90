@@ -123,17 +123,23 @@ subroutine NSE_Boussinesq()
         tmp3(:) = hq(:, 2) + v(:)*dummy
         tmp4(:) = hq(:, 3) + w(:)*dummy
 
-        call OPR_Partial_X(OPR_P1, imax, jmax, kmax, tmp2, tmp1)
-        call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, tmp3, tmp2)
-        call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, tmp4, tmp3)
+        ! call OPR_Partial_X(OPR_P1, imax, jmax, kmax, tmp2, tmp1)
+        ! call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, tmp3, tmp2)
+        ! call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, tmp4, tmp3)
+        call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, tmp4, tmp1)
+        call OPR_Partial_Y(OPR_P1_ADD, imax, jmax, kmax, tmp3, tmp5, tmp1)
+        call OPR_Partial_X(OPR_P1_ADD, imax, jmax, kmax, tmp2, tmp5, tmp1) ! forcing term in tmp1
 
     else
-        call OPR_Partial_X(OPR_P1, imax, jmax, kmax, hq(:, 1), tmp1)
-        call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, hq(:, 2), tmp2)
-        call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, hq(:, 3), tmp3)
+        ! call OPR_Partial_X(OPR_P1, imax, jmax, kmax, hq(:, 1), tmp1)
+        ! call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, hq(:, 2), tmp2)
+        ! call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, hq(:, 3), tmp3)
+        call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, hq(:, 3), tmp1)
+        call OPR_Partial_Y(OPR_P1_ADD, imax, jmax, kmax, hq(:, 2), tmp5, tmp1)
+        call OPR_Partial_X(OPR_P1_ADD, imax, jmax, kmax, hq(:, 1), tmp5, tmp1)
 
     end if
-    tmp1(:) = tmp1(:) + tmp2(:) + tmp3(:) ! forcing term in tmp1
+    ! tmp1(:) = tmp1(:) + tmp2(:) + tmp3(:) ! forcing term in tmp1
 
     ! Neumman BCs in d/dy(p) s.t. v=0 (no-penetration)
     BcsFlowKmin%ref(:, :, 3) = p_hq(:, :, 1, 3)
@@ -143,11 +149,15 @@ subroutine NSE_Boussinesq()
     call OPR_Poisson(imax, jmax, kmax, BCS_NN, tmp1, tmp2, tmp3, BcsFlowKmin%ref(:, :, 3), BcsFlowKmax%ref(:, :, 3))
 
     ! Add pressure gradient
-    call OPR_Partial_X(OPR_P1, imax, jmax, kmax, tmp1, tmp2)
-    call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, tmp1, tmp3)
+    ! call OPR_Partial_X(OPR_P1, imax, jmax, kmax, tmp1, tmp2)
+    ! call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, tmp1, tmp3)
+    ! call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, tmp1, tmp4)
+    ! hq(:, 1) = hq(:, 1) - tmp2(:)
+    ! hq(:, 2) = hq(:, 2) - tmp3(:)
+    ! hq(:, 3) = hq(:, 3) - tmp4(:)
+    call OPR_Partial_X(OPR_P1_SUBTRACT, imax, jmax, kmax, tmp1, tmp2, hq(:, 1))
+    call OPR_Partial_Y(OPR_P1_SUBTRACT, imax, jmax, kmax, tmp1, tmp2, hq(:, 2))
     call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, tmp1, tmp4)
-    hq(:, 1) = hq(:, 1) - tmp2(:)
-    hq(:, 2) = hq(:, 2) - tmp3(:)
     hq(:, 3) = hq(:, 3) - tmp4(:)
 
     ! #######################################################################

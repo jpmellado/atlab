@@ -326,8 +326,7 @@ contains
 
             case (DNS_EQNS_ANELASTIC)
                 if (rkm_mode == RKM_EXP3 .or. rkm_mode == RKM_EXP4) then
-                    ! call TMarch_Substep_Anelastic_Explicit()
-                    call TMarch_Substep_Anelastic_Explicit_PerVolume()
+                    call TMarch_Substep_Anelastic_PerVolume_Explicit()
                 end if
 
             case (DNS_EQNS_COMPRESSIBLE)
@@ -536,10 +535,8 @@ contains
 
         ! #######################################################################
         ! Accumulate RHS terms
-        ! call TLab_Sources_Flow(q, s, hq, txc(:, 1))
-        ! call TLab_Sources_Scal(s, hs, txc(:, 1), txc(:, 2), txc(:, 3), txc(:, 4))
-        call TLab_Sources_Flow_PerVolume(q, s, hq, txc(:, 1))
-        call TLab_Sources_Scal_PerVolume(s, hs, txc(:, 1), txc(:, 2), txc(:, 3), txc(:, 4))
+        call TLab_Sources_Flow(q, s, hq, txc(:, 1))
+        call TLab_Sources_Scal(s, hs, txc(:, 1), txc(:, 2), txc(:, 3), txc(:, 4))
 
         if (bufferType == BUFFER_TYPE_NUDGE) call Buffer_Nudge()
 
@@ -558,44 +555,9 @@ contains
         return
     end subroutine TMarch_Substep_Boussinesq_Explicit
 
-    ! !########################################################################
-    ! !########################################################################
-    ! subroutine TMarch_Substep_Anelastic_Explicit()
-    !     use TLab_Arrays, only: q, s, txc
-    !     use DNS_Arrays, only: hq, hs
-    !     use TLab_Sources
-    !     use Microphysics, only: Microphysics_Evaporation_Impl, evaporationProps
-    !     use Thermo_AirWater, only: inb_scal_ql
-
-    !     ! #######################################################################
-    !     ! Accumulate RHS terms
-    !     call TLab_Sources_Flow(q, s, hq, txc(:, 1))
-    !     call TLab_Sources_Scal(s, hs, txc(:, 1), txc(:, 2), txc(:, 3), txc(:, 4))
-
-    !     if (bufferType == BUFFER_TYPE_NUDGE) call Buffer_Nudge()
-
-    !     call NSE_Anelastic()
-
-    !     ! #######################################################################
-    !     ! Perform the time stepping
-    !     do is = 1, inb_flow
-    !         q(:, is) = q(:, is) + dte*hq(:, is)
-    !     end do
-
-    !     do is = 1, inb_scal
-    !         s(:, is) = s(:, is) + dte*hs(:, is)
-    !     end do
-
-    !     ! #######################################################################
-    !     ! Iterate implicit non-evaporation
-    !     call Microphysics_Evaporation_Impl(evaporationProps, imax, jmax, kmax, inb_scal_ql, s, dte)
-
-    !     return
-    ! end subroutine TMarch_Substep_Anelastic_Explicit
-
     !########################################################################
     !########################################################################
-    subroutine TMarch_Substep_Anelastic_Explicit_PerVolume()
+    subroutine TMarch_Substep_Anelastic_PerVolume_Explicit()
         use TLab_Arrays, only: q, s, txc
         use TLab_Pointers_2D, only: pxy_q, pxy_s
         use DNS_Arrays, only: hq, hs
@@ -606,12 +568,12 @@ contains
 
         ! #######################################################################
         ! Accumulate RHS terms
-        call TLab_Sources_Flow_PerVolume(q, s, hq, txc(:, 1))
-        call TLab_Sources_Scal_PerVolume(s, hs, txc(:, 1), txc(:, 2), txc(:, 3), txc(:, 4))
+        call TLab_Sources_Flow(q, s, hq, txc(:, 1))
+        call TLab_Sources_Scal(s, hs, txc(:, 1), txc(:, 2), txc(:, 3), txc(:, 4))
 
         if (bufferType == BUFFER_TYPE_NUDGE) call Buffer_Nudge()
 
-        call NSE_Anelastic_PerVolume()
+        call NSE_Anelastic()
 
         ! #######################################################################
         ! Perform the time stepping
@@ -632,7 +594,7 @@ contains
         call Microphysics_Evaporation_Impl(evaporationProps, imax, jmax, kmax, inb_scal_ql, s, dte)
 
         return
-    end subroutine TMarch_Substep_Anelastic_Explicit_PerVolume
+    end subroutine TMarch_Substep_Anelastic_PerVolume_Explicit
 
     !########################################################################
     !########################################################################
@@ -648,173 +610,5 @@ contains
 
         return
     end subroutine TMarch_Substep_Boussinesq_Implicit
-
-    !     !########################################################################
-    !     !########################################################################
-    !     subroutine TMarch_SUBSTEP_PARTICLE()
-    !         use DNS_Arrays, only: l_hq
-    !         use PARTICLE_VARS
-    !         use PARTICLE_ARRAYS
-
-    !         ! -------------------------------------------------------------------
-    !         integer(wi) is
-
-    ! #ifdef USE_MPI
-    !         integer(wi) nzone_grid, nzone_west, nzone_east, nzone_south, nzone_north
-    ! #endif
-    !         real(wp) x_right, z_right
-    !         real(wp) y_right
-
-    !         !#####################################################################
-    !         call RHS_PART_1()
-
-    !         !#######################################################################
-    !         ! Update particle properties
-    !         !#######################################################################
-    !         do is = 1, inb_part
-    !             l_q(1:l_g%np, is) = l_q(1:l_g%np, is) + dte*l_hq(1:l_g%np, is)
-    !         end do
-
-    !         !#####################################################################
-    !         ! Boundary control to see if particles leave processor
-    !         !#####################################################################
-    ! #ifdef USE_MPI
-
-    !         ! -------------------------------------------------------------------
-    !         ! Particle sorting for Send/Recv X-Direction
-    !         ! -------------------------------------------------------------------
-    !         if (ims_npro_i > 1) then
-    !             call PARTICLE_MPI_SORT(1, l_g, l_q, l_hq, nzone_grid, nzone_west, nzone_east, nzone_south, nzone_north)
-
-    !             if (ims_pro_i == 0) then !Take care of periodic boundary conditions west
-    !                 if (nzone_west /= 0) then
-    !                     l_q(nzone_grid + 1:nzone_grid + nzone_west, 1) = &
-    !                         l_q(nzone_grid + 1:nzone_grid + nzone_west, 1) + x%scale
-    !                 end if
-    !             end if
-
-    !             if (ims_pro_i == (ims_npro_i - 1)) then !Take care of periodic boundary conditions east
-    !                 if (nzone_east /= 0) then
-    !                     l_q(nzone_grid + nzone_west + 1:nzone_grid + nzone_west + nzone_east, 1) = &
-    !                         l_q(nzone_grid + nzone_west + 1:nzone_grid + nzone_west + nzone_east, 1) - x%scale
-    !                 end if
-    !             end if
-
-    !             call PARTICLE_MPI_SEND_RECV_I(nzone_grid, nzone_west, nzone_east, l_q, l_hq, l_g%tags, l_g%np)
-
-    !         else
-    !             x_right = x%nodes(1) + x%scale
-
-    !             do i = 1, l_g%np
-    !                 if (l_q(i, 1) > x_right) then
-    !                     l_q(i, 1) = l_q(i, 1) - x%scale
-
-    !                 elseif (l_q(i, 1) < x%nodes(1)) then
-    !                     l_q(i, 1) = l_q(i, 1) + x%scale
-
-    !                 end if
-
-    !             end do
-
-    !         end if
-
-    !         ! -------------------------------------------------------------------
-    !         ! Particle sorting for Send/Recv Z-Direction
-    !         ! -------------------------------------------------------------------
-    !         if (ims_npro_k > 1) then
-    !             call PARTICLE_MPI_SORT(3, l_g, l_q, l_hq, nzone_grid, nzone_west, nzone_east, nzone_south, nzone_north)
-
-    !             if (ims_pro_k == 0) then !Take care of periodic boundary conditions south
-    !                 if (nzone_south /= 0) then
-    !                     l_q(nzone_grid + 1:nzone_grid + nzone_south, 3) = &
-    !                         l_q(nzone_grid + 1:nzone_grid + nzone_south, 3) + z%scale
-    !                 end if
-    !             end if
-
-    !             if (ims_pro_k == (ims_npro_k - 1)) then !Take care of periodic boundary conditions north
-    !                 if (nzone_north /= 0) then
-    !                     l_q(nzone_grid + nzone_south + 1:nzone_grid + nzone_south + nzone_north, 3) = &
-    !                         l_q(nzone_grid + nzone_south + 1:nzone_grid + nzone_south + nzone_north, 3) - z%scale
-    !                 end if
-    !             end if
-
-    !             call PARTICLE_MPI_SEND_RECV_K(nzone_grid, nzone_south, nzone_north, l_q, l_hq, l_g%tags, l_g%np)
-
-    !         else
-    !             call MPI_BARRIER(MPI_COMM_WORLD, ims_err)
-
-    !             z_right = z%nodes(1) + z%scale
-
-    !             do i = 1, l_g%np
-    !                 if (l_q(i, 3) > z_right) then
-    !                     l_q(i, 3) = l_q(i, 3) - z%scale
-
-    !                 elseif (l_q(i, 3) < z%nodes(1)) then
-    !                     l_q(i, 3) = l_q(i, 3) + z%scale
-
-    !                 end if
-
-    !             end do
-
-    !         end if
-
-    ! #else
-    !         !#######################################################################
-    !         ! Serial; would it be faster to use MOD?
-    !         x_right = x%nodes(1) + x%scale
-    !         z_right = z%nodes(1) + z%scale
-
-    !         do i = 1, l_g%np
-    !             if (l_q(i, 1) > x_right) then
-    !                 l_q(i, 1) = l_q(i, 1) - x%scale
-
-    !             elseif (l_q(i, 1) < x%nodes(1)) then
-    !                 l_q(i, 1) = l_q(i, 1) + x%scale
-
-    !             end if
-
-    !             if (l_q(i, 3) > z_right) then
-    !                 l_q(i, 3) = l_q(i, 3) - z%scale
-
-    !             elseif (l_q(i, 3) < z%nodes(1)) then
-    !                 l_q(i, 3) = l_q(i, 3) + z%scale
-
-    !             end if
-
-    !         end do
-
-    ! #endif
-
-    !         y_right = y%nodes(1) + y%scale
-    !         select case (part_bcs)
-    !         case (PART_BCS_SPECULAR)
-    !             do i = 1, l_g%np
-    !                 if (l_q(i, 2) > y_right) then
-    !                     l_q(i, 2) = 2*y_right - l_q(i, 2)
-    !                     l_q(i, 5) = -l_q(i, 5)
-    !                 elseif (l_q(i, 2) < y%nodes(1)) then
-    !                     l_q(i, 2) = 2*y%nodes(1) - l_q(i, 2)
-    !                     l_q(i, 5) = -l_q(i, 5)
-    !                 end if
-    !             end do
-
-    !         case (PART_BCS_STICK)
-    !             do i = 1, l_g%np
-    !                 if (l_q(i, 2) > y_right) then
-    !                     l_q(i, 2) = y_right
-    !                 elseif (l_q(i, 2) < y%nodes(1)) then
-    !                     l_q(i, 2) = y%nodes(1)
-    !                 end if
-    !             end do
-
-    !         end select
-
-    !         !#######################################################################
-    !         ! Recalculating closest node below in Y direction
-    !         !#######################################################################
-    !         call LOCATE_Y(l_g%np, l_q(1, 2), l_g%nodes, y%size, y%nodes)
-
-    !         return
-    !     end subroutine TMarch_SUBSTEP_PARTICLE
 
 end module TimeMarching

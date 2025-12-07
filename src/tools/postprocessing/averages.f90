@@ -29,7 +29,7 @@ program AVERAGES
     use OPR_Partial
     use OPR_Fourier
     use OPR_Elliptic
-    use NSE_Burgers_PerVolume, only: NSE_Burgers_PerVolume_Initialize
+    use NSE_Burgers, only: NSE_Burgers_Initialize
     use NSE_Pressure
     use FI_VECTORCALCULUS
     use FI_STRAIN_EQN
@@ -113,7 +113,7 @@ program AVERAGES
     call OPR_Check()
 
     call TLab_Initialize_Background(ifile)  ! Initialize thermodynamic quantities
-    call NSE_Burgers_PerVolume_Initialize(ifile)
+    call NSE_Burgers_Initialize(ifile)
 
     ! do ig = 1, 3
     !     call OPR_FILTER_INITIALIZE(g(ig), PressureFilter(ig))

@@ -1,6 +1,6 @@
 ! Calculate the non-linear operator N(u)(s) = dyn_visc* d^2/dx^2 s - rho u d/dx s
 
-module NSE_Burgers_PerVolume
+module NSE_Burgers
     use TLab_Constants, only: wp, wi, efile, lfile, BCS_NONE, MAX_VARS
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
     use TLab_Arrays, only: wrk2d, wrk3d
@@ -21,7 +21,7 @@ module NSE_Burgers_PerVolume
     implicit none
     private
 
-    public :: NSE_Burgers_PerVolume_Initialize
+    public :: NSE_Burgers_Initialize
     public :: NSE_AddBurgers_PerVolume_X
     public :: NSE_AddBurgers_PerVolume_Y
     public :: NSE_AddBurgers_PerVolume_Z
@@ -54,7 +54,7 @@ module NSE_Burgers_PerVolume
 contains
     !########################################################################
     !########################################################################
-    subroutine NSE_Burgers_PerVolume_Initialize(inifile)
+    subroutine NSE_Burgers_Initialize(inifile)
         use TLab_Memory, only: imax, jmax, kmax
         use TLab_Memory, only: TLab_Allocate_Real
         use TLab_Memory, only: inb_scal
@@ -177,7 +177,7 @@ contains
         end if
 #endif
         return
-    end subroutine NSE_Burgers_PerVolume_Initialize
+    end subroutine NSE_Burgers_Initialize
 
     !########################################################################
     !########################################################################
@@ -641,4 +641,4 @@ contains
     end subroutine NSE_Burgers_1D_Split
 #endif
 
-end module NSE_Burgers_PerVolume
+end module NSE_Burgers

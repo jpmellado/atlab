@@ -22,7 +22,7 @@ program VBURGERS
     use TLab_Grid
     use IO_Fields
     use OPR_Partial
-    use NSE_Burgers_PerVolume
+    use NSE_Burgers
     use TLab_Background, only: TLab_Initialize_Background
 
     implicit none
@@ -56,7 +56,7 @@ program VBURGERS
     call OPR_Partial_Initialize(ifile)
 
     call TLab_Initialize_Background(ifile)
-    call NSE_Burgers_PerVolume_Initialize(ifile)
+    call NSE_Burgers_Initialize(ifile)
 
     a(1:imax, 1:jmax, 1:kmax) => txc(1:imax*jmax*kmax, 3)
     b(1:imax, 1:jmax, 1:kmax) => txc(1:imax*jmax*kmax, 4)

@@ -74,7 +74,7 @@ contains
         character(len=128) eStr
         character(len=512) sRes
 
-        integer np !, idummy
+        integer np 
 #endif
 
 #ifdef USE_MPI
@@ -208,22 +208,6 @@ contains
         end select
 
         ! Put arrays back in the order in which they came in
-! #ifdef USE_ESSL
-!         if (type == OPR_P2_P1) then
-!             call DGETMO(tmp1, ny*nz, ny*nz, nx, result, nx)
-!             call DGETMO(wrk3d, ny*nz, ny*nz, nx, tmp1, nx)
-!         else
-!             call DGETMO(wrk3d, ny*nz, ny*nz, nx, result, nx)
-!         end if
-! #else
-!         if (type == OPR_P2_P1) then
-!             call TLab_Transpose(tmp1, ny*nz, nx, ny*nz, result, nx)
-!             call TLab_Transpose(wrk3d, ny*nz, nx, ny*nz, tmp1, nx)
-!         else
-!             call TLab_Transpose(wrk3d, ny*nz, nx, ny*nz, result, nx)
-!         end if
-! #endif
-
         select case (type)
         case (OPR_P2_P1)
             call TLab_Transpose(tmp1, ny*nz, nx, ny*nz, result, nx)
@@ -296,27 +280,6 @@ contains
         end select
 
         ! Put arrays back in the order in which they came in
-! #ifdef USE_ESSL
-!         if (type == OPR_P2_P1) then
-!             call DGETMO(tmp1, nlines, nlines, g(1)%size, wrk3d, g(1)%size)
-!             call DGETMO(result, nlines, nlines, g(1)%size, tmp1, g(1)%size)
-!             call TLabMPI_Trp_ExecI_Backward(tmp1, result, tmpi_plan_dx)
-!             call TLabMPI_Trp_ExecI_Backward(wrk3d, tmp1, tmpi_plan_dx)
-!         else
-!             call DGETMO(result, nlines, nlines, g(1)%size, wrk3d, g(1)%size)
-!             call TLabMPI_Trp_ExecI_Backward(wrk3d, result, tmpi_plan_dx)
-!         end if
-! #else
-!         if (type == OPR_P2_P1) then
-!             call TLab_Transpose(tmp1, nlines, g(1)%size, nlines, wrk3d, g(1)%size)
-!             call TLab_Transpose(result, nlines, g(1)%size, nlines, tmp1, g(1)%size)
-!             call TLabMPI_Trp_ExecI_Backward(tmp1, result, tmpi_plan_dx)
-!             call TLabMPI_Trp_ExecI_Backward(wrk3d, tmp1, tmpi_plan_dx)
-!         else
-!             call TLab_Transpose(result, nlines, g(1)%size, nlines, wrk3d, g(1)%size)
-!             call TLabMPI_Trp_ExecI_Backward(wrk3d, result, tmpi_plan_dx)
-!         end if
-! #endif
         select case (type)
         case (OPR_P2_P1)
             call TLab_Transpose(tmp1, nlines, g(1)%size, nlines, wrk3d, g(1)%size)
@@ -372,7 +335,6 @@ contains
         call TLab_Transpose(u, nx, ny*nz, nx, result, ny*nz)
 #endif
 
-        ! -------------------------------------------------------------------
         np1 = size(der1_split_x%rhs)/2
         np2 = size(der2_split_x%rhs)/2
         np = max(np1, np2)
@@ -396,21 +358,6 @@ contains
         end select
 
         ! Put arrays back in the order in which they came in
-! #ifdef USE_ESSL
-!         if (type == OPR_P2_P1) then
-!             call DGETMO(tmp1, ny*nz, ny*nz, nx, result, nx)
-!             call DGETMO(wrk3d, ny*nz, ny*nz, nx, tmp1, nx)
-!         else
-!             call DGETMO(wrk3d, ny*nz, ny*nz, nx, result, nx)
-!         end if
-! #else
-!         if (type == OPR_P2_P1) then
-!             call TLab_Transpose(tmp1, ny*nz, nx, ny*nz, result, nx)
-!             call TLab_Transpose(wrk3d, ny*nz, nx, ny*nz, tmp1, nx)
-!         else
-!             call TLab_Transpose(wrk3d, ny*nz, nx, ny*nz, result, nx)
-!         end if
-! #endif
         select case (type)
         case (OPR_P2_P1)
             call TLab_Transpose(tmp1, ny*nz, nx, ny*nz, result, nx)
@@ -481,24 +428,7 @@ contains
 
         end select
 
-        ! ###################################################################
         ! Put arrays back in the order in which they came in
-! #ifdef USE_ESSL
-!         if (type == OPR_P2_P1) then
-!             call DGETMO(tmp1, nz, nz, nx*ny, result, nx*ny)
-!             call DGETMO(wrk3d, nz, nz, nx*ny, tmp1, nx*ny)
-!         else
-!             call DGETMO(wrk3d, nz, nz, nx*ny, result, nx*ny)
-!         end if
-! #else
-!         if (type == OPR_P2_P1) then
-!             call TLab_Transpose(tmp1, nz, nx*ny, nz, result, nx*ny)
-!             call TLab_Transpose(wrk3d, nz, nx*ny, nz, tmp1, nx*ny)
-!         else
-!             call TLab_Transpose(wrk3d, nz, nx*ny, nz, result, nx*ny)
-!         end if
-! #endif
-
         select case (type)
         case (OPR_P2_P1)
             call TLab_Transpose(tmp1, nz, nx*ny, nz, result, nx*ny)
@@ -569,29 +499,7 @@ contains
 
         end select
 
-        ! ###################################################################
         ! Put arrays back in the order in which they came in
-! #ifdef USE_ESSL
-!         if (type == OPR_P2_P1) then
-!             call TLabMPI_Trp_ExecJ_Backward(tmp1, wrk3d, tmpi_plan_dy)
-!             call TLabMPI_Trp_ExecJ_Backward(result, tmp1, tmpi_plan_dy)
-!             call DGETMO(tmp1, nz, nz, nx*ny, result, nx*ny)
-!             call DGETMO(wrk3d, nz, nz, nx*ny, tmp1, nx*ny)
-!         else
-!             call TLabMPI_Trp_ExecJ_Backward(result, wrk3d, tmpi_plan_dy)
-!             call DGETMO(wrk3d, nz, nz, nx*ny, result, nx*ny)
-!         end if
-! #else
-!         if (type == OPR_P2_P1) then
-!             call TLabMPI_Trp_ExecJ_Backward(tmp1, wrk3d, tmpi_plan_dy)
-!             call TLabMPI_Trp_ExecJ_Backward(result, tmp1, tmpi_plan_dy)
-!             call TLab_Transpose(tmp1, nz, nx*ny, nz, result, nx*ny)
-!             call TLab_Transpose(wrk3d, nz, nx*ny, nz, tmp1, nx*ny)
-!         else
-!             call TLabMPI_Trp_ExecJ_Backward(result, wrk3d, tmpi_plan_dy)
-!             call TLab_Transpose(wrk3d, nz, nx*ny, nz, result, nx*ny)
-!         end if
-! #endif
         select case (type)
         case (OPR_P2_P1)
             call TLabMPI_Trp_ExecJ_Backward(tmp1, wrk3d, tmpi_plan_dy)
@@ -645,7 +553,6 @@ contains
         call TLab_Transpose(u, nx*ny, nz, nx*ny, result, nz)
 #endif
 
-        ! -------------------------------------------------------------------
         np1 = size(der1_split_y%rhs)/2
         np2 = size(der2_split_y%rhs)/2
         np = max(np1, np2)
@@ -668,23 +575,7 @@ contains
 
         end select
 
-        ! ###################################################################
         ! Put arrays back in the order in which they came in
-! #ifdef USE_ESSL
-!         if (type == OPR_P2_P1) then
-!             call DGETMO(tmp1, nz, nz, nx*ny, result, nx*ny)
-!             call DGETMO(wrk3d, nz, nz, nx*ny, tmp1, nx*ny)
-!         else
-!             call DGETMO(wrk3d, nz, nz, nx*ny, result, nx*ny)
-!         end if
-! #else
-!         if (type == OPR_P2_P1) then
-!             call TLab_Transpose(tmp1, nz, nx*ny, nz, result, nx*ny)
-!             call TLab_Transpose(wrk3d, nz, nx*ny, nz, tmp1, nx*ny)
-!         else
-!             call TLab_Transpose(wrk3d, nz, nx*ny, nz, result, nx*ny)
-!         end if
-! #endif
         select case (type)
         case (OPR_P2_P1)
             call TLab_Transpose(tmp1, nz, nx*ny, nz, result, nx*ny)

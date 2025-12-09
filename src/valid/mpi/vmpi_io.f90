@@ -13,7 +13,8 @@ program vmpi_io_levante
 
     integer, parameter :: sp = kind(1.0)
     integer, parameter :: dp = kind(1.0d0)
-    integer, parameter :: wp = dp               ! working precision
+    ! integer, parameter :: wp = dp               ! working precision is double
+    integer, parameter :: wp = sp               ! working precision is single
     integer, parameter :: wi = selected_int_kind(9)
 
     integer, parameter :: sizeofreal = sizeof(1.0_wp)
@@ -21,11 +22,10 @@ program vmpi_io_levante
 
     ! Decomposition along X and Y in ims_npro_i x ims_npro_j pencils
     integer ims_npro                            ! number of tasks
-    !integer, parameter :: ims_npro_i = 48       ! number of tasks in X
-    integer, parameter :: ims_npro_i = 96       ! number of tasks in X
-    integer, parameter :: ims_npro_j = 64       ! number of tasks in Y
-    !integer, parameter :: ims_npro_i = 2       ! number of tasks in X
-    !integer, parameter :: ims_npro_j = 2       ! number of tasks in Y
+    ! integer, parameter :: ims_npro_i = 64       ! number of tasks in X
+    ! integer, parameter :: ims_npro_j = 64       ! number of tasks in Y
+    integer, parameter :: ims_npro_i = 128      ! number of tasks in X
+    integer, parameter :: ims_npro_j = 128      ! number of tasks in Y
     integer ims_pro                             ! local task in global communicator
     integer ims_pro_i, ims_pro_j                ! local task in each directional communicator; here used only as offsets
 
@@ -37,8 +37,7 @@ program vmpi_io_levante
     integer iv
 
     ! array
-    real(sp), allocatable :: a(:, :)
-    ! real(dp), allocatable :: a(:, :)
+    real(wp), allocatable :: a(:, :)
 
     ! file name
     character(*), parameter :: name = 'test-io.'
@@ -50,23 +49,27 @@ program vmpi_io_levante
     call MPI_COMM_RANK(MPI_COMM_WORLD, ims_pro, ims_err)
 
     ! initialize grid
-    nx = 3072
-    ny = 3072
-    nz = 768
+    ! nx = 3072
+    ! ny = 3072
+    ! nz = 768
+    nx = 6144
+    ny = 6144
+    nz = 1536
     nx = nx/ims_npro_i                      ! task-local number of grid points along X
     ny = ny/ims_npro_j                      ! task-local number of grid points along Z
-    
+
     ims_pro_i = mod(ims_pro, ims_npro_i)    ! MPI offset
     ims_pro_j = ims_pro/ims_npro_i          ! MPI offset
 
     allocate (a(nx*ny*nz, nv))
     a = 0.0_wp
 
-    ! single precission
-    subarray = IO_Create_Subarray_XOY(nx, ny, nz, MPI_REAL4)
-    ! double precission
-    ! subarray = IO_Create_Subarray_XOY(nx, ny, nz, MPI_REAL8)
-
+    select case (wp)
+    case (sp)    ! single precision
+        subarray = IO_Create_Subarray_XOY(nx, ny, nz, MPI_REAL4)
+    case (dp)    ! double precision
+        subarray = IO_Create_Subarray_XOY(nx, ny, nz, MPI_REAL8)
+    end select
     offset = 0        ! no header
     !offset = 1*sizeofint
     mpio_locsize = nx*ny*nz
@@ -74,24 +77,26 @@ program vmpi_io_levante
 
         write (str, *) iv; str = trim(adjustl(name))//trim(adjustl(str))
 
-        ! if PE 0 does this and not the others, then it hangs...
-        if ( ims_pro == 0 ) then
-        !   open(55,file=str,status='unknown',form='unformatted',access='stream')
-        !   write(55) nx*ny*nz
-        !   close(55)
+        ! an old MPI_IO bug was that if PE 0 did this and not the others, then it hangs...
+        if (ims_pro == 0) then
+            !   open(55,file=str,status='unknown',form='unformatted',access='stream')
+            !   write(55) nx*ny*nz
+            !   close(55)
         end if
 
         call MPI_BARRIER(MPI_COMM_WORLD, ims_err)
 
-        call MPI_FILE_OPEN(MPI_COMM_WORLD, str, MPI_MODE_WRONLY+MPI_MODE_CREATE, MPI_INFO_NULL, mpio_fh, ims_err)
+        call MPI_FILE_OPEN(MPI_COMM_WORLD, str, MPI_MODE_WRONLY + MPI_MODE_CREATE, MPI_INFO_NULL, mpio_fh, ims_err)
         !call MPI_FILE_OPEN(MPI_COMM_WORLD, str, MPI_MODE_WRONLY, MPI_INFO_NULL, mpio_fh, ims_err)
 
-        ! single precision
-        call MPI_File_set_view(mpio_fh, offset, MPI_REAL4, subarray, 'native', MPI_INFO_NULL, ims_err)
-        call MPI_File_write_all(mpio_fh, a(:, iv), mpio_locsize, MPI_REAL4, status, ims_err)
-        ! double precision
-        ! call MPI_File_set_view(mpio_fh, offset, MPI_REAL8, subarray, 'native', MPI_INFO_NULL, ims_err)
-        ! call MPI_File_write_all(mpio_fh, a(:, iv), mpio_locsize, MPI_REAL8, status, ims_err)
+        select case (wp)
+        case (sp)    ! single precision
+            call MPI_File_set_view(mpio_fh, offset, MPI_REAL4, subarray, 'native', MPI_INFO_NULL, ims_err)
+            call MPI_File_write_all(mpio_fh, a(:, iv), mpio_locsize, MPI_REAL4, status, ims_err)
+        case (dp)    ! double precision
+            call MPI_File_set_view(mpio_fh, offset, MPI_REAL8, subarray, 'native', MPI_INFO_NULL, ims_err)
+            call MPI_File_write_all(mpio_fh, a(:, iv), mpio_locsize, MPI_REAL8, status, ims_err)
+        end select
 
         call MPI_File_close(mpio_fh, ims_err)
 
@@ -109,8 +114,6 @@ contains
         type(MPI_Datatype) :: locSubarray
         integer, parameter :: ndims = 3
         integer(wi) :: sizes(ndims), locsize(ndims), offset(ndims)
-
-        !if ( ims_pro == 0 ) print*, nx, ny, nz, ims_npro_i, ims_npro_j
 
         sizes = [nx*ims_npro_i, ny*ims_npro_j, nz]
         locsize = [nx, ny, nz]

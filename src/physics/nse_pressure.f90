@@ -38,28 +38,7 @@ contains
 
         p_hq3(1:imax, 1:jmax, 1:kmax) => hq(1:imax*jmax*kmax, 3)
 
-        ! #######################################################################
-        ! Diffusion and advection terms
-        ! Using p as auxiliary array
-        ! #######################################################################
         hq = 0.0_wp
-
-        call NSE_AddBurgers_PerVolume_X(0, imax, jmax, kmax, u, hq(:, 1), tmp1, p)                   ! store rho u transposed in p
-        call NSE_AddBurgers_PerVolume_X(0, imax, jmax, kmax, v, hq(:, 2), tmp1, tmp2, rhou_in=p)
-        call NSE_AddBurgers_PerVolume_X(0, imax, jmax, kmax, w, hq(:, 3), tmp1, tmp2, rhou_in=p)
-
-        call NSE_AddBurgers_PerVolume_Y(0, imax, jmax, kmax, v, hq(:, 2), tmp1, p)                   ! store rho v transposed in p
-        call NSE_AddBurgers_PerVolume_Y(0, imax, jmax, kmax, u, hq(:, 1), tmp1, tmp2, rhou_in=p)
-        call NSE_AddBurgers_PerVolume_Y(0, imax, jmax, kmax, w, hq(:, 3), tmp1, tmp2, rhou_in=p)
-        if (nse_eqns == DNS_EQNS_ANELASTIC) then
-            call NSE_AddBurgers_PerVolume_Z(0, imax, jmax, kmax, w, hq(:, 3), tmp1, rhou_out=p)          ! store rho w in tmp6
-            call NSE_AddBurgers_PerVolume_Z(0, imax, jmax, kmax, u, hq(:, 1), tmp1, rhou_in=p)
-            call NSE_AddBurgers_PerVolume_Z(0, imax, jmax, kmax, v, hq(:, 2), tmp1, rhou_in=p)
-        else
-            call NSE_AddBurgers_PerVolume_Z(0, imax, jmax, kmax, w, hq(:, 3), tmp1, rhou_in=w)          ! store rho w in tmp6
-            call NSE_AddBurgers_PerVolume_Z(0, imax, jmax, kmax, u, hq(:, 1), tmp1, rhou_in=w)
-            call NSE_AddBurgers_PerVolume_Z(0, imax, jmax, kmax, v, hq(:, 2), tmp1, rhou_in=w)
-        end if
 
         ! #######################################################################
         ! Add forcing terms
@@ -69,13 +48,34 @@ contains
         ! We are missing the buffer nudging here.
 
         ! #######################################################################
+        ! Add diffusion and advection terms
+        ! Using p as auxiliary array
+        ! #######################################################################
+        if (nse_eqns == DNS_EQNS_ANELASTIC) then
+            call NSE_AddBurgers_PerVolume_Z(0, imax, jmax, kmax, w, hq(:, 3), tmp1, rhou_out=p)     ! store rho w in p
+            call NSE_AddBurgers_PerVolume_Z(0, imax, jmax, kmax, u, hq(:, 1), tmp1, rhou_in=p)
+            call NSE_AddBurgers_PerVolume_Z(0, imax, jmax, kmax, v, hq(:, 2), tmp1, rhou_in=p)
+        else
+            call NSE_AddBurgers_PerVolume_Z(0, imax, jmax, kmax, w, hq(:, 3), tmp1, rhou_in=w)
+            call NSE_AddBurgers_PerVolume_Z(0, imax, jmax, kmax, u, hq(:, 1), tmp1, rhou_in=w)
+            call NSE_AddBurgers_PerVolume_Z(0, imax, jmax, kmax, v, hq(:, 2), tmp1, rhou_in=w)
+        end if
+
+        call NSE_AddBurgers_PerVolume_X(0, imax, jmax, kmax, u, hq(:, 1), tmp1, p)                  ! store rho u transposed in p
+        call NSE_AddBurgers_PerVolume_X(0, imax, jmax, kmax, v, hq(:, 2), tmp1, tmp2, rhou_in=p)
+        call NSE_AddBurgers_PerVolume_X(0, imax, jmax, kmax, w, hq(:, 3), tmp1, tmp2, rhou_in=p)
+
+        call NSE_AddBurgers_PerVolume_Y(0, imax, jmax, kmax, v, hq(:, 2), tmp1, p)                  ! store rho v transposed in p
+        call NSE_AddBurgers_PerVolume_Y(0, imax, jmax, kmax, u, hq(:, 1), tmp1, tmp2, rhou_in=p)
+        call NSE_AddBurgers_PerVolume_Y(0, imax, jmax, kmax, w, hq(:, 3), tmp1, tmp2, rhou_in=p)
+
+        ! #######################################################################
         ! Pressure term
         ! #######################################################################
-        ! Forcing term
-        call OPR_Partial_X(OPR_P1, imax, jmax, kmax, hq(:, 1), p)
-        call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, hq(:, 2), tmp1)
-        call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, hq(:, 3), tmp2)
-        p(:) = p(:) + tmp1(:) + tmp2(:)
+        ! Forcing term in p
+        call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, hq(:, 3), p)
+        call OPR_Partial_Y(OPR_P1_ADD, imax, jmax, kmax, hq(:, 2), tmp2, p)
+        call OPR_Partial_X(OPR_P1_ADD, imax, jmax, kmax, hq(:, 1), tmp2, p)
 
         ! Neumman BCs in d/dz(p) s.t. v=0 (no-penetration)
         if (allocated(bcs_hb)) deallocate (bcs_hb)

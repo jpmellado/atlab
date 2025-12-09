@@ -8,7 +8,7 @@ module LargeScaleForcing
     private
 
     public :: LargeScaleForcing_Initialize
-    public :: LargeScaleForcing_Subsidence
+    public :: LargeScaleForcing_AddSubsidence
 
     real(wp), allocatable, public :: wbackground(:)
     ! real(wp), allocatable, public :: ubackground(:)
@@ -80,14 +80,16 @@ contains
 
     !########################################################################
     !########################################################################
-    subroutine LargeScaleForcing_Subsidence(locProps, nx, ny, nz, a, source)
+    subroutine LargeScaleForcing_AddSubsidence(locProps, nx, ny, nz, a, source, result)
         use OPR_Partial, only: OPR_Partial_Z, OPR_P1
-        use Averages, only: AVG1V2D_V
+        use NavierStokes, only: nse_eqns, DNS_EQNS_ANELASTIC
+        use Thermo_Anelastic, only: rbackground
 
         type(term_dt), intent(in) :: locProps
         integer(wi), intent(in) :: nx, ny, nz
         real(wp), intent(in) :: a(nx, ny, nz)
         real(wp), intent(out) :: source(nx, ny, nz)
+        real(wp), intent(inout) :: result(nx, ny, nz)
 
         ! -----------------------------------------------------------------------
         integer(wi) k
@@ -97,13 +99,19 @@ contains
         case (TYPE_SUB_CONSTANT)
             call OPR_Partial_Z(OPR_P1, nx, ny, nz, a, source)
 
-            do k = 1, nz
-                source(:, :, k) = source(:, :, k)*wbackground(k)
-            end do
+            if (nse_eqns == DNS_EQNS_ANELASTIC) then    ! evolution equations per unit volume
+                do k = 1, nz
+                    result(:, :, k) = result(:, :, k) + source(:, :, k)*wbackground(k)*rbackground(k)
+                end do
+            else
+                do k = 1, nz
+                    result(:, :, k) = result(:, :, k) + source(:, :, k)*wbackground(k)
+                end do
+            end if
 
         end select
 
         return
-    end subroutine LargeScaleForcing_Subsidence
+    end subroutine LargeScaleForcing_AddSubsidence
 
 end module LargeScaleForcing

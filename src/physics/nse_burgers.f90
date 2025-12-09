@@ -51,6 +51,8 @@ module NSE_Burgers
     real(wp), allocatable :: rho_yz(:), rho_xz(:)   ! rho in anelastic formulation, x and y directions
     real(wp) :: diffusivity(0:MAX_VARS)
 
+    real(wp), allocatable :: rho_wbackground(:)     ! subsidence velocity (times density)
+
 contains
     !########################################################################
     !########################################################################
@@ -143,6 +145,15 @@ contains
                 rho_xz(j) = rbackground(ip)
             end do
 
+        end if
+
+        ! ###################################################################
+        ! Initialize subsidence velocity (times density) to handle both Boussinesq and anelastic
+        allocate (rho_wbackground(z%size))
+        if (nse_eqns == DNS_EQNS_ANELASTIC) then    ! evolution equations per unit volume
+            rho_wbackground(:) = wbackground(:)*rbackground(:)
+        else
+            rho_wbackground(:) = wbackground(:)
         end if
 
         ! ###################################################################
@@ -581,20 +592,27 @@ contains
         call FDM_Der2_Solve(nlines, g(3)%der2, fdmDiffusion(3)%lu(:, :, is), s, tmp1, wrk3d, wrk2d)
 
         if (present(rhou_in)) then      ! transposed velocity (times density) is passed as argument
-            result(:, :) = result(:, :) + tmp1(:, :) - rhou_in(:, :)*pxy_wrk3d(:, :)
+            if (subsidenceProps%type == TYPE_SUB_CONSTANT) then
+                do k = 1, nz
+                    result(:, k) = result(:, k) + tmp1(:, k) + (rho_wbackground(k) - rhou_in(:, k))*pxy_wrk3d(:, k)
+                end do
+            else
+                result(:, :) = result(:, :) + tmp1(:, :) - rhou_in(:, :)*pxy_wrk3d(:, :)
+            end if
 
         else                            ! Only used in anelastic formulation
-            do k = 1, nz
-                rhou_out(:, k) = s(:, k)*rbackground(k)
-                result(:, k) = result(:, k) + tmp1(:, k) - rhou_out(:, k)*pxy_wrk3d(:, k)
-            end do
+            if (subsidenceProps%type == TYPE_SUB_CONSTANT) then
+                do k = 1, nz
+                    rhou_out(:, k) = s(:, k)*rbackground(k)
+                    result(:, k) = result(:, k) + tmp1(:, k) + (rho_wbackground(k) - rhou_out(:, k))*pxy_wrk3d(:, k)
+                end do
+            else
+                do k = 1, nz
+                    rhou_out(:, k) = s(:, k)*rbackground(k)
+                    result(:, k) = result(:, k) + tmp1(:, k) - rhou_out(:, k)*pxy_wrk3d(:, k)
+                end do
+            end if
 
-        end if
-
-        if (subsidenceProps%type == TYPE_SUB_CONSTANT) then
-            do k = 1, nz
-                result(:, k) = result(:, k) + pxy_wrk3d(:, k)*wbackground(k)*rbackground(k)
-            end do
         end if
 
         return

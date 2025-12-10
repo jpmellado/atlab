@@ -14,6 +14,7 @@
 !########################################################################
 
 subroutine AVG_FLOW_XZ(q, s, dudx, dudy, dudz, dvdx, dvdy, dvdz, dwdx, dwdy, dwdz, mean2d)
+! subroutine AVG_FLOW_XZ(q, s, dudz, dvdx, dvdy, dvdz, dwdx, dwdy, dwdz, mean2d)
     use TLab_Constants, only: wp, wi, MAX_AVG_TEMPORAL
     use TLab_Constants, only: efile, lfile
 #ifdef TRACE_ON
@@ -547,16 +548,18 @@ subroutine AVG_FLOW_XZ(q, s, dudx, dudy, dudz, dvdx, dvdy, dvdz, dwdx, dwdy, dwd
     call AVG_IK_V(imax, jmax, kmax, dvdz, Tyzz(1), wrk1d)
 
     ! Pressure
+#define pprime dvdz
+
     do k = 1, kmax
-        dvdz(:, :, k) = p_loc(:, :, k) - rP(k)
+        pprime(:, :, k) = p_loc(:, :, k) - rP(k)
     end do
-    p_wrk3d = dvdz*dvdz
+    p_wrk3d = pprime*pprime
     call AVG_IK_V(imax, jmax, kmax, p_wrk3d, rP2(1), wrk1d)
 
     ! Pressure-velocity correlation in TKE transport terms
-    dwdx = dwdx*dvdz
-    dwdy = dwdy*dvdz
-    dwdz = dwdz*dvdz
+    dwdx = dwdx*pprime
+    dwdy = dwdy*pprime
+    dwdz = dwdz*pprime
     call AVG_IK_V(imax, jmax, kmax, dwdx, aux(1), wrk1d)
     Txzz(:) = Txzz(:) + aux(:)
     call AVG_IK_V(imax, jmax, kmax, dwdy, aux(1), wrk1d)
@@ -565,17 +568,9 @@ subroutine AVG_FLOW_XZ(q, s, dudx, dudy, dudz, dvdx, dvdy, dvdz, dwdx, dwdy, dwd
     Tzzz(:) = Tzzz(:) + Tz2(:)*2.0_wp
 
     ! ###################################################################
-    ! Pressure; array dudz containing p is used only up to this section
-    !
-    ! dudx = du/dx
-    ! dudy = du/dy
-    ! dudz = p
-    ! dvdx = dv/dx
-    ! dvdy = dv/dy
-    ! dvdz = p_prime
-    ! dwdx =       ; dp/dx
-    ! dwdy =       ; dp/dy
-    ! dwdz = dw/dz ; dp/dz
+    ! Pressure
+    ! array dudz containing p is used only up to this section
+    ! array dvdz contains the pressure fluctuation pprime
     ! ###################################################################
     ! Pressure convection term
     call OPR_Partial_X(OPR_P1, imax, jmax, kmax, p_loc, dwdx)
@@ -586,31 +581,35 @@ subroutine AVG_FLOW_XZ(q, s, dudx, dudy, dudz, dvdx, dvdy, dvdz, dwdx, dwdy, dwd
 
     ! Pressure Strain Terms
     ! 9 derivatives are here recomputed; ok, this routine is not called that often
-    call OPR_Partial_X(OPR_P1, imax, jmax, kmax, u, dudx)
-    call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, v, dvdy)
+    call OPR_Partial_X(OPR_P1, imax, jmax, kmax, u, dwdx)
+    call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, v, dwdy)
     call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, w, dwdz)
-    dudx = dvdz*dudx ! dvdz contains the pressure fluctuation
-    dvdy = dvdz*dvdy
-    dwdz = dvdz*dwdz ! no need to substract rW_z
-    call AVG_IK_V(imax, jmax, kmax, dudx, PIxx(1), wrk1d)
-    call AVG_IK_V(imax, jmax, kmax, dvdy, PIyy(1), wrk1d)
+    dwdx = pprime*dwdx ! dvdz contains the pressure fluctuation
+    dwdy = pprime*dwdy
+    dwdz = pprime*dwdz ! no need to substract rW_z
+    call AVG_IK_V(imax, jmax, kmax, dwdx, PIxx(1), wrk1d)
+    call AVG_IK_V(imax, jmax, kmax, dwdy, PIyy(1), wrk1d)
     call AVG_IK_V(imax, jmax, kmax, dwdz, PIzz(1), wrk1d)
     PIxx(:) = PIxx(:)*2.0_wp
     PIyy(:) = PIyy(:)*2.0_wp
     PIzz(:) = PIzz(:)*2.0_wp
 
-    call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, u, dudy)
-    call OPR_Partial_X(OPR_P1, imax, jmax, kmax, v, dvdx)
-    call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, u, dwdz) !dudz not free
-    call OPR_Partial_X(OPR_P1, imax, jmax, kmax, w, dwdx)
-    call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, v, dudx) !dvdz not free
-    call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, w, dvdy)
-    dudy = dvdz*(dudy + dvdx)
-    dwdz = dvdz*(dwdz + dwdx) ! no need to substract rU_z
-    dudx = dvdz*(dudx + dvdy) ! no need to substract rW_z
-    call AVG_IK_V(imax, jmax, kmax, dudy, PIxy(1), wrk1d)
-    call AVG_IK_V(imax, jmax, kmax, dwdz, PIxz(1), wrk1d)
-    call AVG_IK_V(imax, jmax, kmax, dudx, PIyz(1), wrk1d)
+    call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, u, dwdx)
+    call OPR_Partial_X(OPR_P1, imax, jmax, kmax, v, dwdy)
+    dwdx = pprime*(dwdx + dwdy)
+    call AVG_IK_V(imax, jmax, kmax, dwdx, PIxy(1), wrk1d)
+
+    call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, u, dwdx)
+    call OPR_Partial_X(OPR_P1, imax, jmax, kmax, w, dwdy)
+    dwdx = pprime*(dwdx + dwdy) ! no need to substract rU_z
+    call AVG_IK_V(imax, jmax, kmax, dwdx, PIxz(1), wrk1d)
+
+    call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, v, dwdx)
+    call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, w, dwdy)
+    dwdx = pprime*(dwdx + dwdy) ! no need to substract rW_z
+    call AVG_IK_V(imax, jmax, kmax, dwdx, PIyz(1), wrk1d)
+
+#undef pprime
 
     ! ###################################################################
     ! Thermodynamic variables
@@ -622,62 +621,73 @@ subroutine AVG_FLOW_XZ(q, s, dudx, dudy, dudz, dvdx, dvdy, dvdz, dwdx, dwdy, dwd
         rref(:) = rbackground(:)
         tref(:) = tbackground(:)
 
-        call Thermo_Anelastic_Rho(imax, jmax, kmax, s, dwdx, p_wrk3d)
-        call AVG_IK_V(imax, jmax, kmax, dwdx, rR(1), wrk1d)
-        do k = 1, kmax
-            dvdx(:, :, k) = (dwdx(:, :, k) - rR(k))**2
-        end do
-        call AVG_IK_V(imax, jmax, kmax, dvdx, rR2(1), wrk1d)
-
         call AVG_IK_V(imax, jmax, kmax, s(:, :, :, inb_scal_T), rT(1), wrk1d)
         do k = 1, kmax
-            dvdx(:, :, k) = (s(:, :, k, inb_scal_T) - rT(k))**2
+            dwdy(:, :, k) = (s(:, :, k, inb_scal_T) - rT(k))**2
         end do
-        call AVG_IK_V(imax, jmax, kmax, dvdx, rT2(1), wrk1d)
+        call AVG_IK_V(imax, jmax, kmax, dwdy, rT2(1), wrk1d)
 
-        call Thermo_Anelastic_Theta(imax, jmax, kmax, s, dvdz, p_wrk3d)
-        call AVG_IK_V(imax, jmax, kmax, dvdz, theta(1), wrk1d)
+        call Thermo_Anelastic_Theta(imax, jmax, kmax, s, dwdy, p_wrk3d)
+        call AVG_IK_V(imax, jmax, kmax, dwdy, theta(1), wrk1d)
 
-        call Thermo_Anelastic_ThetaV(imax, jmax, kmax, s, dvdz, p_wrk3d)
-        call AVG_IK_V(imax, jmax, kmax, dvdz, thetav(1), wrk1d)
+        call Thermo_Anelastic_ThetaV(imax, jmax, kmax, s, dwdy, p_wrk3d)
+        call AVG_IK_V(imax, jmax, kmax, dwdy, thetav(1), wrk1d)
 
-        call Thermo_Anelastic_ThetaL(imax, jmax, kmax, s, dvdz, p_wrk3d)
-        call AVG_IK_V(imax, jmax, kmax, dvdz, thetal(1), wrk1d)
+        call Thermo_Anelastic_ThetaL(imax, jmax, kmax, s, dwdy, p_wrk3d)
+        call AVG_IK_V(imax, jmax, kmax, dwdy, thetal(1), wrk1d)
 
-        call Thermo_Anelastic_ThetaE(imax, jmax, kmax, s, dvdz, p_wrk3d)
-        call AVG_IK_V(imax, jmax, kmax, dvdz, thetae(1), wrk1d)
+        call Thermo_Anelastic_ThetaE(imax, jmax, kmax, s, dwdy, p_wrk3d)
+        call AVG_IK_V(imax, jmax, kmax, dwdy, thetae(1), wrk1d)
 
-        call Thermo_Anelastic_MSE(imax, jmax, kmax, s, dvdz)
-        call AVG_IK_V(imax, jmax, kmax, dvdz, mse(1), wrk1d)
+        call Thermo_Anelastic_MSE(imax, jmax, kmax, s, dwdy)
+        call AVG_IK_V(imax, jmax, kmax, dwdy, mse(1), wrk1d)
 
-        call Thermo_Psat_Polynomial(imax*jmax*kmax, s(:, :, :, inb_scal_T), dvdz)
-        call AVG_IK_V(imax, jmax, kmax, dvdz, psat(1), wrk1d)
+        call Thermo_Psat_Polynomial(imax*jmax*kmax, s(:, :, :, inb_scal_T), dwdy)
+        call AVG_IK_V(imax, jmax, kmax, dwdy, psat(1), wrk1d)
 
-        call Thermo_Anelastic_RH(imax, jmax, kmax, s, dvdz, p_wrk3d)
-        call AVG_IK_V(imax, jmax, kmax, dvdz, rh(1), wrk1d)
+        call Thermo_Anelastic_RH(imax, jmax, kmax, s, dwdy, p_wrk3d)
+        call AVG_IK_V(imax, jmax, kmax, dwdy, rh(1), wrk1d)
 
-        call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, s(:, :, :, inb_scal_T), dudz)
+#define locRho dwdx
+        call Thermo_Anelastic_Rho(imax, jmax, kmax, s, locRho, p_wrk3d)
+        call AVG_IK_V(imax, jmax, kmax, locRho, rR(1), wrk1d)
+        do k = 1, kmax
+            dwdy(:, :, k) = (locRho(:, :, k) - rR(k))**2
+        end do
+        call AVG_IK_V(imax, jmax, kmax, dwdy, rR2(1), wrk1d)
 
-        call Thermo_Anelastic_LapseEquilibrium(imax, jmax, kmax, s, dwdz, p_wrk3d)
-        call AVG_IK_V(imax, jmax, kmax, dwdz, lapse_eq(1), wrk1d)
-        !frequency(:) = (lapse(:) + dTdy(:))/locT(:)
-        p_wrk3d = (dwdz + dudz)/dwdx
+#define dTdz dwdz
+#define lapse dwdy
+        call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, s(:, :, :, inb_scal_T), dTdz)
+
+        call Thermo_Anelastic_LapseEquilibrium(imax, jmax, kmax, s, lapse, p_wrk3d)
+        call AVG_IK_V(imax, jmax, kmax, lapse, lapse_eq(1), wrk1d)
+
+        !frequency(:) = (lapse(:) + dTdz(:))/locT(:)
+        p_wrk3d = (lapse + dTdz)/locRho
         call AVG_IK_V(imax, jmax, kmax, p_wrk3d, bfreq_eq(1), wrk1d)
         bfreq_eq(:) = bfreq_eq(:)*gravityProps%vector(3)
 
-        call Thermo_Anelastic_LapseFrozen(imax, jmax, kmax, s, dwdz)
-        call AVG_IK_V(imax, jmax, kmax, dwdz, lapse_fr(1), wrk1d)
-        !frequency(:) = (lapse(:) + dTdy(:))/locT(:)
-        p_wrk3d = (dwdz + dudz)/dwdx
+        call Thermo_Anelastic_LapseFrozen(imax, jmax, kmax, s, lapse)
+        call AVG_IK_V(imax, jmax, kmax, lapse, lapse_fr(1), wrk1d)
+
+        !frequency(:) = (lapse(:) + dTdz(:))/locT(:)
+        p_wrk3d = (lapse + dTdz)/locRho
         call AVG_IK_V(imax, jmax, kmax, p_wrk3d, bfreq_fr(1), wrk1d)
         bfreq_fr(:) = bfreq_fr(:)*gravityProps%vector(3)
 
-        call Thermo_Anelastic_Pvapor(imax, jmax, kmax, s, dudz)
-        call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, dudz, dudy)
-        ! dwdz should contains lapse_fr, since lapse_dew = lapse_fr when saturated
-        call Thermo_Anelastic_Weight_DewPoint(imax, jmax, kmax, s, dudy, p_wrk3d, dwdz)
+#undef dTdz
+#undef locRho
+
+        ! dewpoint
+        call Thermo_Anelastic_Pvapor(imax, jmax, kmax, s, dwdx)
+        call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, dwdx, dwdz)
+        ! lapse should contains lapse_fr, since lapse_dew = lapse_fr when saturated
+        call Thermo_Anelastic_Weight_DewPoint(imax, jmax, kmax, s, dwdz, p_wrk3d, lapse)
         call AVG_IK_V(imax, jmax, kmax, p_wrk3d, dewpoint(1), wrk1d)
-        call AVG_IK_V(imax, jmax, kmax, dwdz, lapse_dew(1), wrk1d)
+        call AVG_IK_V(imax, jmax, kmax, lapse, lapse_dew(1), wrk1d)
+
+#undef lapse
 
     end select
 
@@ -686,26 +696,26 @@ subroutine AVG_FLOW_XZ(q, s, dudx, dudy, dudz, dvdx, dvdy, dvdz, dwdx, dwdy, dwd
     ! ###################################################################
     if (any([DNS_EQNS_BOUSSINESQ, DNS_EQNS_ANELASTIC] == nse_eqns)) then
 
-        dudx = 0.0_wp
+        dwdx = 0.0_wp
         select case (nse_eqns)
         case (DNS_EQNS_BOUSSINESQ)
-            call Gravity_AddSource(gravityProps, imax, jmax, kmax, s, dudx, 1.0_wp)
+            call Gravity_AddSource(gravityProps, imax, jmax, kmax, s, dwdx, 1.0_wp)
 
-            call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, dudx, dudy)
-            call AVG_IK_V(imax, jmax, kmax, dudy, bfreq_fr(1), wrk1d)
+            call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, dwdx, dwdy)
+            call AVG_IK_V(imax, jmax, kmax, dwdy, bfreq_fr(1), wrk1d)
             bfreq_fr(:) = bfreq_fr(:)*gravityProps%vector(3)
             bfreq_eq(:) = bfreq_fr(:)
 
         case (DNS_EQNS_ANELASTIC)
-            call Thermo_Anelastic_AddBuoyancy(imax, jmax, kmax, s, dudx, 1.0_wp)
+            call Thermo_Anelastic_AddBuoyancy(imax, jmax, kmax, s, dwdx, 1.0_wp)
 
         end select
 
-        call AVG_IK_V(imax, jmax, kmax, dudx, rB(1), wrk1d)
+        call AVG_IK_V(imax, jmax, kmax, dwdx, rB(1), wrk1d)
         do k = 1, kmax
-            dvdx(:, :, k) = (u(:, :, k) - rU(k))*(dudx(:, :, k) - rB(k))
-            dvdy(:, :, k) = (v(:, :, k) - rV(k))*(dudx(:, :, k) - rB(k))
-            dvdz(:, :, k) = (w(:, :, k) - rW(k))*(dudx(:, :, k) - rB(k))
+            dvdx(:, :, k) = (u(:, :, k) - rU(k))*(dwdx(:, :, k) - rB(k))
+            dvdy(:, :, k) = (v(:, :, k) - rV(k))*(dwdx(:, :, k) - rB(k))
+            dvdz(:, :, k) = (w(:, :, k) - rW(k))*(dwdx(:, :, k) - rB(k))
         end do
         call AVG_IK_V(imax, jmax, kmax, dvdx, Bxx(1), wrk1d)
         call AVG_IK_V(imax, jmax, kmax, dvdy, Byy(1), wrk1d)
@@ -754,17 +764,17 @@ subroutine AVG_FLOW_XZ(q, s, dudx, dudy, dudz, dvdx, dvdy, dvdz, dwdx, dwdy, dwd
     ! # dwdy = d W / d y
     ! # dwdz = d W / d z
     ! ###################################################################
-    call OPR_Partial_X(OPR_P1, imax, jmax, kmax, u, dudx)
+    ! call OPR_Partial_X(OPR_P1, imax, jmax, kmax, u, dudx)
     call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, u, dudy)
     call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, u, dudz)
 
     call OPR_Partial_X(OPR_P1, imax, jmax, kmax, v, dvdx)
-    call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, v, dvdy)
+    ! call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, v, dvdy)
     call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, v, dvdz)
 
     call OPR_Partial_X(OPR_P1, imax, jmax, kmax, w, dwdx)
     call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, w, dwdy)
-    call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, w, dwdz)
+    ! call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, w, dwdz)
 
     ! ###################################################################
     ! Vorticity
@@ -791,37 +801,8 @@ subroutine AVG_FLOW_XZ(q, s, dudx, dudy, dudz, dvdx, dvdy, dvdz, dwdx, dwdy, dwd
     call AVG_IK_V(imax, jmax, kmax, p_wrk3d, vortz2(1), wrk1d)
 
     ! ###################################################################
-    ! Derivatives Fluctuations
+    ! Derivatives Fluctuations; lateral terms
     ! ###################################################################
-    ! -------------------------------------------------------------------
-    ! Longitudinal terms
-    p_wrk3d = dudx*dudx
-    call AVG_IK_V(imax, jmax, kmax, p_wrk3d, U_x2(1), wrk1d)
-    p_wrk3d = p_wrk3d*dudx
-    call AVG_IK_V(imax, jmax, kmax, p_wrk3d, U_x3(1), wrk1d)
-    p_wrk3d = p_wrk3d*dudx
-    call AVG_IK_V(imax, jmax, kmax, p_wrk3d, U_x4(1), wrk1d)
-
-    p_wrk3d = dvdy*dvdy
-    call AVG_IK_V(imax, jmax, kmax, p_wrk3d, V_y2(1), wrk1d)
-    p_wrk3d = p_wrk3d*dvdy
-    call AVG_IK_V(imax, jmax, kmax, p_wrk3d, V_y3(1), wrk1d)
-    p_wrk3d = p_wrk3d*dvdy
-    call AVG_IK_V(imax, jmax, kmax, p_wrk3d, V_y4(1), wrk1d)
-
-    do k = 1, kmax
-        p_wrk3d(:, :, k) = (dwdz(:, :, k) - rW_z(k))*(dwdz(:, :, k) - rW_z(k))
-    end do
-    call AVG_IK_V(imax, jmax, kmax, p_wrk3d, W_z2(1), wrk1d)
-    do k = 1, kmax
-        p_wrk3d(:, :, k) = p_wrk3d(:, :, k)*(dwdz(:, :, k) - rW_z(k))
-    end do
-    call AVG_IK_V(imax, jmax, kmax, p_wrk3d, W_z3(1), wrk1d)
-    do k = 1, kmax
-        p_wrk3d(:, :, k) = p_wrk3d(:, :, k)*(dwdz(:, :, k) - rW_z(k))
-    end do
-    call AVG_IK_V(imax, jmax, kmax, p_wrk3d, W_z4(1), wrk1d)
-
     ! -------------------------------------------------------------------
     ! Lateral terms U
     p_wrk3d = dudy*dudy
@@ -883,6 +864,43 @@ subroutine AVG_FLOW_XZ(q, s, dudx, dudy, dudz, dvdx, dvdy, dvdz, dwdx, dwdy, dwd
     call AVG_IK_V(imax, jmax, kmax, p_wrk3d, W_y4(1), wrk1d)
 
     ! -------------------------------------------------------------------
+    ! Would it be possible to reduce the 6 lateral terms to 
+    ! the 3 off-diagonal strain-rate terms, to free up memory?
+
+    ! ###################################################################
+    ! Derivatives Fluctuations; Longitudinal terms
+    ! ###################################################################
+    call OPR_Partial_X(OPR_P1, imax, jmax, kmax, u, dudx)
+    call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, v, dvdy)
+    call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, w, dwdz)
+
+    p_wrk3d = dudx*dudx
+    call AVG_IK_V(imax, jmax, kmax, p_wrk3d, U_x2(1), wrk1d)
+    p_wrk3d = p_wrk3d*dudx
+    call AVG_IK_V(imax, jmax, kmax, p_wrk3d, U_x3(1), wrk1d)
+    p_wrk3d = p_wrk3d*dudx
+    call AVG_IK_V(imax, jmax, kmax, p_wrk3d, U_x4(1), wrk1d)
+
+    p_wrk3d = dvdy*dvdy
+    call AVG_IK_V(imax, jmax, kmax, p_wrk3d, V_y2(1), wrk1d)
+    p_wrk3d = p_wrk3d*dvdy
+    call AVG_IK_V(imax, jmax, kmax, p_wrk3d, V_y3(1), wrk1d)
+    p_wrk3d = p_wrk3d*dvdy
+    call AVG_IK_V(imax, jmax, kmax, p_wrk3d, V_y4(1), wrk1d)
+
+    do k = 1, kmax
+        p_wrk3d(:, :, k) = (dwdz(:, :, k) - rW_z(k))*(dwdz(:, :, k) - rW_z(k))
+    end do
+    call AVG_IK_V(imax, jmax, kmax, p_wrk3d, W_z2(1), wrk1d)
+    do k = 1, kmax
+        p_wrk3d(:, :, k) = p_wrk3d(:, :, k)*(dwdz(:, :, k) - rW_z(k))
+    end do
+    call AVG_IK_V(imax, jmax, kmax, p_wrk3d, W_z3(1), wrk1d)
+    do k = 1, kmax
+        p_wrk3d(:, :, k) = p_wrk3d(:, :, k)*(dwdz(:, :, k) - rW_z(k))
+    end do
+    call AVG_IK_V(imax, jmax, kmax, p_wrk3d, W_z4(1), wrk1d)
+
     ! Dilatation fluctuation
     p_wrk3d = dudx + dvdy + dwdz
     ! if (nse_eqns == DNS_EQNS_ANELASTIC) then
@@ -1118,14 +1136,6 @@ subroutine AVG_FLOW_XZ(q, s, dudx, dudy, dudz, dvdx, dvdy, dvdz, dwdx, dwdy, dwd
     ! ###################################################################
     ! Output
     ! ###################################################################
-    ! 14 t-dependent variables, for consistency with old format
-    ! ng = ng +1
-    ! groupname(ng) = ''
-    ! varname(ng)   = 'dummy dummy dummy dummy dummy dummy dummy dummy dummy dummy dummy dummy dummy dummy'
-    ! ng = ng +1; groupname(ng) = ''; varname(ng) = ''
-    ! ng = ng +1; groupname(ng) = ''; varname(ng) = ''
-    ! ng = ng +1; groupname(ng) = ''; varname(ng) = ''
-
     write (name, *) itime; name = 'avg'//trim(adjustl(name))
     call IO_WRITE_AVERAGES(name, itime, rtime, kmax, nv, ng, z%nodes, varname, groupname, mean2d)
 

@@ -5,7 +5,8 @@
 ! Compressible formulation uses simply the gravity force rho *g
 
 module Gravity
-    use TLab_Constants, only: wp, wi, small_wp, efile, lfile, wfile, MAX_PROF, MAX_VARS, MAX_PARS
+    use TLab_Constants, only: wp, wi, small_wp, big_wp
+    use TLab_Constants, only: efile, lfile, wfile, MAX_PROF, MAX_VARS, MAX_PARS
     use TLab_Memory, only: inb_scal, inb_scal_array, inb_flow, inb_flow_array
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
     implicit none
@@ -15,7 +16,7 @@ module Gravity
     public :: Gravity_AddSource
     public :: Gravity_Hydrostatic_Enthalpy
 
-    real(wp), public, protected :: froude
+    real(wp), public, protected :: froude = big_wp
 
     type gravity_dt
         sequence

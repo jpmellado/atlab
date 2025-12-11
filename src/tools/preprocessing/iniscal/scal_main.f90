@@ -16,10 +16,10 @@ program IniScal
     use FDM, only: FDM_Initialize
     use NavierStokes, only: NavierStokes_Initialize_Parameters
     use Thermodynamics, only: Thermo_Initialize
+    use Thermo_Anelastic, only: Thermo_Anelastic_EquilibriumPH
     use Gravity, only: Gravity_Initialize
     use Microphysics, only: Microphysics_Initialize
     use TLab_Background, only: TLab_Initialize_Background, sbg
-    use Thermo_Anelastic, only: Thermo_Anelastic_EquilibriumPH
     use Profiles, only: Profiles_Calculate
     use SCAL_LOCAL
 

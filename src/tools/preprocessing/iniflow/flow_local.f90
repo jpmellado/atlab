@@ -4,9 +4,8 @@ module FLOW_LOCAL
     use TLab_Constants, only: wp, wi, pi_wp
     use TLab_Constants, only: efile, lfile, wfile, tag_flow
     use TLab_Constants, only: BCS_DD, BCS_DN, BCS_ND, BCS_NN
-    use TLab_Memory, only: imax, jmax, kmax, isize_field
-    use TLab_Memory, only: inb_txc
-    use TLab_Time, only: itime!, rtime
+    use TLab_Memory, only: imax, jmax, kmax, isize_field, inb_txc
+    use TLab_Time, only: itime
     use TLab_Pointers_3D, only: p_wrk1d, p_wrk2d
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
 #ifdef USE_MPI
@@ -14,12 +13,12 @@ module FLOW_LOCAL
 #endif
     use IO_Fields
     use TLab_Grid, only: x, y, z
+    use Discrete, only: discrete_dt, Discrete_ReadBlock
     use Averages, only: AVG1V2D
     use Profiles, only: profiles_dt, Profiles_ReadBlock, Profiles_Calculate
     use Profiles, only: PROFILE_NONE, PROFILE_GAUSSIAN, PROFILE_GAUSSIAN_ANTISYM, PROFILE_GAUSSIAN_SYM, PROFILE_GAUSSIAN_SURFACE, PROFILE_PARABOLIC_SURFACE
     use OPR_Partial
     use OPR_Elliptic
-    use Discrete, only: discrete_dt, Discrete_ReadBlock
     use FI_VECTORCALCULUS
     implicit none
     private

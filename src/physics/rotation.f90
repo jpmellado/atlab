@@ -1,7 +1,8 @@
 #include "tlab_error.h"
 
 module Rotation
-    use TLab_Constants, only: wp, wi, pi_wp, efile, lfile, MAX_VARS, MAX_PARS
+    use TLab_Constants, only: wp, wi, pi_wp, big_wp
+    use TLab_Constants, only: efile, lfile, MAX_VARS, MAX_PARS
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
     implicit none
     private
@@ -10,7 +11,7 @@ module Rotation
     public :: Rotation_AddCoriolis
     public :: Rotation_AddCoriolis_PerVolume
 
-    real(wp), public, protected :: rossby
+    real(wp), public, protected :: rossby = big_wp
 
     type coriolis_dt
         sequence

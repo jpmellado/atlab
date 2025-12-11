@@ -1,13 +1,12 @@
 program IniFlow
     use TLab_Constants, only: wp, wi
     use TLab_Constants, only: ifile, gfile, lfile, tag_flow
-    use TLab_Memory, only: imax, jmax, kmax, isize_field
-    use TLab_Memory, only: inb_flow
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Start
     use TLab_Time, only: itime, rtime
     use TLab_Arrays
-    use TLab_Pointers_2D, only: pxy_q
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Start
+    use TLab_Memory, only: imax, jmax, kmax, inb_flow, isize_field
     use TLab_Memory, only: TLab_Initialize_Memory
+    use TLab_Pointers_2D, only: pxy_q
 #ifdef USE_MPI
     use TLabMPI_PROCS, only: TLabMPI_Initialize
     use TLabMPI_Transpose, only: TLabMPI_Trp_Initialize
@@ -17,10 +16,9 @@ program IniFlow
     use FDM, only: FDM_Initialize
     use NavierStokes, only: NavierStokes_Initialize_Parameters
     use Thermodynamics, only: Thermo_Initialize
-    ! use NavierStokes, only: nse_eqns, DNS_EQNS_COMPRESSIBLE, DNS_EQNS_TOTAL
-    use OPR_Partial, only: OPR_Partial_Initialize
     use TLab_Background, only: TLab_Initialize_Background, qbg
     use Profiles, only: Profiles_Calculate
+    use OPR_Partial, only: OPR_Partial_Initialize
     use OPR_Fourier, only: OPR_Fourier_Initialize
     use OPR_Elliptic, only: OPR_Elliptic_Initialize
     use FLOW_LOCAL

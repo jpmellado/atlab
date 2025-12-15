@@ -8,6 +8,7 @@ program DNS
     use TLab_Arrays
     use TLab_Memory, only: imax, jmax, kmax, inb_scal, inb_flow
     use TLab_Memory, only: TLab_Initialize_Memory
+    use TLab_Transpose, only: TLab_Transpose_Initialize
 #ifdef USE_MPI
     use TLabMPI_PROCS, only: TLabMPI_Initialize
     use TLabMPI_Transpose, only: TLabMPI_Trp_Initialize
@@ -71,6 +72,7 @@ program DNS
 
     ! #######################################################################
     call TLab_Initialize_Memory(__FILE__)
+    ! call TLab_Transpose_Initialize()
 
     call OPR_Partial_Initialize(ifile)
     call OPR_Fourier_Initialize()

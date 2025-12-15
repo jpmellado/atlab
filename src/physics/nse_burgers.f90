@@ -4,6 +4,7 @@ module NSE_Burgers
     use TLab_Constants, only: wp, wi, efile, lfile, BCS_NONE, MAX_VARS
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
     use TLab_Arrays, only: wrk2d, wrk3d
+    use TLab_Transpose
 #ifdef USE_MPI
     use TLabMPI_VARS, only: ims_npro_i, ims_npro_j
     use TLabMPI_Transpose
@@ -214,7 +215,7 @@ contains
 #ifdef USE_ESSL
         call DGETMO(s, nx, nx, ny*nz, tmp1, ny*nz)
 #else
-        call TLab_Transpose(s, nx, ny*nz, nx, tmp1, ny*nz)
+        call TLab_Transpose_Real(s, nx, ny*nz, nx, tmp1, ny*nz)
 #endif
 
         nlines = ny*nz
@@ -275,7 +276,7 @@ contains
 #ifdef USE_ESSL
         call DGETMO(result, g(1)%size, g(1)%size, nlines, tmp1, nlines)
 #else
-        call TLab_Transpose(result, g(1)%size, nlines, g(1)%size, tmp1, nlines)
+        call TLab_Transpose_Real(result, g(1)%size, nlines, g(1)%size, tmp1, nlines)
 #endif
 
         call FDM_Der1_Solve(nlines, g(1)%der1, g(1)%der1%lu, tmp1, wrk3d, wrk2d)
@@ -299,7 +300,7 @@ contains
 #ifdef USE_ESSL
         call DGETMO(result, nlines, nlines, g(1)%size, wrk3d, g(1)%size)
 #else
-        call TLab_Transpose(result, nlines, g(1)%size, nlines, wrk3d, g(1)%size)
+        call TLab_Transpose_Real(result, nlines, g(1)%size, nlines, wrk3d, g(1)%size)
 #endif
         call TLabMPI_Trp_ExecI_Backward(wrk3d, result, tmpi_plan_dx)
         rhs = rhs + result
@@ -334,7 +335,7 @@ contains
 #ifdef USE_ESSL
         call DGETMO(s, nx, nx, ny*nz, tmp1, ny*nz)
 #else
-        call TLab_Transpose(s, nx, ny*nz, nx, tmp1, ny*nz)
+        call TLab_Transpose_Real(s, nx, ny*nz, nx, tmp1, ny*nz)
 #endif
 
         nlines = ny*nz
@@ -401,7 +402,7 @@ contains
 #ifdef USE_ESSL
         call DGETMO(s, nx*ny, nx*ny, nz, tmp1, nz)
 #else
-        call TLab_Transpose(s, nx*ny, nz, nx*ny, tmp1, nz)
+        call TLab_Transpose_Real(s, nx*ny, nz, nx*ny, tmp1, nz, locBlock=trans_y)
 #endif
 
         nlines = nx*nz
@@ -429,7 +430,7 @@ contains
         call DGETMO(wrk3d, nz, nz, nx*ny, result, nx*ny)
         rhs = rhs + result
 #else
-        call TLab_AddTranspose(wrk3d, nz, nx*ny, nz, rhs, nx*ny)
+        call TLab_AddTranspose(wrk3d, nz, nx*ny, nz, rhs, nx*ny, locBlock=trans_y)
 #endif
 
         return
@@ -460,7 +461,7 @@ contains
 #ifdef USE_ESSL
         call DGETMO(s, nx*ny, nx*ny, nz, wrk3d, nz)
 #else
-        call TLab_Transpose(s, nx*ny, nz, nx*ny, wrk3d, nz)
+        call TLab_Transpose_Real(s, nx*ny, nz, nx*ny, wrk3d, nz)
 #endif
         call TLabMPI_Trp_ExecJ_Forward(wrk3d, tmp1, tmpi_plan_dy)
         nlines = tmpi_plan_dy%nlines
@@ -522,7 +523,7 @@ contains
 #ifdef USE_ESSL
         call DGETMO(s, nx*ny, nx*ny, nz, tmp1, nz)
 #else
-        call TLab_Transpose(s, nx*ny, nz, nx*ny, tmp1, nz)
+        call TLab_Transpose_Real(s, nx*ny, nz, nx*ny, tmp1, nz, locBlock=trans_y)
 #endif
 
         nlines = nx*nz
@@ -558,7 +559,7 @@ contains
         call DGETMO(wrk3d, nz, nz, nx*ny, result, nx*ny)
         rhs = rhs + result
 #else
-        call TLab_AddTranspose(wrk3d, nz, nx*ny, nz, rhs, nx*ny)
+        call TLab_AddTranspose(wrk3d, nz, nx*ny, nz, rhs, nx*ny, locBlock=trans_y)
 #endif
 
         return

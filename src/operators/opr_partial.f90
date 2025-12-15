@@ -4,6 +4,7 @@ module OPR_Partial
     use TLab_Constants, only: wp, wi
     use TLab_Constants, only: BCS_NONE
     use TLab_Arrays, only: wrk2d, wrk3d
+    use TLab_Transpose
 #ifdef USE_MPI
     use TLabMPI_VARS, only: ims_npro_i, ims_npro_j
     use TLabMPI_Transpose
@@ -184,7 +185,7 @@ contains
 #ifdef USE_ESSL
         call DGETMO(u, nx, nx, ny*nz, result, ny*nz)
 #else
-        call TLab_Transpose(u, nx, ny*nz, nx, result, ny*nz)
+        call TLab_Transpose_Real(u, nx, ny*nz, nx, result, ny*nz)
 #endif
 
         if (present(ibc)) then
@@ -210,8 +211,8 @@ contains
         ! Put arrays back in the order in which they came in
         select case (type)
         case (OPR_P2_P1)
-            call TLab_Transpose(tmp1, ny*nz, nx, ny*nz, result, nx)
-            call TLab_Transpose(wrk3d, ny*nz, nx, ny*nz, tmp1, nx)
+            call TLab_Transpose_Real(tmp1, ny*nz, nx, ny*nz, result, nx)
+            call TLab_Transpose_Real(wrk3d, ny*nz, nx, ny*nz, tmp1, nx)
 
         case (OPR_P1_ADD)
             call TLab_AddTranspose(wrk3d, ny*nz, nx, ny*nz, tmp1, nx)
@@ -220,7 +221,7 @@ contains
             call TLab_SubtractTranspose(wrk3d, ny*nz, nx, ny*nz, tmp1, nx)
 
         case default
-            call TLab_Transpose(wrk3d, ny*nz, nx, ny*nz, result, nx)
+            call TLab_Transpose_Real(wrk3d, ny*nz, nx, ny*nz, result, nx)
 
         end select
 
@@ -256,7 +257,7 @@ contains
 #ifdef USE_ESSL
         call DGETMO(result, g(1)%size, g(1)%size, nlines, wrk3d, nlines)
 #else
-        call TLab_Transpose(result, g(1)%size, nlines, g(1)%size, wrk3d, nlines)
+        call TLab_Transpose_Real(result, g(1)%size, nlines, g(1)%size, wrk3d, nlines)
 #endif
 
         if (present(ibc)) then
@@ -282,23 +283,23 @@ contains
         ! Put arrays back in the order in which they came in
         select case (type)
         case (OPR_P2_P1)
-            call TLab_Transpose(tmp1, nlines, g(1)%size, nlines, wrk3d, g(1)%size)
-            call TLab_Transpose(result, nlines, g(1)%size, nlines, tmp1, g(1)%size)
+            call TLab_Transpose_Real(tmp1, nlines, g(1)%size, nlines, wrk3d, g(1)%size)
+            call TLab_Transpose_Real(result, nlines, g(1)%size, nlines, tmp1, g(1)%size)
             call TLabMPI_Trp_ExecI_Backward(tmp1, result, tmpi_plan_dx)
             call TLabMPI_Trp_ExecI_Backward(wrk3d, tmp1, tmpi_plan_dx)
 
         case (OPR_P1_ADD)
-            call TLab_Transpose(result, nlines, g(1)%size, nlines, wrk3d, g(1)%size)
+            call TLab_Transpose_Real(result, nlines, g(1)%size, nlines, wrk3d, g(1)%size)
             call TLabMPI_Trp_ExecI_Backward(wrk3d, result, tmpi_plan_dx)
             tmp1 = tmp1 + result
 
         case (OPR_P1_SUBTRACT)
-            call TLab_Transpose(result, nlines, g(1)%size, nlines, wrk3d, g(1)%size)
+            call TLab_Transpose_Real(result, nlines, g(1)%size, nlines, wrk3d, g(1)%size)
             call TLabMPI_Trp_ExecI_Backward(wrk3d, result, tmpi_plan_dx)
             tmp1 = tmp1 - result
 
         case default
-            call TLab_Transpose(result, nlines, g(1)%size, nlines, wrk3d, g(1)%size)
+            call TLab_Transpose_Real(result, nlines, g(1)%size, nlines, wrk3d, g(1)%size)
             call TLabMPI_Trp_ExecI_Backward(wrk3d, result, tmpi_plan_dx)
 
         end select
@@ -332,7 +333,7 @@ contains
 #ifdef USE_ESSL
         call DGETMO(u, nx, nx, ny*nz, result, ny*nz)
 #else
-        call TLab_Transpose(u, nx, ny*nz, nx, result, ny*nz)
+        call TLab_Transpose_Real(u, nx, ny*nz, nx, result, ny*nz)
 #endif
 
         np1 = size(der1_split_x%rhs)/2
@@ -360,8 +361,8 @@ contains
         ! Put arrays back in the order in which they came in
         select case (type)
         case (OPR_P2_P1)
-            call TLab_Transpose(tmp1, ny*nz, nx, ny*nz, result, nx)
-            call TLab_Transpose(wrk3d, ny*nz, nx, ny*nz, tmp1, nx)
+            call TLab_Transpose_Real(tmp1, ny*nz, nx, ny*nz, result, nx)
+            call TLab_Transpose_Real(wrk3d, ny*nz, nx, ny*nz, tmp1, nx)
 
         case (OPR_P1_ADD)
             call TLab_AddTranspose(wrk3d, ny*nz, nx, ny*nz, tmp1, nx)
@@ -370,7 +371,7 @@ contains
             call TLab_SubtractTranspose(wrk3d, ny*nz, nx, ny*nz, tmp1, nx)
 
         case default
-            call TLab_Transpose(wrk3d, ny*nz, nx, ny*nz, result, nx)
+            call TLab_Transpose_Real(wrk3d, ny*nz, nx, ny*nz, result, nx)
 
         end select
 
@@ -404,7 +405,7 @@ contains
 #ifdef USE_ESSL
         call DGETMO(u, nx*ny, nx*ny, nz, result, nz)
 #else
-        call TLab_Transpose(u, nx*ny, nz, nx*ny, result, nz)
+        call TLab_Transpose_Real(u, nx*ny, nz, nx*ny, result, nz, locBlock=trans_y)
 #endif
         nlines = nx*nz
 
@@ -431,17 +432,17 @@ contains
         ! Put arrays back in the order in which they came in
         select case (type)
         case (OPR_P2_P1)
-            call TLab_Transpose(tmp1, nz, nx*ny, nz, result, nx*ny)
-            call TLab_Transpose(wrk3d, nz, nx*ny, nz, tmp1, nx*ny)
+            call TLab_Transpose_Real(tmp1, nz, nx*ny, nz, result, nx*ny, locBlock=trans_y)
+            call TLab_Transpose_Real(wrk3d, nz, nx*ny, nz, tmp1, nx*ny, locBlock=trans_y)
 
         case (OPR_P1_ADD)
-            call TLab_AddTranspose(wrk3d, nz, nx*ny, nz, tmp1, nx*ny)
+            call TLab_AddTranspose(wrk3d, nz, nx*ny, nz, tmp1, nx*ny, locBlock=trans_y)
 
         case (OPR_P1_SUBTRACT)
-            call TLab_SubtractTranspose(wrk3d, nz, nx*ny, nz, tmp1, nx*ny)
+            call TLab_SubtractTranspose(wrk3d, nz, nx*ny, nz, tmp1, nx*ny, locBlock=trans_y)
 
         case default
-            call TLab_Transpose(wrk3d, nz, nx*ny, nz, result, nx*ny)
+            call TLab_Transpose_Real(wrk3d, nz, nx*ny, nz, result, nx*ny, locBlock=trans_y)
 
         end select
 
@@ -474,7 +475,7 @@ contains
 #ifdef USE_ESSL
         call DGETMO(u, nx*ny, nx*ny, nz, result, nz)
 #else
-        call TLab_Transpose(u, nx*ny, nz, nx*ny, result, nz)
+        call TLab_Transpose_Real(u, nx*ny, nz, nx*ny, result, nz)
 #endif
         call TLabMPI_Trp_ExecJ_Forward(result, wrk3d, tmpi_plan_dy)
         nlines = tmpi_plan_dy%nlines
@@ -504,8 +505,8 @@ contains
         case (OPR_P2_P1)
             call TLabMPI_Trp_ExecJ_Backward(tmp1, wrk3d, tmpi_plan_dy)
             call TLabMPI_Trp_ExecJ_Backward(result, tmp1, tmpi_plan_dy)
-            call TLab_Transpose(tmp1, nz, nx*ny, nz, result, nx*ny)
-            call TLab_Transpose(wrk3d, nz, nx*ny, nz, tmp1, nx*ny)
+            call TLab_Transpose_Real(tmp1, nz, nx*ny, nz, result, nx*ny)
+            call TLab_Transpose_Real(wrk3d, nz, nx*ny, nz, tmp1, nx*ny)
 
         case (OPR_P1_ADD)
             call TLabMPI_Trp_ExecJ_Backward(result, wrk3d, tmpi_plan_dy)
@@ -517,7 +518,7 @@ contains
 
         case default
             call TLabMPI_Trp_ExecJ_Backward(result, wrk3d, tmpi_plan_dy)
-            call TLab_Transpose(wrk3d, nz, nx*ny, nz, result, nx*ny)
+            call TLab_Transpose_Real(wrk3d, nz, nx*ny, nz, result, nx*ny)
 
         end select
 
@@ -550,7 +551,7 @@ contains
 #ifdef USE_ESSL
         call DGETMO(u, nx*ny, nx*ny, nz, result, nz)
 #else
-        call TLab_Transpose(u, nx*ny, nz, nx*ny, result, nz)
+        call TLab_Transpose_Real(u, nx*ny, nz, nx*ny, result, nz, locBlock=trans_y)
 #endif
 
         np1 = size(der1_split_y%rhs)/2
@@ -578,17 +579,17 @@ contains
         ! Put arrays back in the order in which they came in
         select case (type)
         case (OPR_P2_P1)
-            call TLab_Transpose(tmp1, nz, nx*ny, nz, result, nx*ny)
-            call TLab_Transpose(wrk3d, nz, nx*ny, nz, tmp1, nx*ny)
+            call TLab_Transpose_Real(tmp1, nz, nx*ny, nz, result, nx*ny, locBlock=trans_y)
+            call TLab_Transpose_Real(wrk3d, nz, nx*ny, nz, tmp1, nx*ny, locBlock=trans_y)
 
         case (OPR_P1_ADD)
-            call TLab_AddTranspose(wrk3d, nz, nx*ny, nz, tmp1, nx*ny)
+            call TLab_AddTranspose(wrk3d, nz, nx*ny, nz, tmp1, nx*ny, locBlock=trans_y)
 
         case (OPR_P1_SUBTRACT)
-            call TLab_SubtractTranspose(wrk3d, nz, nx*ny, nz, tmp1, nx*ny)
+            call TLab_SubtractTranspose(wrk3d, nz, nx*ny, nz, tmp1, nx*ny, locBlock=trans_y)
 
         case default
-            call TLab_Transpose(wrk3d, nz, nx*ny, nz, result, nx*ny)
+            call TLab_Transpose_Real(wrk3d, nz, nx*ny, nz, result, nx*ny, locBlock=trans_y)
 
         end select
 

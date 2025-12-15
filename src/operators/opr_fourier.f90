@@ -9,6 +9,7 @@ module OPR_Fourier
     use TLab_Memory, only: imax, jmax, kmax
     use TLab_Arrays, only: wrk3d
     use TLab_Pointers_C, only: c_wrk3d
+    use TLab_Transpose, only: TLab_Transpose_Complex
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
     use TLab_Grid
     use, intrinsic :: iso_c_binding
@@ -340,12 +341,12 @@ contains
         if (fft_y_on) then
             call OPR_Fourier_X_Forward(in, out)
             ! Local transposition: make y-direction the last one
-            call TLab_Transpose_complex(out, (imax/2 + 1)*jmax, kmax, (imax/2 + 1)*jmax, tmp1, kmax)
+            call TLab_Transpose_Complex(out, (imax/2 + 1)*jmax, kmax, (imax/2 + 1)*jmax, tmp1, kmax)
             call OPR_Fourier_Y_Forward(tmp1, out)
         else
             call OPR_Fourier_X_Forward(in, tmp1)
             ! Local transposition: make y-direction the last one
-            call TLab_Transpose_complex(tmp1, (imax/2 + 1)*jmax, kmax, (imax/2 + 1)*jmax, out, kmax)
+            call TLab_Transpose_Complex(tmp1, (imax/2 + 1)*jmax, kmax, (imax/2 + 1)*jmax, out, kmax)
         end if
 
         return
@@ -364,15 +365,15 @@ contains
 
             ! call OPR_Fourier_Y_Backward(in, c_out)
             ! ! Local transposition: make y-direction the intermediate one again
-            ! call TLab_Transpose_complex(c_out, kmax, (imax/2 + 1)*jmax, kmax, tmp1, (imax/2 + 1)*jmax)
+            ! call TLab_Transpose_Complex(c_out, kmax, (imax/2 + 1)*jmax, kmax, tmp1, (imax/2 + 1)*jmax)
 
             ! nullify (c_out)
             call OPR_Fourier_Y_Backward(in, c_wrk3d)
             ! Local transposition: make y-direction the intermediate one again
-            call TLab_Transpose_complex(c_wrk3d, kmax, (imax/2 + 1)*jmax, kmax, tmp1, (imax/2 + 1)*jmax)
+            call TLab_Transpose_Complex(c_wrk3d, kmax, (imax/2 + 1)*jmax, kmax, tmp1, (imax/2 + 1)*jmax)
         else
             ! Local transposition: make y-direction the intermediate one again
-            call TLab_Transpose_complex(in, kmax, (imax/2 + 1)*jmax, kmax, tmp1, (imax/2 + 1)*jmax)
+            call TLab_Transpose_Complex(in, kmax, (imax/2 + 1)*jmax, kmax, tmp1, (imax/2 + 1)*jmax)
         end if
 
         call OPR_Fourier_X_Backward(tmp1, out)
@@ -392,10 +393,10 @@ contains
         if (fft_y_on) then
             call OPR_Fourier_X_Forward(in, out)
             ! Local transposition: make y-direction the last one
-            call TLab_Transpose_complex(out, (imax/2 + 1)*jmax, kmax, (imax/2 + 1)*jmax, tmp1, kmax)
+            call TLab_Transpose_Complex(out, (imax/2 + 1)*jmax, kmax, (imax/2 + 1)*jmax, tmp1, kmax)
             call OPR_Fourier_Y_Forward(tmp1, out)
             ! Local transposition: make y-direction the intermediate one again
-            call TLab_Transpose_complex(out, kmax, (imax/2 + 1)*jmax, kmax, tmp1, (imax/2 + 1)*jmax)
+            call TLab_Transpose_Complex(out, kmax, (imax/2 + 1)*jmax, kmax, tmp1, (imax/2 + 1)*jmax)
         else
             call OPR_Fourier_X_Forward(in, tmp1)
         end if
@@ -418,18 +419,18 @@ contains
 
             ! call dfftw_execute_dft(fft_plan_bz, in, c_out)
             ! ! Local transposition: make y-direction the last one
-            ! call TLab_Transpose_complex(c_out, (imax/2 + 1)*jmax, kmax, (imax/2 + 1)*jmax, tmp1, kmax)
+            ! call TLab_Transpose_Complex(c_out, (imax/2 + 1)*jmax, kmax, (imax/2 + 1)*jmax, tmp1, kmax)
             ! call OPR_Fourier_Y_Backward(tmp1, c_out)
             ! ! Local transposition: make y-direction the intermediate one again
-            ! call TLab_Transpose_complex(c_out, kmax, (imax/2 + 1)*jmax, kmax, tmp1, (imax/2 + 1)*jmax)
+            ! call TLab_Transpose_Complex(c_out, kmax, (imax/2 + 1)*jmax, kmax, tmp1, (imax/2 + 1)*jmax)
 
             ! nullify (c_out)
             call dfftw_execute_dft(fft_plan_bz, in, c_wrk3d)
             ! Local transposition: make y-direction the last one
-            call TLab_Transpose_complex(c_wrk3d, (imax/2 + 1)*jmax, kmax, (imax/2 + 1)*jmax, tmp1, kmax)
+            call TLab_Transpose_Complex(c_wrk3d, (imax/2 + 1)*jmax, kmax, (imax/2 + 1)*jmax, tmp1, kmax)
             call OPR_Fourier_Y_Backward(tmp1, c_wrk3d)
             ! Local transposition: make y-direction the intermediate one again
-            call TLab_Transpose_complex(c_wrk3d, kmax, (imax/2 + 1)*jmax, kmax, tmp1, (imax/2 + 1)*jmax)
+            call TLab_Transpose_Complex(c_wrk3d, kmax, (imax/2 + 1)*jmax, kmax, tmp1, (imax/2 + 1)*jmax)
 
         else
             call dfftw_execute_dft(fft_plan_bz, in, tmp1)

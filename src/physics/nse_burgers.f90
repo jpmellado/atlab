@@ -215,7 +215,7 @@ contains
 #ifdef USE_ESSL
         call DGETMO(s, nx, nx, ny*nz, tmp1, ny*nz)
 #else
-        call TLab_Transpose_Real(s, nx, ny*nz, nx, tmp1, ny*nz)
+        call TLab_Transpose_Real(s, nx, ny*nz, nx, tmp1, ny*nz, locBlock=trans_x_forward)
 #endif
 
         nlines = ny*nz
@@ -242,7 +242,7 @@ contains
         call DGETMO(wrk3d, ny*nz, ny*nz, nx, result, nx)
         rhs = rhs + result
 #else
-        call TLab_AddTranspose(wrk3d, ny*nz, nx, ny*nz, rhs, nx)
+        call TLab_AddTranspose(wrk3d, ny*nz, nx, ny*nz, rhs, nx, locBlock=trans_x_backward)
 #endif
 
         return
@@ -335,7 +335,7 @@ contains
 #ifdef USE_ESSL
         call DGETMO(s, nx, nx, ny*nz, tmp1, ny*nz)
 #else
-        call TLab_Transpose_Real(s, nx, ny*nz, nx, tmp1, ny*nz)
+        call TLab_Transpose_Real(s, nx, ny*nz, nx, tmp1, ny*nz, locBlock=trans_x_forward)
 #endif
 
         nlines = ny*nz
@@ -370,7 +370,7 @@ contains
         call DGETMO(wrk3d, ny*nz, ny*nz, nx, result, nx)
         rhs = rhs + result
 #else
-        call TLab_AddTranspose(wrk3d, ny*nz, nx, ny*nz, rhs, nx)
+        call TLab_AddTranspose(wrk3d, ny*nz, nx, ny*nz, rhs, nx, locBlock=trans_x_backward)
 #endif
 
         return
@@ -402,7 +402,7 @@ contains
 #ifdef USE_ESSL
         call DGETMO(s, nx*ny, nx*ny, nz, tmp1, nz)
 #else
-        call TLab_Transpose_Real(s, nx*ny, nz, nx*ny, tmp1, nz, locBlock=trans_y)
+        call TLab_Transpose_Real(s, nx*ny, nz, nx*ny, tmp1, nz, locBlock=trans_y_forward)
 #endif
 
         nlines = nx*nz
@@ -430,7 +430,7 @@ contains
         call DGETMO(wrk3d, nz, nz, nx*ny, result, nx*ny)
         rhs = rhs + result
 #else
-        call TLab_AddTranspose(wrk3d, nz, nx*ny, nz, rhs, nx*ny, locBlock=trans_y)
+        call TLab_AddTranspose(wrk3d, nz, nx*ny, nz, rhs, nx*ny, locBlock=trans_y_backward)
 #endif
 
         return
@@ -523,7 +523,7 @@ contains
 #ifdef USE_ESSL
         call DGETMO(s, nx*ny, nx*ny, nz, tmp1, nz)
 #else
-        call TLab_Transpose_Real(s, nx*ny, nz, nx*ny, tmp1, nz, locBlock=trans_y)
+        call TLab_Transpose_Real(s, nx*ny, nz, nx*ny, tmp1, nz, locBlock=trans_y_forward)
 #endif
 
         nlines = nx*nz
@@ -559,7 +559,7 @@ contains
         call DGETMO(wrk3d, nz, nz, nx*ny, result, nx*ny)
         rhs = rhs + result
 #else
-        call TLab_AddTranspose(wrk3d, nz, nx*ny, nz, rhs, nx*ny, locBlock=trans_y)
+        call TLab_AddTranspose(wrk3d, nz, nx*ny, nz, rhs, nx*ny, locBlock=trans_y_backward)
 #endif
 
         return

@@ -72,7 +72,7 @@ program DNS
 
     ! #######################################################################
     call TLab_Initialize_Memory(__FILE__)
-    ! call TLab_Transpose_Initialize()
+    call TLab_Transpose_Initialize()
 
     call OPR_Partial_Initialize(ifile)
     call OPR_Fourier_Initialize()

@@ -11,7 +11,9 @@ module TLab_Transpose
     public :: TLab_Transpose_Complex
     ! public :: TLab_Transpose_INT1
 
-    public :: trans_x, trans_y
+    public :: trans_x_forward, trans_x_backward
+    public :: trans_y_forward, trans_y_backward
+    public :: trans_cy_forward, trans_cy_backward
 
     ! -----------------------------------------------------------------------
     ! optimized block sizes; default values
@@ -25,7 +27,9 @@ module TLab_Transpose
         integer :: kb = 64
 #endif
     end type block_dt
-    type(block_dt) trans_x, trans_y
+    type(block_dt) trans_x_forward, trans_x_backward
+    type(block_dt) trans_y_forward, trans_y_backward
+    type(block_dt) trans_cy_forward, trans_cy_backward  ! complex
 
 contains
     ! ###################################################################
@@ -51,13 +55,23 @@ contains
         tmp1(:) = 0.0_wp                ! particular value not important
 
         if (imax > 1) then
-            call TLab_Write_ASCII(lfile, 'Optimizing cache-blocking for array transposition along X...')
-            call scan(imax, jmax*kmax, trans_x)
+            call TLab_Write_ASCII(lfile, 'Optimizing cache-blocking for array forward transposition along X...')
+            call scan(imax, jmax*kmax, trans_x_forward)
+            call TLab_Write_ASCII(lfile, 'Optimizing cache-blocking for array backward transposition along X...')
+            call scan(jmax*kmax, imax, trans_x_backward)
         end if
 
         if (jmax > 1) then
-            call TLab_Write_ASCII(lfile, 'Optimizing cache-blocking for array transposition along Y...')
-            call scan(imax*jmax, kmax, trans_y)
+            call TLab_Write_ASCII(lfile, 'Optimizing cache-blocking for array forward transposition along Y...')
+            call scan(imax*jmax, kmax, trans_y_forward)
+            call TLab_Write_ASCII(lfile, 'Optimizing cache-blocking for array backward transposition along Y...')
+            call scan(kmax, imax*jmax, trans_y_backward)
+
+            call TLab_Write_ASCII(lfile, 'Optimizing cache-blocking for complex array forward transposition along Y...')
+            call scan((imax + 2)*jmax, kmax, trans_cy_forward)
+            call TLab_Write_ASCII(lfile, 'Optimizing cache-blocking for complex array backward transposition along Y...')
+            call scan(kmax, (imax + 2)*jmax, trans_cy_backward)
+
         end if
 
         return
@@ -72,14 +86,14 @@ contains
 
             real(wp) :: times(size(jb_scan), size(kb_scan))
             real(wp) :: start, finish
-            integer :: nsample = 10
+            integer :: nsample = 5              ! sample size to estimate an average time
             integer n
 
             character(len=256) line
             character(len=32) str
 
             ! ###################################################################
-            jb_bak = trans_loc%jb             ! backup default values
+            jb_bak = trans_loc%jb               ! backup default values
             kb_bak = trans_loc%kb
 
             do k = 1, size(kb_scan)
@@ -90,7 +104,7 @@ contains
                     trans_loc%jb = jb_scan(j)
                     call cpu_time(start)
                     do n = 1, nsample
-                        call TLab_Transpose_Real(tmp1, imax, jmax*kmax, imax, tmp2, jmax*kmax)
+                        call TLab_Transpose_Real(tmp1, nsize, msize, nsize, tmp2, msize)
                     end do
                     call cpu_time(finish)
                     times(j, k) = finish - start
@@ -124,12 +138,12 @@ contains
     ! ###################################################################
     ! ###################################################################
     subroutine TLab_Transpose_Real(a, nra, nca, ma, b, mb, locBlock)
-        integer(wi), intent(in) :: nra      ! Number of rows in a
-        integer(wi), intent(in) :: nca      ! Number of columns in b
-        integer(wi), intent(in) :: ma       ! Leading dimension on the input matrix a
-        integer(wi), intent(in) :: mb       ! Leading dimension on the output matrix b
-        real(wp), intent(in) :: a(ma, nca)  ! Input array
-        real(wp), intent(out) :: b(mb, nra) ! Transposed array
+        integer(wi), intent(in) :: nra          ! Number of rows in a
+        integer(wi), intent(in) :: nca          ! Number of columns in b
+        integer(wi), intent(in) :: ma           ! Leading dimension on the input matrix a
+        integer(wi), intent(in) :: mb           ! Leading dimension on the output matrix b
+        real(wp), intent(in) :: a(ma, nca)      ! Input array
+        real(wp), intent(out) :: b(mb, nra)     ! Transposed array
         type(block_dt), optional :: locBlock
 
         ! -------------------------------------------------------------------
@@ -147,8 +161,8 @@ contains
             jb = locBlock%jb
             kb = locBlock%kb
         else
-            jb = trans_x%jb
-            kb = trans_x%kb
+            jb = trans_x_forward%jb
+            kb = trans_x_forward%kb
         end if
 
         kk = 1; jj = 1
@@ -186,12 +200,12 @@ contains
     !########################################################################
     !########################################################################
     subroutine TLab_AddTranspose(a, nra, nca, ma, b, mb, locBlock)
-        integer(wi), intent(in) :: nra      ! Number of rows in a
-        integer(wi), intent(in) :: nca      ! Number of columns in b
-        integer(wi), intent(in) :: ma       ! Leading dimension on the input matrix a
-        integer(wi), intent(in) :: mb       ! Leading dimension on the output matrix b
-        real(wp), intent(in) :: a(ma, nca)    ! Input array
-        real(wp), intent(inout) :: b(mb, nra) ! Transposed array
+        integer(wi), intent(in) :: nra          ! Number of rows in a
+        integer(wi), intent(in) :: nca          ! Number of columns in b
+        integer(wi), intent(in) :: ma           ! Leading dimension on the input matrix a
+        integer(wi), intent(in) :: mb           ! Leading dimension on the output matrix b
+        real(wp), intent(in) :: a(ma, nca)      ! Input array
+        real(wp), intent(inout) :: b(mb, nra)   ! Transposed array
         type(block_dt), optional :: locBlock
 
         ! -------------------------------------------------------------------
@@ -204,8 +218,8 @@ contains
             jb = locBlock%jb
             kb = locBlock%kb
         else
-            jb = trans_x%jb
-            kb = trans_x%kb
+            jb = trans_x_forward%jb
+            kb = trans_x_forward%kb
         end if
 
         kk = 1; jj = 1
@@ -241,12 +255,12 @@ contains
     !########################################################################
     !########################################################################
     subroutine TLab_SubtractTranspose(a, nra, nca, ma, b, mb, locBlock)
-        integer(wi), intent(in) :: nra      ! Number of rows in a
-        integer(wi), intent(in) :: nca      ! Number of columns in b
-        integer(wi), intent(in) :: ma       ! Leading dimension on the input matrix a
-        integer(wi), intent(in) :: mb       ! Leading dimension on the output matrix b
-        real(wp), intent(in) :: a(ma, *)    ! Input array
-        real(wp), intent(inout) :: b(mb, *) ! Transposed array
+        integer(wi), intent(in) :: nra              ! Number of rows in a
+        integer(wi), intent(in) :: nca              ! Number of columns in b
+        integer(wi), intent(in) :: ma               ! Leading dimension on the input matrix a
+        integer(wi), intent(in) :: mb               ! Leading dimension on the output matrix b
+        real(wp), intent(in) :: a(ma, nca)          ! Input array
+        real(wp), intent(inout) :: b(mb, nra)       ! Transposed array
         type(block_dt), optional :: locBlock
 
         ! -------------------------------------------------------------------
@@ -259,8 +273,8 @@ contains
             jb = locBlock%jb
             kb = locBlock%kb
         else
-            jb = trans_x%jb
-            kb = trans_x%kb
+            jb = trans_x_forward%jb
+            kb = trans_x_forward%kb
         end if
 
         kk = 1; jj = 1
@@ -296,12 +310,12 @@ contains
     !########################################################################
     !########################################################################
     subroutine TLab_Transpose_Complex(a, nra, nca, ma, b, mb, locBlock)
-        integer(wi), intent(in) :: nra      ! Number of rows in a
-        integer(wi), intent(in) :: nca      ! Number of columns in b
-        integer(wi), intent(in) :: ma       ! Leading dimension on the input matrix a
-        integer(wi), intent(in) :: mb       ! Leading dimension on the output matrix b
-        complex(wp), intent(in) :: a(ma, *) ! Input array
-        complex(wp), intent(out) :: b(mb, *) ! Transposed array
+        integer(wi), intent(in) :: nra              ! Number of rows in a
+        integer(wi), intent(in) :: nca              ! Number of columns in b
+        integer(wi), intent(in) :: ma               ! Leading dimension on the input matrix a
+        integer(wi), intent(in) :: mb               ! Leading dimension on the output matrix b
+        complex(wp), intent(in) :: a(ma, nca)       ! Input array
+        complex(wp), intent(out) :: b(mb, nra)      ! Transposed array
         type(block_dt), optional :: locBlock
 
         ! -------------------------------------------------------------------
@@ -314,8 +328,8 @@ contains
             jb = locBlock%jb/2
             kb = locBlock%kb
         else
-            jb = trans_x%jb/2
-            kb = trans_x%kb
+            jb = trans_x_forward%jb/2
+            kb = trans_x_forward%kb
         end if
 
         kk = 1; jj = 1
@@ -365,8 +379,8 @@ contains
     !     integer(wi) last_k, last_j
 
     !     ! ###################################################################
-    !     jb = trans_x%jb*4
-    !     kb = trans_x%kb*2
+    !     jb = trans_x_forward%jb*4
+    !     kb = trans_x_forward%kb*2
 
     !     kk = 1; jj = 1
 

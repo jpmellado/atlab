@@ -70,24 +70,28 @@ program vmpi_io_levante
     case (dp)    ! double precision
         subarray = IO_Create_Subarray_XOY(nx, ny, nz, MPI_REAL8)
     end select
-    offset = 0        ! no header
-    !offset = 1*sizeofint
+    ! offset = 0        ! no header
+    offset = 1*sizeofint
     mpio_locsize = nx*ny*nz
+
+    ! ###################################################################
+    ! Writing block
     do iv = 1, nv
 
         write (str, *) iv; str = trim(adjustl(name))//trim(adjustl(str))
+        if (ims_pro == 0) print *, 'Writing '//trim(adjustl(str))//'.'
 
         ! an old MPI_IO bug was that if PE 0 did this and not the others, then it hangs...
         if (ims_pro == 0) then
-            !   open(55,file=str,status='unknown',form='unformatted',access='stream')
-            !   write(55) nx*ny*nz
-            !   close(55)
+            open (55, file=str, status='unknown', form='unformatted', access='stream')
+            write (55) nx*ny*nz
+            close (55)
         end if
 
         call MPI_BARRIER(MPI_COMM_WORLD, ims_err)
 
-        call MPI_FILE_OPEN(MPI_COMM_WORLD, str, MPI_MODE_WRONLY + MPI_MODE_CREATE, MPI_INFO_NULL, mpio_fh, ims_err)
-        !call MPI_FILE_OPEN(MPI_COMM_WORLD, str, MPI_MODE_WRONLY, MPI_INFO_NULL, mpio_fh, ims_err)
+        ! call MPI_FILE_OPEN(MPI_COMM_WORLD, str, MPI_MODE_WRONLY + MPI_MODE_CREATE, MPI_INFO_NULL, mpio_fh, ims_err)
+        call MPI_FILE_OPEN(MPI_COMM_WORLD, str, MPI_MODE_WRONLY, MPI_INFO_NULL, mpio_fh, ims_err)
 
         select case (wp)
         case (sp)    ! single precision
@@ -96,6 +100,30 @@ program vmpi_io_levante
         case (dp)    ! double precision
             call MPI_File_set_view(mpio_fh, offset, MPI_REAL8, subarray, 'native', MPI_INFO_NULL, ims_err)
             call MPI_File_write_all(mpio_fh, a(:, iv), mpio_locsize, MPI_REAL8, status, ims_err)
+        end select
+
+        call MPI_File_close(mpio_fh, ims_err)
+
+    end do
+
+    call MPI_BARRIER(MPI_COMM_WORLD, ims_err)
+
+    ! ###################################################################
+    ! Reading block
+    do iv = 1, nv
+
+        write (str, *) iv; str = trim(adjustl(name))//trim(adjustl(str))
+        if (ims_pro == 0) print *, 'Reading '//trim(adjustl(str))//'.'
+
+        call MPI_FILE_OPEN(MPI_COMM_WORLD, str, MPI_MODE_RDONLY, MPI_INFO_NULL, mpio_fh, ims_err)
+
+        select case (wp)
+        case (sp)    ! single precision
+            call MPI_File_set_view(mpio_fh, offset, MPI_REAL4, subarray, 'native', MPI_INFO_NULL, ims_err)
+            call MPI_File_read_all(mpio_fh, a(:, iv), mpio_locsize, MPI_REAL4, status, ims_err)
+        case (dp)    ! double precision
+            call MPI_File_set_view(mpio_fh, offset, MPI_REAL8, subarray, 'native', MPI_INFO_NULL, ims_err)
+            call MPI_File_read_all(mpio_fh, a(:, iv), mpio_locsize, MPI_REAL8, status, ims_err)
         end select
 
         call MPI_File_close(mpio_fh, ims_err)

@@ -31,7 +31,8 @@ program DNS
     use OPR_Elliptic, only: OPR_Elliptic_Initialize
     use NSE_Burgers, only: NSE_Burgers_Initialize
     use DNS_LOCAL
-    use DNS_Control
+    use DNS_Control, only: DNS_Control_Initialize, DNS_Control_Bounds
+    use DNS_Control, only: logs_data, DNS_Logs_Write
     use TimeMarching
     ! use PLANES
     use BoundaryConditions
@@ -173,14 +174,14 @@ program DNS
         ! -------------------------------------------------------------------
         ! The rest: Logging, postprocessing and check-pointing
         ! -------------------------------------------------------------------
-        call DNS_BOUNDS_CONTROL()
-        call DNS_OBS_CONTROL()
+        call DNS_Control_Bounds()
+        ! call DNS_OBS_CONTROL()
         if (mod(itime - nitera_first, nitera_log) == 0 .or. int(logs_data(1)) /= 0) then
             if (.not. use_variable_timestep) call TMarch_Courant()
-            call DNS_LOGS()
-            if (dns_obs_log /= OBS_TYPE_NONE) then
-                call DNS_OBS()
-            end if
+            call DNS_Logs_Write()
+            ! if (dns_obs_log /= OBS_TYPE_NONE) then
+            !     call DNS_OBS()
+            ! end if
         end if
 
         if (mod(itime - nitera_first, nitera_stats) == 0) then      ! Calculate statistics

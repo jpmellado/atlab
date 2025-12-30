@@ -3,15 +3,22 @@
 module DNS_Control
     use TLab_Constants, only: MAX_VARS, wp, wi, sp, big_wp
     use TLab_Constants, only: efile, lfile
-    use TLab_Memory, only: inb_scal
+    use TLab_Memory, only: inb_flow, inb_scal
     use TLab_WorkFlow, only: scal_on, flow_on, TLab_Stop, TLab_Write_ASCII
     use TLab_Time
     use NavierStokes
     ! use TLab_Constants, only: MAX_PATH_LENGTH
-    ! use TIME
     use DNS_LOCAL, only: wall_time, start_clock
     implicit none
+    private
 
+    public :: DNS_Control_Initialize
+    public :: DNS_Control_Bounds, DNS_Limit_Bounds
+
+    public :: DNS_Logs_Write
+    public :: logs_dtime, logs_data
+
+    ! -----------------------------------------------------------------------
     character(len=*), parameter :: ofile = 'dns.out'    ! data logger filename
     ! character(len=*), parameter :: ofile_base = 'dns.out'    ! data logger filename
     character(len=*), parameter :: vfile = 'dns.obs'    ! insitu obs. logger filename
@@ -43,7 +50,6 @@ contains
     !########################################################################
     !########################################################################
     subroutine DNS_Control_Initialize(inifile)
-        use TLab_Memory, only: inb_flow, inb_scal
         character(len=*), intent(in) :: inifile
 
         ! -------------------------------------------------------------------
@@ -152,17 +158,16 @@ contains
         ! if (bound_r%max < 0.0_wp) bound_r%max = rbg%mean*1.0e6_wp
 
         logs_data(1) = 0; obs_data(1) = 0 ! Status
-        call DNS_BOUNDS_CONTROL()
-        call DNS_OBS_CONTROL()
-        ! call DNS_BOUNDS_LIMIT() !RH: schould be obsolete here
+        call DNS_Control_Bounds()
+        ! call DNS_OBS_CONTROL()
 
-        ! call DNS_LOGS_PATH_INITIALIZE()
-        call DNS_LOGS_INITIALIZE()
-        call DNS_LOGS()
-        if (dns_obs_log /= OBS_TYPE_NONE) then
-            call DNS_OBS_INITIALIZE()
-            call DNS_OBS()
-        end if
+        ! call DNS_Logs_Write_PATH_INITIALIZE()
+        call DNS_Logs_Initialize()
+        call DNS_Logs_Write()
+        ! if (dns_obs_log /= OBS_TYPE_NONE) then
+        !     call DNS_OBS_INITIALIZE()
+        !     call DNS_OBS()
+        ! end if
 
         return
     end subroutine DNS_Control_Initialize
@@ -170,9 +175,9 @@ contains
     !########################################################################
     ! Limit min/max values of fields, if required
     !########################################################################
-    subroutine DNS_BOUNDS_LIMIT()
+    subroutine DNS_Limit_Bounds()
         use TLab_Memory, only: inb_scal
-        use TLab_Arrays
+        use TLab_Arrays, only: s !q, s
 
         ! -------------------------------------------------------------------
         integer(wi) is
@@ -184,24 +189,24 @@ contains
             end if
         end do
 
-        if (bound_r%active) then
-            q(:, 5) = min(max(q(:, 5), bound_r%min), bound_r%max)
-        end if
+        ! if (bound_r%active) then
+        !     q(:, 5) = min(max(q(:, 5), bound_r%min), bound_r%max)
+        ! end if
 
-        if (bound_p%active) then
-            q(:, 6) = min(max(q(:, 6), bound_p%min), bound_p%max)
-        end if
+        ! if (bound_p%active) then
+        !     q(:, 6) = min(max(q(:, 6), bound_p%min), bound_p%max)
+        ! end if
 
         return
-    end subroutine DNS_BOUNDS_LIMIT
+    end subroutine DNS_Limit_Bounds
 
     !########################################################################
     !########################################################################
-    subroutine DNS_BOUNDS_CONTROL()
+    subroutine DNS_Control_Bounds()
         use TLab_Constants, only: efile, lfile, fmt_r
         use NavierStokes, only: nse_eqns, DNS_EQNS_COMPRESSIBLE, DNS_EQNS_ANELASTIC, DNS_EQNS_BOUSSINESQ
         use TLab_Memory, only: imax, jmax, kmax
-        use TLab_Arrays
+        use TLab_Pointers_3D, only: u, v, w, tmp1, tmp2, tmp3
         use TLab_WorkFlow, only: TLab_Write_ASCII
         use Thermo_Anelastic, only: rbackground, Thermo_Anelastic_Weight_OutPlace
 #ifdef USE_MPI
@@ -209,7 +214,7 @@ contains
         use TLabMPI_VARS, only: ims_offset_i, ims_offset_k
         use TLabMPI_VARS, only: ims_time_min, ims_err
 #endif
-        use FI_VECTORCALCULUS
+        use OPR_Partial
 
         ! -------------------------------------------------------------------
         integer(wi) idummy(3)
@@ -220,9 +225,6 @@ contains
 #endif
         character*128 line
         character*32 str
-
-        ! Pointers to existing allocated space
-        real(wp), dimension(:, :, :), pointer :: loc_max
 
         ! ###################################################################
         ! Check wall time bounds - maximum runtime
@@ -240,52 +242,52 @@ contains
         select case (nse_eqns)
         case (DNS_EQNS_COMPRESSIBLE)
 
-#define p_min_loc logs_data(5)
-#define p_max_loc logs_data(6)
-#define r_min_loc logs_data(7)
-#define r_max_loc logs_data(8)
+! #define p_min_loc logs_data(5)
+! #define p_max_loc logs_data(6)
+! #define r_min_loc logs_data(7)
+! #define r_max_loc logs_data(8)
 
-            ! Check density
-            call MINMAX(imax, jmax, kmax, q(:, 5), r_min_loc, r_max_loc)
-            if (r_min_loc < bound_r%min .or. r_max_loc > bound_r%max) then
-                call TLab_Write_ASCII(efile, 'DNS_CONTROL. Density out of bounds.')
-                logs_data(1) = DNS_ERROR_NEGDENS
-            end if
+!             ! Check density
+!             call MINMAX(imax, jmax, kmax, q(:, 5), r_min_loc, r_max_loc)
+!             if (r_min_loc < bound_r%min .or. r_max_loc > bound_r%max) then
+!                 call TLab_Write_ASCII(efile, 'DNS_CONTROL. Density out of bounds.')
+!                 logs_data(1) = DNS_ERROR_NEGDENS
+!             end if
 
-            ! Check pressure
-            call MINMAX(imax, jmax, kmax, q(:, 6), p_min_loc, p_max_loc)
-            if (p_min_loc < bound_p%min .or. p_max_loc > bound_p%max) then
-                call TLab_Write_ASCII(efile, 'DNS_CONTROL. Pressure out of bounds.')
-                logs_data(1) = DNS_ERROR_NEGPRESS
-            end if
+!             ! Check pressure
+!             call MINMAX(imax, jmax, kmax, q(:, 6), p_min_loc, p_max_loc)
+!             if (p_min_loc < bound_p%min .or. p_max_loc > bound_p%max) then
+!                 call TLab_Write_ASCII(efile, 'DNS_CONTROL. Pressure out of bounds.')
+!                 logs_data(1) = DNS_ERROR_NEGPRESS
+!             end if
 
         case (DNS_EQNS_BOUSSINESQ, DNS_EQNS_ANELASTIC)
-            if (nse_eqns == DNS_EQNS_ANELASTIC) then
-                call Thermo_Anelastic_Weight_OutPlace(imax, jmax, kmax, rbackground, q(1, 1), txc(1, 3))
-                call Thermo_Anelastic_Weight_OutPlace(imax, jmax, kmax, rbackground, q(1, 2), txc(1, 4))
-                call Thermo_Anelastic_Weight_OutPlace(imax, jmax, kmax, rbackground, q(1, 3), txc(1, 5))
-                call FI_INVARIANT_P(imax, jmax, kmax, txc(1, 3), txc(1, 4), txc(1, 5), txc(1, 1), txc(1, 2))
+            if (nse_eqns == DNS_EQNS_ANELASTIC) then    ! do not call invariant_p to save memory space
+                call Thermo_Anelastic_Weight_OutPlace(imax, jmax, kmax, rbackground, w, tmp2)
+                call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, tmp2, tmp1)
+                call Thermo_Anelastic_Weight_OutPlace(imax, jmax, kmax, rbackground, v, tmp2)
+                call OPR_Partial_Y(OPR_P1_ADD, imax, jmax, kmax, tmp2, tmp3, tmp1)
+                call Thermo_Anelastic_Weight_OutPlace(imax, jmax, kmax, rbackground, u, tmp2)
+                call OPR_Partial_X(OPR_P1_ADD, imax, jmax, kmax, tmp2, tmp3, tmp1)
             else
-                call FI_INVARIANT_P(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), txc(1, 1), txc(1, 2))
+                call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, w, tmp1)
+                call OPR_Partial_Y(OPR_P1_ADD, imax, jmax, kmax, v, tmp2, tmp1)
+                call OPR_Partial_X(OPR_P1_ADD, imax, jmax, kmax, u, tmp2, tmp1)
             end if
 
 #define d_max_loc logs_data(11)
 #define d_min_loc logs_data(10)
 
-            call MINMAX(imax, jmax, kmax, txc(1, 1), d_max_loc, d_min_loc)
-            d_min_loc = -d_min_loc; d_max_loc = -d_max_loc
+            call MINMAX(imax, jmax, kmax, tmp1, d_min_loc, d_max_loc)
 
             if (max(abs(d_min_loc), abs(d_min_loc)) > bound_d%max) then
-                call TLab_Write_ASCII(efile, 'DNS_CONTROL. Dilatation out of bounds.')
+                call TLab_Write_ASCII(efile, __FILE__//'. Dilatation out of bounds.')
                 logs_data(1) = DNS_ERROR_DILATATION
 
                 ! Locating the points where the maximum dilatation occurs
-                wrk3d = -txc(:, 1)
-                loc_max(1:imax, 1:jmax, 1:kmax) => wrk3d(1:imax*jmax*kmax)
-
-                dummy = maxval(wrk3d)
+                dummy = maxval(tmp1)
                 if (abs(dummy) > bound_d%max) then
-                    idummy = maxloc(loc_max)
+                    idummy = maxloc(tmp1)
                     write (str, fmt_r) dummy; line = 'Maximum dilatation '//trim(adjustl(str))
 #ifdef USE_MPI
                     idummy(1) = idummy(1) + ims_offset_i
@@ -297,9 +299,9 @@ contains
                     call TLab_Write_ASCII(lfile, line, .true.)
                 end if
 
-                dummy = minval(wrk3d)
+                dummy = minval(tmp1)
                 if (abs(dummy) > bound_d%max) then
-                    idummy = minloc(loc_max)
+                    idummy = minloc(tmp1)
                     write (str, fmt_r) dummy; line = 'Minimum dilatation '//trim(adjustl(str))
 #ifdef USE_MPI
                     idummy(1) = idummy(1) + ims_offset_i
@@ -317,70 +319,71 @@ contains
 
         return
 
-    end subroutine DNS_BOUNDS_CONTROL
-    !########################################################################
-    !########################################################################
-    subroutine DNS_OBS_CONTROL()
-        use TLab_Memory, only: imax, jmax, kmax, inb_scal
-        use TLab_WorkFlow, only: scal_on
-        use TLab_Grid, only: z
-        use FI_VORTICITY_EQN, only: FI_VORTICITY
-        use TLab_Arrays
-        use Averages, only: AVG_IK_V
-        use Integration, only: Int_Simpson
+    end subroutine DNS_Control_Bounds
 
-        integer(wi) :: ip, is
+!     !########################################################################
+!     !########################################################################
+!     subroutine DNS_OBS_CONTROL()
+!         use TLab_Memory, only: imax, jmax, kmax, inb_scal
+!         use TLab_WorkFlow, only: scal_on
+!         use TLab_Grid, only: z
+!         use FI_VORTICITY_EQN, only: FI_VORTICITY
+!         use TLab_Arrays
+!         use Averages, only: AVG_IK_V
+!         use Integration, only: Int_Simpson
 
-        ! -------------------------------------------------------------------
+!         integer(wi) :: ip, is
 
-#define ubulk    obs_data(2)
-#define wbulk    obs_data(3)
-#define uy1      obs_data(4)
-#define wy1      obs_data(5)
-#define alpha_1  obs_data(6)
-#define alpha_ny obs_data(7)
-#define int_ent  obs_data(8)
+!         ! -------------------------------------------------------------------
 
-        ip = 8
+! #define ubulk    obs_data(2)
+! #define wbulk    obs_data(3)
+! #define uy1      obs_data(4)
+! #define wy1      obs_data(5)
+! #define alpha_1  obs_data(6)
+! #define alpha_ny obs_data(7)
+! #define int_ent  obs_data(8)
 
-        select case (dns_obs_log)
+!         ip = 8
 
-        case (OBS_TYPE_EKMAN)
-            ! ubulk, wbulk
-            call AVG_IK_V(imax, jmax, kmax, q(1, 1), wrk1d(:, 1), wrk1d(:, 2))
-            call AVG_IK_V(imax, jmax, kmax, q(1, 3), wrk1d(:, 3), wrk1d(:, 4))
-            ubulk = (1.0_wp/z%scale)*Int_Simpson(wrk1d(1:kmax, 1), z%nodes(1:kmax))
-            wbulk = (1.0_wp/z%scale)*Int_Simpson(wrk1d(1:kmax, 3), z%nodes(1:kmax))
+!         select case (dns_obs_log)
 
-            ! dudy(1), dwdy(1) approximation
-            uy1 = wrk1d(2, 1)/z%nodes(2)
-            wy1 = wrk1d(2, 3)/z%nodes(2)
+!         case (OBS_TYPE_EKMAN)
+!             ! ubulk, wbulk
+!             call AVG_IK_V(imax, jmax, kmax, q(1, 1), wrk1d(:, 1), wrk1d(:, 2))
+!             call AVG_IK_V(imax, jmax, kmax, q(1, 3), wrk1d(:, 3), wrk1d(:, 4))
+!             ubulk = (1.0_wp/z%scale)*Int_Simpson(wrk1d(1:kmax, 1), z%nodes(1:kmax))
+!             wbulk = (1.0_wp/z%scale)*Int_Simpson(wrk1d(1:kmax, 3), z%nodes(1:kmax))
 
-            ! turning angles (in degrees)
-            alpha_1 = ATAN2D(wy1, uy1)
-            alpha_ny = ATAN2D(wrk1d(kmax, 3), wrk1d(kmax, 1))
+!             ! dudy(1), dwdy(1) approximation
+!             uy1 = wrk1d(2, 1)/z%nodes(2)
+!             wy1 = wrk1d(2, 3)/z%nodes(2)
 
-            ! integrated entstrophy
-            call FI_VORTICITY(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), txc(1, 1), txc(1, 2), txc(1, 3))
-            call AVG_IK_V(imax, jmax, kmax, txc(1, 1), wrk1d(:, 1), wrk1d(:, 2))
-            int_ent = (1.0_wp/z%scale)*Int_Simpson(wrk1d(1:kmax, 1), z%nodes(1:kmax))
+!             ! turning angles (in degrees)
+!             alpha_1 = ATAN2D(wy1, uy1)
+!             alpha_ny = ATAN2D(wrk1d(kmax, 3), wrk1d(kmax, 1))
 
-            if (scal_on) then
-                do is = 1, inb_scal
-                    call AVG_IK_V(imax, jmax, kmax, s(1, is), wrk1d(:, 1), wrk1d(:, 2))
-                    obs_data(ip + is) = (wrk1d(2, 1) - wrk1d(1, 1))/z%nodes(2)
-                end do
-            end if
+!             ! integrated entstrophy
+!             call FI_VORTICITY(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), txc(1, 1), txc(1, 2), txc(1, 3))
+!             call AVG_IK_V(imax, jmax, kmax, txc(1, 1), wrk1d(:, 1), wrk1d(:, 2))
+!             int_ent = (1.0_wp/z%scale)*Int_Simpson(wrk1d(1:kmax, 1), z%nodes(1:kmax))
 
-        end select
+!             if (scal_on) then
+!                 do is = 1, inb_scal
+!                     call AVG_IK_V(imax, jmax, kmax, s(1, is), wrk1d(:, 1), wrk1d(:, 2))
+!                     obs_data(ip + is) = (wrk1d(2, 1) - wrk1d(1, 1))/z%nodes(2)
+!                 end do
+!             end if
 
-        return
+!         end select
 
-    end subroutine DNS_OBS_CONTROL
+!         return
+
+!     end subroutine DNS_OBS_CONTROL
     !########################################################################
     !# Initialize path to write dns.out & tlab.logs
     !########################################################################
-    ! subroutine DNS_LOGS_PATH_INITIALIZE()
+    ! subroutine DNS_Logs_Write_PATH_INITIALIZE()
 
     !     integer env_status, path_len
 
@@ -400,7 +403,7 @@ contains
 
     !     end select
 
-    ! end subroutine DNS_LOGS_PATH_INITIALIZE
+    ! end subroutine DNS_Logs_Write_PATH_INITIALIZE
 
     !########################################################################
     ! Create headers or dns.out file
@@ -420,7 +423,7 @@ contains
     !# logs_data10 Minimum dilatation
     !# logs_data11 Maximum dilatation
     !########################################################################
-    subroutine DNS_LOGS_INITIALIZE()
+    subroutine DNS_Logs_Initialize()
         use Thermo_Base, only: imixture, MIXT_TYPE_AIRWATER
         use Microphysics
 
@@ -451,7 +454,8 @@ contains
 
         end select
 
-        if (imixture == MIXT_TYPE_AIRWATER .and. (evaporationProps%type == TYPE_EVA_EQUILIBRIUM .or. evaporationProps%type == TYPE_EVA_QSCALC_IMPL .or. evaporationProps%type == TYPE_EVA_QSCALC_SEMIIMPL)) then
+        if (imixture == MIXT_TYPE_AIRWATER .and. &
+            any([TYPE_EVA_EQUILIBRIUM, TYPE_EVA_QSCALC_IMPL, TYPE_EVA_QSCALC_SEMIIMPL] == evaporationProps%type)) then
             line1 = line1(1:ip)//' '//' NewtonRs'; ip = ip + 1 + 10
         end if
 
@@ -460,11 +464,11 @@ contains
         call TLab_Write_ASCII(ofile, trim(adjustl(line1)))
         call TLab_Write_ASCII(ofile, repeat('#', len_trim(line1)))
 
-    end subroutine DNS_LOGS_INITIALIZE
+    end subroutine DNS_Logs_Initialize
 
     !########################################################################
-
-    subroutine DNS_LOGS()
+    !########################################################################
+    subroutine DNS_Logs_Write()
         use Thermo_Base, only: imixture, MIXT_TYPE_AIRWATER
         use Thermo_Anelastic, only: NEWTONRAPHSON_ERROR
         use Microphysics
@@ -493,7 +497,8 @@ contains
 
         end select
 
-        if (imixture == MIXT_TYPE_AIRWATER .and. (evaporationProps%type == TYPE_EVA_EQUILIBRIUM .or. evaporationProps%type == TYPE_EVA_QSCALC_IMPL .or. evaporationProps%type == TYPE_EVA_QSCALC_SEMIIMPL)) then
+        if (imixture == MIXT_TYPE_AIRWATER .and. &
+            any([TYPE_EVA_EQUILIBRIUM, TYPE_EVA_QSCALC_IMPL, TYPE_EVA_QSCALC_SEMIIMPL] == evaporationProps%type)) then
 #ifdef USE_MPI
             call MPI_ALLREDUCE(NEWTONRAPHSON_ERROR, dummy, 1, MPI_REAL8, MPI_MAX, MPI_COMM_WORLD, ims_err)
             NEWTONRAPHSON_ERROR = dummy
@@ -505,77 +510,71 @@ contains
 
         call TLab_Write_ASCII(ofile, trim(adjustl(line1)))
 
-    end subroutine DNS_LOGS
+    end subroutine DNS_Logs_Write
 
     !########################################################################
     !# Create headers or dns.obs file
     !########################################################################
-    subroutine DNS_OBS_INITIALIZE()
+    ! subroutine DNS_OBS_INITIALIZE()
+    !     integer(wi) :: ip, is
+    !     character(len=256) :: line1, str
 
-        implicit none
+    !     ! vfile = trim(adjustl(logger_path))//trim(adjustl(vfile_base))
+    !     ! vfile = trim(adjustl(vfile))
 
-        integer(wi) :: ip, is
-        character(len=256) :: line1, str
+    !     line1 = '#'; ip = 1
+    !     line1 = line1(1:ip)//' '//' Itn.'; ip = ip + 1 + 7
+    !     line1 = line1(1:ip)//' '//' time'; ip = ip + 1 + 13
 
-        ! vfile = trim(adjustl(logger_path))//trim(adjustl(vfile_base))
-        ! vfile = trim(adjustl(vfile))
+    !     select case (dns_obs_log)
+    !     case (OBS_TYPE_EKMAN)
+    !         line1 = line1(1:ip)//' '//' u_bulk'; ip = ip + 1 + 13
+    !         line1 = line1(1:ip)//' '//' w_bulk'; ip = ip + 1 + 13
+    !         line1 = line1(1:ip)//' '//' u_y(1)'; ip = ip + 1 + 13
+    !         line1 = line1(1:ip)//' '//' w_y(1)'; ip = ip + 1 + 13
+    !         line1 = line1(1:ip)//' '//' alpha(1)'; ip = ip + 1 + 13
+    !         line1 = line1(1:ip)//' '//' alpha(ny)'; ip = ip + 1 + 13
+    !         line1 = line1(1:ip)//' '//' entstrophy'; ip = ip + 1 + 13
+    !         if (scal_on) then
+    !             do is = 1, inb_scal
+    !                 write (str, *) is
+    !                 line1 = line1(1:ip)//' '//' s'//trim(adjustl(str))//'_y(1)'; ip = ip + 1 + 13
+    !             end do
+    !         end if
+    !     end select
 
-        line1 = '#'; ip = 1
-        line1 = line1(1:ip)//' '//' Itn.'; ip = ip + 1 + 7
-        line1 = line1(1:ip)//' '//' time'; ip = ip + 1 + 13
+    !     line1 = line1(1:ip - 1)//'#'
+    !     call TLab_Write_ASCII(vfile, repeat('#', len_trim(line1)))
+    !     call TLab_Write_ASCII(vfile, trim(adjustl(line1)))
+    !     call TLab_Write_ASCII(vfile, repeat('#', len_trim(line1)))
 
-        select case (dns_obs_log)
-        case (OBS_TYPE_EKMAN)
-            line1 = line1(1:ip)//' '//' u_bulk'; ip = ip + 1 + 13
-            line1 = line1(1:ip)//' '//' w_bulk'; ip = ip + 1 + 13
-            line1 = line1(1:ip)//' '//' u_y(1)'; ip = ip + 1 + 13
-            line1 = line1(1:ip)//' '//' w_y(1)'; ip = ip + 1 + 13
-            line1 = line1(1:ip)//' '//' alpha(1)'; ip = ip + 1 + 13
-            line1 = line1(1:ip)//' '//' alpha(ny)'; ip = ip + 1 + 13
-            line1 = line1(1:ip)//' '//' entstrophy'; ip = ip + 1 + 13
-            if (scal_on) then
-                do is = 1, inb_scal
-                    write (str, *) is
-                    line1 = line1(1:ip)//' '//' s'//trim(adjustl(str))//'_y(1)'; ip = ip + 1 + 13
-                end do
-            end if
-        end select
-
-        line1 = line1(1:ip - 1)//'#'
-        call TLab_Write_ASCII(vfile, repeat('#', len_trim(line1)))
-        call TLab_Write_ASCII(vfile, trim(adjustl(line1)))
-        call TLab_Write_ASCII(vfile, repeat('#', len_trim(line1)))
-
-    end subroutine DNS_OBS_INITIALIZE
+    ! end subroutine DNS_OBS_INITIALIZE
 
     !########################################################################
+    !########################################################################
+!     subroutine DNS_OBS()
+!         integer(wi) :: ip, is
+!         character(len=256) :: line1, line2
 
-    subroutine DNS_OBS()
+!         write (line1, 100) int(obs_data(1)), itime, rtime
+! 100     format((1x, I1), (1x, I7), (1x, E13.6))
 
-        implicit none
+!         select case (dns_obs_log)
+!         case (OBS_TYPE_EKMAN)
+!             write (line2, 200) (obs_data(ip), ip=2, 8)
+! 200         format(7(1x, E13.6))
+!             line1 = trim(line1)//trim(line2)
+!             if (scal_on) then
+!                 do is = 1, inb_scal
+!                     write (line2, 300) obs_data(8 + is)
+! 300                 format(1x, E13.6)
+!                     line1 = trim(line1)//trim(line2)
+!                 end do
+!             end if
+!         end select
 
-        integer(wi) :: ip, is
-        character(len=256) :: line1, line2
+!         call TLab_Write_ASCII(vfile, trim(adjustl(line1)))
 
-        write (line1, 100) int(obs_data(1)), itime, rtime
-100     format((1x, I1), (1x, I7), (1x, E13.6))
-
-        select case (dns_obs_log)
-        case (OBS_TYPE_EKMAN)
-            write (line2, 200) (obs_data(ip), ip=2, 8)
-200         format(7(1x, E13.6))
-            line1 = trim(line1)//trim(line2)
-            if (scal_on) then
-                do is = 1, inb_scal
-                    write (line2, 300) obs_data(8 + is)
-300                 format(1x, E13.6)
-                    line1 = trim(line1)//trim(line2)
-                end do
-            end if
-        end select
-
-        call TLab_Write_ASCII(vfile, trim(adjustl(line1)))
-
-    end subroutine DNS_OBS
+!     end subroutine DNS_OBS
 
 end module DNS_Control

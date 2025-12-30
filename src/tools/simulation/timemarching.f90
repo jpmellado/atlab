@@ -21,7 +21,7 @@ module TimeMarching
     use TLabMPI_VARS
 #endif
     use TLab_Grid, only: x, y, z
-    use NavierStokes, only: nse_eqns, DNS_EQNS_BOUSSINESQ, DNS_EQNS_ANELASTIC
+    use NavierStokes, only: nse_eqns, DNS_EQNS_COMPRESSIBLE, DNS_EQNS_BOUSSINESQ, DNS_EQNS_ANELASTIC
     use NavierStokes, only: nse_advection, EQNS_CONVECTIVE, EQNS_DIVERGENCE, EQNS_SKEWSYMMETRIC
     use NavierStokes, only: visc, schmidt, prandtl
     use DNS_Arrays
@@ -279,7 +279,7 @@ contains
     ! ###################################################################
     ! ###################################################################
     subroutine TMarch_RungeKutta()
-        use TLab_Arrays
+        use TLab_Arrays, only: s
         use DNS_LOCAL
         use DNS_Control
         use DNS_Arrays
@@ -333,7 +333,7 @@ contains
 
             end select
 
-            call DNS_BOUNDS_LIMIT()
+            call DNS_Limit_Bounds()
             if (nse_eqns == DNS_EQNS_ANELASTIC) then
                 call TLab_Diagnostic(imax, jmax, kmax, s)
             end if

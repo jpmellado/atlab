@@ -36,13 +36,14 @@ module FDM_Com2_Jacobian
 contains
     !########################################################################
     ! rhs is still pentadiagonal because of the bcs
+    ! intent out in allocatable array deallocate previous allocations
     subroutine FDM_C2N4_Jacobian(nx, dx, lhs, rhs, nb_diag, coef, periodic)
         integer(wi), intent(in) :: nx
         real(wp), intent(in) :: dx(nx, 2)
-        real(wp), intent(out) :: lhs(nx, 3)         ! LHS diagonals; a_2 = 0
-        real(wp), intent(out) :: rhs(nx, 5 + 3)     ! RHS diagonals; b_2, b_3 = 0
-        integer(wi), intent(out) :: nb_diag(2)      ! # diagonals in LHS and RHS
-        real(wp), intent(out) :: coef(5)            ! a_1, a_2, b_1, b_2, b_3
+        real(wp), allocatable, intent(out) :: lhs(:, :)     ! LHS diagonals; a_2 = 0
+        real(wp), allocatable, intent(out) :: rhs(:, :)     ! RHS diagonals; b_2, b_3 = 0
+        integer(wi), intent(out) :: nb_diag(2)              ! # diagonals in LHS and RHS
+        real(wp), intent(out) :: coef(5)                    ! a_1, a_2, b_1, b_2, b_3
         logical, intent(in), optional :: periodic
 
         ! -------------------------------------------------------------------
@@ -50,6 +51,9 @@ contains
         real(wp) :: coef_bc1(2 + 3 + 1) = 0.0_wp    ! 2 lhs, 3 +1 rhs (1 additional point to the 5-diagonal rhs)
 
         ! #######################################################################
+        allocate (lhs(nx, 3), source=0.0_wp)                    ! 3 LHS diagonals
+        allocate (rhs(nx, 5 + size(lhs, 2)), source=0.0_wp)     ! 5 RHS diagonals + LHS for 1. derivative contribution
+
         nb_diag = [3, 5]
 
         if (present(periodic)) then
@@ -82,10 +86,10 @@ contains
     subroutine FDM_C2N6_Jacobian(nx, dx, lhs, rhs, nb_diag, coef, periodic)
         integer(wi), intent(in) :: nx
         real(wp), intent(in) :: dx(nx, 2)
-        real(wp), intent(out) :: lhs(nx, 3)         ! LHS diagonals; a_2 = 0
-        real(wp), intent(out) :: rhs(nx, 5 + 3)     ! RHS diagonals; b_3 = 0
-        integer(wi), intent(out) :: nb_diag(2)      ! # diagonals in LHS and RHS
-        real(wp), intent(out) :: coef(5)            ! a_1, a_2, b_1, b_2, b_3
+        real(wp), allocatable, intent(out) :: lhs(:, :)     ! LHS diagonals; a_2 = 0
+        real(wp), allocatable, intent(out) :: rhs(:, :)     ! RHS diagonals; b_2, b_3 = 0
+        integer(wi), intent(out) :: nb_diag(2)              ! # diagonals in LHS and RHS
+        real(wp), intent(out) :: coef(5)                    ! a_1, a_2, b_1, b_2, b_3
         logical, intent(in), optional :: periodic
 
         ! -------------------------------------------------------------------
@@ -94,6 +98,9 @@ contains
         real(wp) :: coef_bc2(2 + 4) = 0.0_wp        ! 2 lhs, 4 rhs
 
         ! #######################################################################
+        allocate (lhs(nx, 3), source=0.0_wp)                    ! 3 LHS diagonals
+        allocate (rhs(nx, 5 + size(lhs, 2)), source=0.0_wp)     ! 5 RHS diagonals + LHS for 1. derivative contribution
+
         nb_diag = [3, 5]
 
         if (present(periodic)) then
@@ -130,10 +137,10 @@ contains
     subroutine FDM_C2N6_Hyper_Jacobian(nx, dx, lhs, rhs, nb_diag, coef, periodic)
         integer(wi), intent(in) :: nx
         real(wp), intent(in) :: dx(nx, 2)
-        real(wp), intent(out) :: lhs(nx, 3)         ! LHS diagonals; a_2 = 0
-        real(wp), intent(out) :: rhs(nx, 7 + 3)     ! RHS diagonals; b_3 = 0
-        integer(wi), intent(out) :: nb_diag(2)      ! # diagonals in LHS and RHS
-        real(wp), intent(out) :: coef(5)            ! a_1, a_2, b_1, b_2, b_3
+        real(wp), allocatable, intent(out) :: lhs(:, :)     ! LHS diagonals; a_2 = 0
+        real(wp), allocatable, intent(out) :: rhs(:, :)     ! RHS diagonals; b_2, b_3 = 0
+        integer(wi), intent(out) :: nb_diag(2)              ! # diagonals in LHS and RHS
+        real(wp), intent(out) :: coef(5)                    ! a_1, a_2, b_1, b_2, b_3
         logical, intent(in), optional :: periodic
 
         ! -------------------------------------------------------------------
@@ -144,6 +151,9 @@ contains
         real(wp) :: coef_bc3(2 + 6) = 0.0_wp        ! 2 lhs, 6 rhs
 
         ! #######################################################################
+        allocate (lhs(nx, 3), source=0.0_wp)                    ! 3 LHS diagonals
+        allocate (rhs(nx, 7 + size(lhs, 2)), source=0.0_wp)     ! 5 RHS diagonals + LHS for 1. derivative contribution
+
         nb_diag = [3, 7]
 
         if (present(periodic)) then
@@ -187,6 +197,7 @@ contains
 
     !########################################################################
     subroutine Create_System_2der(dx, lhs, rhs, rhs_d1, coef_int, coef_bc1, coef_bc2, coef_bc3)
+        use FDM_Base, only: MultiplyByDiagonal
         real(wp), intent(in) :: dx(:, :)        ! 1. and 2. order Jacobians
         real(wp), intent(out) :: lhs(:, :)      ! LHS diagonals
         real(wp), intent(out) :: rhs(:, :)      ! RHS diagonals
@@ -270,22 +281,21 @@ contains
             rhs(n, :) = rhs(3, size(rhs, 2):1:-1)
         end if
 
-        ! multiply by the Jacobians
-        rhs_d1(:, idl) = -lhs(:, idl)*dx(:, 2)          ! center diagonal
-        do ic = 1, idl - 1                              ! off-diagonals
-            rhs_d1(:, idl - ic) = -lhs(:, idl - ic)*cshift(dx(:, 2), -ic)
-            rhs_d1(:, idl + ic) = -lhs(:, idl + ic)*cshift(dx(:, 2), +ic)
-        end do
+        ! #######################################################################
+        ! Contribution from 1. order derivative in nonuniform grids
+        rhs_d1(:, :) = -lhs(:, :)
 
-        lhs(:, idl) = lhs(:, idl)*dx(:, 1)*dx(:, 1)     ! center diagonal
-        do ic = 1, idl - 1                              ! off-diagonals
-            lhs(:, idl - ic) = lhs(:, idl - ic)*cshift(dx(:, 1), -ic)*cshift(dx(:, 1), -ic)
-            lhs(:, idl + ic) = lhs(:, idl + ic)*cshift(dx(:, 1), +ic)*cshift(dx(:, 1), +ic)
-        end do
+        ! #######################################################################
+        ! multiply by the Jacobians
+        call MultiplyByDiagonal(lhs, dx(:, 1))
+        call MultiplyByDiagonal(lhs, dx(:, 1))
+
+        call MultiplyByDiagonal(rhs_d1, dx(:, 2))
 
         ! normalize such the coefficent in 1. off-diagonal of rhs is 1
         lhs(:, :) = lhs(:, :)/coef_int(3)
         rhs(:, :) = rhs(:, :)/coef_int(3)
+
         rhs_d1(:, :) = rhs_d1(:, :)/coef_int(3)
 
         return

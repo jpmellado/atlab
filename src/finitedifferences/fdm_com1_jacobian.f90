@@ -1,5 +1,5 @@
 !########################################################################
-!# Compact FDMs for non-uniform grids from 
+!# Compact FDMs for non-uniform grids from
 !# Lele (1992), JCP 103:16-42
 !# Carpenter et al (1993), JCP 108:272-295, who study the effect of boundary points on stability
 !# using Jacobian in case of nonuniform grids
@@ -27,6 +27,7 @@
 !########################################################################
 module FDM_Com1_Jacobian
     use TLab_Constants, only: wp, wi
+    use FDM_Base, only: MultiplyByDiagonal
     implicit none
     private
 
@@ -38,20 +39,21 @@ module FDM_Com1_Jacobian
 
 contains
     !########################################################################
-    subroutine FDM_C1N4_Jacobian(nx, dx, lhs, rhs, nb_diag, coef, periodic)
+    ! intent out in allocatable array deallocate previous allocations
+    subroutine FDM_C1N4_Jacobian(nx, dx, lhs, rhs, coef, periodic)
         integer(wi), intent(in) :: nx
         real(wp), intent(in) :: dx(nx)
-        real(wp), intent(out) :: lhs(nx, 3)     ! LHS diagonals; a_2 = 0
-        real(wp), intent(out) :: rhs(nx, 3)     ! RHS diagonals; b_2, b_3 = 0
-        integer(wi), intent(out) :: nb_diag(2)  ! # diagonals in LHS and RHS
-        real(wp), intent(out) :: coef(5)        ! a_1, a_2, b_1, b_2, b_3
+        real(wp), allocatable, intent(out) :: lhs(:, :)     ! LHS diagonals; a_2 = 0
+        real(wp), allocatable, intent(out) :: rhs(:, :)     ! RHS diagonals; b_2, b_3 = 0
+        real(wp), intent(out) :: coef(5)                    ! a_1, a_2, b_1, b_2, b_3
         logical, intent(in), optional :: periodic
 
         ! -------------------------------------------------------------------
         real(wp) :: coef_bc1(2 + 2 + 1) = 0.0_wp    ! 2 lhs, 2 +1 rhs (1 additional point to the 3-diagonal rhs)
 
         ! #######################################################################
-        nb_diag = [3, 3]
+        allocate (lhs(nx, 3), source=0.0_wp)        ! 3 LHS diagonals
+        allocate (rhs(nx, 3), source=0.0_wp)        ! 3 RHS diagonals
 
         if (present(periodic)) then
             periodic_loc = periodic
@@ -65,28 +67,31 @@ contains
         coef(3:5) = [0.75_wp, 0.0_wp, 0.0_wp]                           ! b_1, b_2, b_3
 
         if (periodic_loc) then
-            call Create_System_1der(dx, lhs, rhs, coef)
+            call Create_System_1der(lhs, rhs, coef)
 
         else    ! biased at the boundaries
-                ! 3rd order, Eq. 4.1.3 in Lele with alpha=2, Eq. 27 in Carpenter et al
+            ! 3rd order, Eq. 4.1.3 in Lele with alpha=2, Eq. 27 in Carpenter et al
             coef_bc1(1:2) = [2.0_wp, 0.0_wp]                            ! a_1, a_2
             coef_bc1(3:5) = [-2.5_wp, 2.0_wp, 0.5_wp]                   ! b_1, b_2, b_3, b_4
 
-            call Create_System_1der(dx, lhs, rhs, coef, coef_bc1)
+            call Create_System_1der(lhs, rhs, coef, coef_bc1)
 
         end if
+
+        ! #######################################################################
+        ! multiply by the Jacobian
+        call MultiplyByDiagonal(lhs, dx)
 
         return
     end subroutine FDM_C1N4_Jacobian
 
     !########################################################################
-    subroutine FDM_C1N6_Jacobian(nx, dx, lhs, rhs, nb_diag, coef, periodic)
+    subroutine FDM_C1N6_Jacobian(nx, dx, lhs, rhs, coef, periodic)
         integer(wi), intent(in) :: nx
         real(wp), intent(in) :: dx(nx)
-        real(wp), intent(out) :: lhs(nx, 3)     ! LHS diagonals; a_2 = 0
-        real(wp), intent(out) :: rhs(nx, 5)     ! RHS diagonals; b_3 = 0
-        integer(wi), intent(out) :: nb_diag(2)  ! # diagonals in LHS and RHS
-        real(wp), intent(out) :: coef(5)        ! a_1, a_2, b_1, b_2, b_3
+        real(wp), allocatable, intent(out) :: lhs(:, :)     ! LHS diagonals; a_2 = 0
+        real(wp), allocatable, intent(out) :: rhs(:, :)     ! RHS diagonals; b_3 = 0
+        real(wp), intent(out) :: coef(5)                    ! a_1, a_2, b_1, b_2, b_3
         logical, intent(in), optional :: periodic
 
         ! -------------------------------------------------------------------
@@ -94,7 +99,8 @@ contains
         real(wp) :: coef_bc2(2 + 4) = 0.0_wp        ! 2. point, 2 lhs, 4 rhs
 
         ! #######################################################################
-        nb_diag = [3, 5]
+        allocate (lhs(nx, 3), source=0.0_wp)        ! 3 LHS diagonals
+        allocate (rhs(nx, 5), source=0.0_wp)        ! 5 RHS diagonals
 
         if (present(periodic)) then
             periodic_loc = periodic
@@ -108,36 +114,39 @@ contains
         coef(3:5) = [7.0_wp/9.0_wp, 1.0_wp/36.0_wp, 0.0_wp]                     ! b_1, b_2, b_3
 
         if (periodic_loc) then
-            call Create_System_1der(dx, lhs, rhs, coef)
+            call Create_System_1der(lhs, rhs, coef)
 
         else    ! biased at the boundaries
-                ! 3rd order, Eq. 4.1.3 in Lele with alpha=2, Eq. 27 in Carpenter et al
+            ! 3rd order, Eq. 4.1.3 in Lele with alpha=2, Eq. 27 in Carpenter et al
             coef_bc1(1:2) = [2.0_wp, 0.0_wp]                                    ! a_1, a_2
             coef_bc1(3:6) = [-2.5_wp, 2.0_wp, 0.5_wp, 0.0_wp]                   ! b_1, b_2, b_3, b_4
 
-                ! 5th order, Eq. 93 in Carpenter et al
+            ! 5th order, Eq. 93 in Carpenter et al
             coef_bc2(1:2) = [1.0_wp/6.0_wp, 0.5_wp]                             ! a_1, a_2
             coef_bc2(3:6) = [-5.0_wp/9.0_wp, -0.5_wp, 1.0_wp, 1.0_wp/18.0_wp]   ! b_1, b_2, b_3, b_4
             ! 4th order, Eq. 2.1.6 with alpha=1/4.
             ! coef_bc2(1:2) = [0.25_wp, 0.25_wp]                                ! a_1, a_2
             ! coef_bc2(3:6) = [-0.75_wp, 0.0_wp, 0.75_wp, 0.0_wp]               ! b_1, b_2, b_3, b_4
 
-            call Create_System_1der(dx, lhs, rhs, coef, coef_bc1, coef_bc2)
+            call Create_System_1der(lhs, rhs, coef, coef_bc1, coef_bc2)
 
         end if
+
+        ! #######################################################################
+        ! multiply by the Jacobian
+        call MultiplyByDiagonal(lhs, dx)
 
         return
     end subroutine FDM_C1N6_Jacobian
 
     !########################################################################
     ! From J. Kostelecky
-    subroutine FDM_C1N6_Jacobian_Penta(nx, dx, lhs, rhs, nb_diag, coef, periodic)
+    subroutine FDM_C1N6_Jacobian_Penta(nx, dx, lhs, rhs, coef, periodic)
         integer(wi), intent(in) :: nx
         real(wp), intent(in) :: dx(nx)
-        real(wp), intent(out) :: lhs(nx, 5)     ! LHS diagonals
-        real(wp), intent(out) :: rhs(nx, 7)     ! RHS diagonals
-        integer(wi), intent(out) :: nb_diag(2)  ! # diagonals in LHS and RHS
-        real(wp), intent(out) :: coef(5)        ! a_1, a_2, b_1, b_2, b_3
+        real(wp), allocatable, intent(out) :: lhs(:, :)     ! LHS diagonals
+        real(wp), allocatable, intent(out) :: rhs(:, :)     ! RHS diagonals
+        real(wp), intent(out) :: coef(5)                    ! a_1, a_2, b_1, b_2, b_3
         logical, intent(in), optional :: periodic
 
         ! -------------------------------------------------------------------
@@ -146,7 +155,9 @@ contains
         real(wp) :: coef_bc2(2 + 5) = 0.0_wp        ! 2 lhs, 5 rhs
         real(wp) :: coef_bc3(2 + 6) = 0.0_wp        ! 2 lhs, 6 rhs
 
-        nb_diag = [5, 7]
+        ! #######################################################################
+        allocate (lhs(nx, 5), source=0.0_wp)        ! 5 LHS diagonals
+        allocate (rhs(nx, 7), source=0.0_wp)        ! 7 RHS diagonals
 
         if (present(periodic)) then
             periodic_loc = periodic
@@ -169,7 +180,7 @@ contains
         coef(5) = (1.0_wp/6.0_wp)*(1.0_wp/10.0_wp)*(1.0_wp - 3.0_wp*coef(1) + 12.0_wp*coef(2)) ! b_3
 
         if (periodic_loc) then
-            call Create_System_1der(dx, lhs, rhs, coef)
+            call Create_System_1der(lhs, rhs, coef)
 
         else    ! biased at the boundaries
             ! 3rd order, Eq. 4.1.3 in Lele, with alpha=2
@@ -185,29 +196,21 @@ contains
             coef_bc3(1:2) = [1.0_wp/3.0_wp, 1.0_wp/3.0_wp]                                                   ! a_1, a_2
             coef_bc3(3:8) = [-1.0_wp/36.0_wp, -7.0_wp/9.0_wp, 0.0_wp, 7.0_wp/9.0_wp, 1.0_wp/36.0_wp, 0.0_wp] ! b_1, b_2, b_3, b_4, b_5, b_6
 
-            call Create_System_1der(dx, lhs, rhs, coef, coef_bc1, coef_bc2, coef_bc3)
-            ! write (*, *) rhs(1, 1:7)
-            ! write (*, *) rhs(2, 1:7)
-            ! write (*, *) rhs(3, 1:7)
-            ! write (*, *) rhs(4, 1:7)
-            ! write (*, *) rhs(5, 1:7)
-            ! print *, '--'
-            ! write (*, *) rhs(nx - 4, 1:7)
-            ! write (*, *) rhs(nx - 3, 1:7)
-            ! write (*, *) rhs(nx - 2, 1:7)
-            ! write (*, *) rhs(nx - 1, 1:7)
-            ! write (*, *) rhs(nx, 1:7)
+            call Create_System_1der(lhs, rhs, coef, coef_bc1, coef_bc2, coef_bc3)
 
         end if
+
+        ! #######################################################################
+        ! multiply by the Jacobian
+        call MultiplyByDiagonal(lhs, dx)
 
         return
     end subroutine FDM_C1N6_Jacobian_Penta
 
     !########################################################################
-    subroutine Create_System_1der(dx, lhs, rhs, coef_int, coef_bc1, coef_bc2, coef_bc3)
-        real(wp), intent(in) :: dx(:)
-        real(wp), intent(out) :: lhs(:, :)   ! LHS diagonals
-        real(wp), intent(out) :: rhs(:, :)   ! RHS diagonals
+    subroutine Create_System_1der(lhs, rhs, coef_int, coef_bc1, coef_bc2, coef_bc3)
+        real(wp), intent(out) :: lhs(:, :)              ! LHS diagonals
+        real(wp), intent(out) :: rhs(:, :)              ! RHS diagonals
         real(wp), intent(in) :: coef_int(5)             ! a_1, a_2b_1, b_2, b_3
         real(wp), intent(in), optional :: coef_bc1(:)   ! a_1, a_2, b_1, b_2, b_3, b_4
         real(wp), intent(in), optional :: coef_bc2(:)   ! a_1, a_2, b_1, b_2, b_3, b_4
@@ -287,17 +290,6 @@ contains
             lhs(n, :) = lhs(3, size(lhs, 2):1:-1)
             rhs(n, :) = -rhs(3, size(rhs, 2):1:-1)
         end if
-
-        ! multiply by the Jacobian
-        lhs(:, idl) = lhs(:, idl)*dx(:)     ! center diagonal
-        do ic = 1, idl - 1                   ! off-diagonals
-            lhs(:, idl - ic) = lhs(:, idl - ic)*cshift(dx(:), -ic)
-            lhs(:, idl + ic) = lhs(:, idl + ic)*cshift(dx(:), +ic)
-        end do
-
-        ! ! normalize s.t. 1. upper-diagonal is 1
-        ! lhs(:, :) = lhs(:, :)/coef_int(3)
-        ! rhs(:, :) = rhs(:, :)/coef_int(3)
 
         return
     end subroutine Create_System_1der

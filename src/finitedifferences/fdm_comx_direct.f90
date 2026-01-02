@@ -24,12 +24,11 @@ contains
     !########################################################################
     !########################################################################
     !# 4th-order approximation to 1st-order derivative
-    subroutine FDM_C1N4_Direct(nmax, x, lhs, rhs, nb_diag)
+    subroutine FDM_C1N4_Direct(nmax, x, lhs, rhs)
         integer(wi), intent(in) :: nmax
         real(wp), intent(in) :: x(nmax)
-        real(wp), intent(out) :: lhs(nmax, 3)   ! LHS diagonals
-        real(wp), intent(out) :: rhs(nmax, 3)   ! RHS diagonals
-        integer(wi), intent(out) :: nb_diag(2)  ! # diagonals in LHS and RHS
+        real(wp), allocatable, intent(out) :: lhs(:, :)     ! LHS diagonals
+        real(wp), allocatable, intent(out) :: rhs(:, :)     ! RHS diagonals
 
         ! -------------------------------------------------------------------
         real(wp) dummy
@@ -37,7 +36,8 @@ contains
         integer(wi) n
 
         ! #######################################################################
-        nb_diag = [3, 3]
+        allocate (lhs(nmax, 3), source=0.0_wp)    ! 3 LHS diagonals
+        allocate (rhs(nmax, 3), source=0.0_wp)    ! 3 RHS diagonals
 
         ! #######################################################################
         ! Interior points according to Equations (14)
@@ -82,21 +82,19 @@ contains
     !########################################################################
     !########################################################################
     !# 6th-order approximation to 1st-order derivative
-    subroutine FDM_C1N6_Direct(nmax, x, lhs, rhs, nb_diag)
+    subroutine FDM_C1N6_Direct(nmax, x, lhs, rhs)
         integer(wi), intent(in) :: nmax
         real(wp), intent(in) :: x(nmax)
-        real(wp), intent(out) :: lhs(nmax, 3)   ! LHS diagonals
-        real(wp), intent(out) :: rhs(nmax, 5)   ! RHS diagonals
-        integer(wi), intent(out) :: nb_diag(2)  ! # diagonals in LHS and RHS
+        real(wp), allocatable, intent(out) :: lhs(:, :)     ! LHS diagonals
+        real(wp), allocatable, intent(out) :: rhs(:, :)     ! RHS diagonals
 
         real(wp) dummy
         real(wp) coef(3 + 5)
         integer(wi) n
 
-        nb_diag = [3, 5]
-
-        lhs = 0.0_wp
-        rhs = 0.0_wp
+        ! #######################################################################
+        allocate (lhs(nmax, 3), source=0.0_wp)    ! 3 LHS diagonals
+        allocate (rhs(nmax, 5), source=0.0_wp)    ! 5 RHS diagonals
 
         ! #######################################################################
         ! Interior points according to Equations (14)
@@ -434,9 +432,9 @@ contains
     subroutine FDM_C2N6_Direct(nmax, x, lhs, rhs, nb_diag)
         integer(wi), intent(in) :: nmax
         real(wp), intent(in) :: x(nmax)
-        real(wp), intent(out) :: lhs(nmax, 3)       ! LHS diagonals
-        real(wp), intent(out) :: rhs(nmax, 5)       ! RHS diagonals
-        integer(wi), intent(out) :: nb_diag(2)      ! # diagonals in LHS and RHS
+        real(wp), allocatable, intent(out) :: lhs(:, :)     ! LHS diagonals
+        real(wp), allocatable, intent(out) :: rhs(:, :)     ! RHS diagonals
+        integer(wi), intent(out) :: nb_diag(2)              ! # diagonals in LHS and RHS
 
         ! -------------------------------------------------------------------
         real(wp) am1, a, ap1                        ! Left-hand side; for clarity below
@@ -447,10 +445,11 @@ contains
         real(wp) coef(6)
         integer(wi) n, idx(2)
 
-        nb_diag = [3, 5]
+        ! #######################################################################
+        allocate (lhs(nmax, 3), source=0.0_wp)    ! 3 LHS diagonals
+        allocate (rhs(nmax, 5), source=0.0_wp)    ! 3 RHS diagonals
 
-        lhs = 0.0_wp
-        rhs = 0.0_wp
+        nb_diag = [3, 5]
 
         ! #######################################################################
         ! Equations (16) for the first/last points.
@@ -546,19 +545,20 @@ contains
     subroutine FDM_C2N4_Direct(nmax, x, lhs, rhs, nb_diag)
         integer(wi), intent(in) :: nmax
         real(wp), intent(in) :: x(nmax)
-        real(wp), intent(out) :: lhs(nmax, 3)       ! LHS diagonals
-        real(wp), intent(out) :: rhs(nmax, 5)       ! RHS diagonals
-        integer(wi), intent(out) :: nb_diag(2)      ! # diagonals in LHS and RHS
+        real(wp), allocatable, intent(out) :: lhs(:, :)     ! LHS diagonals
+        real(wp), allocatable, intent(out) :: rhs(:, :)     ! RHS diagonals
+        integer(wi), intent(out) :: nb_diag(2)              ! # diagonals in LHS and RHS
 
         ! -------------------------------------------------------------------
         real(wp) dummy
         real(wp) coef(6)
         integer(wi) n
 
-        nb_diag = [3, 5]
+        ! #######################################################################
+        allocate (lhs(nmax, 3), source=0.0_wp)    ! 3 LHS diagonals
+        allocate (rhs(nmax, 5), source=0.0_wp)    ! 5 RHS diagonals
 
-        lhs = 0.0_wp
-        rhs = 0.0_wp
+        nb_diag = [3, 5]
 
         ! #######################################################################
         ! Equations (16) for the first/last points.

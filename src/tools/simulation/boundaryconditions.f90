@@ -11,7 +11,7 @@ module BoundaryConditions
 
     public :: BCS_Initialize
     public :: BCS_Neumann_Z, BCS_Neumann_Z_PerVolume
-    public :: BCS_SURFACE_Z
+    ! public :: BCS_SURFACE_Z
 
     type bcs_dt
         sequence
@@ -243,76 +243,76 @@ contains
         return
     end subroutine BCS_Neumann_Z_PerVolume
 
-    !########################################################################
-    !########################################################################
-    ! Calculates and updates interactive surface boundary condition
-    subroutine BCS_SURFACE_Z(is, s, hs, tmp1, aux)
-#ifdef TRACE_ON
-        use TLab_Constants, only: tfile
-        use TLab_WorkFlow, only: TLab_Write_ASCII
-#endif
-        use TLab_Constants, only: lfile
-        use TLab_Memory, only: imax, jmax, kmax
-        use TLab_Memory, only: isize_field
-        use NavierStokes, only: visc, schmidt
-        use Averages, only: AVG1V2D
-        use OPR_Partial
+!     !########################################################################
+!     !########################################################################
+!     ! Calculates and updates interactive surface boundary condition
+!     subroutine BCS_SURFACE_Z(is, s, hs, tmp1, aux)
+! #ifdef TRACE_ON
+!         use TLab_Constants, only: tfile
+!         use TLab_WorkFlow, only: TLab_Write_ASCII
+! #endif
+!         use TLab_Constants, only: lfile
+!         use TLab_Memory, only: imax, jmax, kmax
+!         use TLab_Memory, only: isize_field
+!         use NavierStokes, only: visc, schmidt
+!         use Averages, only: AVG1V2D
+!         use OPR_Partial
 
-        integer(wi) is
-        real(wp), dimension(isize_field, *) :: s, hs
-        real(wp), dimension(isize_field) :: tmp1
-        real(wp), dimension(imax, kmax, 6), target :: aux
+!         integer(wi) is
+!         real(wp), dimension(isize_field, *) :: s, hs
+!         real(wp), dimension(isize_field) :: tmp1
+!         real(wp), dimension(imax, kmax, 6), target :: aux
 
-        integer(wi) nxy, ip, k
-        real(wp), dimension(:, :), pointer :: hfx, hfx_anom
-        real(wp) :: diff, hfx_avg
+!         integer(wi) nxy, ip, k
+!         real(wp), dimension(:, :), pointer :: hfx, hfx_anom
+!         real(wp) :: diff, hfx_avg
 
-#ifdef TRACE_ON
-        call TLab_Write_ASCII(tfile, 'ENTERING SUBROUTINE BCS_SURFACE_Y')
-#endif
-        diff = visc/schmidt(is)
-        nxy = imax*jmax
+! #ifdef TRACE_ON
+!         call TLab_Write_ASCII(tfile, 'ENTERING SUBROUTINE BCS_SURFACE_Y')
+! #endif
+!         diff = visc/schmidt(is)
+!         nxy = imax*jmax
 
-        ! vertical derivative of scalar for flux at the boundaries
-        call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, s(:, is), tmp1)
+!         ! vertical derivative of scalar for flux at the boundaries
+!         call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, s(:, is), tmp1)
 
-        ! ------------------------------------------------------------
-        ! Bottom Boundary
-        ! ------------------------------------------------------------
-        if (BcsScalKmin%SfcType(is) == DNS_SFC_LINEAR) then
-            hfx => aux(:, :, 1)
-            hfx_anom => aux(:, :, 2)
-            ip = 1
-            do k = 1, kmax    ! Calculate the surface flux
-                hfx(:, k) = diff*tmp1(ip:ip + imax - 1); ip = ip + nxy
-            end do
-            hfx_avg = diff*AVG1V2D(imax, jmax, kmax, 1, 1, tmp1)
-            hfx_anom = hfx - hfx_avg
-            BcsScalKmin%ref(:, :, is) = BcsScalKmin%ref(:, :, is) + BcsScalKmin%cpl(is)*hfx_anom
-        end if
+!         ! ------------------------------------------------------------
+!         ! Bottom Boundary
+!         ! ------------------------------------------------------------
+!         if (BcsScalKmin%SfcType(is) == DNS_SFC_LINEAR) then
+!             hfx => aux(:, :, 1)
+!             hfx_anom => aux(:, :, 2)
+!             ip = 1
+!             do k = 1, kmax    ! Calculate the surface flux
+!                 hfx(:, k) = diff*tmp1(ip:ip + imax - 1); ip = ip + nxy
+!             end do
+!             hfx_avg = diff*AVG1V2D(imax, jmax, kmax, 1, 1, tmp1)
+!             hfx_anom = hfx - hfx_avg
+!             BcsScalKmin%ref(:, :, is) = BcsScalKmin%ref(:, :, is) + BcsScalKmin%cpl(is)*hfx_anom
+!         end if
 
-        ! ------------------------------------------------------------
-        ! Top Boundary
-        ! ------------------------------------------------------------
-        if (BcsScalKmax%SfcType(is) == DNS_SFC_LINEAR) then
-            hfx => aux(:, :, 3)
-            hfx_anom => aux(:, :, 4)
-            ip = imax*(Kmax - 1) + 1
-            do k = 1, kmax; ! Calculate the surface flux
-                hfx(:, k) = -diff*tmp1(ip:ip + imax - 1); ip = ip + nxy; 
-            end do
-            hfx_avg = diff*AVG1V2D(imax, Kmax, kmax, 1, 1, tmp1)
-            hfx_anom = hfx - hfx_avg
-            BcsScalKmax%ref(:, :, is) = BcsScalKmax%ref(:, :, is) + BcsScalKmax%cpl(is)*hfx_anom
-        end if
+!         ! ------------------------------------------------------------
+!         ! Top Boundary
+!         ! ------------------------------------------------------------
+!         if (BcsScalKmax%SfcType(is) == DNS_SFC_LINEAR) then
+!             hfx => aux(:, :, 3)
+!             hfx_anom => aux(:, :, 4)
+!             ip = imax*(Kmax - 1) + 1
+!             do k = 1, kmax; ! Calculate the surface flux
+!                 hfx(:, k) = -diff*tmp1(ip:ip + imax - 1); ip = ip + nxy; 
+!             end do
+!             hfx_avg = diff*AVG1V2D(imax, Kmax, kmax, 1, 1, tmp1)
+!             hfx_anom = hfx - hfx_avg
+!             BcsScalKmax%ref(:, :, is) = BcsScalKmax%ref(:, :, is) + BcsScalKmax%cpl(is)*hfx_anom
+!         end if
 
-#ifdef TRACE_ON
-        call TLab_Write_ASCII(TFILE, 'LEAVING SUBROUTINE BOUNDAR_SURFACE_J')
-#endif
+! #ifdef TRACE_ON
+!         call TLab_Write_ASCII(TFILE, 'LEAVING SUBROUTINE BOUNDAR_SURFACE_J')
+! #endif
 
-        return
+!         return
 
-    end subroutine BCS_SURFACE_Z
+!     end subroutine BCS_SURFACE_Z
 
 ! ###################################################################
 ! ###################################################################

@@ -3,7 +3,7 @@
 module FDM_Derivative
     use TLab_Constants, only: wp, wi, pi_wp
     use TLab_Constants, only: lfile, efile
-    use TLab_Constants, only: BCS_DD, BCS_ND, BCS_DN, BCS_NN, BCS_NONE, BCS_PERIODIC, BCS_MIN, BCS_MAX
+    use TLab_Constants, only: BCS_DD, BCS_ND, BCS_DN, BCS_NN, BCS_PERIODIC, BCS_NONE
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
     use Thomas
     use Thomas_Circulant
@@ -29,10 +29,10 @@ module FDM_Derivative
         integer nb_diag(2)                          ! # of left and right diagonals  (max 5/7)
         real(wp), allocatable :: lhs(:, :)                  ! memory space for LHS
         real(wp), allocatable :: rhs(:, :)                  ! memory space for RHS
-        real(wp), allocatable :: rhs_b1(:, :), rhs_t1(:, :) ! Neumann boundary conditions
         real(wp), allocatable :: mwn(:)                     ! memory space for modified wavenumbers
         !
         real(wp), allocatable :: lu(:, :)                   ! memory space for LU decomposition
+        real(wp), allocatable :: rhs_b1(:, :), rhs_t1(:, :) ! Neumann boundary conditions
 
         ! procedure(matmul_halo_ice), pointer, nopass :: matmul_halo => null()
         procedure(matmul_halo_thomas_ice), pointer, nopass :: matmul_halo_thomas => null()
@@ -178,12 +178,12 @@ contains
         idr = ndr/2 + 1
 
         ! Preconditioning
-        call Precon_Rhs(g%lhs(:, 1:ndl), g%rhs(:, 1:ndr), periodic=periodic)
+        call Precon_Rhs(g%lhs, g%rhs, periodic=periodic)
 
         ! LU decomposition
         if (allocated(g%lu)) deallocate (g%lu)
         if (g%periodic) then
-            allocate (g%lu(g%size, ndl + 2))
+            allocate (g%lu(g%size, ndl + 1))
         else
             allocate (g%lu(g%size, 5*size(bcs_cases)))
         end if
@@ -307,44 +307,38 @@ contains
         ! -------------------------------------------------------------------
         real(wp) :: coef(5)
         integer(wi) i, nx
-        integer, parameter :: ndl_max = 5, ndr_max = 7
 
         ! ###################################################################
         g%size = size(x)                ! # grid points
         nx = g%size                     ! for code readability
-
-        if (allocated(g%lhs)) deallocate (g%lhs)
-        if (allocated(g%rhs)) deallocate (g%rhs)
-        if (allocated(g%mwn)) deallocate (g%mwn)
-        allocate (g%lhs(nx, ndl_max))
-        allocate (g%rhs(nx, ndr_max))
-        allocate (g%mwn(nx))
-        g%lhs(:, :) = 0.0_wp
-        g%rhs(:, :) = 0.0_wp
-
-        g%periodic = periodic
+        g%periodic = periodic           ! flag for periodic direction
 
         ! -------------------------------------------------------------------
         select case (g%mode_fdm)
         case (FDM_COM4_JACOBIAN)
-            call FDM_C1N4_Jacobian(g%size, dx, g%lhs, g%rhs, g%nb_diag, coef, periodic)
+            call FDM_C1N4_Jacobian(g%size, dx, g%lhs, g%rhs, coef, periodic)
 
         case (FDM_COM6_JACOBIAN)
-            call FDM_C1N6_Jacobian(g%size, dx, g%lhs, g%rhs, g%nb_diag, coef, periodic)
+            call FDM_C1N6_Jacobian(g%size, dx, g%lhs, g%rhs, coef, periodic)
 
         case (FDM_COM6_JACOBIAN_PENTA)
-            call FDM_C1N6_Jacobian_Penta(g%size, dx, g%lhs, g%rhs, g%nb_diag, coef, periodic)
+            call FDM_C1N6_Jacobian_Penta(g%size, dx, g%lhs, g%rhs, coef, periodic)
 
         case (FDM_COM4_DIRECT)
-            call FDM_C1N4_Direct(g%size, x, g%lhs, g%rhs, g%nb_diag)
+            call FDM_C1N4_Direct(g%size, x, g%lhs, g%rhs)
 
         case (FDM_COM6_DIRECT)
-            call FDM_C1N6_Direct(g%size, x, g%lhs, g%rhs, g%nb_diag)
+            call FDM_C1N6_Direct(g%size, x, g%lhs, g%rhs)
 
         end select
 
+        ! For code readability later in the code
+        g%nb_diag = [size(g%lhs, 2), size(g%rhs, 2)]
+
         ! -------------------------------------------------------------------
         ! modified wavenumbers
+        if (allocated(g%mwn)) deallocate (g%mwn)
+        allocate (g%mwn(nx))
         if (periodic) then
             nx = g%size
 
@@ -381,7 +375,6 @@ contains
         integer(wi) idl, ndl, idr, ndr, ir, nx
         integer(wi) idr_t, ndr_t, idr_b, ndr_b, nx_t
         real(wp), allocatable :: aux(:, :)
-        ! real(wp) locRhs_b(5, 0:7), locRhs_t(0:4, 7)
         real(wp) locRhs_b(7, 8), locRhs_t(7, 8)
 
         ! ###################################################################
@@ -418,8 +411,9 @@ contains
 
         locRhs_b = 0.0_wp
         locRhs_t = 0.0_wp
-        ! call FDM_Bcs_Reduce(ibc, aux, lhs(:, 1:ndl), locRhs_b, locRhs_t)
-        call FDM_Bcs_Reduce(ibc, aux, lhs(:, 1:ndl), locRhs_b(1:max(idl, idr + 1), 1:ndr_b), locRhs_t(1:max(idl, idr + 1), 1:ndr_t))
+        call FDM_Bcs_Reduce(ibc, aux, lhs, &
+                            locRhs_b(1:max(idl, idr + 1), 1:ndr_b), &
+                            locRhs_t(1:max(idl, idr + 1), 1:ndr_t))
 
         ! reorganize data
         if (any([BCS_ND, BCS_NN] == ibc)) then
@@ -427,12 +421,9 @@ contains
             r_rhs_b(1:idr + 1, idr_b - ndr/2:idr_b + ndr/2) = aux(1:idr + 1, 1:ndr)
             r_rhs_b(1, idr_b) = lhs(1, idl)         ! save a_11 for nonzero bc
             do ir = 1, idr - 1                      ! save -a^R_{21} for nonzero bc
-                ! r_rhs_b(1 + ir, idr_b - ir) = -locRhs_b(1 + ir, idl - ir)
                 r_rhs_b(1 + ir, idr_b - ir) = -locRhs_b(1 + ir, idr_b - ir)
             end do
 
-            ! print *, locRhs_b(2, idr_b - ndl/2:idr_b + ndl/2)
-            ! r_lhs(2:idl + 1, 1:ndl) = locRhs_b(2:idl + 1, 1:ndl)
             r_lhs(2:idl + 1, 1:ndl) = locRhs_b(2:idl + 1, idr_b - ndl/2:idr_b + ndl/2)
             r_lhs(1, idl) = rhs(1, idr)
 
@@ -444,17 +435,12 @@ contains
 
         if (any([BCS_DN, BCS_NN] == ibc)) then
             r_rhs_t(:, :) = 0.0_wp
-            ! r_rhs_t(1:idr + 1, idr_t - ndr/2:idr_t + ndr/2) = aux(nx - idr:nx, 1:ndr)
             r_rhs_t(nx_t - idr:nx_t, idr_t - ndr/2:idr_t + ndr/2) = aux(nx - idr:nx, 1:ndr)
-            ! r_rhs_t(idr + 1, idr_t) = lhs(nx, idl)
             r_rhs_t(nx_t, idr_t) = lhs(nx, idl)
             do ir = 1, idr - 1              ! change sign in a^R_{21} for nonzero bc
-                ! r_rhs_t(idr + 1 - ir, idr_t + ir) = -locRhs_t(idl - ir, idl + ir)
                 r_rhs_t(nx_t - ir, idr_t + ir) = -locRhs_t(nx_t - ir, idr_t + ir)
             end do
 
-            ! r_lhs(nx - idl:nx - 1, 1:ndl) = locRhs_t(0:idl - 1, 1:ndl)
-            ! r_lhs(nx - idl:nx - 1, 1:ndl) = locRhs_t(1:idl, idr_t - ndl/2:idr_t + ndl/2)
             r_lhs(nx - idl:nx - 1, 1:ndl) = locRhs_t(nx_t - idl:nx_t - 1, idr_t - ndl/2:idr_t + ndl/2)
             r_lhs(nx, idl) = rhs(nx, idr)
 
@@ -634,9 +620,12 @@ contains
         ndl = g%nb_diag(1)                              ! number of diagonals in lhs
         ndr = g%nb_diag(2)                              ! number of diagonals in rhs
 
+        ! ! Preconditioning; done inside of Der2_CreateSystem
+        ! call Precon_Rhs(g%lhs(:, 1:ndl), g%rhs(:, 1:ndr), periodic=periodic)
+
         if (allocated(g%lu)) deallocate (g%lu)
         if (g%periodic) then
-            allocate (g%lu(g%size, ndl + 2))
+            allocate (g%lu(g%size, ndl + 1))
         else
             allocate (g%lu(g%size, ndl*1))              ! Only 1 bcs
         end if
@@ -731,22 +720,11 @@ contains
         ! -------------------------------------------------------------------
         real(wp) :: coef(5)
         integer(wi) i, nx
-        integer, parameter :: ndl_max = 5, ndr_max = 7
 
         ! ###################################################################
         g%size = size(x)                ! # grid points
         nx = g%size                     ! for code readability
-
-        if (allocated(g%lhs)) deallocate (g%lhs)
-        if (allocated(g%rhs)) deallocate (g%rhs)
-        if (allocated(g%mwn)) deallocate (g%mwn)
-        allocate (g%lhs(nx, ndl_max))
-        allocate (g%rhs(nx, ndr_max + ndl_max))     ! ndl_max is space for du correction in nonuniform case
-        allocate (g%mwn(nx))
-        g%lhs(:, :) = 0.0_wp
-        g%rhs(:, :) = 0.0_wp
-
-        g%periodic = periodic
+        g%periodic = periodic           ! flag for periodic direction
 
         ! -------------------------------------------------------------------
         select case (g%mode_fdm)
@@ -779,8 +757,9 @@ contains
 
         ! -------------------------------------------------------------------
         ! modified wavenumbers
+        if (allocated(g%mwn)) deallocate (g%mwn)
+        allocate (g%mwn(nx))
         if (periodic) then
-
 #define wn(i) g%mwn(i)
 
             do i = 1, nx        ! wavenumbers, the independent variable to construct the modified ones

@@ -32,7 +32,8 @@ module FDM_Derivative
         real(wp), allocatable :: mwn(:)                     ! memory space for modified wavenumbers
         !
         real(wp), allocatable :: lu(:, :)                   ! memory space for LU decomposition
-        real(wp), allocatable :: rhs_b1(:, :), rhs_t1(:, :) ! Neumann boundary conditions
+        real(wp), allocatable :: rhs_b1(:, :), rhs_t1(:, :) ! memory space Neumann boundary conditions
+        real(wp), allocatable :: rhs_d1(:, :)               ! memory space for 1. order derivative to 2. order one in Jacobian formulation
 
         ! procedure(matmul_halo_ice), pointer, nopass :: matmul_halo => null()
         procedure(matmul_halo_thomas_ice), pointer, nopass :: matmul_halo_thomas => null()
@@ -620,8 +621,19 @@ contains
         ndl = g%nb_diag(1)                              ! number of diagonals in lhs
         ndr = g%nb_diag(2)                              ! number of diagonals in rhs
 
-        ! ! Preconditioning; done inside of Der2_CreateSystem
-        ! call Precon_Rhs(g%lhs(:, 1:ndl), g%rhs(:, 1:ndr), periodic=periodic)
+        ! Preconditioning
+        if (g%need_1der) then
+            call NormalizeByDiagonal(g%rhs, &
+                                     1, &                           ! use 1. upper diagonal in rhs
+                                     g%lhs, &
+                                     g%rhs_d1, &
+                                     switchAtBoundary=.not. (periodic))
+        else
+            call NormalizeByDiagonal(g%rhs, &
+                                     1, &                           ! use 1. upper diagonal in rhs
+                                     g%lhs, &
+                                     switchAtBoundary=.not. (periodic))
+        end if
 
         if (allocated(g%lu)) deallocate (g%lu)
         if (g%periodic) then
@@ -729,31 +741,34 @@ contains
         ! -------------------------------------------------------------------
         select case (g%mode_fdm)
         case (FDM_COM4_JACOBIAN)
-            call FDM_C2N4_Jacobian(g%size, dx, g%lhs, g%rhs, g%nb_diag, coef, periodic)
+            call FDM_C2N4_Jacobian(g%size, dx, g%lhs, g%rhs, g%rhs_d1, coef, periodic)
             if (.not. uniform) g%need_1der = .true.
 
         case (FDM_COM6_JACOBIAN)
-            call FDM_C2N6_Jacobian(g%size, dx, g%lhs, g%rhs, g%nb_diag, coef, periodic)
+            call FDM_C2N6_Jacobian(g%size, dx, g%lhs, g%rhs, g%rhs_d1, coef, periodic)
             if (.not. uniform) g%need_1der = .true.
 
         case (FDM_COM6_JACOBIAN_HYPER)
-            call FDM_C2N6_Hyper_Jacobian(g%size, dx, g%lhs, g%rhs, g%nb_diag, coef, periodic)
+            call FDM_C2N6_Hyper_Jacobian(g%size, dx, g%lhs, g%rhs, g%rhs_d1, coef, periodic)
             if (.not. uniform) g%need_1der = .true.
 
         case (FDM_COM4_DIRECT)
-            call FDM_C2N4_Direct(g%size, x, g%lhs, g%rhs, g%nb_diag)
+            call FDM_C2N4_Direct(g%size, x, g%lhs, g%rhs)
             g%need_1der = .false.
 
         case (FDM_COM6_DIRECT)
-            call FDM_C2N6_Direct(g%size, x, g%lhs, g%rhs, g%nb_diag)
+            call FDM_C2N6_Direct(g%size, x, g%lhs, g%rhs)
             g%need_1der = .false.
 
         case (FDM_COM6_DIRECT_HYPER)
-            call TLab_Write_ASCII(lfile, 'Direct, hyper-diffusive scheme undeveloped, use standard one.')
-            call FDM_C2N6_Direct(g%size, x, g%lhs, g%rhs, g%nb_diag)
+            call TLab_Write_ASCII(lfile, __FILE__//'Direct, hyper-diffusive scheme undeveloped, use standard one.')
+            call FDM_C2N6_Direct(g%size, x, g%lhs, g%rhs)
             g%need_1der = .false.
 
         end select
+
+        ! For code readability later in the code
+        g%nb_diag = [size(g%lhs, 2), size(g%rhs, 2)]
 
         ! -------------------------------------------------------------------
         ! modified wavenumbers
@@ -792,7 +807,7 @@ contains
         real(wp), intent(out) :: wrk2d(nlines)
 
         ! -------------------------------------------------------------------
-        integer(wi) ip, ndl, ndr
+        integer(wi) ndl, ndr
 
         ! ###################################################################
         ndl = g%nb_diag(1)
@@ -826,7 +841,6 @@ contains
         else    ! biased
             ! Calculate RHS in system of equations A u' = B u
             if (g%need_1der) then           ! add Jacobian correction A_2 dx2 du
-                ip = g%nb_diag(2)           ! so far, only tridiagonal systems
                 ! call g%matmul_add(rhs=g%rhs(:, 1:ndr), &
                 !                        rhs_b=g%rhs(1:ndr/2, 1:ndr), &
                 !                        rhs_t=g%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
@@ -838,7 +852,7 @@ contains
                                          rhs_b=g%rhs(1:ndr/2, 1:ndr), &
                                          rhs_t=g%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
                                          u=u, &
-                                         rhs_add=g%rhs(:, ip + 1:ip + 3), &
+                                         rhs_add=g%rhs_d1, &
                                          u_add=du, &
                                          f=result, &
                                          L=lu(:, 1:ndl/2))

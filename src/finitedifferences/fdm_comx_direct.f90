@@ -429,12 +429,11 @@ contains
     !# Interior points 6th-order according to Eq. 2.1.7.
     !# The second point from Eq. 2.1.6 forth-order (b=0).
     !# The first point from third-order biased Eq. 4.1.3 (d=0).
-    subroutine FDM_C2N6_Direct(nmax, x, lhs, rhs, nb_diag)
+    subroutine FDM_C2N6_Direct(nmax, x, lhs, rhs)
         integer(wi), intent(in) :: nmax
         real(wp), intent(in) :: x(nmax)
         real(wp), allocatable, intent(out) :: lhs(:, :)     ! LHS diagonals
         real(wp), allocatable, intent(out) :: rhs(:, :)     ! RHS diagonals
-        integer(wi), intent(out) :: nb_diag(2)              ! # diagonals in LHS and RHS
 
         ! -------------------------------------------------------------------
         real(wp) am1, a, ap1                        ! Left-hand side; for clarity below
@@ -448,8 +447,6 @@ contains
         ! #######################################################################
         allocate (lhs(nmax, 3), source=0.0_wp)    ! 3 LHS diagonals
         allocate (rhs(nmax, 5), source=0.0_wp)    ! 3 RHS diagonals
-
-        nb_diag = [3, 5]
 
         ! #######################################################################
         ! Equations (16) for the first/last points.
@@ -542,12 +539,11 @@ contains
     !########################################################################
     !########################################################################
     !# 4th-order approximation to 2nd-order derivative
-    subroutine FDM_C2N4_Direct(nmax, x, lhs, rhs, nb_diag)
+    subroutine FDM_C2N4_Direct(nmax, x, lhs, rhs)
         integer(wi), intent(in) :: nmax
         real(wp), intent(in) :: x(nmax)
         real(wp), allocatable, intent(out) :: lhs(:, :)     ! LHS diagonals
         real(wp), allocatable, intent(out) :: rhs(:, :)     ! RHS diagonals
-        integer(wi), intent(out) :: nb_diag(2)              ! # diagonals in LHS and RHS
 
         ! -------------------------------------------------------------------
         real(wp) dummy
@@ -557,8 +553,6 @@ contains
         ! #######################################################################
         allocate (lhs(nmax, 3), source=0.0_wp)    ! 3 LHS diagonals
         allocate (rhs(nmax, 5), source=0.0_wp)    ! 5 RHS diagonals
-
-        nb_diag = [3, 5]
 
         ! #######################################################################
         ! Equations (16) for the first/last points.

@@ -3,7 +3,8 @@ module Preconditioning
     implicit none
     private
 
-    public Precon_Rhs
+    public :: Precon_Rhs
+    public :: NormalizeByDiagonal
     ! public Precon_Rhs_Old
 
 contains

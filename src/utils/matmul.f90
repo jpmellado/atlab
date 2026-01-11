@@ -661,7 +661,7 @@ contains
         real(wp), intent(in) :: rhs(:, :)
         real(wp), intent(in) :: u(:, :)
         real(wp), intent(out) :: f(:, :)
-        real(wp), intent(inout), optional :: bcs(:)
+        real(wp), intent(inout), optional :: bcs(size(u, 1))
 
         integer(wi) ir
         integer nx, ndr, idr, ic
@@ -723,7 +723,7 @@ contains
         real(wp), intent(in) :: rhs(:, :)
         real(wp), intent(in) :: u(:, :)
         real(wp), intent(out) :: f(:, :)
-        real(wp), intent(inout), optional :: bcs(:)
+        real(wp), intent(inout), optional :: bcs(size(u, 1))
 
         integer(wi) ir
         integer nx, ndr, idr, ic

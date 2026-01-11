@@ -7,3 +7,7 @@ else()
 endif()
 add_library(finitedifferences STATIC ${sourcefiles})
 add_dependencies(finitedifferences utils base)
+
+FILE(GLOB sourcefiles "fdm_derivative_X.f90")
+add_executable(fdm_test.x ${sourcefiles})
+target_link_libraries(fdm_test.x finitedifferences utils base ${LIBS})

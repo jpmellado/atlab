@@ -504,7 +504,7 @@ contains
 
         allocate (self%rhs_b(max(idl, idr + 1), 1:ndr + 2), source=0.0_wp)
 
-        call FDM_Der1_Neumann_Reduce(ref%lhs, ref%rhs, BCS_ND, &
+        call FDM_Der1_Neumann_Reduce(ref%lhs, ref%rhs, &
                                      self%lu, r_rhs_b=self%rhs_b)
 
         call Thomas_FactorLU_InPlace(self%lu(2:nx, 1:ndl/2), &
@@ -576,7 +576,7 @@ contains
 
         allocate (self%rhs_t(max(idl, idr + 1), 1:ndr + 2), source=0.0_wp)
 
-        call FDM_Der1_Neumann_Reduce(ref%lhs, ref%rhs, BCS_DN, &
+        call FDM_Der1_Neumann_Reduce(ref%lhs, ref%rhs, &
                                      self%lu, r_rhs_t=self%rhs_t)
 
         call Thomas_FactorLU_InPlace(self%lu(1:nx - 1, 1:ndl/2), &
@@ -649,7 +649,7 @@ contains
         allocate (self%rhs_b(max(idl, idr + 1), 1:ndr + 2), source=0.0_wp)
         allocate (self%rhs_t(max(idl, idr + 1), 1:ndr + 2), source=0.0_wp)
 
-        call FDM_Der1_Neumann_Reduce(ref%lhs, ref%rhs, BCS_NN, &
+        call FDM_Der1_Neumann_Reduce(ref%lhs, ref%rhs, &
                                      self%lu, r_rhs_b=self%rhs_b, r_rhs_t=self%rhs_t)
 
         call Thomas_FactorLU_InPlace(self%lu(2:nx - 1, 1:ndl/2), &
@@ -711,7 +711,7 @@ contains
         use FDM_Com1_Jacobian
         real(wp), intent(in) :: x(:)                    ! node positions
         real(wp), intent(in) :: dx(:)                   ! Jacobian
-        class(der_dt), intent(out) :: g
+        class(der_dt), intent(inout) :: g
         logical, intent(in) :: periodic
 
         ! -------------------------------------------------------------------
@@ -768,11 +768,12 @@ contains
 
 ! #######################################################################
 ! #######################################################################
-    subroutine FDM_Der1_Neumann_Reduce(lhs, rhs, ibc, r_lhs, r_rhs_b, r_rhs_t)
+    subroutine FDM_Der1_Neumann_Reduce(lhs, rhs, r_lhs, r_rhs_b, r_rhs_t)
+        use TLab_Constants, only: BCS_MIN, BCS_MAX
         use FDM_Base, only: FDM_Bcs_Reduce
         real(wp), intent(in) :: lhs(:, :)
         real(wp), intent(in) :: rhs(:, :)
-        integer, intent(in) :: ibc
+        ! integer, intent(in) :: ibc
         real(wp), intent(out) :: r_lhs(:, :)                        ! new, reduced lhs
         real(wp), intent(inout), optional :: r_rhs_b(:, :), r_rhs_t(:, :)     ! new, reduced rhs, extended diagonals
 
@@ -790,11 +791,11 @@ contains
         ndr = size(rhs, 2)
         idr = ndr/2 + 1             ! center diagonal in rhs
 
-        ndr_b = size(r_rhs_b, 2)    ! they can have a different number of diagonals than rhs
-        idr_b = ndr_b/2 + 1
-        ndr_t = size(r_rhs_t, 2)
-        idr_t = ndr_t/2 + 1
-        nx_t = max(idl, idr + 1)
+        ! ndr_b = size(r_rhs_b, 2)    ! they can have a different number of diagonals than rhs
+        ! idr_b = ndr_b/2 + 1
+        ! ndr_t = size(r_rhs_t, 2)
+        ! idr_t = ndr_t/2 + 1
+        ! nx_t = max(idl, idr + 1)
 
         ! ! For A_22, we need idl >= idr -1
         ! if (idl < idr - 1) then
@@ -812,17 +813,25 @@ contains
 
         ! -------------------------------------------------------------------
         r_lhs(:, 1:ndl) = lhs(:, 1:ndl)
-        aux(1:nx, 1:ndr) = rhs(1:nx, 1:ndr)         ! array changed in FDM_Bcs_Reduce
+        ! aux(1:nx, 1:ndr) = rhs(1:nx, 1:ndr)         ! array changed in FDM_Bcs_Reduce
 
-        locRhs_b = 0.0_wp
-        locRhs_t = 0.0_wp
-        call FDM_Bcs_Reduce(ibc, aux, lhs, &
-                            locRhs_b(1:max(idl, idr + 1), 1:ndr_b), &
-                            locRhs_t(1:max(idl, idr + 1), 1:ndr_t))
+        ! locRhs_b = 0.0_wp
+        ! locRhs_t = 0.0_wp
+        ! call FDM_Bcs_Reduce(ibc, aux, lhs, &
+        !                     locRhs_b(1:max(idl, idr + 1), 1:ndr_b), &
+        !                     locRhs_t(1:max(idl, idr + 1), 1:ndr_t))
 
         ! reorganize data
-        ! if (any([BCS_ND, BCS_NN] == ibc)) then
         if (present(r_rhs_b)) then
+            ndr_b = size(r_rhs_b, 2)                ! can have a different # of diagonals than rhs
+            idr_b = ndr_b/2 + 1
+
+            aux(1:nx, 1:ndr) = rhs(1:nx, 1:ndr)     ! array changed in FDM_Bcs_Reduce
+
+            locRhs_b = 0.0_wp
+            call FDM_Bcs_Reduce(BCS_MIN, aux, lhs, &
+                                rhs_b=locRhs_b(1:max(idl, idr + 1), 1:ndr_b))
+
             r_rhs_b(:, :) = 0.0_wp
             r_rhs_b(1:idr + 1, idr_b - ndr/2:idr_b + ndr/2) = aux(1:idr + 1, 1:ndr)
             r_rhs_b(1, idr_b) = lhs(1, idl)         ! save a_11 for nonzero bc
@@ -839,12 +848,21 @@ contains
 
         end if
 
-        ! if (any([BCS_DN, BCS_NN] == ibc)) then
         if (present(r_rhs_t)) then
+            ndr_t = size(r_rhs_t, 2)                ! can have a different # of diagonals than rhs
+            idr_t = ndr_t/2 + 1
+            nx_t = max(idl, idr + 1)
+
+            aux(1:nx, 1:ndr) = rhs(1:nx, 1:ndr)     ! array changed in FDM_Bcs_Reduce
+
+            locRhs_t = 0.0_wp
+            call FDM_Bcs_Reduce(BCS_MAX, aux, lhs, &
+                                rhs_t=locRhs_t(1:max(idl, idr + 1), 1:ndr_t))
+
             r_rhs_t(:, :) = 0.0_wp
             r_rhs_t(nx_t - idr:nx_t, idr_t - ndr/2:idr_t + ndr/2) = aux(nx - idr:nx, 1:ndr)
             r_rhs_t(nx_t, idr_t) = lhs(nx, idl)
-            do ir = 1, idr - 1              ! change sign in a^R_{21} for nonzero bc
+            do ir = 1, idr - 1                      ! change sign in a^R_{21} for nonzero bc
                 r_rhs_t(nx_t - ir, idr_t + ir) = -locRhs_t(nx_t - ir, idr_t + ir)
             end do
 

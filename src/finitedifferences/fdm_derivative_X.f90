@@ -49,8 +49,9 @@ module FDM_Derivative_X
         ! procedure(matmul_halo_ice), pointer, nopass :: matmul => null()
         procedure(matmul_halo_thomas_ice), pointer, nopass :: matmul => null()
         procedure(thomas_ice), pointer, nopass :: thomasU => null()
-        real(wp), allocatable :: mwn(:)          ! modified wavenumbers
-        real(wp), allocatable :: lu(:, :)
+        real(wp), allocatable :: mwn(:)                 ! modified wavenumbers
+        real(wp), allocatable :: lu(:, :)               ! LU decomposition
+        real(wp), allocatable :: z(:, :)                ! boundary corrections
     contains
     end type
 
@@ -225,6 +226,13 @@ contains
 
         ! -------------------------------------------------------------------
         self%type = fdm_type
+        select case (fdm_type)
+        case (FDM_COM4_DIRECT)
+            self%type = FDM_COM4_JACOBIAN
+        case (FDM_COM6_DIRECT)
+            self%type = FDM_COM6_JACOBIAN
+        end select
+
         call FDM_Der1_CreateSystem(x, dx, self, periodic=.true.)
 
         call Precon_Rhs(self%lhs, self%rhs, periodic=.true.)
@@ -234,62 +242,40 @@ contains
 
         nx = size(self%lhs, 1)
         ndl = size(self%lhs, 2)
-        ndr = size(self%rhs, 2)
 
         ! -------------------------------------------------------------------
         ! Construct LU decomposition
-        allocate (self%lu(nx, ndl + 1))
+        allocate (self%lu(nx, ndl))
+        self%lu(:, :) = self%lhs(:, :)
 
-        self%lu(:, 1:ndl) = self%lhs(:, 1:ndl)
+        allocate (self%z(ndl/2, nx))
 
         select case (ndl)
         case (3)
             call ThomasCirculant_3_Initialize(self%lu(:, 1:ndl/2), &
                                               self%lu(:, ndl/2 + 1:ndl), &
-                                              self%lu(1, ndl + 1))
+                                              self%z)
         case (5)
             call ThomasCirculant_5_Initialize(self%lu(:, 1:ndl/2), &
                                               self%lu(:, ndl/2 + 1:ndl), &
-                                              self%lu(1, ndl + 1))
+                                              self%z)
         end select
 
         ! -------------------------------------------------------------------
         ! Procedure pointers to matrix multiplication to calculate the right-hand side
-
-        ! ! Original formulation: Matmul separate from Thomas forward substitution
-        ! select case (ndr)
-        ! case (3)
-        !     self%matmul => MatMul_Halo_3d_antisym
-        ! case (5)
-        !     self%matmul => MatMul_Halo_5d_antisym
-        ! case (7)
-        !     self%matmul => MatMul_Halo_7d_antisym
-        ! end select
-
-        ! Combined formulation
-        select case (ndr)
-        case (3)
-            if (ndl == 3) self%matmul => MatMul_Halo_3_antisym_ThomasL_3
-        case (5)
-            if (ndl == 3) self%matmul => MatMul_Halo_5_antisym_ThomasL_3
-            if (ndl == 5) self%matmul => MatMul_Halo_5_antisym_ThomasL_5
-        case (7)
-            if (ndl == 3) self%matmul => MatMul_Halo_7_antisym_ThomasL_3
-            if (ndl == 5) self%matmul => MatMul_Halo_7_antisym_ThomasL_5
-        end select
-
-        ! -------------------------------------------------------------------
-        ! Procedure pointers to linear solvers
-        select case (ndl)
-        case (3)
-            ! self%thomasL => Thomas3_SolveL
+        select case (self%type)
+        case (FDM_COM4_JACOBIAN)
+            self%matmul => MatMul_Halo_3_antisym_ThomasL_3   ! MatMul_Halo_3_antisym together with self%thomasL => Thomas3_SolveL
             self%thomasU => Thomas3_SolveU
-        case (5)
-            ! self%thomasL => Thomas5_SolveL
+
+        case (FDM_COM6_JACOBIAN)
+            self%matmul => MatMul_Halo_5_antisym_ThomasL_3   ! MatMul_Halo_5_antisym together with self%thomasL => Thomas3_SolveL
+            self%thomasU => Thomas3_SolveU
+
+        case (FDM_COM6_JACOBIAN_PENTA)
+            self%matmul => MatMul_Halo_7_antisym_ThomasL_5   ! MatMul_Halo_7_antisym together with self%thomasL => Thomas5_SolveL
             self%thomasU => Thomas5_SolveU
-        case (7)
-            ! self%thomasL => Thomas7_SolveL
-            self%thomasU => Thomas7_SolveU
+
         end select
 
         return
@@ -329,12 +315,12 @@ contains
         case (3)
             call ThomasCirculant_3_Reduce(self%lu(:, 1:ndl/2), &
                                           self%lu(:, ndl/2 + 1:ndl), &
-                                          self%lu(:, ndl + 1), &
+                                          self%z(1, :), &
                                           result, wrk2d(:, 1))
         case (5)
             call ThomasCirculant_5_Reduce(self%lu(:, 1:ndl/2), &
                                           self%lu(:, ndl/2 + 1:ndl), &
-                                          self%lu(:, ndl + 1), &
+                                          self%z, &
                                           result)!, wrk2d)
         end select
 
@@ -358,52 +344,29 @@ contains
         ! ! For code readability later in the code
         ! g%nb_diag = [size(g%lhs, 2), size(g%rhs, 2)]
 
-        ndl = size(self%lhs, 2)
-        ndr = size(self%rhs, 2)
-
-        ! -------------------------------------------------------------------
-        ! Procedure pointers to matrix multiplication to calculate the right-hand side
-        select case (self%type)
-        case (FDM_COM4_DIRECT, FDM_COM6_DIRECT)
-            select case (ndr)
-            case (3)
-                ! self%matmul => MatMul_3
-                if (ndl == 3) self%matmul => MatMul_3_ThomasL_3
-            case (5)
-                ! self%matmul => MatMul_5
-                if (ndl == 3) self%matmul => MatMul_5_ThomasL_3
-                if (ndl == 5) self%matmul => MatMul_5_ThomasL_5
-            end select
-
-        case default
-            select case (ndr)
-            case (3)
-                ! self%matmul => MatMul_3_antisym
-                if (ndl == 3) self%matmul => MatMul_3_antisym_ThomasL_3
-            case (5)
-                ! self%matmul => MatMul_5_antisym
-                if (ndl == 3) self%matmul => MatMul_5_antisym_ThomasL_3
-                if (ndl == 5) self%matmul => MatMul_5_antisym_ThomasL_5
-            case (7)
-                ! self%matmul => MatMul_7_antisym
-                if (ndl == 3) self%matmul => MatMul_7_antisym_ThomasL_3
-                if (ndl == 5) self%matmul => MatMul_7_antisym_ThomasL_5
-            end select
-
-        end select
-
         ! -------------------------------------------------------------------
         ! Procedure pointers to linear solvers
-        select case (ndl)
-        case (3)
-            ! self%thomasL => Thomas3_SolveL
+        select case (self%type)
+        case (FDM_COM4_JACOBIAN)
+            self%matmul => MatMul_3_antisym_ThomasL_3   ! MatMul_3_antisym together with self%thomasL => Thomas3_SolveL
             self%thomasU => Thomas3_SolveU
-        case (5)
-            ! self%thomasL => Thomas5_SolveL
+
+        case (FDM_COM6_JACOBIAN)
+            self%matmul => MatMul_5_antisym_ThomasL_3   ! MatMul_5_antisym together with self%thomasL => Thomas3_SolveL
+            self%thomasU => Thomas3_SolveU
+
+        case (FDM_COM6_JACOBIAN_PENTA)
+            self%matmul => MatMul_7_antisym_ThomasL_5   ! MatMul_7_antisym together with self%thomasL => Thomas5_SolveL
             self%thomasU => Thomas5_SolveU
-        case (7)
-            ! self%thomasL => Thomas7_SolveL
-            self%thomasU => Thomas7_SolveU
+
+        case (FDM_COM4_DIRECT)
+            self%matmul => MatMul_3_ThomasL_3           ! MatMul_3 together with self%thomasL => Thomas3_SolveL
+            self%thomasU => Thomas3_SolveU
+
+        case (FDM_COM6_DIRECT)
+            self%matmul => MatMul_5_ThomasL_3           ! MatMul_5 together with self%thomasL => Thomas3_SolveL
+            self%thomasU => Thomas3_SolveU
+
         end select
 
         ! -------------------------------------------------------------------
@@ -462,9 +425,7 @@ contains
         print *, 'comDD'
         nx = size(self%lu, 1)
         ndl = size(self%lu, 2)
-        idl = ndl/2 + 1
         ndr = size(self%rhs, 2)
-        idr = ndr/2 + 1
 
         ! Calculate RHS in A u' = B u
         call self%matmul(rhs=self%rhs, &
@@ -744,6 +705,7 @@ contains
         ! modified wavenumbers
         select type (g)
         type is (der1_periodic)
+            if (allocated(g%mwn)) deallocate (g%mwn)
             allocate (g%mwn(nx))
 
 #define wn(i) g%mwn(i)
@@ -773,7 +735,6 @@ contains
         use FDM_Base, only: FDM_Bcs_Reduce
         real(wp), intent(in) :: lhs(:, :)
         real(wp), intent(in) :: rhs(:, :)
-        ! integer, intent(in) :: ibc
         real(wp), intent(out) :: r_lhs(:, :)                        ! new, reduced lhs
         real(wp), intent(inout), optional :: r_rhs_b(:, :), r_rhs_t(:, :)     ! new, reduced rhs, extended diagonals
 
@@ -791,12 +752,6 @@ contains
         ndr = size(rhs, 2)
         idr = ndr/2 + 1             ! center diagonal in rhs
 
-        ! ndr_b = size(r_rhs_b, 2)    ! they can have a different number of diagonals than rhs
-        ! idr_b = ndr_b/2 + 1
-        ! ndr_t = size(r_rhs_t, 2)
-        ! idr_t = ndr_t/2 + 1
-        ! nx_t = max(idl, idr + 1)
-
         ! ! For A_22, we need idl >= idr -1
         ! if (idl < idr - 1) then
         !     call TLab_Write_ASCII(efile, __FILE__//'. LHS array is too small.')
@@ -813,13 +768,6 @@ contains
 
         ! -------------------------------------------------------------------
         r_lhs(:, 1:ndl) = lhs(:, 1:ndl)
-        ! aux(1:nx, 1:ndr) = rhs(1:nx, 1:ndr)         ! array changed in FDM_Bcs_Reduce
-
-        ! locRhs_b = 0.0_wp
-        ! locRhs_t = 0.0_wp
-        ! call FDM_Bcs_Reduce(ibc, aux, lhs, &
-        !                     locRhs_b(1:max(idl, idr + 1), 1:ndr_b), &
-        !                     locRhs_t(1:max(idl, idr + 1), 1:ndr_t))
 
         ! reorganize data
         if (present(r_rhs_b)) then
@@ -893,11 +841,15 @@ program test
     integer, parameter :: nx = 32
     real(wp) x(nx), dx(nx), u(1, nx), du(1, nx), du_a(1, nx)
 
-    class(der_dt), allocatable :: derX_biased, derX_periodic
+    class(der_dt), allocatable :: derX
 
-    allocate (der1_periodic :: derX_periodic)
-    allocate (der1_biased :: derX_biased)
+    integer :: cases1(5) = [FDM_COM4_JACOBIAN, &
+                            FDM_COM6_JACOBIAN, &
+                            FDM_COM6_JACOBIAN_PENTA, &
+                            FDM_COM4_DIRECT, &
+                            FDM_COM6_DIRECT]
 
+    ! ###################################################################
     x = [(real(i, wp), i=1, nx)]
     dx = [(1.0_wp, i=1, nx)]
     allocate (wrk2d(nx, 2))
@@ -907,24 +859,32 @@ program test
     u(1, :) = [(cos(2.0*pi_wp/(x(nx) - x(1))*(x(i) - x(1))), i=1, nx)]
     du_a(1, :) = -[(sin(2.0*pi_wp/(x(nx) - x(1))*(x(i) - x(1))), i=1, nx)]*2.0*pi_wp/(x(nx) - x(1))
 
-    call derX_biased%initialize(x, dx, FDM_COM6_JACOBIAN)
-    call derX_biased%compute(u, du)
-    print *, maxval(abs(du - du_a))
-    select type (derX_biased)
-    type is (der1_biased)
-        call derX_biased%bcsDD%compute(u, du)
+    allocate (der1_biased :: derX)
+    do ic = 1, size(cases1)
+        call derX%initialize(x, dx, cases1(ic))
+        call derX%compute(u, du)
         print *, maxval(abs(du - du_a))
-        call derX_biased%bcsND%compute(u, du)
-        print *, maxval(abs(du - du_a))
-        call derX_biased%bcsDN%compute(u, du)
-        print *, maxval(abs(du - du_a))
-        call derX_biased%bcsNN%compute(u, du)
-        print *, maxval(abs(du - du_a))
-    end select
+        select type (derX)
+        type is (der1_biased)
+            call derX%bcsDD%compute(u, du)
+            print *, maxval(abs(du - du_a))
+            call derX%bcsND%compute(u, du)
+            print *, maxval(abs(du - du_a))
+            call derX%bcsDN%compute(u, du)
+            print *, maxval(abs(du - du_a))
+            call derX%bcsNN%compute(u, du)
+            print *, maxval(abs(du - du_a))
+        end select
+    end do
 
-    call derX_periodic%initialize(x(:nx - 1), dx(:nx - 1), FDM_COM6_JACOBIAN)
-    call derX_periodic%compute(u(:, :nx - 1), du(:, :nx - 1))
-    print *, maxval(abs(du(:, :nx - 1) - du_a(:, :nx - 1)))
+    if (allocated(derX)) deallocate(derX)
+    allocate (der1_periodic :: derX)
+    do ic = 1, size(cases1)
+        call derX%initialize(x(:nx - 1), dx(:nx - 1), cases1(ic))
+        call derX%compute(u(:, :nx - 1), du(:, :nx - 1))
+        print *, maxval(abs(du(:, :nx - 1) - du_a(:, :nx - 1)))
+
+    end do
 
     stop
 end program

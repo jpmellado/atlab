@@ -1,25 +1,10 @@
-module FDM_Derivative_X
+module FDM_Base_X
     use TLab_Constants, only: wp, wi
-    use TLab_Constants, only: BCS_DD, BCS_ND, BCS_DN, BCS_NN
-    use Thomas
-    use Thomas_Circulant
-    ! use MatMul
-    ! use MatMul_Halo
-    use MatMul_Thomas
-    use MatMul_Halo_Thomas
-    use FDM_Derivative          ! to be removed
     implicit none
-    private
-
-    public :: der_dt
-    public :: der1_periodic
-    public :: der1_biased
-    ! public :: der2_periodic
-    ! public :: der2_biased
+    ! everything is public, so no private statement
 
     ! -----------------------------------------------------------------------
     type, abstract :: der_dt
-        private
         integer type                                ! finite-difference method
         real(wp), allocatable :: lhs(:, :)          ! A diagonals of system A u' = B u
         real(wp), allocatable :: rhs(:, :)          ! B diagonals of system A u' = B u
@@ -42,10 +27,7 @@ module FDM_Derivative_X
         end subroutine
     end interface
 
-    ! -----------------------------------------------------------------------
-    ! Types for periodic boundary conditions
     type, extends(der_dt), abstract :: der_periodic
-        private
         ! procedure(matmul_halo_ice), pointer, nopass :: matmul => null()
         procedure(matmul_halo_thomas_ice), pointer, nopass :: matmul => null()
         procedure(thomas_ice), pointer, nopass :: thomasU => null()
@@ -55,87 +37,11 @@ module FDM_Derivative_X
     contains
     end type
 
-    type, extends(der_periodic) :: der1_periodic        ! First-order derivative
-    contains
-        procedure :: initialize => der1_periodic_initialize
-        procedure :: compute => der1_periodic_compute
-    end type
-
-    ! type, extends(der_periodic) :: der2_periodic        ! Second-order derivative
-    ! contains
-    !     procedure :: initialize => der2_periodic_initialize
-    !     procedure :: compute => der2_periodic_compute
-    ! end type
-
-    ! -----------------------------------------------------------------------
-    ! Types for biased boundary conditions
     type, extends(der_dt), abstract :: der_biased
-        private
         ! procedure(matmul_ice), pointer, nopass :: matmul => null()
         procedure(matmul_thomas_ice), pointer, nopass :: matmul => null()
         procedure(thomas_ice), pointer, nopass :: thomasU => null()
     contains
-    end type
-
-    ! type, extends(der_biased) :: der2_biased            ! Second-order derivative
-    !     private
-    !     real(wp), allocatable :: lu(:, :)
-    ! contains
-    !     procedure :: initialize => der2_biased_initialize
-    !     procedure :: compute => der2_biased_compute
-    ! end type
-
-    ! for the first-order derivative, we consider different types of boundary conditions
-    type :: bcs
-        private
-        ! procedure(matmul_ice), pointer, nopass :: matmul => null()
-        procedure(matmul_thomas_ice), pointer, nopass :: matmul => null()
-        procedure(thomas_ice), pointer, nopass :: thomasU => null()
-        real(wp), allocatable :: lu(:, :)
-        real(wp), pointer :: rhs(:, :) => null()
-    end type
-
-    type, extends(bcs) :: bcsDD
-    contains
-        private
-        procedure :: initialize => bcsDD_initialize
-        procedure, public :: compute => bcsDD_compute
-    end type
-
-    type, extends(bcs) :: bcsND
-        real(wp), allocatable :: rhs_b(:, :)
-    contains
-        private
-        procedure :: initialize => bcsND_initialize
-        procedure, public :: compute => bcsND_compute
-    end type
-
-    type, extends(bcs) :: bcsDN
-        real(wp), allocatable :: rhs_t(:, :)
-    contains
-        private
-        procedure :: initialize => bcsDN_initialize
-        procedure, public :: compute => bcsDN_compute
-    end type
-
-    type, extends(bcs) :: bcsNN
-        real(wp), allocatable :: rhs_b(:, :)
-        real(wp), allocatable :: rhs_t(:, :)
-    contains
-        private
-        procedure :: initialize => bcsNN_initialize
-        procedure, public :: compute => bcsNN_compute
-    end type
-
-    type, extends(der_biased) :: der1_biased
-        private
-        type(bcsDD), public :: bcsDD
-        type(bcsDN), public :: bcsDN
-        type(bcsND), public :: bcsND
-        type(bcsNN), public :: bcsNN
-    contains
-        procedure :: initialize => der1_biased_initialize
-        procedure :: compute => der1_biased_compute
     end type
 
     ! -----------------------------------------------------------------------
@@ -208,6 +114,92 @@ module FDM_Derivative_X
         ! end subroutine
 
     end interface
+
+end module FDM_Base_X
+
+! ###################################################################
+! ###################################################################
+module FDM_Derivative_1order_X
+    use TLab_Constants, only: wp, wi
+    use TLab_Constants, only: BCS_DD, BCS_ND, BCS_DN, BCS_NN
+    use FDM_Base_X
+    use Thomas
+    use Thomas_Circulant
+    ! use MatMul
+    ! use MatMul_Halo
+    use MatMul_Thomas
+    use MatMul_Halo_Thomas
+    use FDM_Derivative          ! to be removed
+    implicit none
+    private
+
+    public :: der_dt            ! Made public to make it accessible by loading FDM_Derivative_X and not necessarily FDM_Base_X
+    public :: der1_periodic
+    public :: der1_biased
+
+    ! -----------------------------------------------------------------------
+    ! Types for periodic boundary conditions
+    type, extends(der_periodic) :: der1_periodic
+    contains
+        procedure :: initialize => der1_periodic_initialize
+        procedure :: compute => der1_periodic_compute
+    end type
+
+    ! -----------------------------------------------------------------------
+    ! Types for biased boundary conditions
+
+    ! for the first-order derivative, we consider different types of boundary conditions
+    type :: bcs
+        private
+        ! procedure(matmul_ice), pointer, nopass :: matmul => null()
+        procedure(matmul_thomas_ice), pointer, nopass :: matmul => null()
+        procedure(thomas_ice), pointer, nopass :: thomasU => null()
+        real(wp), allocatable :: lu(:, :)
+        real(wp), pointer :: rhs(:, :) => null()
+    end type
+
+    type, extends(bcs) :: bcsDD
+    contains
+        private
+        procedure :: initialize => bcsDD_initialize
+        procedure, public :: compute => bcsDD_compute
+    end type
+
+    type, extends(bcs) :: bcsND
+        real(wp), allocatable :: rhs_b(:, :)
+    contains
+        private
+        procedure :: initialize => bcsND_initialize
+        procedure, public :: compute => bcsND_compute
+    end type
+
+    type, extends(bcs) :: bcsDN
+        real(wp), allocatable :: rhs_t(:, :)
+    contains
+        private
+        procedure :: initialize => bcsDN_initialize
+        procedure, public :: compute => bcsDN_compute
+    end type
+
+    type, extends(bcs) :: bcsNN
+        real(wp), allocatable :: rhs_b(:, :)
+        real(wp), allocatable :: rhs_t(:, :)
+    contains
+        private
+        procedure :: initialize => bcsNN_initialize
+        procedure, public :: compute => bcsNN_compute
+    end type
+
+    type, extends(der_biased) :: der1_biased
+        private
+        type(bcsDD), public :: bcsDD
+        type(bcsDN), public :: bcsDN
+        type(bcsND), public :: bcsND
+        type(bcsNN), public :: bcsNN
+    contains
+        procedure :: initialize => der1_biased_initialize
+        procedure :: compute => der1_biased_compute
+    end type
 
     integer(wi) nx, nlines
     integer ndl, ndr, idl, idr
@@ -668,6 +660,7 @@ contains
     ! ###################################################################
     subroutine FDM_Der1_CreateSystem(x, dx, g, periodic)
         use TLab_Constants, only: pi_wp
+        use FDM_Base, only: MultiplyByDiagonal
         use FDM_ComX_Direct
         use FDM_Com1_Jacobian
         real(wp), intent(in) :: x(:)                    ! node positions
@@ -680,18 +673,18 @@ contains
         integer(wi) i, nx
 
         ! ###################################################################
-        nx = size(x)                ! # grid points
+        nx = size(x)                    ! # grid points
 
         ! -------------------------------------------------------------------
         select case (g%type)
         case (FDM_COM4_JACOBIAN)
-            call FDM_C1N4_Jacobian(nx, dx, g%lhs, g%rhs, coef, periodic)
+            call FDM_C1N4_Jacobian(nx, g%lhs, g%rhs, coef, periodic)
 
         case (FDM_COM6_JACOBIAN)
-            call FDM_C1N6_Jacobian(nx, dx, g%lhs, g%rhs, coef, periodic)
+            call FDM_C1N6_Jacobian(nx, g%lhs, g%rhs, coef, periodic)
 
         case (FDM_COM6_JACOBIAN_PENTA)
-            call FDM_C1N6_Jacobian_Penta(nx, dx, g%lhs, g%rhs, coef, periodic)
+            call FDM_C1N6_Jacobian_Penta(nx, g%lhs, g%rhs, coef, periodic)
 
         case (FDM_COM4_DIRECT)
             call FDM_C1N4_Direct(nx, x, g%lhs, g%rhs)
@@ -699,6 +692,11 @@ contains
         case (FDM_COM6_DIRECT)
             call FDM_C1N6_Direct(nx, x, g%lhs, g%rhs)
 
+        end select
+
+        select case (g%type)
+        case (FDM_COM4_JACOBIAN, FDM_COM6_JACOBIAN, FDM_COM6_JACOBIAN_PENTA)
+            call MultiplyByDiagonal(g%lhs, dx)    ! multiply by the Jacobian
         end select
 
         ! -------------------------------------------------------------------
@@ -828,15 +826,15 @@ contains
         return
     end subroutine FDM_Der1_Neumann_Reduce
 
-end module FDM_Derivative_X
+end module FDM_Derivative_1order_X
 
 ! ###################################################################
 ! ###################################################################
-program test
+program test1
     use TLab_Constants, only: wp, wi, pi_wp
     use TLab_Arrays, only: wrk2d
+    use FDM_Derivative_1order_X
     use FDM_Derivative
-    use FDM_Derivative_X
 
     integer, parameter :: nx = 32
     real(wp) x(nx), dx(nx), u(1, nx), du(1, nx), du_a(1, nx)
@@ -877,7 +875,7 @@ program test
         end select
     end do
 
-    if (allocated(derX)) deallocate(derX)
+    if (allocated(derX)) deallocate (derX)
     allocate (der1_periodic :: derX)
     do ic = 1, size(cases1)
         call derX%initialize(x(:nx - 1), dx(:nx - 1), cases1(ic))

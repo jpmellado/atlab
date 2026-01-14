@@ -82,7 +82,9 @@ contains
     ! ###################################################################
     subroutine TMarch_Initialize(inifile)
         use TLab_Memory, only: TLab_Allocate_Real
+        ! use TLab_Arrays, only: wrk1d
         use FDM, only: g
+        ! use FDM_Derivative
 
         character*(*) inifile
 
@@ -90,7 +92,7 @@ contains
         character(len=32) bakfile, block, lstr
         character(len=128) eStr
         character(len=512) sRes
-        integer ig
+        integer ig, i
 
         ! ###################################################################
         bakfile = trim(adjustl(inifile))//'.bak'
@@ -233,6 +235,10 @@ contains
         schmidtfactor = max(schmidtfactor, dummy)
 
         ! ###################################################################
+        ! ig = 3
+        ! wrk1d(1:g(ig)%size, 1) = [(real(i - 1, wp), i=1, g(ig)%size)]
+        ! call FDM_Der1_Solve(1, g(ig)%der1, g(ig)%der1%lu, wrk1d(1:g(ig)%size, 1), wrk1d(1:g(ig)%size, 2), wrk1d(1:g(ig)%size, 3))
+        ! print *, maxval(wrk1d(1:g(ig)%size, 2) - 1.0_wp/g(ig)%jac(:, 1))
         do ig = 1, 3
             allocate (ds(ig)%one_ov_ds1(g(ig)%size))
             ds(ig)%one_ov_ds1(:) = 1.0_wp/g(ig)%jac(:, 1)

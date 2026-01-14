@@ -300,6 +300,7 @@ contains
     ! ###################################################################
     ! ###################################################################
     subroutine FDM_Der1_CreateSystem(x, dx, g, periodic)
+        use FDM_Base, only: MultiplyByDiagonal
         real(wp), intent(in) :: x(:)                    ! node positions
         real(wp), intent(in) :: dx(:)                   ! Jacobian
         type(fdm_derivative_dt), intent(inout) :: g
@@ -317,13 +318,13 @@ contains
         ! -------------------------------------------------------------------
         select case (g%mode_fdm)
         case (FDM_COM4_JACOBIAN)
-            call FDM_C1N4_Jacobian(g%size, dx, g%lhs, g%rhs, coef, periodic)
+            call FDM_C1N4_Jacobian(g%size, g%lhs, g%rhs, coef, periodic)
 
         case (FDM_COM6_JACOBIAN)
-            call FDM_C1N6_Jacobian(g%size, dx, g%lhs, g%rhs, coef, periodic)
+            call FDM_C1N6_Jacobian(g%size, g%lhs, g%rhs, coef, periodic)
 
         case (FDM_COM6_JACOBIAN_PENTA)
-            call FDM_C1N6_Jacobian_Penta(g%size, dx, g%lhs, g%rhs, coef, periodic)
+            call FDM_C1N6_Jacobian_Penta(g%size, g%lhs, g%rhs, coef, periodic)
 
         case (FDM_COM4_DIRECT)
             call FDM_C1N4_Direct(g%size, x, g%lhs, g%rhs)
@@ -331,6 +332,11 @@ contains
         case (FDM_COM6_DIRECT)
             call FDM_C1N6_Direct(g%size, x, g%lhs, g%rhs)
 
+        end select
+
+        select case (g%mode_fdm)
+        case (FDM_COM4_JACOBIAN, FDM_COM6_JACOBIAN, FDM_COM6_JACOBIAN_PENTA)
+            call MultiplyByDiagonal(g%lhs, dx)    ! multiply by the Jacobian
         end select
 
         ! For code readability later in the code
@@ -606,6 +612,7 @@ contains
     ! ###################################################################
     ! ###################################################################
     subroutine FDM_Der2_Initialize(x, dx, g, periodic, uniform)
+        use FDM_Base, only: MultiplyByDiagonal
         real(wp), intent(in) :: x(:)                    ! node positions
         real(wp), intent(in) :: dx(:, :)                ! Jacobians
         type(fdm_derivative_dt), intent(inout) :: g     ! fdm plan for 2. order derivative
@@ -741,30 +748,34 @@ contains
         ! -------------------------------------------------------------------
         select case (g%mode_fdm)
         case (FDM_COM4_JACOBIAN)
-            call FDM_C2N4_Jacobian(g%size, dx, g%lhs, g%rhs, g%rhs_d1, coef, periodic)
-            if (.not. uniform) g%need_1der = .true.
+            call FDM_C2N4_Jacobian(g%size, g%lhs, g%rhs, coef, periodic)
 
         case (FDM_COM6_JACOBIAN)
-            call FDM_C2N6_Jacobian(g%size, dx, g%lhs, g%rhs, g%rhs_d1, coef, periodic)
-            if (.not. uniform) g%need_1der = .true.
+            call FDM_C2N6_Jacobian(g%size, g%lhs, g%rhs, coef, periodic)
 
         case (FDM_COM6_JACOBIAN_HYPER)
-            call FDM_C2N6_Hyper_Jacobian(g%size, dx, g%lhs, g%rhs, g%rhs_d1, coef, periodic)
-            if (.not. uniform) g%need_1der = .true.
+            call FDM_C2N6_Hyper_Jacobian(g%size, g%lhs, g%rhs, coef, periodic)
 
         case (FDM_COM4_DIRECT)
             call FDM_C2N4_Direct(g%size, x, g%lhs, g%rhs)
-            g%need_1der = .false.
 
         case (FDM_COM6_DIRECT)
             call FDM_C2N6_Direct(g%size, x, g%lhs, g%rhs)
-            g%need_1der = .false.
 
-        case (FDM_COM6_DIRECT_HYPER)
-            call TLab_Write_ASCII(lfile, __FILE__//'Direct, hyper-diffusive scheme undeveloped, use standard one.')
-            call FDM_C2N6_Direct(g%size, x, g%lhs, g%rhs)
-            g%need_1der = .false.
+        end select
 
+        g%need_1der = .false.       ! Just is case you overwrite type and it was .true. before
+        select case (g%mode_fdm)
+        case (FDM_COM4_JACOBIAN, FDM_COM6_JACOBIAN, FDM_COM6_JACOBIAN_HYPER)
+            if (.not. uniform) then
+                g%need_1der = .true.
+                if (allocated(g%rhs_d1)) deallocate (g%rhs_d1)  ! Contribution from 1. order derivative in nonuniform grids
+                allocate (g%rhs_d1, mold=g%lhs)
+                g%rhs_d1 = -g%lhs
+                call MultiplyByDiagonal(g%rhs_d1, dx(:, 2))
+            end if
+            call MultiplyByDiagonal(g%lhs, dx(:, 1))            ! multiply by the Jacobians
+            call MultiplyByDiagonal(g%lhs, dx(:, 1))
         end select
 
         ! For code readability later in the code

@@ -38,12 +38,10 @@ contains
     !########################################################################
     ! rhs is still pentadiagonal because of the bcs
     ! intent out in allocatable array deallocate previous allocations
-    subroutine FDM_C2N4_Jacobian(nx, dx, lhs, rhs, rhs_d1, coef, periodic)
+    subroutine FDM_C2N4_Jacobian(nx, lhs, rhs, coef, periodic)
         integer(wi), intent(in) :: nx
-        real(wp), intent(in) :: dx(nx, 2)
         real(wp), allocatable, intent(out) :: lhs(:, :)     ! LHS diagonals; a_2 = 0
         real(wp), allocatable, intent(out) :: rhs(:, :)     ! RHS diagonals; b_2, b_3 = 0
-        real(wp), allocatable, intent(out) :: rhs_d1(:, :)  ! Contribution from 1. order derivative
         real(wp), intent(out) :: coef(5)                    ! a_1, a_2, b_1, b_2, b_3
         logical, intent(in), optional :: periodic
 
@@ -54,7 +52,6 @@ contains
         ! #######################################################################
         allocate (lhs(nx, 3), source=0.0_wp)        ! 3 LHS diagonals
         allocate (rhs(nx, 5), source=0.0_wp)        ! 5 RHS diagonals + LHS for 1. derivative contribution
-        allocate (rhs_d1(nx, 3), source=0.0_wp)     ! LHS for 1. derivative contribution
 
         if (present(periodic)) then
             periodic_loc = periodic
@@ -79,27 +76,14 @@ contains
 
         end if
 
-        ! #######################################################################
-        ! Contribution from 1. order derivative in nonuniform grids
-        rhs_d1 = -lhs
-
-        ! #######################################################################
-        ! multiply by the Jacobians
-        call MultiplyByDiagonal(lhs, dx(:, 1))
-        call MultiplyByDiagonal(lhs, dx(:, 1))
-
-        call MultiplyByDiagonal(rhs_d1, dx(:, 2))
-
         return
     end subroutine FDM_C2N4_Jacobian
 
     !########################################################################
-    subroutine FDM_C2N6_Jacobian(nx, dx, lhs, rhs, rhs_d1, coef, periodic)
+    subroutine FDM_C2N6_Jacobian(nx, lhs, rhs, coef, periodic)
         integer(wi), intent(in) :: nx
-        real(wp), intent(in) :: dx(nx, 2)
         real(wp), allocatable, intent(out) :: lhs(:, :)     ! LHS diagonals; a_2 = 0
         real(wp), allocatable, intent(out) :: rhs(:, :)     ! RHS diagonals; b_2, b_3 = 0
-        real(wp), allocatable, intent(out) :: rhs_d1(:, :)  ! Contribution from 1. order derivative
         real(wp), intent(out) :: coef(5)                    ! a_1, a_2, b_1, b_2, b_3
         logical, intent(in), optional :: periodic
 
@@ -111,7 +95,6 @@ contains
         ! #######################################################################
         allocate (lhs(nx, 3), source=0.0_wp)        ! 3 LHS diagonals
         allocate (rhs(nx, 5), source=0.0_wp)        ! 5 RHS diagonals + LHS for 1. derivative contribution
-        allocate (rhs_d1(nx, 3), source=0.0_wp)     ! LHS for 1. derivative contribution
 
         if (present(periodic)) then
             periodic_loc = periodic
@@ -140,27 +123,14 @@ contains
 
         end if
 
-        ! #######################################################################
-        ! Contribution from 1. order derivative in nonuniform grids
-        rhs_d1 = -lhs
-
-        ! #######################################################################
-        ! multiply by the Jacobians
-        call MultiplyByDiagonal(lhs, dx(:, 1))
-        call MultiplyByDiagonal(lhs, dx(:, 1))
-
-        call MultiplyByDiagonal(rhs_d1, dx(:, 2))
-
         return
     end subroutine FDM_C2N6_Jacobian
 
     !########################################################################
-    subroutine FDM_C2N6_Hyper_Jacobian(nx, dx, lhs, rhs, rhs_d1, coef, periodic)
+    subroutine FDM_C2N6_Hyper_Jacobian(nx,lhs, rhs, coef, periodic)
         integer(wi), intent(in) :: nx
-        real(wp), intent(in) :: dx(nx, 2)
         real(wp), allocatable, intent(out) :: lhs(:, :)     ! LHS diagonals; a_2 = 0
         real(wp), allocatable, intent(out) :: rhs(:, :)     ! RHS diagonals; b_2, b_3 = 0
-        real(wp), allocatable, intent(out) :: rhs_d1(:, :)  ! Contribution from 1. order derivative
         real(wp), intent(out) :: coef(5)                    ! a_1, a_2, b_1, b_2, b_3
         logical, intent(in), optional :: periodic
 
@@ -174,7 +144,6 @@ contains
         ! #######################################################################
         allocate (lhs(nx, 3), source=0.0_wp)        ! 3 LHS diagonals
         allocate (rhs(nx, 7), source=0.0_wp)        ! 5 RHS diagonals + LHS for 1. derivative contribution
-        allocate (rhs_d1(nx, 3), source=0.0_wp)     ! LHS for 1. derivative contribution
 
         if (present(periodic)) then
             periodic_loc = periodic
@@ -211,17 +180,6 @@ contains
             call Create_System_2der(lhs, rhs, coef, coef_bc1, coef_bc2, coef_bc3)
 
         end if
-
-        ! #######################################################################
-        ! Contribution from 1. order derivative in nonuniform grids
-        rhs_d1 = -lhs
-
-        ! #######################################################################
-        ! multiply by the Jacobians
-        call MultiplyByDiagonal(lhs, dx(:, 1))
-        call MultiplyByDiagonal(lhs, dx(:, 1))
-
-        call MultiplyByDiagonal(rhs_d1, dx(:, 2))
 
         return
     end subroutine FDM_C2N6_Hyper_Jacobian

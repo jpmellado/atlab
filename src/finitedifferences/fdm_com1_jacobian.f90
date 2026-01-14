@@ -27,7 +27,6 @@
 !########################################################################
 module FDM_Com1_Jacobian
     use TLab_Constants, only: wp, wi
-    use FDM_Base, only: MultiplyByDiagonal
     implicit none
     private
 
@@ -40,9 +39,8 @@ module FDM_Com1_Jacobian
 contains
     !########################################################################
     ! intent out in allocatable array deallocate previous allocations
-    subroutine FDM_C1N4_Jacobian(nx, dx, lhs, rhs, coef, periodic)
+    subroutine FDM_C1N4_Jacobian(nx, lhs, rhs, coef, periodic)
         integer(wi), intent(in) :: nx
-        real(wp), intent(in) :: dx(nx)
         real(wp), allocatable, intent(out) :: lhs(:, :)     ! LHS diagonals; a_2 = 0
         real(wp), allocatable, intent(out) :: rhs(:, :)     ! RHS diagonals; b_2, b_3 = 0
         real(wp), intent(out) :: coef(5)                    ! a_1, a_2, b_1, b_2, b_3
@@ -78,17 +76,12 @@ contains
 
         end if
 
-        ! #######################################################################
-        ! multiply by the Jacobian
-        call MultiplyByDiagonal(lhs, dx)
-
         return
     end subroutine FDM_C1N4_Jacobian
 
     !########################################################################
-    subroutine FDM_C1N6_Jacobian(nx, dx, lhs, rhs, coef, periodic)
+    subroutine FDM_C1N6_Jacobian(nx, lhs, rhs, coef, periodic)
         integer(wi), intent(in) :: nx
-        real(wp), intent(in) :: dx(nx)
         real(wp), allocatable, intent(out) :: lhs(:, :)     ! LHS diagonals; a_2 = 0
         real(wp), allocatable, intent(out) :: rhs(:, :)     ! RHS diagonals; b_3 = 0
         real(wp), intent(out) :: coef(5)                    ! a_1, a_2, b_1, b_2, b_3
@@ -132,18 +125,13 @@ contains
 
         end if
 
-        ! #######################################################################
-        ! multiply by the Jacobian
-        call MultiplyByDiagonal(lhs, dx)
-
         return
     end subroutine FDM_C1N6_Jacobian
 
     !########################################################################
     ! From J. Kostelecky
-    subroutine FDM_C1N6_Jacobian_Penta(nx, dx, lhs, rhs, coef, periodic)
+    subroutine FDM_C1N6_Jacobian_Penta(nx, lhs, rhs, coef, periodic)
         integer(wi), intent(in) :: nx
-        real(wp), intent(in) :: dx(nx)
         real(wp), allocatable, intent(out) :: lhs(:, :)     ! LHS diagonals
         real(wp), allocatable, intent(out) :: rhs(:, :)     ! RHS diagonals
         real(wp), intent(out) :: coef(5)                    ! a_1, a_2, b_1, b_2, b_3
@@ -199,10 +187,6 @@ contains
             call Create_System_1der(lhs, rhs, coef, coef_bc1, coef_bc2, coef_bc3)
 
         end if
-
-        ! #######################################################################
-        ! multiply by the Jacobian
-        call MultiplyByDiagonal(lhs, dx)
 
         return
     end subroutine FDM_C1N6_Jacobian_Penta

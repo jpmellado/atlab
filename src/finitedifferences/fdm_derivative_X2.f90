@@ -18,25 +18,50 @@ module FDM_Derivative_2order_X
     ! -----------------------------------------------------------------------
     ! Types for periodic boundary conditions
     type, extends(der_periodic) :: der2_periodic
-        private
-        logical :: need_1der = .false.                  ! In nonuniform, Jacobian formulation, we need 1. order derivative for the 2. order one
-        real(wp), allocatable :: rhs_d1(:, :)           ! 1. order derivative correction in nonuniform case
     contains
         procedure :: initialize => der2_periodic_initialize
         procedure :: compute => der2_periodic_compute
     end type
 
-    ! -----------------------------------------------------------------------
     ! Types for biased boundary conditions
     type, extends(der_biased) :: der2_biased
         private
+        ! procedure(matmul_add_ice), pointer, nopass :: matmul_add => null()
+        procedure(matmul_add_thomas_ice), pointer, nopass :: matmul_add => null()
         logical :: need_1der = .false.                  ! In nonuniform, Jacobian formulation, we need 1. order derivative for the 2. order one
-        real(wp), allocatable :: lu(:, :)               ! LU decomposition
         real(wp), allocatable :: rhs_d1(:, :)           ! 1. order derivative correction in nonuniform case
+        real(wp), allocatable :: lu(:, :)               ! LU decomposition
     contains
         procedure :: initialize => der2_biased_initialize
         procedure :: compute => der2_biased_compute
     end type
+
+    ! -----------------------------------------------------------------------
+    abstract interface
+        ! subroutine matmul_add_ice(rhs, rhs_b, rhs_t, u, f, rhs_add, u_add, bcs_b, bcs_t)
+        !     use TLab_Constants, only: wp
+        !     real(wp), intent(in) :: rhs(:, :)
+        !     real(wp), intent(in) :: rhs_b(:, :), rhs_t(:, :)
+        !     real(wp), intent(in) :: u(:, :)
+        !     real(wp), intent(out) :: f(:, :)
+        !     real(wp), intent(in) :: rhs_add(:, :)
+        !     real(wp), intent(in) :: u_add(:, :)
+        !     real(wp), intent(inout), optional :: bcs_b(:), bcs_t(:)
+        ! end subroutine
+
+        subroutine matmul_add_thomas_ice(rhs, rhs_b, rhs_t, u, f, rhs_add, u_add, L, bcs_b, bcs_t)
+            use TLab_Constants, only: wp
+            real(wp), intent(in) :: rhs(:, :)
+            real(wp), intent(in) :: rhs_b(:, :), rhs_t(:, :)
+            real(wp), intent(in) :: u(:, :)
+            real(wp), intent(out) :: f(:, :)
+            real(wp), intent(in) :: rhs_add(:, :)
+            real(wp), intent(in) :: u_add(:, :)
+            real(wp), intent(inout), optional :: bcs_b(:), bcs_t(:)
+            real(wp), intent(in) :: L(:, :)
+        end subroutine
+
+    end interface
 
 contains
     ! ###################################################################
@@ -73,13 +98,13 @@ contains
         ! ! For code readability later in the code
         ! g%nb_diag = [size(g%lhs, 2), size(g%rhs, 2)]
 
-        nx = size(self%lhs, 1)
-        ndl = size(self%lhs, 2)
-
         ! -------------------------------------------------------------------
         ! Construct LU decomposition
-        allocate (self%lu(nx, ndl))
+        allocate (self%lu, mold=self%lhs)
         self%lu(:, :) = self%lhs(:, :)
+
+        nx = size(self%lhs, 1)
+        ndl = size(self%lhs, 2)
 
         allocate (self%z(ndl/2, nx))
 
@@ -93,12 +118,12 @@ contains
         ! -------------------------------------------------------------------
         ! Procedure pointers to matrix multiplication to calculate the right-hand side
         select case (self%type)
-        case (FDM_COM4_JACOBIAN)
-            self%matmul => MatMul_Halo_3_sym_ThomasL_3      ! MatMul_Halo_3_sym together with self%thomasL => Thomas3_SolveL
+        case (FDM_COM4_JACOBIAN, FDM_COM6_JACOBIAN)
+            self%matmul => MatMul_Halo_5_sym_ThomasL_3      ! MatMul_Halo_3_sym together with self%thomasL => Thomas3_SolveL
             self%thomasU => Thomas3_SolveU
 
-        case (FDM_COM6_JACOBIAN)
-            self%matmul => MatMul_Halo_5_sym_ThomasL_3      ! MatMul_Halo_5_sym together with self%thomasL => Thomas3_SolveL
+        case (FDM_COM6_JACOBIAN_HYPER)
+            self%matmul => MatMul_Halo_7_sym_ThomasL_3      ! MatMul_Halo_7_sym together with self%thomasL => Thomas3_SolveL
             self%thomasU => Thomas3_SolveU
 
         end select
@@ -155,7 +180,11 @@ contains
         real(wp), intent(in) :: x(:), dx(:)
         integer, intent(in) :: fdm_type
 
+        integer ndl
+
         ! ###################################################################
+        print *, 'iniDD'
+
         self%type = fdm_type
         select case (fdm_type)
         case (FDM_COM6_DIRECT_HYPER)
@@ -186,26 +215,30 @@ contains
         allocate (self%lu, mold=self%lhs)
         self%lu(:, :) = self%lhs(:, :)
 
+        ndl = size(self%lhs, 2)
+        call Thomas_FactorLU_InPlace(self%lu(:, 1:ndl/2), &
+                                     self%lu(:, ndl/2 + 1:ndl))
+
         ! -------------------------------------------------------------------
         ! Procedure pointers to linear solvers
         select case (self%type)
-        case (FDM_COM4_JACOBIAN)
-            self%matmul => MatMul_5_sym_ThomasL_3       ! MatMul_5_sym together with self%thomasL => Thomas3_SolveL
-            self%thomasU => Thomas3_SolveU
-
-        case (FDM_COM6_JACOBIAN)
-            self%matmul => MatMul_5_sym_ThomasL_3       ! MatMul_5_sym together with self%thomasL => Thomas3_SolveL
+        case (FDM_COM4_JACOBIAN, FDM_COM6_JACOBIAN)
+            if (self%need_1der) then                                ! add Jacobian correction A_2 dx2 du
+                self%matmul_add => MatMul_5_sym_add_3_ThomasL_3     ! MatMul_5_sym together with self%thomasL => Thomas3_SolveL
+            else
+                self%matmul => MatMul_5_sym_ThomasL_3               ! MatMul_5_sym together with self%thomasL => Thomas3_SolveL
+            end if
             self%thomasU => Thomas3_SolveU
 
         case (FDM_COM6_JACOBIAN_HYPER)
-            self%matmul => MatMul_7_sym_ThomasL_3       ! MatMul_7_sym together with self%thomasL => Thomas3_SolveL
+            if (self%need_1der) then                                ! add Jacobian correction A_2 dx2 du
+                self%matmul_add => MatMul_7_sym_add_3_ThomasL_3     ! MatMul_7_sym together with self%thomasL => Thomas3_SolveL
+            else
+                self%matmul => MatMul_7_sym_ThomasL_3               ! MatMul_7_sym together with self%thomasL => Thomas3_SolveL
+            end if
             self%thomasU => Thomas3_SolveU
 
-        case (FDM_COM4_DIRECT)
-            self%matmul => MatMul_3_ThomasL_3           ! MatMul_3 together with self%thomasL => Thomas3_SolveL
-            self%thomasU => Thomas3_SolveU
-
-        case (FDM_COM6_DIRECT)
+        case (FDM_COM4_DIRECT, FDM_COM6_DIRECT)
             self%matmul => MatMul_5_ThomasL_3           ! MatMul_5 together with self%thomasL => Thomas3_SolveL
             self%thomasU => Thomas3_SolveU
 
@@ -219,7 +252,48 @@ contains
         real(wp), intent(in) :: u(:, :)
         real(wp), intent(out) :: result(:, :)
 
-        result = u
+        integer nx, ndl, ndr
+
+        ! ###################################################################
+        print *, 'comDD'
+        nx = size(self%lu, 1)
+        ndl = size(self%lu, 2)
+        ndr = size(self%rhs, 2)
+
+        if (self%need_1der) then           ! add Jacobian correction A_2 dx2 du
+            ! call self%matmul(rhs=self%rhs, &
+            !                        rhs_b=self%rhs(1:ndr/2, 1:ndr), &
+            !                        rhs_t=self%rhs(nx - ndr/2 + 1:nx, 1:ndr), &
+            !                        u=u, &
+            !                        rhs_add=self%rhs(:, ip + 1:ip + 3), &
+            !                        u_add=du, &
+            !                        f=result)
+            call self%matmul_add(rhs=self%rhs, &
+                                 rhs_b=self%rhs(1:ndr/2, 1:ndr), &
+                                 rhs_t=self%rhs(nx - ndr/2 + 1:nx, 1:ndr), &
+                                 u=u, &
+                                 rhs_add=self%rhs_d1, &
+                                 u_add=u, &
+                                 !  u_add=du, &
+                                 f=result, &
+                                 L=self%lu(:, 1:ndl/2))
+        else
+            ! call self%matmul(rhs=self%rhs, &
+            !                    rhs_b=self%rhs(1:ndr/2, 1:ndr), &
+            !                    rhs_t=self%rhs(nx - ndr/2 + 1:nx, 1:ndr), &
+            !                    u=u, &
+            !                    f=result)
+            call self%matmul(rhs=self%rhs, &
+                             rhs_b=self%rhs(1:ndr/2, 1:ndr), &
+                             rhs_t=self%rhs(nx - ndr/2 + 1:nx, 1:ndr), &
+                             u=u, &
+                             f=result, &
+                             L=self%lu(:, 1:ndl/2))
+        end if
+
+        ! Solve for u' in system of equations A u' = B u
+        ! call self%thomasL(lu(:, 1:ndl/2), result)
+        call self%thomasU(self%lu(:, ndl/2 + 1:ndl), result)
 
         return
     end subroutine der2_biased_compute
@@ -244,28 +318,28 @@ contains
         nx = size(x)                    ! # grid points
 
         ! -------------------------------------------------------------------
-        select type (g)
-        type is (der2_periodic)
-            select case (g%type)
-            case (FDM_COM4_JACOBIAN)
-                call FDM_C2N4_Jacobian(nx, g%lhs, g%rhs, coef, periodic)
+        select case (g%type)
+        case (FDM_COM4_JACOBIAN)
+            call FDM_C2N4_Jacobian(nx, g%lhs, g%rhs, coef, periodic)
 
-            case (FDM_COM6_JACOBIAN)
-                call FDM_C2N6_Jacobian(nx, g%lhs, g%rhs, coef, periodic)
+        case (FDM_COM6_JACOBIAN)
+            call FDM_C2N6_Jacobian(nx, g%lhs, g%rhs, coef, periodic)
 
-            case (FDM_COM6_JACOBIAN_HYPER)
-                call FDM_C2N6_Hyper_Jacobian(nx, g%lhs, g%rhs, coef, periodic)
+        case (FDM_COM6_JACOBIAN_HYPER)
+            call FDM_C2N6_Hyper_Jacobian(nx, g%lhs, g%rhs, coef, periodic)
 
-            case (FDM_COM4_DIRECT)
-                call FDM_C2N4_Direct(nx, x, g%lhs, g%rhs)
+        case (FDM_COM4_DIRECT)
+            call FDM_C2N4_Direct(nx, x, g%lhs, g%rhs)
 
-            case (FDM_COM6_DIRECT)
-                call FDM_C2N6_Direct(nx, x, g%lhs, g%rhs)
+        case (FDM_COM6_DIRECT)
+            call FDM_C2N6_Direct(nx, x, g%lhs, g%rhs)
 
-            end select
+        end select
 
-            select case (g%type)
-            case (FDM_COM4_JACOBIAN, FDM_COM6_JACOBIAN, FDM_COM6_JACOBIAN_HYPER)
+        select case (g%type)
+        case (FDM_COM4_JACOBIAN, FDM_COM6_JACOBIAN, FDM_COM6_JACOBIAN_HYPER)
+            select type (g)
+            type is (der2_biased)
                 if (.not. uniform) then
                     g%need_1der = .true.
                     if (allocated(g%rhs_d1)) deallocate (g%rhs_d1)  ! Contribution from 1. order derivative in nonuniform grids
@@ -273,10 +347,9 @@ contains
                     g%rhs_d1 = -g%lhs
                     call MultiplyByDiagonal(g%rhs_d1, dx(:, 2))
                 end if
-                call MultiplyByDiagonal(g%lhs, dx(:, 1))            ! multiply by the Jacobians
-                call MultiplyByDiagonal(g%lhs, dx(:, 1))
             end select
-
+            call MultiplyByDiagonal(g%lhs, dx(:, 1))            ! multiply by the Jacobians
+            call MultiplyByDiagonal(g%lhs, dx(:, 1))
         end select
 
         ! -------------------------------------------------------------------
@@ -316,7 +389,7 @@ program test2
     use FDM_Derivative
 
     integer, parameter :: nx = 32
-    real(wp) x(nx), dx(nx), u(1, nx), du(1, nx), du_a(1, nx)
+    real(wp) x(nx), dx(nx, 2), u(1, nx), du(1, nx), du_a(1, nx)
 
     class(der_dt), allocatable :: derX
 
@@ -328,17 +401,19 @@ program test2
 
     ! ###################################################################
     x = [(real(i, wp), i=1, nx)]
-    dx = [(1.0_wp, i=1, nx)]
+    dx(:, 1) = [(1.0_wp, i=1, nx)]
+    dx(:, 2) = [(0.0_wp, i=1, nx)]
     allocate (wrk2d(nx, 2))
 
     ! u(1, :) = x(:)**2
     ! du_a(1, :) = 2.0_wp*x(:)
     u(1, :) = [(cos(2.0*pi_wp/(x(nx) - x(1))*(x(i) - x(1))), i=1, nx)]
-    du_a(1, :) = -[(sin(2.0*pi_wp/(x(nx) - x(1))*(x(i) - x(1))), i=1, nx)]*2.0*pi_wp/(x(nx) - x(1))
+    ! du_a(1, :) = -[(sin(2.0*pi_wp/(x(nx) - x(1))*(x(i) - x(1))), i=1, nx)]*2.0*pi_wp/(x(nx) - x(1))
+    du_a(1, :) = -u(1, :)*(2.0*pi_wp/(x(nx) - x(1)))**2
 
     allocate (der2_biased :: derX)
     do ic = 1, size(cases1)
-        call derX%initialize(x, dx, cases1(ic))
+        call derX%initialize(x, pack(dx, .true.), cases1(ic))
         call derX%compute(u, du)
         print *, maxval(abs(du - du_a))
     end do
@@ -346,10 +421,9 @@ program test2
     if (allocated(derX)) deallocate (derX)
     allocate (der2_periodic :: derX)
     do ic = 1, size(cases1)
-        call derX%initialize(x(:nx - 1), dx(:nx - 1), cases1(ic))
+        call derX%initialize(x(:nx - 1), dx(:nx - 1, 1), cases1(ic))
         call derX%compute(u(:, :nx - 1), du(:, :nx - 1))
         print *, maxval(abs(du(:, :nx - 1) - du_a(:, :nx - 1)))
-
     end do
 
     stop

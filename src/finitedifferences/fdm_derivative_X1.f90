@@ -90,29 +90,6 @@ module FDM_Base_X
             real(wp), intent(inout) :: f(:, :)          ! RHS and solution
         end subroutine
 
-        !     subroutine matmul_add_ice(rhs, rhs_b, rhs_t, u, f, rhs_add, u_add, bcs_b, bcs_t)
-        !         use TLab_Constants, only: wp
-        !         real(wp), intent(in) :: rhs(:, :)
-        !         real(wp), intent(in) :: rhs_b(:, :), rhs_t(:, :)
-        !         real(wp), intent(in) :: u(:, :)
-        !         real(wp), intent(out) :: f(:, :)
-        !         real(wp), intent(in) :: rhs_add(:, :)
-        !         real(wp), intent(in) :: u_add(:, :)
-        !         real(wp), intent(inout), optional :: bcs_b(:), bcs_t(:)
-        !     end subroutine
-
-        ! subroutine matmul_add_thomas_ice(rhs, rhs_b, rhs_t, u, f, rhs_add, u_add, L, bcs_b, bcs_t)
-        !     use TLab_Constants, only: wp
-        !     real(wp), intent(in) :: rhs(:, :)
-        !     real(wp), intent(in) :: rhs_b(:, :), rhs_t(:, :)
-        !     real(wp), intent(in) :: u(:, :)
-        !     real(wp), intent(out) :: f(:, :)
-        !     real(wp), intent(in) :: rhs_add(:, :)
-        !     real(wp), intent(in) :: u_add(:, :)
-        !     real(wp), intent(inout), optional :: bcs_b(:), bcs_t(:)
-        !     real(wp), intent(in) :: L(:, :)
-        ! end subroutine
-
     end interface
 
 end module FDM_Base_X
@@ -828,61 +805,61 @@ contains
 
 end module FDM_Derivative_1order_X
 
-! ###################################################################
-! ###################################################################
-program test1
-    use TLab_Constants, only: wp, wi, pi_wp
-    use TLab_Arrays, only: wrk2d
-    use FDM_Derivative_1order_X
-    use FDM_Derivative
+! ! ###################################################################
+! ! ###################################################################
+! program test1
+!     use TLab_Constants, only: wp, wi, pi_wp
+!     use TLab_Arrays, only: wrk2d
+!     use FDM_Derivative_1order_X
+!     use FDM_Derivative
 
-    integer, parameter :: nx = 32
-    real(wp) x(nx), dx(nx), u(1, nx), du(1, nx), du_a(1, nx)
+!     integer, parameter :: nx = 32
+!     real(wp) x(nx), dx(nx), u(1, nx), du(1, nx), du_a(1, nx)
 
-    class(der_dt), allocatable :: derX
+!     class(der_dt), allocatable :: derX
 
-    integer :: cases1(5) = [FDM_COM4_JACOBIAN, &
-                            FDM_COM6_JACOBIAN, &
-                            FDM_COM6_JACOBIAN_PENTA, &
-                            FDM_COM4_DIRECT, &
-                            FDM_COM6_DIRECT]
+!     integer :: cases1(5) = [FDM_COM4_JACOBIAN, &
+!                             FDM_COM6_JACOBIAN, &
+!                             FDM_COM6_JACOBIAN_PENTA, &
+!                             FDM_COM4_DIRECT, &
+!                             FDM_COM6_DIRECT]
 
-    ! ###################################################################
-    x = [(real(i, wp), i=1, nx)]
-    dx = [(1.0_wp, i=1, nx)]
-    allocate (wrk2d(nx, 2))
+!     ! ###################################################################
+!     x = [(real(i, wp), i=1, nx)]
+!     dx = [(1.0_wp, i=1, nx)]
+!     allocate (wrk2d(nx, 2))
 
-    ! u(1, :) = x(:)**2
-    ! du_a(1, :) = 2.0_wp*x(:)
-    u(1, :) = [(cos(2.0*pi_wp/(x(nx) - x(1))*(x(i) - x(1))), i=1, nx)]
-    du_a(1, :) = -[(sin(2.0*pi_wp/(x(nx) - x(1))*(x(i) - x(1))), i=1, nx)]*2.0*pi_wp/(x(nx) - x(1))
+!     ! u(1, :) = x(:)**2
+!     ! du_a(1, :) = 2.0_wp*x(:)
+!     u(1, :) = [(cos(2.0*pi_wp/(x(nx) - x(1))*(x(i) - x(1))), i=1, nx)]
+!     du_a(1, :) = -[(sin(2.0*pi_wp/(x(nx) - x(1))*(x(i) - x(1))), i=1, nx)]*2.0*pi_wp/(x(nx) - x(1))
 
-    allocate (der1_biased :: derX)
-    do ic = 1, size(cases1)
-        call derX%initialize(x, dx, cases1(ic))
-        call derX%compute(u, du)
-        print *, maxval(abs(du - du_a))
-        select type (derX)
-        type is (der1_biased)
-            call derX%bcsDD%compute(u, du)
-            print *, maxval(abs(du - du_a))
-            call derX%bcsND%compute(u, du)
-            print *, maxval(abs(du - du_a))
-            call derX%bcsDN%compute(u, du)
-            print *, maxval(abs(du - du_a))
-            call derX%bcsNN%compute(u, du)
-            print *, maxval(abs(du - du_a))
-        end select
-    end do
+!     allocate (der1_biased :: derX)
+!     do ic = 1, size(cases1)
+!         call derX%initialize(x, dx, cases1(ic))
+!         call derX%compute(u, du)
+!         print *, maxval(abs(du - du_a))
+!         select type (derX)
+!         type is (der1_biased)
+!             call derX%bcsDD%compute(u, du)
+!             print *, maxval(abs(du - du_a))
+!             call derX%bcsND%compute(u, du)
+!             print *, maxval(abs(du - du_a))
+!             call derX%bcsDN%compute(u, du)
+!             print *, maxval(abs(du - du_a))
+!             call derX%bcsNN%compute(u, du)
+!             print *, maxval(abs(du - du_a))
+!         end select
+!     end do
 
-    if (allocated(derX)) deallocate (derX)
-    allocate (der1_periodic :: derX)
-    do ic = 1, size(cases1)
-        call derX%initialize(x(:nx - 1), dx(:nx - 1), cases1(ic))
-        call derX%compute(u(:, :nx - 1), du(:, :nx - 1))
-        print *, maxval(abs(du(:, :nx - 1) - du_a(:, :nx - 1)))
+!     if (allocated(derX)) deallocate (derX)
+!     allocate (der1_periodic :: derX)
+!     do ic = 1, size(cases1)
+!         call derX%initialize(x(:nx - 1), dx(:nx - 1), cases1(ic))
+!         call derX%compute(u(:, :nx - 1), du(:, :nx - 1))
+!         print *, maxval(abs(du(:, :nx - 1) - du_a(:, :nx - 1)))
 
-    end do
+!     end do
 
-    stop
-end program
+!     stop
+! end program

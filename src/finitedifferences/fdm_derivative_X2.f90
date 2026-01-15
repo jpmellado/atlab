@@ -11,8 +11,8 @@ module FDM_Derivative_2order_X
     implicit none
     private
 
-    public :: der2_df
-    ! public :: der_df            ! Made public to make it accessible by loading FDM_Derivative_X and not necessarily FDM_Base_X
+    public :: der2_dt
+    ! public :: der_dt            ! Made public to make it accessible by loading FDM_Derivative_X and not necessarily FDM_Base_X
     public :: der2_periodic
     public :: der2_biased
 
@@ -38,7 +38,7 @@ module FDM_Derivative_2order_X
     ! The idea is to ude FDM_Base for both 1. and 2. order derivatives, but the current implementation
     ! of some schemes requires u' in the calculation of u'', and we need to redefine most of it
 
-    type, abstract :: der2_df
+    type, abstract :: der2_dt
         integer type                                ! finite-difference method
         real(wp), allocatable :: lhs(:, :)          ! A diagonals of system A u' = B u
         real(wp), allocatable :: rhs(:, :)          ! B diagonals of system A u' = B u
@@ -48,22 +48,22 @@ module FDM_Derivative_2order_X
     end type
     abstract interface
         subroutine initialize_ice(self, x, dx, fdm_type, uniform)
-            import der2_df, wp
-            class(der2_df), intent(out) :: self
-            real(wp), intent(in) :: x(:), dx(:)
+            import der2_dt, wp
+            class(der2_dt), intent(out) :: self
+            real(wp), intent(in) :: x(:), dx(:, :)
             integer, intent(in) :: fdm_type
             logical :: uniform
         end subroutine
         subroutine compute_ice(self, u, result, du)
-            import der2_df, wp
-            class(der2_df), intent(in) :: self
+            import der2_dt, wp
+            class(der2_dt), intent(in) :: self
             real(wp), intent(in) :: u(:, :)
             real(wp), intent(out) :: result(:, :)
             real(wp), intent(in), optional :: du(:, :)
         end subroutine
     end interface
 
-    type, extends(der2_df), abstract :: der_periodic
+    type, extends(der2_dt), abstract :: der_periodic
         ! procedure(matmul_halo_ice), pointer, nopass :: matmul => null()
         procedure(matmul_halo_thomas_ice), pointer, nopass :: matmul => null()
         procedure(thomas_ice), pointer, nopass :: thomasU => null()
@@ -73,7 +73,7 @@ module FDM_Derivative_2order_X
     contains
     end type
 
-    type, extends(der2_df), abstract :: der_biased
+    type, extends(der2_dt), abstract :: der_biased
         ! procedure(matmul_ice), pointer, nopass :: matmul => null()
         procedure(matmul_thomas_ice), pointer, nopass :: matmul => null()
         procedure(thomas_ice), pointer, nopass :: thomasU => null()
@@ -133,7 +133,7 @@ contains
     subroutine der2_periodic_initialize(self, x, dx, fdm_type, uniform)
         use Preconditioning
         class(der2_periodic), intent(out) :: self
-        real(wp), intent(in) :: x(:), dx(:)
+        real(wp), intent(in) :: x(:), dx(:, :)
         integer, intent(in) :: fdm_type
         logical :: uniform
 
@@ -153,7 +153,7 @@ contains
             self%type = FDM_COM6_JACOBIAN_HYPER
         end select
 
-        call FDM_Der2_CreateSystem(x, dx, self, periodic=.true.)
+        call FDM_Der2_CreateSystem(x, self, periodic=.true.)
 
         call NormalizeByDiagonal(self%rhs, &
                                  1, &                           ! use 1. upper diagonal in rhs
@@ -242,8 +242,9 @@ contains
     ! ###################################################################
     subroutine der2_biased_initialize(self, x, dx, fdm_type, uniform)
         use Preconditioning
+        use FDM_Base, only: MultiplyByDiagonal
         class(der2_biased), intent(out) :: self
-        real(wp), intent(in) :: x(:), dx(:)
+        real(wp), intent(in) :: x(:), dx(:, :)
         integer, intent(in) :: fdm_type
         logical :: uniform
 
@@ -258,12 +259,20 @@ contains
             self%type = FDM_COM6_JACOBIAN_HYPER
         end select
 
+        call FDM_Der2_CreateSystem(x, self, periodic=.false.)
+
         select case (self%type)
         case (FDM_COM4_JACOBIAN, FDM_COM6_JACOBIAN, FDM_COM6_JACOBIAN_HYPER)
-            if (.not. uniform) self%need_1der = .true.
+            if (.not. uniform) then
+                self%need_1der = .true.
+                if (allocated(self%rhs_d1)) deallocate (self%rhs_d1)  ! Contribution from 1. order derivative in nonuniform grids
+                allocate (self%rhs_d1, mold=self%lhs)
+                self%rhs_d1 = -self%lhs
+                call MultiplyByDiagonal(self%rhs_d1, dx(:, 2))
+            end if
+            call MultiplyByDiagonal(self%lhs, dx(:, 1))            ! multiply by the Jacobians
+            call MultiplyByDiagonal(self%lhs, dx(:, 1))
         end select
-
-        call FDM_Der2_CreateSystem(x, dx, self, periodic=.false.)
 
         ! Preconditioning
         if (self%need_1der) then
@@ -278,9 +287,6 @@ contains
                                      self%lhs, &
                                      switchAtBoundary=.true.)
         end if
-
-        ! ! For code readability later in the code
-        ! g%nb_diag = [size(g%lhs, 2), size(g%rhs, 2)]
 
         ! -------------------------------------------------------------------
         ! Construct LU decomposition
@@ -372,14 +378,12 @@ contains
 
     ! ###################################################################
     ! ###################################################################
-    subroutine FDM_Der2_CreateSystem(x, dx, g, periodic)
+    subroutine FDM_Der2_CreateSystem(x, g, periodic)
         use TLab_Constants, only: pi_wp
-        use FDM_Base, only: MultiplyByDiagonal
         use FDM_ComX_Direct
         use FDM_Com2_Jacobian
         real(wp), intent(in) :: x(:)                    ! node positions
-        real(wp), intent(in) :: dx(size(x, 1), 2)       ! Jacobians
-        class(der2_df), intent(inout) :: g               ! fdm plan for 2. order derivative
+        class(der2_dt), intent(inout) :: g               ! fdm plan for 2. order derivative
         logical, intent(in) :: periodic
 
         ! -------------------------------------------------------------------
@@ -406,21 +410,6 @@ contains
         case (FDM_COM6_DIRECT)
             call FDM_C2N6_Direct(nx, x, g%lhs, g%rhs)
 
-        end select
-
-        select case (g%type)
-        case (FDM_COM4_JACOBIAN, FDM_COM6_JACOBIAN, FDM_COM6_JACOBIAN_HYPER)
-            select type (g)
-            type is (der2_biased)
-                if (g%need_1der) then
-                    if (allocated(g%rhs_d1)) deallocate (g%rhs_d1)  ! Contribution from 1. order derivative in nonuniform grids
-                    allocate (g%rhs_d1, mold=g%lhs)
-                    g%rhs_d1 = -g%lhs
-                    call MultiplyByDiagonal(g%rhs_d1, dx(:, 2))
-                end if
-            end select
-            call MultiplyByDiagonal(g%lhs, dx(:, 1))            ! multiply by the Jacobians
-            call MultiplyByDiagonal(g%lhs, dx(:, 1))
         end select
 
         ! -------------------------------------------------------------------
@@ -462,7 +451,7 @@ program test2
     integer, parameter :: nx = 32
     real(wp) x(nx), dx(nx, 2), u(1, nx), du(1, nx), du_a(1, nx)
 
-    class(der2_df), allocatable :: derX
+    class(der2_dt), allocatable :: derX
 
     integer :: cases1(5) = [FDM_COM4_JACOBIAN, &
                             FDM_COM6_JACOBIAN, &
@@ -484,7 +473,7 @@ program test2
 
     allocate (der2_biased :: derX)
     do ic = 1, size(cases1)
-        call derX%initialize(x, pack(dx, .true.), cases1(ic), uniform=.true.)
+        call derX%initialize(x, dx, cases1(ic), uniform=.true.)
         call derX%compute(u, du)
         print *, maxval(abs(du - du_a))
     end do
@@ -492,7 +481,7 @@ program test2
     if (allocated(derX)) deallocate (derX)
     allocate (der2_periodic :: derX)
     do ic = 1, size(cases1)
-        call derX%initialize(x(:nx - 1), dx(:nx - 1, 1), cases1(ic), uniform=.true.)
+        call derX%initialize(x(:nx - 1), dx(:nx - 1, :), cases1(ic), uniform=.true.)
         call derX%compute(u(:, :nx - 1), du(:, :nx - 1))
         print *, maxval(abs(du(:, :nx - 1) - du_a(:, :nx - 1)))
     end do

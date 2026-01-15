@@ -202,7 +202,7 @@ contains
             self%type = FDM_COM6_JACOBIAN
         end select
 
-        call FDM_Der1_CreateSystem(x, dx, self, periodic=.true.)
+        call FDM_Der1_CreateSystem(x, self, periodic=.true.)
 
         call Precon_Rhs(self%lhs, self%rhs, periodic=.true.)
 
@@ -300,18 +300,21 @@ contains
     ! ###################################################################
     subroutine der1_biased_initialize(self, x, dx, fdm_type)
         use Preconditioning
+        use FDM_Base, only: MultiplyByDiagonal
         class(der1_biased), intent(out) :: self
         real(wp), intent(in) :: x(:), dx(:)
         integer, intent(in) :: fdm_type
 
         ! ###################################################################
         self%type = fdm_type
-        call FDM_Der1_CreateSystem(x, dx, self, periodic=.false.)
+        call FDM_Der1_CreateSystem(x, self, periodic=.false.)
+
+        select case (self%type)
+        case (FDM_COM4_JACOBIAN, FDM_COM6_JACOBIAN, FDM_COM6_JACOBIAN_PENTA)
+            call MultiplyByDiagonal(self%lhs, dx)    ! multiply by the Jacobian
+        end select
 
         call Precon_Rhs(self%lhs, self%rhs, periodic=.false.)
-
-        ! ! For code readability later in the code
-        ! g%nb_diag = [size(g%lhs, 2), size(g%rhs, 2)]
 
         ! -------------------------------------------------------------------
         ! Procedure pointers to linear solvers
@@ -635,13 +638,11 @@ contains
 
     ! ###################################################################
     ! ###################################################################
-    subroutine FDM_Der1_CreateSystem(x, dx, g, periodic)
+    subroutine FDM_Der1_CreateSystem(x, g, periodic)
         use TLab_Constants, only: pi_wp
-        use FDM_Base, only: MultiplyByDiagonal
         use FDM_ComX_Direct
         use FDM_Com1_Jacobian
         real(wp), intent(in) :: x(:)                    ! node positions
-        real(wp), intent(in) :: dx(:)                   ! Jacobian
         class(der_dt), intent(inout) :: g
         logical, intent(in) :: periodic
 
@@ -669,11 +670,6 @@ contains
         case (FDM_COM6_DIRECT)
             call FDM_C1N6_Direct(nx, x, g%lhs, g%rhs)
 
-        end select
-
-        select case (g%type)
-        case (FDM_COM4_JACOBIAN, FDM_COM6_JACOBIAN, FDM_COM6_JACOBIAN_PENTA)
-            call MultiplyByDiagonal(g%lhs, dx)    ! multiply by the Jacobian
         end select
 
         ! -------------------------------------------------------------------

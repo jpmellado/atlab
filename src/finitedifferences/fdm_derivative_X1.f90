@@ -19,11 +19,12 @@ module FDM_Base_X
             real(wp), intent(in) :: x(:), dx(:)
             integer, intent(in) :: fdm_type
         end subroutine
-        subroutine compute_ice(self, u, result)
-            import der_dt, wp
+        subroutine compute_ice(self, nlines, u, result)
+            import der_dt, wp, wi
             class(der_dt), intent(in) :: self
-            real(wp), intent(in) :: u(:, :)
-            real(wp), intent(out) :: result(size(u, 1), size(u, 2))
+            integer(wi), intent(in) :: nlines
+            real(wp), intent(in) :: u(nlines, size(self%lhs, 1))
+            real(wp), intent(out) :: result(nlines, size(self%lhs, 1))
         end subroutine
     end interface
 
@@ -246,11 +247,12 @@ contains
 
     ! ###################################################################
     ! ###################################################################
-    subroutine der1_periodic_compute(self, u, result)
+    subroutine der1_periodic_compute(self, nlines, u, result)
         use TLab_Arrays, only: wrk2d
         class(der1_periodic), intent(in) :: self
-        real(wp), intent(in) :: u(:, :)
-        real(wp), intent(out) :: result(size(u, 1), size(u, 2))
+        integer(wi), intent(in) :: nlines
+        real(wp), intent(in) :: u(nlines, size(self%lhs, 1))
+        real(wp), intent(out) :: result(nlines, size(self%lhs, 1))
 
         ! ###################################################################
         nx = size(self%lhs, 1)
@@ -350,10 +352,11 @@ contains
         return
     end subroutine der1_biased_initialize
 
-    subroutine der1_biased_compute(self, u, result)
+    subroutine der1_biased_compute(self, nlines, u, result)
         class(der1_biased), intent(in) :: self
-        real(wp), intent(in) :: u(:, :)
-        real(wp), intent(out) :: result(size(u, 1), size(u, 2))
+        integer(wi), intent(in) :: nlines
+        real(wp), intent(in) :: u(nlines, size(self%lhs, 1))
+        real(wp), intent(out) :: result(nlines, size(self%lhs, 1))
 
         call self%bcsDD%compute(u, result)
 

@@ -187,7 +187,7 @@ program VPARTIAL
             ! new formulation
             call FDM_CreatePlan_Der1(x, fdm_der1, fdm_cases(im))
 
-            call fdm_der1%compute(u, du1_n)
+            call fdm_der1%compute(nlines, u, du1_n)
 
             call check(u, du1_a, du1_n, 'partial-'//trim(adjustl(str))//'.dat')
             call write_scheme(fdm_der1%lhs, &

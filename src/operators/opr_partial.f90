@@ -11,7 +11,7 @@ module OPR_Partial
     use FDM_Derivative_MPISplit
 #endif
     use TLab_Grid, only: x, y, z
-    use FDM, only: g
+    use FDM !, only: g
     use FDM_Derivative, only: FDM_Der1_Solve, FDM_Der2_Solve
     use Thomas_Split
     implicit none
@@ -75,7 +75,7 @@ contains
         character(len=128) eStr
         character(len=512) sRes
 
-        integer np 
+        integer np
 #endif
 
 #ifdef USE_MPI
@@ -205,6 +205,7 @@ contains
 
         case (OPR_P1, OPR_P1_ADD, OPR_P1_SUBTRACT)
             call FDM_Der1_Solve(ny*nz, g(1)%der1, g(1)%der1%lu, result, wrk3d, wrk2d, ibc_loc)
+            ! call fdm_der1_X%compute(ny*nz, result, wrk3d)
 
         end select
 

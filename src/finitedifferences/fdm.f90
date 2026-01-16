@@ -33,8 +33,8 @@ module FDM
     type(fdm_dt), public, protected :: g(3)                    ! fdm derivative plans along 3 directions
     type(fdm_integral_dt), public, protected :: fdm_Int0(2)    ! fdm integral plans along Oz (ode for lambda = 0)
 
-    class(der_dt), allocatable, protected :: fdm_der1_X, fdm_der1_Y, fdm_der1_Z
-    class(der2_dt), allocatable, protected :: fdm_der2_X, fdm_der2_Y, fdm_der2_Z
+    class(der_dt), allocatable, public, protected :: fdm_der1_X, fdm_der1_Y, fdm_der1_Z
+    class(der2_dt), allocatable, public, protected :: fdm_der2_X, fdm_der2_Y, fdm_der2_Z
 
     public :: FDM_Initialize
     public :: FDM_CreatePlan
@@ -196,7 +196,7 @@ call TLab_Write_ASCII(bakfile, '#SchemeDerivative2=<CompactJacobian4/CompactJaco
 
             ! Calculating derivative dxds
             x_aux(1, :) = x%nodes(:)                    ! I need shape (1,nx) in the procedure
-            call der1%compute(x_aux, dx)
+            call der1%compute(1, x_aux, dx)
 
         type is (der1_periodic)
             dx(1, :) = x%nodes(2) - x%nodes(1)

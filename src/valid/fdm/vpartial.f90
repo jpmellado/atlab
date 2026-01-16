@@ -7,13 +7,14 @@ program VPARTIAL
     use TLab_Arrays, only: wrk1d, wrk2d, txc
     use TLab_Grid, only: grid_dt
     use Thomas
-    use FDM, only: fdm_dt, FDM_CreatePlan
+    use FDM, only: fdm_dt, FDM_CreatePlan, FDM_CreatePlan_Der1
     use FDM_Derivative
     use FDM_derivative_Neumann
     use FDM_ComX_Direct
     use FDM_Base
     use FDM_Com1_Jacobian
     use FDM_Com2_Jacobian
+    use FDM_Derivative_1order_X
 
     implicit none
 
@@ -43,6 +44,7 @@ program VPARTIAL
     character(len=32) str
     type(grid_dt) :: x
     type(fdm_dt) g
+    class(der_dt), allocatable :: fdm_der1
 
     ! ###################################################################
     ! Initialize
@@ -114,6 +116,8 @@ program VPARTIAL
     ndr = g%der1%nb_diag(2)
     ndl = g%der1%nb_diag(1)
 
+    call FDM_CreatePlan_Der1(x, fdm_der1, FDM_COM6_JACOBIAN)
+
     ! ###################################################################
     ! Define the function and analytic derivatives
     x_0 = 0.1_wp
@@ -169,15 +173,25 @@ program VPARTIAL
         do im = 1, size(fdm_cases)
             print *, new_line('a'), fdm_names(im)
 
+            ! old formulation
             g%der1%mode_fdm = fdm_cases(im)
             call FDM_CreatePlan(x, g)
 
             call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, u, du1_n, wrk2d)
 
             write (str, *) im
-            call check(u, du1_a, du1_n, 'partial-'//trim(adjustl(str))//'.dat')
+            call check(u, du1_a, du1_n, 'partial-old-'//trim(adjustl(str))//'.dat')
             call write_scheme(g%der1%lhs(:, 1:g%der1%nb_diag(1)), &
-                              g%der1%rhs(:, 1:g%der1%nb_diag(2)), 'fdm1-'//trim(adjustl(str)))
+                              g%der1%rhs(:, 1:g%der1%nb_diag(2)), 'fdm1-old-'//trim(adjustl(str)))
+
+            ! new formulation
+            call FDM_CreatePlan_Der1(x, fdm_der1, fdm_cases(im))
+
+            call fdm_der1%compute(u, du1_n)
+
+            call check(u, du1_a, du1_n, 'partial-'//trim(adjustl(str))//'.dat')
+            call write_scheme(fdm_der1%lhs, &
+                              fdm_der1%rhs, 'fdm1-'//trim(adjustl(str)))
 
         end do
 

@@ -24,20 +24,21 @@ contains
     !########################################################################
     !########################################################################
     !# 4th-order approximation to 1st-order derivative
-    subroutine FDM_C1N4_Direct(nmax, x, lhs, rhs)
-        integer(wi), intent(in) :: nmax
-        real(wp), intent(in) :: x(nmax)
+    subroutine FDM_C1N4_Direct(x, lhs, rhs)
+        real(wp), intent(in) :: x(:)                        ! grid points
         real(wp), allocatable, intent(out) :: lhs(:, :)     ! LHS diagonals
         real(wp), allocatable, intent(out) :: rhs(:, :)     ! RHS diagonals
 
         ! -------------------------------------------------------------------
         real(wp) dummy
         real(wp) coef(3 + 3)
-        integer(wi) n
+        integer(wi) nmax, n
 
         ! #######################################################################
-        allocate (lhs(nmax, 3), source=0.0_wp)    ! 3 LHS diagonals
-        allocate (rhs(nmax, 3), source=0.0_wp)    ! 3 RHS diagonals
+        nmax = size(x)                              ! # of grid points
+
+        allocate (lhs(nmax, 3), source=0.0_wp)      ! 3 LHS diagonals
+        allocate (rhs(nmax, 3), source=0.0_wp)      ! 3 RHS diagonals
 
         ! #######################################################################
         ! Interior points according to Equations (14)
@@ -82,19 +83,20 @@ contains
     !########################################################################
     !########################################################################
     !# 6th-order approximation to 1st-order derivative
-    subroutine FDM_C1N6_Direct(nmax, x, lhs, rhs)
-        integer(wi), intent(in) :: nmax
-        real(wp), intent(in) :: x(nmax)
+    subroutine FDM_C1N6_Direct(x, lhs, rhs)
+        real(wp), intent(in) :: x(:)                        ! grid points
         real(wp), allocatable, intent(out) :: lhs(:, :)     ! LHS diagonals
         real(wp), allocatable, intent(out) :: rhs(:, :)     ! RHS diagonals
 
         real(wp) dummy
         real(wp) coef(3 + 5)
-        integer(wi) n
+        integer(wi) nmax, n
 
         ! #######################################################################
-        allocate (lhs(nmax, 3), source=0.0_wp)    ! 3 LHS diagonals
-        allocate (rhs(nmax, 5), source=0.0_wp)    ! 5 RHS diagonals
+        nmax  = size(x)                             ! # of grid points
+
+        allocate (lhs(nmax, 3), source=0.0_wp)      ! 3 LHS diagonals
+        allocate (rhs(nmax, 5), source=0.0_wp)      ! 5 RHS diagonals
 
         ! #######################################################################
         ! Interior points according to Equations (14)
@@ -429,9 +431,8 @@ contains
     !# Interior points 6th-order according to Eq. 2.1.7.
     !# The second point from Eq. 2.1.6 forth-order (b=0).
     !# The first point from third-order biased Eq. 4.1.3 (d=0).
-    subroutine FDM_C2N6_Direct(nmax, x, lhs, rhs)
-        integer(wi), intent(in) :: nmax
-        real(wp), intent(in) :: x(nmax)
+    subroutine FDM_C2N6_Direct(x, lhs, rhs)
+        real(wp), intent(in) :: x(:)                        ! grid points
         real(wp), allocatable, intent(out) :: lhs(:, :)     ! LHS diagonals
         real(wp), allocatable, intent(out) :: rhs(:, :)     ! RHS diagonals
 
@@ -442,11 +443,13 @@ contains
         real(wp) D                                  ! discriminant of linear systems
         real(wp) dummy
         real(wp) coef(6)
-        integer(wi) n, idx(2)
+        integer(wi) nmax, n, idx(2)
 
         ! #######################################################################
-        allocate (lhs(nmax, 3), source=0.0_wp)    ! 3 LHS diagonals
-        allocate (rhs(nmax, 5), source=0.0_wp)    ! 3 RHS diagonals
+        nmax = size(x)                              ! # of grid points
+
+        allocate (lhs(nmax, 3), source=0.0_wp)      ! 3 LHS diagonals
+        allocate (rhs(nmax, 5), source=0.0_wp)      ! 3 RHS diagonals
 
         ! #######################################################################
         ! Equations (16) for the first/last points.
@@ -539,20 +542,21 @@ contains
     !########################################################################
     !########################################################################
     !# 4th-order approximation to 2nd-order derivative
-    subroutine FDM_C2N4_Direct(nmax, x, lhs, rhs)
-        integer(wi), intent(in) :: nmax
-        real(wp), intent(in) :: x(nmax)
+    subroutine FDM_C2N4_Direct(x, lhs, rhs)
+        real(wp), intent(in) :: x(:)                        ! grid points
         real(wp), allocatable, intent(out) :: lhs(:, :)     ! LHS diagonals
         real(wp), allocatable, intent(out) :: rhs(:, :)     ! RHS diagonals
 
         ! -------------------------------------------------------------------
         real(wp) dummy
         real(wp) coef(6)
-        integer(wi) n
+        integer(wi) nmax, n
 
         ! #######################################################################
-        allocate (lhs(nmax, 3), source=0.0_wp)    ! 3 LHS diagonals
-        allocate (rhs(nmax, 5), source=0.0_wp)    ! 5 RHS diagonals
+        nmax = size(x)                              ! # of grid points
+        
+        allocate (lhs(nmax, 3), source=0.0_wp)      ! 3 LHS diagonals
+        allocate (rhs(nmax, 5), source=0.0_wp)      ! 5 RHS diagonals
 
         ! #######################################################################
         ! Equations (16) for the first/last points.

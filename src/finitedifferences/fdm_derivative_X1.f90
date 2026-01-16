@@ -191,11 +191,9 @@ contains
         integer, intent(in) :: fdm_type
 
         ! ###################################################################
-        print *, 'iniPer'
-
-        ! -------------------------------------------------------------------
         self%type = fdm_type
-        select case (fdm_type)
+
+        select case (fdm_type)              ! periodic implies uniform grid, direct schemes coincide with Jacobian ones
         case (FDM_COM4_DIRECT)
             self%type = FDM_COM4_JACOBIAN
         case (FDM_COM6_DIRECT)
@@ -206,16 +204,12 @@ contains
 
         call Precon_Rhs(self%lhs, self%rhs, periodic=.true.)
 
-        ! ! For code readability later in the code
-        ! g%nb_diag = [size(g%lhs, 2), size(g%rhs, 2)]
-
+        ! -------------------------------------------------------------------
+        ! Construct LU decomposition
         nx = size(self%lhs, 1)
         ndl = size(self%lhs, 2)
 
-        ! -------------------------------------------------------------------
-        ! Construct LU decomposition
-        allocate (self%lu(nx, ndl))
-        self%lu(:, :) = self%lhs(:, :)
+        allocate (self%lu, source=self%lhs)
 
         allocate (self%z(ndl/2, nx))
 
@@ -259,7 +253,6 @@ contains
         real(wp), intent(out) :: result(:, :)
 
         ! ###################################################################
-        print *, 'comPer'
         nx = size(self%lhs, 1)
         ndl = size(self%lhs, 2)
         ndr = size(self%rhs, 2)
@@ -307,13 +300,16 @@ contains
 
         ! ###################################################################
         self%type = fdm_type
+
         call FDM_Der1_CreateSystem(x, self, periodic=.false.)
 
+        ! Jacobian, if needed
         select case (self%type)
         case (FDM_COM4_JACOBIAN, FDM_COM6_JACOBIAN, FDM_COM6_JACOBIAN_PENTA)
             call MultiplyByDiagonal(self%lhs, dx)    ! multiply by the Jacobian
         end select
 
+        ! Preconditioning
         call Precon_Rhs(self%lhs, self%rhs, periodic=.false.)
 
         ! -------------------------------------------------------------------
@@ -371,16 +367,13 @@ contains
         class(der1_biased), intent(in), target :: ref
 
         ! ###################################################################
-        print *, 'iniDD'
         self%matmul => ref%matmul
         self%thomasU => ref%thomasU
         self%rhs => ref%rhs
 
-        nx = size(ref%lhs, 1)
-        ndl = size(ref%lhs, 2)
+        allocate (self%lu, source=ref%lhs)
 
-        allocate (self%lu(nx, ndl))
-        self%lu(:, :) = ref%lhs(:, :)
+        ndl = size(ref%lhs, 2)
 
         call Thomas_FactorLU_InPlace(self%lu(:, 1:ndl/2), &
                                      self%lu(:, ndl/2 + 1:ndl))
@@ -394,7 +387,6 @@ contains
         real(wp), intent(out) :: result(:, :)
 
         ! ###################################################################
-        print *, 'comDD'
         nx = size(self%lu, 1)
         ndl = size(self%lu, 2)
         ndr = size(self%rhs, 2)
@@ -421,7 +413,6 @@ contains
         class(der1_biased), intent(in), target :: ref
 
         ! ###################################################################
-        print *, 'iniND'
         self%matmul => ref%matmul
         self%thomasU => ref%thomasU
         self%rhs => ref%rhs
@@ -432,8 +423,7 @@ contains
         ndr = size(ref%rhs, 2)
         idr = ndr/2 + 1
 
-        allocate (self%lu(nx, ndl))
-        self%lu(:, :) = ref%lhs(:, :)
+        allocate (self%lu, source=ref%lhs)
 
         allocate (self%rhs_b(max(idl, idr + 1), 1:ndr + 2), source=0.0_wp)
 
@@ -453,7 +443,6 @@ contains
         real(wp), intent(out) :: result(:, :)
 
         ! ###################################################################
-        print *, 'comND'
         nx = size(self%lu, 1)
         ndl = size(self%lu, 2)
         idl = ndl/2 + 1
@@ -493,7 +482,6 @@ contains
         class(der1_biased), intent(in), target :: ref
 
         ! ###################################################################
-        print *, 'iniDN'
         self%matmul => ref%matmul
         self%thomasU => ref%thomasU
         self%rhs => ref%rhs
@@ -504,8 +492,7 @@ contains
         ndr = size(ref%rhs, 2)
         idr = ndr/2 + 1
 
-        allocate (self%lu(nx, ndl))
-        self%lu(:, :) = ref%lhs(:, :)
+        allocate (self%lu, source=ref%lhs)
 
         allocate (self%rhs_t(max(idl, idr + 1), 1:ndr + 2), source=0.0_wp)
 
@@ -525,7 +512,6 @@ contains
         real(wp), intent(out) :: result(:, :)
 
         ! ###################################################################
-        print *, 'comDN'
         nx = size(self%lu, 1)
         ndl = size(self%lu, 2)
         idl = ndl/2 + 1
@@ -565,7 +551,6 @@ contains
         class(der1_biased), intent(in), target :: ref
 
         ! ###################################################################
-        print *, 'iniNN'
         self%matmul => ref%matmul
         self%thomasU => ref%thomasU
         self%rhs => ref%rhs
@@ -576,8 +561,7 @@ contains
         ndr = size(ref%rhs, 2)
         idr = ndr/2 + 1
 
-        allocate (self%lu(nx, ndl))
-        self%lu(:, :) = ref%lhs(:, :)
+        allocate (self%lu, source=ref%lhs)
 
         allocate (self%rhs_b(max(idl, idr + 1), 1:ndr + 2), source=0.0_wp)
         allocate (self%rhs_t(max(idl, idr + 1), 1:ndr + 2), source=0.0_wp)
@@ -598,7 +582,6 @@ contains
         real(wp), intent(out) :: result(:, :)
 
         ! ###################################################################
-        print *, 'comNN'
         nx = size(self%lu, 1)
         ndl = size(self%lu, 2)
         idl = ndl/2 + 1
@@ -639,19 +622,18 @@ contains
     ! ###################################################################
     ! ###################################################################
     subroutine FDM_Der1_CreateSystem(x, g, periodic)
-        use TLab_Constants, only: pi_wp
         use FDM_ComX_Direct
         use FDM_Com1_Jacobian
-        real(wp), intent(in) :: x(:)                    ! node positions
-        class(der_dt), intent(inout) :: g
+        real(wp), intent(in) :: x(:)            ! node positions
+        class(der_dt), intent(inout) :: g       ! fdm plan for 1. order derivative
         logical, intent(in) :: periodic
 
         ! -------------------------------------------------------------------
         real(wp) :: coef(5)
-        integer(wi) i, nx
+        integer(wi) nx
 
         ! ###################################################################
-        nx = size(x)                    ! # grid points
+        nx = size(x)                            ! # grid points
 
         ! -------------------------------------------------------------------
         select case (g%type)
@@ -665,39 +647,48 @@ contains
             call FDM_C1N6_Jacobian_Penta(nx, g%lhs, g%rhs, coef, periodic)
 
         case (FDM_COM4_DIRECT)
-            call FDM_C1N4_Direct(nx, x, g%lhs, g%rhs)
+            call FDM_C1N4_Direct(x, g%lhs, g%rhs)
 
         case (FDM_COM6_DIRECT)
-            call FDM_C1N6_Direct(nx, x, g%lhs, g%rhs)
+            call FDM_C1N6_Direct(x, g%lhs, g%rhs)
 
         end select
 
-        ! -------------------------------------------------------------------
-        ! modified wavenumbers
         select type (g)
         type is (der1_periodic)
-            if (allocated(g%mwn)) deallocate (g%mwn)
-            allocate (g%mwn(nx))
-
-#define wn(i) g%mwn(i)
-
-            do i = 1, nx        ! wavenumbers, the independent variable to construct the modified ones
-                if (i <= nx/2 + 1) then
-                    wn(i) = 2.0_wp*pi_wp*real(i - 1, wp)/real(nx, wp)
-                else
-                    wn(i) = 2.0_wp*pi_wp*real(i - 1 - nx, wp)/real(nx, wp)
-                end if
-            end do
-
-            g%mwn(:) = 2.0_wp*(coef(3)*sin(wn(:)) + coef(4)*sin(2.0_wp*wn(:)) + coef(5)*sin(3.0_wp*wn(:))) &
-                       /(1.0_wp + 2.0_wp*coef(1)*cos(wn(:)) + 2.0_wp*coef(2)*cos(wn(:)))
-
-#undef wn
-
+            call FDM_Der1_ModifyWavenumbers(nx, coef, g%mwn)
         end select
 
         return
     end subroutine FDM_Der1_CreateSystem
+
+    subroutine FDM_Der1_ModifyWavenumbers(nx, coef, modified_wn)
+        use TLab_Constants, only: pi_wp
+        integer, intent(in) :: nx
+        real(wp), intent(in) :: coef(:)
+        real(wp), allocatable, intent(out) :: modified_wn(:)
+
+        integer i
+
+        allocate (modified_wn(nx), source=0.0_wp)
+
+#define wn(i) modified_wn(i)
+
+        do i = 1, nx        ! wavenumbers, the independent variable to construct the modified ones
+            if (i <= nx/2 + 1) then
+                wn(i) = 2.0_wp*pi_wp*real(i - 1, wp)/real(nx, wp)
+            else
+                wn(i) = 2.0_wp*pi_wp*real(i - 1 - nx, wp)/real(nx, wp)
+            end if
+        end do
+
+        modified_wn(:) = 2.0_wp*(coef(3)*sin(wn(:)) + coef(4)*sin(2.0_wp*wn(:)) + coef(5)*sin(3.0_wp*wn(:))) &
+                         /(1.0_wp + 2.0_wp*coef(1)*cos(wn(:)) + 2.0_wp*coef(2)*cos(wn(:)))
+
+#undef wn
+
+        return
+    end subroutine FDM_Der1_ModifyWavenumbers
 
 ! #######################################################################
 ! #######################################################################

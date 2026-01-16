@@ -37,7 +37,6 @@ program IniScal
 #endif
 
     call TLab_Grid_Read(gfile, x, y, z)
-    call FDM_Initialize(ifile)
 
     call NavierStokes_Initialize_Parameters(ifile)
     call Thermo_Initialize(ifile)
@@ -51,6 +50,8 @@ program IniScal
 
     ! ###################################################################
     call TLab_Initialize_Memory(__FILE__)
+
+    call FDM_Initialize(ifile)
 
     call TLab_Initialize_Background(ifile)
     do is = 1, size(IniS)

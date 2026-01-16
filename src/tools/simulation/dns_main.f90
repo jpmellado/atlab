@@ -55,7 +55,6 @@ program DNS
 #endif
 
     call TLab_Grid_Read(gfile, x, y, z)
-    call FDM_Initialize(ifile)
 
     call NavierStokes_Initialize_Parameters(ifile)
     call Thermo_Initialize(ifile)
@@ -74,6 +73,8 @@ program DNS
     ! #######################################################################
     call TLab_Initialize_Memory(__FILE__)
     call TLab_Transpose_Initialize()
+
+    call FDM_Initialize(ifile)
 
     call OPR_Partial_Initialize(ifile)
     call OPR_Fourier_Initialize()
@@ -134,7 +135,7 @@ program DNS
     call BCS_Initialize(ifile)
 
     call Buffer_Initialize(ifile)
-    
+
     ! ###################################################################
     ! Initialize time marching scheme
     ! ###################################################################

@@ -37,7 +37,6 @@ program IniFlow
 #endif
 
     call TLab_Grid_Read(gfile, x, y, z)
-    call FDM_Initialize(ifile)
 
     call NavierStokes_Initialize_Parameters(ifile)
     call Thermo_Initialize(ifile)
@@ -48,6 +47,8 @@ program IniFlow
 
     ! #######################################################################
     call TLab_Initialize_Memory(__FILE__)
+
+    call FDM_Initialize(ifile)
 
     call OPR_Partial_Initialize(ifile)
     if (flag_u /= 0) then

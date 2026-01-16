@@ -88,7 +88,6 @@ program AVERAGES
 #endif
 
     call TLab_Grid_Read(gfile, x, y, z)
-    call FDM_Initialize(ifile)
 
     call NavierStokes_Initialize_Parameters(ifile)
     call Thermo_Initialize(ifile)
@@ -106,6 +105,8 @@ program AVERAGES
 
     ! #######################################################################
     call TLab_Initialize_Memory(__FILE__)
+
+    call FDM_Initialize(ifile)
 
     call OPR_Partial_Initialize(ifile)
     call OPR_Fourier_Initialize()

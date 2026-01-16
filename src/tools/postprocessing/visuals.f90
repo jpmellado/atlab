@@ -89,7 +89,6 @@ program VISUALS
 #endif
 
     call TLab_Grid_Read(gfile, x, y, z)
-    call FDM_Initialize(ifile)
 
     call NavierStokes_Initialize_Parameters(ifile)
     call Thermo_Initialize(ifile)
@@ -107,7 +106,7 @@ program VISUALS
     ! #######################################################################
     call TLab_Initialize_Memory(__FILE__)
 
-    ! allocate (gate(isize_field))
+    call FDM_Initialize(ifile)
 
     call OPR_Partial_Initialize(ifile)
     call OPR_Fourier_Initialize()

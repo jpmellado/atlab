@@ -6,6 +6,8 @@ module FDM
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, stagger_on
     use TLab_Grid, only: x, y, z, grid_dt
     use FDM_Derivative
+    use FDM_Derivative_1order_X
+    use FDM_Derivative_2order_X
     use FDM_Interpolate
     use FDM_Integral
     implicit none
@@ -31,8 +33,12 @@ module FDM
     type(fdm_dt), public, protected :: g(3)                    ! fdm derivative plans along 3 directions
     type(fdm_integral_dt), public, protected :: fdm_Int0(2)    ! fdm integral plans along Oz (ode for lambda = 0)
 
+    class(der_dt), allocatable, protected :: fdm_der1_X, fdm_der1_Y, fdm_der1_Z
+    class(der2_dt), allocatable, protected :: fdm_der2_X, fdm_der2_Y, fdm_der2_Z
+
     public :: FDM_Initialize
     public :: FDM_CreatePlan
+    public :: FDM_CreatePlan_Der1
 
 contains
     ! ###################################################################
@@ -83,7 +89,7 @@ call TLab_Write_ASCII(bakfile, '#SchemeDerivative2=<CompactJacobian4/CompactJaco
         end if
 
         if (g(1)%der1%mode_fdm == FDM_COM6_JACOBIAN_PENTA) then     ! CFL_max depends on max[g(ig)%der1%mwn(:)]
-            call TLab_Write_ASCII(wfile, trim(adjustl(eStr))//'CompactJacobian6Penta requires adjusted CFL-number depending on alpha and beta values.')
+           call TLab_Write_ASCII(wfile, trim(adjustl(eStr))//'CompactJacobian6Penta requires adjusted CFL-number depending on alpha and beta values.')
         end if
 
         ! -------------------------------------------------------------------
@@ -130,12 +136,19 @@ call TLab_Write_ASCII(bakfile, '#SchemeDerivative2=<CompactJacobian4/CompactJaco
         x%periodic = g(1)%periodic
         y%periodic = g(2)%periodic
         z%periodic = g(3)%periodic
+        x%uniform = g(1)%uniform
+        y%uniform = g(2)%uniform
+        z%uniform = g(3)%uniform
 
         !########################################################################
         ! Initializing fdm plan for derivatives
         call FDM_CreatePlan(x, g(1))
         call FDM_CreatePlan(y, g(2))
         call FDM_CreatePlan(z, g(3))
+
+        call FDM_CreatePlan_Der1(x, fdm_der1_X, g(1)%der1%mode_fdm)
+        call FDM_CreatePlan_Der1(y, fdm_der1_Y, g(2)%der1%mode_fdm)
+        call FDM_CreatePlan_Der1(z, fdm_der1_Z, g(3)%der1%mode_fdm)
 
         ! ###################################################################
         ! Initializing fdm plans for first-order integrals (cases lambda = 0.0_wp)
@@ -144,6 +157,63 @@ call TLab_Write_ASCII(bakfile, '#SchemeDerivative2=<CompactJacobian4/CompactJaco
 
         return
     end subroutine FDM_Initialize
+
+    ! ###################################################################
+    ! ###################################################################
+    subroutine FDM_CreatePlan_Der1(x, der1, type)
+        type(grid_dt), intent(in) :: x
+        class(der_dt), allocatable, intent(out) :: der1
+        integer, intent(in) :: type
+
+        ! -------------------------------------------------------------------
+        real(wp), allocatable :: x_aux(:, :)        ! uniform grid to calculate Jacobians; shape to comply with %compute routines below
+        real(wp), allocatable :: dx(:, :)           ! Jacobians
+
+        integer i
+
+        ! ###################################################################
+        if (x%periodic) then
+            allocate (der1_periodic :: der1)
+        else
+            allocate (der1_biased :: der1)
+        end if
+
+        ! -------------------------------------------------------------------
+        ! Calculate Jacobian for the Jacobian formulations
+        if (allocated(x_aux)) deallocate (x_aux)
+        allocate (x_aux(1, x%size))
+        if (allocated(dx)) deallocate (dx)
+        allocate (dx(1, x%size))
+
+        select type (der1)
+        type is (der1_biased)
+            ! -------------------------------------------------------------------
+            ! uniform grid to calculate Jacobian (used for the stencils below and also as grid spacing in the code).
+            x_aux(1, :) = [(real(i - 1, wp), i=1, x%size)]
+            dx(1, :) = 1.0_wp
+
+            call der1%initialize(x%nodes, dx(1, :), type)
+
+            ! Calculating derivative dxds
+            x_aux(1, :) = x%nodes(:)                    ! I need shape (1,nx) in the procedure
+            call der1%compute(x_aux, dx)
+
+        type is (der1_periodic)
+            dx(1, :) = x%nodes(2) - x%nodes(1)
+
+        end select
+
+        ! -------------------------------------------------------------------
+        ! Actual grid; possibly nonuniform
+        call der1%initialize(x%nodes, dx(1, :), type)
+
+        select type (der1)
+        type is (der1_periodic)
+            der1%mwn(:) = der1%mwn(:)/dx(1, 1)      ! normalize modified wavenumbers by dx
+        end select
+
+        return
+    end subroutine
 
     ! ###################################################################
     ! ###################################################################

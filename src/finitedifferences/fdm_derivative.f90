@@ -327,10 +327,10 @@ contains
             call FDM_C1N6_Jacobian_Penta(g%size, g%lhs, g%rhs, coef, periodic)
 
         case (FDM_COM4_DIRECT)
-            call FDM_C1N4_Direct(g%size, x, g%lhs, g%rhs)
+            call FDM_C1N4_Direct(x, g%lhs, g%rhs)
 
         case (FDM_COM6_DIRECT)
-            call FDM_C1N6_Direct(g%size, x, g%lhs, g%rhs)
+            call FDM_C1N6_Direct(x, g%lhs, g%rhs)
 
         end select
 
@@ -757,10 +757,10 @@ contains
             call FDM_C2N6_Hyper_Jacobian(g%size, g%lhs, g%rhs, coef, periodic)
 
         case (FDM_COM4_DIRECT)
-            call FDM_C2N4_Direct(g%size, x, g%lhs, g%rhs)
+            call FDM_C2N4_Direct(x, g%lhs, g%rhs)
 
         case (FDM_COM6_DIRECT)
-            call FDM_C2N6_Direct(g%size, x, g%lhs, g%rhs)
+            call FDM_C2N6_Direct(x, g%lhs, g%rhs)
 
         end select
 

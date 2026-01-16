@@ -180,9 +180,7 @@ contains
 
 !########################################################################
 !########################################################################
-    subroutine SpecialForcing_Source(locProps, nx, ny, nz, iq, time, q, h, tmp)
-        use FDM, only: g
-        
+    subroutine SpecialForcing_Source(locProps, nx, ny, nz, iq, time, q, h, tmp)     
         type(term_dt), intent(in) :: locProps
         integer(wi), intent(in) :: nx, ny, nz, iq
         real(wp), intent(in) :: time
@@ -212,7 +210,7 @@ contains
         case (TYPE_WAVEMAKER)
             tmp = 0.0_wp
             do k = 1, nz
-                tmp(:,:,k) = Profiles_Calculate(qbg(iq), g(3)%nodes(k))
+                tmp(:,:,k) = Profiles_Calculate(qbg(iq), z%nodes(k))
             end do 
             do k = 1, nz
                 do i = 1, nx

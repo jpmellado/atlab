@@ -7,7 +7,7 @@ module TLab_Grid
     private
 
     type, public :: grid_dt
-        sequence
+        ! sequence
         character*8 name
         integer(wi) size
         logical :: uniform = .false.
@@ -15,7 +15,10 @@ module TLab_Grid
         real(wp) scale
         real(wp), allocatable :: nodes(:)
     end type
-    type(grid_dt), public :: x, y, z
+    ! type(grid_dt), public, target :: x, y, z
+
+    type(grid_dt), public, target :: grid(3)
+    type(grid_dt), public, pointer :: x => grid(1), y => grid(2), z => grid(3)
 
     public :: TLab_Grid_Read
     public :: TLab_Grid_Write

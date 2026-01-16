@@ -20,7 +20,6 @@ module TimeMarching
     use mpi_f08
     use TLabMPI_VARS
 #endif
-    use TLab_Grid, only: x, y, z
     use NavierStokes, only: nse_eqns, DNS_EQNS_COMPRESSIBLE, DNS_EQNS_BOUSSINESQ, DNS_EQNS_ANELASTIC
     use NavierStokes, only: nse_advection, EQNS_CONVECTIVE, EQNS_DIVERGENCE, EQNS_SKEWSYMMETRIC
     use NavierStokes, only: visc, schmidt, prandtl
@@ -82,9 +81,10 @@ contains
     ! ###################################################################
     subroutine TMarch_Initialize(inifile)
         use TLab_Memory, only: TLab_Allocate_Real
-        ! use TLab_Arrays, only: wrk1d
+        use TLab_Arrays, only: wrk1d
+        use TLab_Grid, only: grid, x, y, z
         use FDM, only: g
-        ! use FDM_Derivative
+        use FDM_Derivative, only: FDM_Der1_Solve
 
         character*(*) inifile
 
@@ -235,15 +235,18 @@ contains
         schmidtfactor = max(schmidtfactor, dummy)
 
         ! ###################################################################
-        ! ig = 3
-        ! wrk1d(1:g(ig)%size, 1) = [(real(i - 1, wp), i=1, g(ig)%size)]
-        ! call FDM_Der1_Solve(1, g(ig)%der1, g(ig)%der1%lu, wrk1d(1:g(ig)%size, 1), wrk1d(1:g(ig)%size, 2), wrk1d(1:g(ig)%size, 3))
-        ! print *, maxval(wrk1d(1:g(ig)%size, 2) - 1.0_wp/g(ig)%jac(:, 1))
+        ! Calculate inverse of Jacobian (inverse of grid spacing)
         do ig = 1, 3
-            allocate (ds(ig)%one_ov_ds1(g(ig)%size))
-            ds(ig)%one_ov_ds1(:) = 1.0_wp/g(ig)%jac(:, 1)
+            allocate (ds(ig)%one_ov_ds1(grid(ig)%size))
+            if (grid(ig)%uniform) then
+                ds(ig)%one_ov_ds1(:) = 1.0_wp/(grid(ig)%nodes(2) - grid(ig)%nodes(1))
+            else
+                ! ds(ig)%one_ov_ds1(:) = 1.0_wp/g(ig)%jac(:, 1)
+                wrk1d(1:grid(ig)%size, 1) = [(real(i - 1, wp), i=1, grid(ig)%size)]
+                call FDM_Der1_Solve(1, g(ig)%der1, g(ig)%der1%lu, wrk1d(:, 1), ds(ig)%one_ov_ds1(:), wrk1d(:, 3))
+            end if
 
-            allocate (ds(ig)%one_ov_ds2(g(ig)%size))
+            allocate (ds(ig)%one_ov_ds2(grid(ig)%size))
             ds(ig)%one_ov_ds2(:) = ds(ig)%one_ov_ds1(:)*ds(ig)%one_ov_ds1(:)
 
         end do
@@ -428,6 +431,7 @@ contains
     !#
     !########################################################################
     subroutine TMarch_Courant()
+        use TLab_Grid, only: x, y, z
         use DNS_Control, only: logs_data, logs_dtime
         use TLab_Pointers_3D, only: u, v, w, p_wrk3d
 

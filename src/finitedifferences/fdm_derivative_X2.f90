@@ -58,8 +58,8 @@ module FDM_Derivative_2order_X
             import der2_dt, wp
             class(der2_dt), intent(in) :: self
             real(wp), intent(in) :: u(:, :)
-            real(wp), intent(out) :: result(:, :)
-            real(wp), intent(in), optional :: du(:, :)
+            real(wp), intent(out) :: result(size(u, 1), size(u, 2))
+            real(wp), intent(in), optional :: du(size(u, 1), size(u, 2))
         end subroutine
     end interface
 
@@ -196,8 +196,8 @@ contains
         use TLab_Arrays, only: wrk2d
         class(der2_periodic), intent(in) :: self
         real(wp), intent(in) :: u(:, :)
-        real(wp), intent(out) :: result(:, :)
-        real(wp), intent(in), optional :: du(:, :)
+        real(wp), intent(out) :: result(size(u, 1), size(u, 2))
+        real(wp), intent(in), optional :: du(size(u, 1), size(u, 2))
 
         integer nx, ndl, ndr
 
@@ -325,8 +325,8 @@ contains
     subroutine der2_biased_compute(self, u, result, du)
         class(der2_biased), intent(in) :: self
         real(wp), intent(in) :: u(:, :)
-        real(wp), intent(out) :: result(:, :)
-        real(wp), intent(in), optional :: du(:, :)
+        real(wp), intent(out) :: result(size(u, 1), size(u, 2))
+        real(wp), intent(in), optional :: du(size(u, 1), size(u, 2))
 
         integer nx, ndl, ndr
 

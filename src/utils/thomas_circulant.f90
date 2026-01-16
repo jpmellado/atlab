@@ -84,7 +84,7 @@ contains
     subroutine ThomasCirculant_3_Reduce(L, U, z, f, wrk)
         real(wp), intent(in) :: L(:, :), U(:, :), z(:)
         real(wp), intent(inout) :: f(:, :)          ! forcing and solution
-        real(wp), intent(inout) :: wrk(:)
+        real(wp), intent(inout) :: wrk(size(f, 1))
 
         ! -------------------------------------------------------------------
         integer(wi) nmax, n

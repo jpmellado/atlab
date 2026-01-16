@@ -23,7 +23,7 @@ module FDM_Base_X
             import der_dt, wp
             class(der_dt), intent(in) :: self
             real(wp), intent(in) :: u(:, :)
-            real(wp), intent(out) :: result(:, :)
+            real(wp), intent(out) :: result(size(u, 1), size(u, 2))
         end subroutine
     end interface
 
@@ -250,7 +250,7 @@ contains
         use TLab_Arrays, only: wrk2d
         class(der1_periodic), intent(in) :: self
         real(wp), intent(in) :: u(:, :)
-        real(wp), intent(out) :: result(:, :)
+        real(wp), intent(out) :: result(size(u, 1), size(u, 2))
 
         ! ###################################################################
         nx = size(self%lhs, 1)
@@ -353,7 +353,7 @@ contains
     subroutine der1_biased_compute(self, u, result)
         class(der1_biased), intent(in) :: self
         real(wp), intent(in) :: u(:, :)
-        real(wp), intent(out) :: result(:, :)
+        real(wp), intent(out) :: result(size(u, 1), size(u, 2))
 
         call self%bcsDD%compute(u, result)
 
@@ -384,7 +384,7 @@ contains
     subroutine bcsDD_compute(self, u, result)
         class(bcsDD), intent(in) :: self
         real(wp), intent(in) :: u(:, :)
-        real(wp), intent(out) :: result(:, :)
+        real(wp), intent(out) :: result(size(u, 1), size(u, 2))
 
         ! ###################################################################
         nx = size(self%lu, 1)
@@ -440,7 +440,7 @@ contains
         use TLab_Arrays, only: wrk2d
         class(bcsND), intent(in) :: self
         real(wp), intent(in) :: u(:, :)
-        real(wp), intent(out) :: result(:, :)
+        real(wp), intent(out) :: result(size(u, 1), size(u, 2))
 
         ! ###################################################################
         nx = size(self%lu, 1)
@@ -509,7 +509,7 @@ contains
         use TLab_Arrays, only: wrk2d
         class(bcsDN), intent(in) :: self
         real(wp), intent(in) :: u(:, :)
-        real(wp), intent(out) :: result(:, :)
+        real(wp), intent(out) :: result(size(u, 1), size(u, 2))
 
         ! ###################################################################
         nx = size(self%lu, 1)
@@ -579,7 +579,7 @@ contains
         use TLab_Arrays, only: wrk2d
         class(bcsNN), intent(in) :: self
         real(wp), intent(in) :: u(:, :)
-        real(wp), intent(out) :: result(:, :)
+        real(wp), intent(out) :: result(size(u, 1), size(u, 2))
 
         ! ###################################################################
         nx = size(self%lu, 1)

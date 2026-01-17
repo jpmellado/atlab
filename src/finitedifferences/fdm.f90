@@ -89,7 +89,7 @@ call TLab_Write_ASCII(bakfile, '#SchemeDerivative2=<CompactJacobian4/CompactJaco
         end if
 
         if (g(1)%der1%mode_fdm == FDM_COM6_JACOBIAN_PENTA) then     ! CFL_max depends on max[g(ig)%der1%mwn(:)]
-           call TLab_Write_ASCII(wfile, trim(adjustl(eStr))//'CompactJacobian6Penta requires adjusted CFL-number depending on alpha and beta values.')
+            call TLab_Write_ASCII(wfile, trim(adjustl(eStr))//'CompactJacobian6Penta requires adjusted CFL-number depending on alpha and beta values.')
         end if
 
         ! -------------------------------------------------------------------
@@ -237,9 +237,9 @@ call TLab_Write_ASCII(bakfile, '#SchemeDerivative2=<CompactJacobian4/CompactJaco
 
             if (g%der2%mode_fdm == FDM_COM4_DIRECT) g%der2%mode_fdm = FDM_COM4_JACOBIAN
             if (g%der2%mode_fdm == FDM_COM6_DIRECT) g%der2%mode_fdm = FDM_COM6_JACOBIAN
-            if (g%der2%mode_fdm == FDM_COM6_DIRECT_HYPER) g%der2%mode_fdm = FDM_COM6_JACOBIAN_HYPER
 
         end if
+        if (g%der2%mode_fdm == FDM_COM6_DIRECT_HYPER) g%der2%mode_fdm = FDM_COM6_JACOBIAN_HYPER
 
         g%size = x%size
 

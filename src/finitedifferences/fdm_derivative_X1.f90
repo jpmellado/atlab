@@ -187,6 +187,7 @@ contains
     ! ###################################################################
     subroutine der1_periodic_initialize(self, x, dx, fdm_type)
         use Preconditioning
+        use FDM_Base, only: MultiplyByDiagonal
         class(der1_periodic), intent(out) :: self
         real(wp), intent(in) :: x(:), dx(:)
         integer, intent(in) :: fdm_type
@@ -202,6 +203,12 @@ contains
         end select
 
         call FDM_Der1_CreateSystem(x, self, periodic=.true.)
+
+        ! Jacobian, if needed
+        select case (self%type)
+        case (FDM_COM4_JACOBIAN, FDM_COM6_JACOBIAN, FDM_COM6_JACOBIAN_PENTA)
+            call MultiplyByDiagonal(self%lhs, dx)    ! multiply by the Jacobian
+        end select
 
         call Precon_Rhs(self%lhs, self%rhs, periodic=.true.)
 
@@ -827,18 +834,18 @@ end module FDM_Derivative_1order_X
 !     allocate (der1_biased :: derX)
 !     do ic = 1, size(cases1)
 !         call derX%initialize(x, dx, cases1(ic))
-!         call derX%compute(u, du)
+!         call derX%compute(1, u, du)
 !         print *, maxval(abs(du - du_a))
 !         select type (derX)
 !         type is (der1_biased)
-!             call derX%bcsDD%compute(u, du)
-!             print *, maxval(abs(du - du_a))
-!             call derX%bcsND%compute(u, du)
-!             print *, maxval(abs(du - du_a))
-!             call derX%bcsDN%compute(u, du)
-!             print *, maxval(abs(du - du_a))
-!             call derX%bcsNN%compute(u, du)
-!             print *, maxval(abs(du - du_a))
+!             ! call derX%bcsDD%compute(1, u, du)
+!             ! print *, maxval(abs(du - du_a))
+!             ! call derX%bcsND%compute(1, u, du)
+!             ! print *, maxval(abs(du - du_a))
+!             ! call derX%bcsDN%compute(1, u, du)
+!             ! print *, maxval(abs(du - du_a))
+!             ! call derX%bcsNN%compute(1, u, du)
+!             ! print *, maxval(abs(du - du_a))
 !         end select
 !     end do
 
@@ -846,7 +853,7 @@ end module FDM_Derivative_1order_X
 !     allocate (der1_periodic :: derX)
 !     do ic = 1, size(cases1)
 !         call derX%initialize(x(:nx - 1), dx(:nx - 1), cases1(ic))
-!         call derX%compute(u(:, :nx - 1), du(:, :nx - 1))
+!         call derX%compute(1, u(:, :nx - 1), du(:, :nx - 1))
 !         print *, maxval(abs(du(:, :nx - 1) - du_a(:, :nx - 1)))
 
 !     end do

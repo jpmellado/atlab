@@ -184,7 +184,7 @@ contains
         ! LU decomposition
         if (allocated(g%lu)) deallocate (g%lu)
         if (g%periodic) then
-            allocate (g%lu(g%size, ndl + 1))
+            allocate (g%lu(g%size, ndl + ndl/2))
         else
             allocate (g%lu(g%size, 5*size(bcs_cases)))
         end if

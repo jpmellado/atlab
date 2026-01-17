@@ -11,7 +11,8 @@ module OPR_Partial
     use FDM_Derivative_MPISplit
 #endif
     use TLab_Grid, only: x, y, z
-    use FDM !, only: g
+    use FDM, only: g
+    use FDM, only: fdm_der1_X, fdm_der1_Y, fdm_der1_Z
     use FDM_Derivative, only: FDM_Der1_Solve, FDM_Der2_Solve
     use Thomas_Split
     implicit none
@@ -271,15 +272,18 @@ contains
 
         select case (type)
         case (OPR_P2)
-            if (g(1)%der2%need_1der) call FDM_Der1_Solve(nlines, g(1)%der1, g(1)%der1%lu, wrk3d, tmp1, wrk2d, ibc_loc)
+            ! if (g(1)%der2%need_1der) call FDM_Der1_Solve(nlines, g(1)%der1, g(1)%der1%lu, wrk3d, tmp1, wrk2d, ibc_loc)
+            if (.not. x%uniform) call fdm_der1_X%compute(nlines, wrk3d, tmp1)
             call FDM_Der2_Solve(nlines, g(1)%der2, g(1)%der2%lu, wrk3d, result, tmp1, wrk2d)
 
         case (OPR_P2_P1)
-            call FDM_Der1_Solve(nlines, g(1)%der1, g(1)%der1%lu, wrk3d, tmp1, wrk2d, ibc_loc)
+            ! call FDM_Der1_Solve(nlines, g(1)%der1, g(1)%der1%lu, wrk3d, tmp1, wrk2d, ibc_loc)
+            call fdm_der1_X%compute(nlines, wrk3d, tmp1)
             call FDM_Der2_Solve(nlines, g(1)%der2, g(1)%der2%lu, wrk3d, result, tmp1, wrk2d)
 
         case (OPR_P1, OPR_P1_ADD, OPR_P1_SUBTRACT)
-            call FDM_Der1_Solve(nlines, g(1)%der1, g(1)%der1%lu, wrk3d, result, wrk2d, ibc_loc)
+            ! call FDM_Der1_Solve(nlines, g(1)%der1, g(1)%der1%lu, wrk3d, result, wrk2d, ibc_loc)
+            call fdm_der1_X%compute(nlines, wrk3d, result)
 
         end select
 
@@ -494,15 +498,18 @@ contains
 
         select case (type)
         case (OPR_P2)
-            if (g(2)%der2%need_1der) call FDM_Der1_Solve(nlines, g(2)%der1, g(2)%der1%lu, wrk3d, tmp1, wrk2d, ibc_loc)
+!            if (g(2)%der2%need_1der) call FDM_Der1_Solve(nlines, g(2)%der1, g(2)%der1%lu, wrk3d, tmp1, wrk2d, ibc_loc)
+            if (.not. y%uniform) call fdm_der1_Y%compute(nlines, wrk3d, tmp1)
             call FDM_Der2_Solve(nlines, g(2)%der2, g(2)%der2%lu, wrk3d, result, tmp1, wrk2d)
 
         case (OPR_P2_P1)
-            call FDM_Der1_Solve(nlines, g(2)%der1, g(2)%der1%lu, wrk3d, tmp1, wrk2d, ibc_loc)
+            ! call FDM_Der1_Solve(nlines, g(2)%der1, g(2)%der1%lu, wrk3d, tmp1, wrk2d, ibc_loc)
+            call fdm_der1_Y%compute(nlines, wrk3d, tmp1)
             call FDM_Der2_Solve(nlines, g(2)%der2, g(2)%der2%lu, wrk3d, result, tmp1, wrk2d)
 
         case (OPR_P1, OPR_P1_ADD, OPR_P1_SUBTRACT)
-            call FDM_Der1_Solve(nlines, g(2)%der1, g(2)%der1%lu, wrk3d, result, wrk2d, ibc_loc)
+            ! call FDM_Der1_Solve(nlines, g(2)%der1, g(2)%der1%lu, wrk3d, result, wrk2d, ibc_loc)
+            call fdm_der1_Y%compute(nlines, wrk3d, result)
 
         end select
 

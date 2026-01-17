@@ -11,10 +11,11 @@ module NSE_Burgers
 #endif
     use TLab_Grid, only: x, y, z
     use FDM, only: fdm_dt, g
+    use FDM, only: fdm_der1_X, fdm_der1_Y, fdm_der1_Z
     use NavierStokes, only: nse_eqns, DNS_EQNS_ANELASTIC
     use Thermo_Anelastic, only: ribackground, rbackground
     use NavierStokes, only: visc, schmidt
-    use FDM_Derivative, only: FDM_Der1_Solve, FDM_Der2_Solve
+    use FDM_Derivative, only: FDM_Der2_Solve !, FDM_Der1_Solve
 #ifdef USE_MPI
     use OPR_Partial
 #endif
@@ -220,7 +221,8 @@ contains
 
         nlines = ny*nz
 
-        call FDM_Der1_Solve(nlines, g(1)%der1, g(1)%der1%lu, tmp1, result, wrk2d)
+        ! call FDM_Der1_Solve(nlines, g(1)%der1, g(1)%der1%lu, tmp1, result, wrk2d)
+        call fdm_der1_X%compute(nlines, tmp1, result)
         call FDM_Der2_Solve(nlines, g(1)%der2, fdmDiffusion(1)%lu(:, :, is), tmp1, wrk3d, result, wrk2d)
 
         if (present(rhou_in)) then      ! transposed velocity (times density) is passed as argument
@@ -279,7 +281,8 @@ contains
         call TLab_Transpose_Real(result, g(1)%size, nlines, g(1)%size, tmp1, nlines)
 #endif
 
-        call FDM_Der1_Solve(nlines, g(1)%der1, g(1)%der1%lu, tmp1, wrk3d, wrk2d)
+        ! call FDM_Der1_Solve(nlines, g(1)%der1, g(1)%der1%lu, tmp1, wrk3d, wrk2d)
+        call fdm_der1_X%compute(nlines, tmp1, wrk3d)
         call FDM_Der2_Solve(nlines, g(1)%der2, fdmDiffusion(1)%lu(:, :, is), tmp1, result, wrk3d, wrk2d)
 
         if (present(rhou_in)) then      ! transposed velocity (times density) is passed as argument
@@ -407,7 +410,8 @@ contains
 
         nlines = nx*nz
 
-        call FDM_Der1_Solve(nlines, g(2)%der1, g(2)%der1%lu, tmp1, result, wrk2d)
+        ! call FDM_Der1_Solve(nlines, g(2)%der1, g(2)%der1%lu, tmp1, result, wrk2d)
+        call fdm_der1_Y%compute(nlines, tmp1, result)
         call FDM_Der2_Solve(nlines, g(2)%der2, fdmDiffusion(2)%lu(:, :, is), tmp1, wrk3d, result, wrk2d)
 
         if (present(rhou_in)) then      ! transposed velocity (times density) is passed as argument
@@ -466,7 +470,8 @@ contains
         call TLabMPI_Trp_ExecJ_Forward(wrk3d, tmp1, tmpi_plan_dy)
         nlines = tmpi_plan_dy%nlines
 
-        call FDM_Der1_Solve(nlines, g(2)%der1, g(2)%der1%lu, tmp1, wrk3d, wrk2d)
+        ! call FDM_Der1_Solve(nlines, g(2)%der1, g(2)%der1%lu, tmp1, wrk3d, wrk2d)
+        call fdm_der1_Y%compute(nlines, tmp1, wrk3d)
         call FDM_Der2_Solve(nlines, g(2)%der2, fdmDiffusion(2)%lu(:, :, is), tmp1, result, wrk3d, wrk2d)
 
         if (present(rhou_in)) then      ! transposed velocity (times density) is passed as argument
@@ -589,7 +594,8 @@ contains
 
         nlines = nx*ny
 
-        call FDM_Der1_Solve(nlines, g(3)%der1, g(3)%der1%lu, s, wrk3d, wrk2d)
+        ! call FDM_Der1_Solve(nlines, g(3)%der1, g(3)%der1%lu, s, wrk3d, wrk2d)
+        call fdm_der1_Z%compute(nlines, s, wrk3d)
         call FDM_Der2_Solve(nlines, g(3)%der2, fdmDiffusion(3)%lu(:, :, is), s, tmp1, wrk3d, wrk2d)
 
         if (present(rhou_in)) then      ! transposed velocity (times density) is passed as argument

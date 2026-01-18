@@ -83,6 +83,8 @@ contains
     subroutine OPR_Elliptic_Initialize(inifile)
         use FDM, only: g, FDM_CreatePlan
         use FDM_Derivative, only: FDM_NONE, FDM_COM4_JACOBIAN, FDM_COM6_JACOBIAN, FDM_COM4_DIRECT, FDM_COM6_DIRECT
+        use FDM, only: fdm_der1_X, fdm_der1_Y
+        use FDM_Derivative_1order_X, only: der1_periodic, FDM_Der1_ModifyWavenumbers
 
         character(len=*), intent(in) :: inifile
 
@@ -97,6 +99,8 @@ contains
 
         integer(wi) iglobal, jglobal
         integer(wi) fft_offset_i, fft_offset_j
+
+        real(wp), allocatable :: mwn_x(:), mwn_y(:)
 
         ! ###################################################################
         ! Reading
@@ -178,6 +182,17 @@ contains
         j_sing = j_sing - [fft_offset_j, fft_offset_j]
         i_max = min(x%size/2 + 1 - fft_offset_i, isize_line)    ! Maximum mode is x direction
 
+        select type (fdm_der1_X)
+        type is (der1_periodic)
+            call FDM_Der1_ModifyWavenumbers(size(fdm_der1_X%lhs, 1), fdm_der1_X%lhs(1, :), fdm_der1_X%rhs(1, :), mwn_x)
+            ! print *, maxval(mwn_x(:) - g(1)%der1%mwn(:))
+        end select
+        select type (fdm_der1_Y)
+        type is (der1_periodic)
+            call FDM_Der1_ModifyWavenumbers(size(fdm_der1_Y%lhs, 1), fdm_der1_Y%lhs(1, :), fdm_der1_Y%rhs(1, :), mwn_y)
+            ! print *, maxval(mwn_y(:) - g(2)%der1%mwn(:))
+        end select
+
         do i = 1, i_max
 #ifdef USE_MPI
 
@@ -197,9 +212,11 @@ contains
                 case (TYPE_FACTORIZE)
                     ! Define \lambda based on modified wavenumbers (real)
                     if (y%size > 1) then
-                        lambda(i, j) = g(1)%der1%mwn(iglobal)**2 + g(2)%der1%mwn(jglobal)**2
+                        ! lambda(i, j) = g(1)%der1%mwn(iglobal)**2 + g(2)%der1%mwn(jglobal)**2
+                        lambda(i, j) = mwn_x(iglobal)**2 + mwn_y(jglobal)**2
                     else
-                        lambda(i, j) = g(1)%der1%mwn(iglobal)**2
+                        ! lambda(i, j) = g(1)%der1%mwn(iglobal)**2
+                        lambda(i, j) = mwn_x(iglobal)**2
                     end if
 
                     call FDM_Int1_Initialize(fdm_loc%der1, &

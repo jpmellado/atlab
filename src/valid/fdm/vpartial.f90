@@ -375,8 +375,8 @@ program VPARTIAL
                     end select
                 end select
 
-                if (any([BCS_ND, BCS_NN] == ibc)) du1_n(:, 1) = du1_a(:, 1)         ! to check whole array
-                if (any([BCS_DN, BCS_NN] == ibc)) du1_n(:, kmax) = du1_a(:, kmax)
+                ! if (any([BCS_ND, BCS_NN] == ibc)) du1_n(:, 1) = du1_a(:, 1)         ! to check whole array
+                ! if (any([BCS_DN, BCS_NN] == ibc)) du1_n(:, kmax) = du1_a(:, kmax)
                 write (str, *) im
                 call check(u, du1_a, du1_n, 'partial-'//trim(adjustl(str))//'.dat')
 

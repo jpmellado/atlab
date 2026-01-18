@@ -212,10 +212,10 @@ call TLab_Write_ASCII(bakfile, '#SchemeDerivative2=<CompactJacobian4/CompactJaco
         ! Actual grid; possibly nonuniform
         call der1%initialize(x%nodes, dx(1, :), type)
 
-        select type (der1)
-        type is (der1_periodic)
-            der1%mwn(:) = der1%mwn(:)/dx(1, 1)      ! normalize modified wavenumbers by dx
-        end select
+        ! select type (der1)
+        ! type is (der1_periodic)
+        !     call FDM_Der1_ModifyWavenumbers(size(der1%lhs, 1), der1%lhs(1, :), der1%rhs(1, :), der1%mwn)
+        ! end select
 
         return
     end subroutine

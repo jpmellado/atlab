@@ -229,6 +229,9 @@ contains
 
     ! ###################################################################
     subroutine Iniflow_U_Broadband(u, v, w, ax, ay, az, tmp4, tmp5)
+        ! use FDM, only: g
+        ! use FDM_Derivative, only: FDM_Der1_Solve
+        ! use TLab_Arrays, only: wrk2d
         use NavierStokes, only: nse_eqns, DNS_EQNS_ANELASTIC
         use Thermo_Anelastic, only: rbackground, ribackground, Thermo_Anelastic_Weight_InPlace
         use FI_VECTORCALCULUS
@@ -277,13 +280,17 @@ contains
 
             ! Cannot use fi_curl. I need to impose BCs to zero to get zero velocity there
             ibc_loc = 0
-            if (any([BCS_DD, BCS_DN] == ibc_pert)) ibc_loc = ibc_loc + 1 ! no-slip at ymin
-            if (any([BCS_DD, BCS_ND] == ibc_pert)) ibc_loc = ibc_loc + 2 ! no-slip at ymax
+            if (any([BCS_DD, BCS_DN] == ibc_pert)) ibc_loc = ibc_loc + 1 ! no-slip at zmin
+            if (any([BCS_DD, BCS_ND] == ibc_pert)) ibc_loc = ibc_loc + 2 ! no-slip at zmax
             call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, az, u)
-            call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, ay, tmp4, ibc=ibc_loc)
+            ! call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, ay, tmp4, ibc=ibc_loc)
+            ! call FDM_Der1_Solve(imax*jmax, g(3)%der1, g(3)%der1%lu, ay, tmp4, wrk2d, ibc_loc)
+            call OPR_Partial_Z_Bcs(imax, jmax, kmax, ay, tmp4, ibc_loc)
             u = u - tmp4
             if (y%size > 1) then
-                call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, ax, v, ibc=ibc_loc)
+                ! call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, ax, v, ibc=ibc_loc)
+                ! call FDM_Der1_Solve(imax*jmax, g(3)%der1, g(3)%der1%lu, ax, v, wrk2d, ibc_loc)
+                call OPR_Partial_Z_Bcs(imax, jmax, kmax, ax, v, ibc_loc)
                 call OPR_Partial_X(OPR_P1, imax, jmax, kmax, az, tmp4)
             end if
             v = v - tmp4

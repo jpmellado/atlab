@@ -2,7 +2,6 @@
 
 module OPR_Partial
     use TLab_Constants, only: wp, wi
-    use TLab_Constants, only: BCS_NONE
     use TLab_Arrays, only: wrk2d, wrk3d
     use TLab_Transpose
 #ifdef USE_MPI
@@ -22,6 +21,7 @@ module OPR_Partial
     public :: OPR_Partial_X     ! These first 2 could be written in terms of the last one...
     public :: OPR_Partial_Y
     public :: OPR_Partial_Z
+    public :: OPR_Partial_Z_Bcs
 
     integer, parameter, public :: OPR_P1 = 1                ! 1. order derivative
     integer, parameter, public :: OPR_P2 = 2                ! 2. order derivative
@@ -32,14 +32,13 @@ module OPR_Partial
     ! -----------------------------------------------------------------------
     procedure(OPR_Partial_interface) :: OPR_Partial_dt
     abstract interface
-        subroutine OPR_Partial_interface(type, nx, ny, nz, u, result, tmp1, ibc)
+        subroutine OPR_Partial_interface(type, nx, ny, nz, u, result, tmp1)
             use TLab_Constants, only: wi, wp
             integer(wi), intent(in) :: type                         ! OPR_P1, OPR_P2, OPR_P2_P1
             integer(wi), intent(in) :: nx, ny, nz
             real(wp), intent(in) :: u(nx*ny*nz)
             real(wp), intent(out) :: result(nx*ny*nz)
             real(wp), intent(inout), optional :: tmp1(nx*ny*nz)     ! 1. order derivative in 2. order calculation
-            integer, intent(in), optional :: ibc                    ! boundary conditions 1. order derivative
         end subroutine
     end interface
     procedure(OPR_Partial_dt), pointer :: OPR_Partial_X, OPR_Partial_Y
@@ -164,16 +163,12 @@ contains
 
     ! ###################################################################
     ! ###################################################################
-    subroutine OPR_Partial_X_Serial(type, nx, ny, nz, u, result, tmp1, ibc)
+    subroutine OPR_Partial_X_Serial(type, nx, ny, nz, u, result, tmp1)
         integer(wi), intent(in) :: type                         ! OPR_P1, OPR_P2, OPR_P2_P1
         integer(wi), intent(in) :: nx, ny, nz
         real(wp), intent(in) :: u(nx*ny*nz)
         real(wp), intent(out) :: result(nx*ny*nz)
         real(wp), intent(inout), optional :: tmp1(nx*ny*nz)     ! 1. order derivative in 2. order calculation
-        integer, intent(in), optional :: ibc                    ! boundary conditions 1. order derivative
-
-        ! -------------------------------------------------------------------
-        integer ibc_loc
 
         ! ###################################################################
         if (x%size == 1) then ! Set to zero in 2D case
@@ -188,12 +183,6 @@ contains
 #else
         call TLab_Transpose_Real(u, nx, ny*nz, nx, result, ny*nz, locBlock=trans_x_forward)
 #endif
-
-        if (present(ibc)) then
-            ibc_loc = ibc
-        else
-            ibc_loc = BCS_NONE
-        end if
 
         select case (type)
         case (OPR_P2)
@@ -235,17 +224,15 @@ contains
     ! ###################################################################
     ! ###################################################################
 #ifdef USE_MPI
-    subroutine OPR_Partial_X_MPITranspose(type, nx, ny, nz, u, result, tmp1, ibc)
+    subroutine OPR_Partial_X_MPITranspose(type, nx, ny, nz, u, result, tmp1)
         integer(wi), intent(in) :: type                         ! OPR_P1, OPR_P2, OPR_P2_P1
         integer(wi), intent(in) :: nx, ny, nz
         real(wp), intent(in) :: u(nx*ny*nz)
         real(wp), intent(out) :: result(nx*ny*nz)
         real(wp), intent(inout), optional :: tmp1(nx*ny*nz)     ! 1. order derivative in 2. order calculation
-        integer, intent(in), optional :: ibc                    ! boundary conditions 1. order derivative
 
         ! -------------------------------------------------------------------
         integer(wi) nlines
-        integer ibc_loc
 
         ! ###################################################################
         if (x%size == 1) then ! Set to zero in 2D case
@@ -263,12 +250,6 @@ contains
 #else
         call TLab_Transpose_Real(result, g(1)%size, nlines, g(1)%size, wrk3d, nlines)
 #endif
-
-        if (present(ibc)) then
-            ibc_loc = ibc
-        else
-            ibc_loc = BCS_NONE
-        end if
 
         select case (type)
         case (OPR_P2)
@@ -316,7 +297,7 @@ contains
 
     !########################################################################
     !########################################################################
-    subroutine OPR_Partial_X_MPISplit(type, nx, ny, nz, u, result, tmp1, ibc)
+    subroutine OPR_Partial_X_MPISplit(type, nx, ny, nz, u, result, tmp1)
         use TLabMPI_PROCS, only: TLabMPI_Halos_X
         ! use TLab_Pointers_2D, only: pyz_wrk3d
         integer(wi), intent(in) :: type                         ! OPR_P1, OPR_P2, OPR_P2_P1
@@ -324,7 +305,6 @@ contains
         real(wp), intent(in) :: u(nx*ny*nz)
         real(wp), intent(out) :: result(nx*ny*nz)
         real(wp), intent(inout), optional :: tmp1(nx*ny*nz)     ! 1. order derivative in 2. order calculation
-        integer, intent(in), optional :: ibc                    ! boundary conditions 1. order derivative
 
         ! -------------------------------------------------------------------
         integer np, np1, np2
@@ -389,17 +369,15 @@ contains
 
     !########################################################################
     !########################################################################
-    subroutine OPR_Partial_Y_Serial(type, nx, ny, nz, u, result, tmp1, ibc)
+    subroutine OPR_Partial_Y_Serial(type, nx, ny, nz, u, result, tmp1)
         integer(wi), intent(in) :: type                         ! OPR_P1, OPR_P2, OPR_P2_P1
         integer(wi), intent(in) :: nx, ny, nz
         real(wp), intent(in) :: u(nx*ny*nz)
         real(wp), intent(out) :: result(nx*ny*nz)
         real(wp), intent(inout), optional :: tmp1(nx*ny*nz)     ! 1. order derivative in 2. order calculation
-        integer, intent(in), optional :: ibc                    ! boundary conditions 1. order derivative
 
         ! -------------------------------------------------------------------
         integer(wi) nlines
-        integer ibc_loc
 
         ! ###################################################################
         if (y%size == 1) then ! Set to zero in 2D case
@@ -415,12 +393,6 @@ contains
         call TLab_Transpose_Real(u, nx*ny, nz, nx*ny, result, nz, locBlock=trans_y_forward)
 #endif
         nlines = nx*nz
-
-        if (present(ibc)) then
-            ibc_loc = ibc
-        else
-            ibc_loc = BCS_NONE
-        end if
 
         select case (type)
         case (OPR_P2)
@@ -462,17 +434,15 @@ contains
     !########################################################################
     !########################################################################
 #ifdef USE_MPI
-    subroutine OPR_Partial_Y_MPITranspose(type, nx, ny, nz, u, result, tmp1, ibc)
+    subroutine OPR_Partial_Y_MPITranspose(type, nx, ny, nz, u, result, tmp1)
         integer(wi), intent(in) :: type                         ! OPR_P1, OPR_P2, OPR_P2_P1
         integer(wi), intent(in) :: nx, ny, nz
         real(wp), intent(in) :: u(nx*ny*nz)
         real(wp), intent(out) :: result(nx*ny*nz)
         real(wp), intent(inout), optional :: tmp1(nx*ny*nz)     ! 1. order derivative in 2. order calculation
-        integer, intent(in), optional :: ibc                    ! boundary conditions 1. order derivative
 
         ! -------------------------------------------------------------------
         integer(wi) nlines
-        integer ibc_loc
 
         ! ###################################################################
         if (y%size == 1) then ! Set to zero in 2D case
@@ -489,12 +459,6 @@ contains
 #endif
         call TLabMPI_Trp_ExecJ_Forward(result, wrk3d, tmpi_plan_dy)
         nlines = tmpi_plan_dy%nlines
-
-        if (present(ibc)) then
-            ibc_loc = ibc
-        else
-            ibc_loc = BCS_NONE
-        end if
 
         select case (type)
         case (OPR_P2)
@@ -540,7 +504,7 @@ contains
 
     !########################################################################
     !########################################################################
-    subroutine OPR_Partial_Y_MPISplit(type, nx, ny, nz, u, result, tmp1, ibc)
+    subroutine OPR_Partial_Y_MPISplit(type, nx, ny, nz, u, result, tmp1)
         use TLabMPI_PROCS, only: TLabMPI_Halos_Y
         use TLab_Pointers_2D, only: pxz_wrk3d
         integer(wi), intent(in) :: type                         ! OPR_P1, OPR_P2, OPR_P2_P1
@@ -548,7 +512,6 @@ contains
         real(wp), intent(in) :: u(nx*ny*nz)
         real(wp), intent(out) :: result(nx*ny*nz)
         real(wp), intent(inout), optional :: tmp1(nx*ny*nz)     ! 1. order derivative in 2. order calculation
-        integer, intent(in), optional :: ibc                    ! boundary conditions 1. order derivative
 
         ! -------------------------------------------------------------------
         integer np, np1, np2
@@ -613,16 +576,12 @@ contains
 
     !########################################################################
     !########################################################################
-    subroutine OPR_Partial_Z(type, nx, ny, nz, u, result, tmp1, ibc)
+    subroutine OPR_Partial_Z(type, nx, ny, nz, u, result, tmp1)
         integer(wi), intent(in) :: type                         ! OPR_P1, OPR_P2, OPR_P2_P1
         integer(wi), intent(in) :: nx, ny, nz
         real(wp), intent(in) :: u(nx*ny*nz)
         real(wp), intent(out) :: result(nx*ny*nz)
         real(wp), intent(inout), optional :: tmp1(nx*ny*nz)     ! 1. order derivative in 2. order calculation
-        integer, intent(in), optional :: ibc                    ! boundary conditions 1. order derivative
-
-        ! -------------------------------------------------------------------
-        integer ibc_loc
 
         ! ###################################################################
         if (z%size == 1) then
@@ -631,42 +590,79 @@ contains
             return
         end if
 
-        if (present(ibc)) then
-            ibc_loc = ibc
-        else
-            ibc_loc = BCS_NONE
-        end if
-
         select case (type)
         case (OPR_P2)
             ! if (g(3)%der2%need_1der) call FDM_Der1_Solve(nx*ny, g(3)%der1, g(3)%der1%lu, u, wrk3d, wrk2d, ibc_loc)
             if (.not. z%uniform) then
-                if (ibc_loc == BCS_NONE) then       ! testing
-                    call fdm_der1_Z%compute(nx*ny, u, wrk3d)
-                else
-                    call FDM_Der1_Solve(nx*ny, g(3)%der1, g(3)%der1%lu, u, wrk3d, wrk2d, ibc_loc)
-                end if
+                ! if (ibc_loc == BCS_NONE) then       ! testing
+                call fdm_der1_Z%compute(nx*ny, u, wrk3d)
+                ! else
+                !     call FDM_Der1_Solve(nx*ny, g(3)%der1, g(3)%der1%lu, u, wrk3d, wrk2d, ibc_loc)
+                ! end if
             end if
             call FDM_Der2_Solve(nx*ny, g(3)%der2, g(3)%der2%lu, u, result, wrk3d, wrk2d)
 
         case (OPR_P2_P1)
-            if (ibc_loc == BCS_NONE) then       ! testing
-                call fdm_der1_Z%compute(nx*ny, u, tmp1)
-            else
-                call FDM_Der1_Solve(nx*ny, g(3)%der1, g(3)%der1%lu, u, tmp1, wrk2d, ibc_loc)
-            end if
-            call FDM_Der2_Solve(nx*ny, g(3)%der2, g(3)%der2%lu, u, result, tmp1, wrk2d)
+            ! if (ibc_loc == BCS_NONE) then       ! testing
+            call fdm_der1_Z%compute(nx*ny, u, tmp1)
+            ! else
+            !     call FDM_Der1_Solve(nx*ny, g(3)%der1, g(3)%der1%lu, u, tmp1, wrk2d, ibc_loc)
+            ! end if
+            ! call FDM_Der2_Solve(nx*ny, g(3)%der2, g(3)%der2%lu, u, result, tmp1, wrk2d)
 
         case (OPR_P1)
-            if (ibc_loc == BCS_NONE) then       ! testing
-                call fdm_der1_Z%compute(nx*ny, u, result)
-            else
-                call FDM_Der1_Solve(nx*ny, g(3)%der1, g(3)%der1%lu, u, result, wrk2d, ibc_loc)
-            end if
+            ! if (ibc_loc == BCS_NONE) then       ! testing
+            call fdm_der1_Z%compute(nx*ny, u, result)
+            ! else
+            !     call FDM_Der1_Solve(nx*ny, g(3)%der1, g(3)%der1%lu, u, result, wrk2d, ibc_loc)
+            ! end if
 
         end select
 
         return
     end subroutine OPR_Partial_Z
+
+    !########################################################################
+    !########################################################################
+    ! Imposing zero derivative at the boundaries
+    subroutine OPR_Partial_Z_Bcs(nx, ny, nz, u, result, ibc)
+        use TLab_Constants, only: BCS_DD, BCS_ND, BCS_DN, BCS_NN
+        use TLab_Arrays, only: wrk2d
+        use FDM_Derivative_1order_X, only: der1_biased
+        integer(wi), intent(in) :: nx, ny, nz
+        real(wp), intent(in) :: u(nx*ny*nz)
+        real(wp), intent(out) :: result(nx*ny*nz)
+        integer, intent(in) :: ibc
+
+#define bcs_b(i) wrk2d(i,1)
+#define bcs_t(i) wrk2d(i,2)
+
+        select type (fdm_der1_Z)
+        type is (der1_biased)
+            select case (ibc)
+            case (BCS_DD)
+                call fdm_der1_Z%bcsDD%compute(nx*ny, u, result)
+
+            case (BCS_ND)
+                bcs_b(1:nx*ny) = 0.0_wp
+                call fdm_der1_Z%bcsND%compute(nx*ny, u, result, bcs_b(:))
+
+            case (BCS_DN)
+                bcs_t(1:nx*ny) = 0.0_wp
+                call fdm_der1_Z%bcsDN%compute(nx*ny, u, result, bcs_t(:))
+
+            case (BCS_NN)
+                bcs_b(1:nx*ny) = 0.0_wp
+                bcs_t(1:nx*ny) = 0.0_wp
+                call fdm_der1_Z%bcsNN%compute(nx*ny, u, result, bcs_b(:), bcs_t(:))
+
+            end select
+        end select
+
+#undef bcs_b
+#undef bcs_t
+
+        return
+    end subroutine OPR_Partial_Z_Bcs
 
 end module OPR_Partial

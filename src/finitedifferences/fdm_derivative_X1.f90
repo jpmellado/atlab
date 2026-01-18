@@ -179,7 +179,7 @@ module FDM_Derivative_1order_X
         procedure :: compute => der1_biased_compute
     end type
 
-    integer(wi) nx, nlines
+    integer(wi) nx
     integer ndl, ndr, idl, idr
 
 contains
@@ -365,7 +365,7 @@ contains
         real(wp), intent(in) :: u(nlines, size(self%lhs, 1))
         real(wp), intent(out) :: result(nlines, size(self%lhs, 1))
 
-        call self%bcsDD%compute(u, result)
+        call self%bcsDD%compute(nlines, u, result)
 
         return
     end subroutine der1_biased_compute
@@ -391,10 +391,11 @@ contains
         return
     end subroutine bcsDD_initialize
 
-    subroutine bcsDD_compute(self, u, result)
+    subroutine bcsDD_compute(self, nlines, u, result)
         class(bcsDD), intent(in) :: self
-        real(wp), intent(in) :: u(:, :)
-        real(wp), intent(out) :: result(size(u, 1), size(u, 2))
+        integer(wi), intent(in) :: nlines
+        real(wp), intent(in) :: u(nlines, size(self%lu, 1))
+        real(wp), intent(out) :: result(nlines, size(self%lu, 1))
 
         ! ###################################################################
         nx = size(self%lu, 1)
@@ -446,11 +447,14 @@ contains
         return
     end subroutine bcsND_initialize
 
-    subroutine bcsND_compute(self, u, result)
-        use TLab_Arrays, only: wrk2d
+    subroutine bcsND_compute(self, nlines, u, result, bcs_b)
         class(bcsND), intent(in) :: self
-        real(wp), intent(in) :: u(:, :)
-        real(wp), intent(out) :: result(size(u, 1), size(u, 2))
+        integer(wi), intent(in) :: nlines
+        real(wp), intent(in) :: u(nlines, size(self%lu, 1))
+        real(wp), intent(out) :: result(nlines, size(self%lu, 1))
+        real(wp), intent(inout) :: bcs_b(nlines)        ! Normal derivative as input, function value as output
+
+        integer ic
 
         ! ###################################################################
         nx = size(self%lu, 1)
@@ -459,13 +463,9 @@ contains
         ndr = size(self%rhs, 2)
         idr = ndr/2 + 1
 
-#define bcs_hb(i) wrk2d(i,1)
-
-        nlines = size(result, 1)
-
-        ! homogeneous Neumann bcs
-        result(:, 1) = 0.0_wp
-        bcs_hb(1:nlines) = 0.0_wp
+        ! ! homogeneous Neumann bcs
+        ! result(:, 1) = 0.0_wp
+        ! bcs_hb(1:nlines) = 0.0_wp
 
         ! Calculate RHS in A u' = B u
         call self%matmul(rhs=self%rhs, &
@@ -474,13 +474,18 @@ contains
                          u=u, &
                          f=result, &
                          L=self%lu(:, 1:ndl/2), &
-                         bcs_b=bcs_hb(1:nlines))
+                         bcs_b=bcs_b)
 
         ! Solve for u' in system of equations A u' = B u
         ! call self%thomasL(self%lu(:,1:ndl/2), result)
         call self%thomasU(self%lu(2:nx, ndl/2 + 1:ndl), result(:, 2:nx))
 
-#undef bcs_hb
+        ! Calculate boundary value of u; u is not overwritten, this should be done outside if needed
+        ! to be checked
+        do ic = 1, idl - 1
+            bcs_b(:) = bcs_b(:) + self%lu(1, idl + ic)*result(:, 1 + ic)
+        end do
+        bcs_b(:) = bcs_b(:)/self%rhs(1, idr)
 
         return
     end subroutine bcsND_compute
@@ -515,11 +520,14 @@ contains
         return
     end subroutine bcsDN_initialize
 
-    subroutine bcsDN_compute(self, u, result)
-        use TLab_Arrays, only: wrk2d
+    subroutine bcsDN_compute(self, nlines, u, result, bcs_t)
         class(bcsDN), intent(in) :: self
-        real(wp), intent(in) :: u(:, :)
-        real(wp), intent(out) :: result(size(u, 1), size(u, 2))
+        integer(wi), intent(in) :: nlines
+        real(wp), intent(in) :: u(nlines, size(self%lu, 1))
+        real(wp), intent(out) :: result(nlines, size(self%lu, 1))
+        real(wp), intent(inout) :: bcs_t(nlines)
+
+        integer ic
 
         ! ###################################################################
         nx = size(self%lu, 1)
@@ -528,13 +536,9 @@ contains
         ndr = size(self%rhs, 2)
         idr = ndr/2 + 1
 
-#define bcs_ht(i) wrk2d(i,2)
-
-        nlines = size(result, 1)
-
-        ! homogeneous Neumann bcs
-        result(:, nx) = 0.0_wp
-        bcs_ht(1:nlines) = 0.0_wp
+        ! ! homogeneous Neumann bcs
+        ! result(:, nx) = 0.0_wp
+        ! bcs_ht(1:nlines) = 0.0_wp
 
         ! Calculate RHS in A u' = B u
         call self%matmul(rhs=self%rhs, &
@@ -543,13 +547,18 @@ contains
                          u=u, &
                          f=result, &
                          L=self%lu(:, 1:ndl/2), &
-                         bcs_t=bcs_ht(1:nlines))
+                         bcs_t=bcs_t)
 
         ! Solve for u' in system of equations A u' = B u
         ! call self%thomasL(self%lu(:,1:ndl/2), result)
         call self%thomasU(self%lu(1:nx - 1, ndl/2 + 1:ndl), result(:, 1:nx - 1))
 
-#undef bcs_ht
+        ! Calculate boundary value of u; u is not overwritten, this should be done outside if needed
+        ! to be checked
+        do ic = 1, idl - 1
+            bcs_t(:) = bcs_t(:) + self%lu(nx, idl - ic)*result(:, nx - ic)
+        end do
+        bcs_t(:) = bcs_t(:)/self%rhs(nx, idr)
 
         return
     end subroutine bcsDN_compute
@@ -585,11 +594,14 @@ contains
         return
     end subroutine bcsNN_initialize
 
-    subroutine bcsNN_compute(self, u, result)
-        use TLab_Arrays, only: wrk2d
+    subroutine bcsNN_compute(self, nlines, u, result, bcs_b, bcs_t)
         class(bcsNN), intent(in) :: self
-        real(wp), intent(in) :: u(:, :)
-        real(wp), intent(out) :: result(size(u, 1), size(u, 2))
+        integer(wi), intent(in) :: nlines
+        real(wp), intent(in) :: u(nlines, size(self%lu, 1))
+        real(wp), intent(out) :: result(nlines, size(self%lu, 1))
+        real(wp), intent(inout) :: bcs_b(nlines), bcs_t(nlines)
+
+        integer ic
 
         ! ###################################################################
         nx = size(self%lu, 1)
@@ -598,16 +610,11 @@ contains
         ndr = size(self%rhs, 2)
         idr = ndr/2 + 1
 
-#define bcs_hb(i) wrk2d(i,1)
-#define bcs_ht(i) wrk2d(i,2)
-
-        nlines = size(result, 1)
-
-        ! homogeneous Neumann bcs
-        result(:, 1) = 0.0_wp
-        bcs_hb(1:nlines) = 0.0_wp
-        result(:, nx) = 0.0_wp
-        bcs_ht(1:nlines) = 0.0_wp
+        ! ! homogeneous Neumann bcs
+        ! result(:, 1) = 0.0_wp
+        ! bcs_hb(:) = 0.0_wp
+        ! result(:, nx) = 0.0_wp
+        ! bcs_ht(:) = 0.0_wp
 
         ! Calculate RHS in A u' = B u
         call self%matmul(rhs=self%rhs, &
@@ -616,15 +623,24 @@ contains
                          u=u, &
                          f=result, &
                          L=self%lu(:, 1:ndl/2), &
-                         bcs_b=bcs_hb(1:nlines), &
-                         bcs_t=bcs_ht(1:nlines))
+                         bcs_b=bcs_b, &
+                         bcs_t=bcs_t)
 
         ! Solve for u' in system of equations A u' = B u
         ! call self%thomasL(self%lu(2:nx - 1,1:ndl/2), result)
         call self%thomasU(self%lu(2:nx - 1, ndl/2 + 1:ndl), result(:, 2:nx - 1))
 
-#undef bcs_hb
-#undef bcs_ht
+        ! Calculate boundary value of u; u is not overwritten, this should be done outside if needed
+        ! to be checked
+        do ic = 1, idl - 1
+            bcs_b(:) = bcs_b(:) + self%lu(1, idl + ic)*result(:, 1 + ic)
+        end do
+        bcs_b(:) = bcs_b(:)/self%rhs(1, idr)
+
+        do ic = 1, idl - 1
+            bcs_t(:) = bcs_t(:) + self%lu(nx, idl - ic)*result(:, nx - ic)
+        end do
+        bcs_t(:) = bcs_t(:)/self%rhs(nx, idr)
 
         return
     end subroutine bcsNN_compute

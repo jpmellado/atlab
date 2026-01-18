@@ -412,14 +412,17 @@ contains
         select type (g)
         type is (der2_periodic)
             call FDM_Der2_ModifyWavenumbers(nx, coef, g%mwn)
+            ! call FDM_Der2_ModifyWavenumbers(nx, g%lhs(1, :), g%rhs(1, :), g%mwn)
         end select
 
         return
     end subroutine FDM_Der2_CreateSystem
 
     subroutine FDM_Der2_ModifyWavenumbers(nx, coef, modified_wn)
+    ! subroutine FDM_Der2_ModifyWavenumbers(nx, lhs, rhs, modified_wn)
         use TLab_Constants, only: pi_wp
         integer, intent(in) :: nx
+        ! real(wp), intent(in) :: lhs(:), rhs(:)
         real(wp), intent(in) :: coef(:)
         real(wp), allocatable, intent(out) :: modified_wn(:)
 
@@ -439,6 +442,8 @@ contains
 
         modified_wn(:) = 2.0_wp*(coef(3)*(1.0_wp - cos(wn(:))) + coef(4)*(1.0_wp - cos(2.0_wp*wn(:))) + coef(5)*(1.0_wp - cos(3.0_wp*wn(:)))) &
                          /(1.0_wp + 2.0_wp*coef(1)*cos(wn(:)) + 2.0_wp*coef(2)*cos(2.0_wp*wn(:)))
+        ! modified_wn(:) = 2.0_wp*(rhs(1)*(1.0_wp - cos(wn(:))) + rhs(2)*(1.0_wp - cos(2.0_wp*wn(:))) + rhs(3)*(1.0_wp - cos(3.0_wp*wn(:)))) &
+        !                  /(lhs(1) + 2.0_wp*lhs(2)*cos(wn(:)) + 2.0_wp*lhs(3)*cos(2.0_wp*wn(:)))
 
 #undef wn
 

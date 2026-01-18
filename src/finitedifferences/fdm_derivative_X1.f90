@@ -204,6 +204,11 @@ contains
 
         call FDM_Der1_CreateSystem(x, self, periodic=.true.)
 
+        call FDM_Der1_ModifyWavenumbers(size(self%lhs, 1), &
+                                        self%lhs(1, size(self%lhs, 2)/2 + 1:), &
+                                        self%rhs(1, size(self%rhs, 2)/2 + 1:), &
+                                        self%mwn)
+
         ! Jacobian, if needed
         select case (self%type)
         case (FDM_COM4_JACOBIAN, FDM_COM6_JACOBIAN, FDM_COM6_JACOBIAN_PENTA)
@@ -656,7 +661,7 @@ contains
 
         ! -------------------------------------------------------------------
         real(wp) :: coef(5)
-        integer(wi) nx
+        integer nx
 
         ! ###################################################################
         nx = size(x)                            ! # grid points
@@ -680,36 +685,57 @@ contains
 
         end select
 
-        select type (g)
-        type is (der1_periodic)
-            call FDM_Der1_ModifyWavenumbers(nx, coef, g%mwn)
-        end select
+        ! select type (g)
+        ! type is (der1_periodic)
+        !     ! call FDM_Der1_ModifyWavenumbers(nx, coef, g%mwn)
+        !     call FDM_Der1_ModifyWavenumbers(nx, &
+        !                                     g%lhs(1, size(g%lhs, 2)/2 + 1:), &
+        !                                     g%rhs(1, size(g%rhs, 2)/2 + 1:), &
+        !                                     g%mwn)
+        ! end select
 
         return
     end subroutine FDM_Der1_CreateSystem
 
-    subroutine FDM_Der1_ModifyWavenumbers(nx, coef, modified_wn)
+    ! subroutine FDM_Der1_ModifyWavenumbers(nx, coef, modified_wn)
+    subroutine FDM_Der1_ModifyWavenumbers(nx, c_lhs, c_rhs, modified_wn)
         use TLab_Constants, only: pi_wp
         integer, intent(in) :: nx
-        real(wp), intent(in) :: coef(:)
+        ! real(wp), intent(in) :: coef(:)
+        real(wp), intent(in) :: c_lhs(0:), c_rhs(0:)
         real(wp), allocatable, intent(out) :: modified_wn(:)
 
-        integer i
+        integer i, ic
+        real(wp) num, den
 
         allocate (modified_wn(nx), source=0.0_wp)
 
 #define wn(i) modified_wn(i)
 
-        do i = 1, nx        ! wavenumbers, the independent variable to construct the modified ones
+        do i = 1, nx
+            ! wavenumbers, the independent variable to construct the modified ones
             if (i <= nx/2 + 1) then
                 wn(i) = 2.0_wp*pi_wp*real(i - 1, wp)/real(nx, wp)
             else
                 wn(i) = 2.0_wp*pi_wp*real(i - 1 - nx, wp)/real(nx, wp)
             end if
+
+            num = 2.0_wp*c_rhs(0)
+            do ic = 1, size(c_rhs) - 1
+                num = num + 2.0_wp*c_rhs(ic)*sin(real(ic, wp)*wn(i))
+            end do
+            den = c_lhs(0)
+            do ic = 1, size(c_lhs) - 1
+                den = den + 2.0_wp*c_lhs(ic)*cos(real(ic, wp)*wn(i))
+            end do
+            modified_wn(i) = num/den
+
         end do
 
-        modified_wn(:) = 2.0_wp*(coef(3)*sin(wn(:)) + coef(4)*sin(2.0_wp*wn(:)) + coef(5)*sin(3.0_wp*wn(:))) &
-                         /(1.0_wp + 2.0_wp*coef(1)*cos(wn(:)) + 2.0_wp*coef(2)*cos(wn(:)))
+        ! modified_wn(:) = 2.0_wp*(coef(3)*sin(wn(:)) + coef(4)*sin(2.0_wp*wn(:)) + coef(5)*sin(3.0_wp*wn(:))) &
+        !                  /(1.0_wp + 2.0_wp*coef(1)*cos(wn(:)) + 2.0_wp*coef(2)*cos(wn(:)))
+        ! modified_wn(:) = 2.0_wp*(c_rhs(1)*sin(wn(:)) + c_rhs(2)*sin(2.0_wp*wn(:)) + c_rhs(3)*sin(3.0_wp*wn(:))) &
+        !                  /(c_lhs(1) + 2.0_wp*c_lhs(2)*cos(wn(:)) + 2.0_wp*c_lhs(3)*cos(wn(:)))
 
 #undef wn
 

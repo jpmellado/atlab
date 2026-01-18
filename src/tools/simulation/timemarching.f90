@@ -239,7 +239,11 @@ contains
         do ig = 1, 3
             allocate (ds(ig)%one_ov_ds1(grid(ig)%size))
             if (grid(ig)%uniform) then
-                ds(ig)%one_ov_ds1(:) = 1.0_wp/(grid(ig)%nodes(2) - grid(ig)%nodes(1))
+                if (grid(ig)%size > 1) then
+                    ds(ig)%one_ov_ds1(:) = 1.0_wp/(grid(ig)%nodes(2) - grid(ig)%nodes(1))
+                else
+                    ds(ig)%one_ov_ds1(:) = 1.0_wp   ! 2d case
+                end if
             else
                 ! ds(ig)%one_ov_ds1(:) = 1.0_wp/g(ig)%jac(:, 1)
                 wrk1d(1:grid(ig)%size, 1) = [(real(i - 1, wp), i=1, grid(ig)%size)]

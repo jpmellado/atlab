@@ -147,6 +147,10 @@ call TLab_Write_ASCII(bakfile, '#SchemeDerivative2=<CompactJacobian4/CompactJaco
         call FDM_CreatePlan(z, g(3))
 
         call FDM_CreatePlan_Der1(x, fdm_der1_X, g(1)%der1%mode_fdm)
+        ! select type (fdm_der1_X)
+        ! type is (der1_periodic)
+        !     print *, maxval(fdm_der1_X%mwn(:) - g(1)%der1%mwn(:))
+        ! end select
         call FDM_CreatePlan_Der1(y, fdm_der1_Y, g(2)%der1%mode_fdm)
         call FDM_CreatePlan_Der1(z, fdm_der1_Z, g(3)%der1%mode_fdm)
 
@@ -172,6 +176,8 @@ call TLab_Write_ASCII(bakfile, '#SchemeDerivative2=<CompactJacobian4/CompactJaco
         integer i
 
         ! ###################################################################
+        if (x%size == 1) return
+
         if (x%periodic) then
             allocate (der1_periodic :: der1)
         else
@@ -200,7 +206,6 @@ call TLab_Write_ASCII(bakfile, '#SchemeDerivative2=<CompactJacobian4/CompactJaco
 
         type is (der1_periodic)
             dx(1, :) = x%nodes(2) - x%nodes(1)
-
         end select
 
         ! -------------------------------------------------------------------

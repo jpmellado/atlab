@@ -6,8 +6,9 @@ program VINTEGRAL
     use TLab_Memory, only: TLab_Initialize_Memory, TLab_Allocate_Real
     use TLab_Arrays, only: wrk1d, wrk2d, txc
     use TLab_Grid, only: grid_dt
-    use FDM, only: fdm_dt, FDM_CreatePlan
+    use FDM, only: fdm_dt, FDM_CreatePlan, FDM_CreatePlan_Der1
     use FDM_Derivative
+    use FDM_Derivative_1order_X
     use FDM_Integral
     use OPR_Partial
     use OPR_ODES
@@ -41,6 +42,7 @@ program VINTEGRAL
     type(grid_dt) :: x
     type(fdm_dt) :: g
     type(fdm_integral_dt) :: fdmi(2), fdmi_test(2), fdmi_test_lambda(2)
+    class(der_dt), allocatable :: fdm_der1
 
     ! ###################################################################
     ! Initialize
@@ -105,8 +107,11 @@ program VINTEGRAL
     ! g%der1%mode_fdm = FDM_COM6_DIRECT     ! default
     g%der2%mode_fdm = g%der1%mode_fdm
     call FDM_CreatePlan(x, g)
-    call FDM_Int1_Initialize(g%der1, 0.0_wp, BCS_MIN, fdmi(BCS_MIN))
-    call FDM_Int1_Initialize(g%der1, 0.0_wp, BCS_MAX, fdmi(BCS_MAX))
+    call FDM_CreatePlan_Der1(x, fdm_der1, FDM_COM6_JACOBIAN)
+    ! call FDM_Int1_Initialize(g%der1, 0.0_wp, BCS_MIN, fdmi(BCS_MIN))
+    ! call FDM_Int1_Initialize(g%der1, 0.0_wp, BCS_MAX, fdmi(BCS_MAX))
+    call FDM_Int1_Initialize(fdm_der1, 0.0_wp, BCS_MIN, fdmi(BCS_MIN))
+    call FDM_Int1_Initialize(fdm_der1, 0.0_wp, BCS_MAX, fdmi(BCS_MAX))
 
     ! ###################################################################
     ! Define the function f and analytic derivatives
@@ -176,35 +181,21 @@ program VINTEGRAL
         ib = read_from_list(['BCS_MIN', 'BCS_MAX'])
         ibc = bcs_cases(ib)
 
-        ! dummy = 5.0_wp          ! test external normalization of the schemes
-
         do im = 1, size(fdm_cases)
             print *, new_line('a'), fdm_names(im)
 
-            g%der1%mode_fdm = fdm_cases(im)
-            g%der2%mode_fdm = FDM_COM4_JACOBIAN     ! not used
-            call FDM_CreatePlan(x, g)
+            ! g%der1%mode_fdm = fdm_cases(im)
+            ! g%der2%mode_fdm = FDM_COM4_JACOBIAN     ! not used
+            ! call FDM_CreatePlan(x, g)
+            call FDM_CreatePlan_Der1(x, fdm_der1, fdm_cases(im))
 
             ! f = du1_a
-            call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, u, f, wrk2d)
+            ! call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, u, f, wrk2d)
+            call fdm_der1%compute(nlines, u, f)
             f = f + lambda*u
 
-            call FDM_Int1_Initialize(g%der1, lambda, ibc, fdmi(ib))
-            ! ! test external normalization of the schemes
-            ! fdmi(ib)%rhs = fdmi(ib)%rhs*dummy
-            ! fdmi(ib)%rhs_b = fdmi(ib)%rhs_b*dummy
-            ! fdmi(ib)%rhs_t = fdmi(ib)%rhs_t*dummy
-            ! idr = size(fdmi(ib)%rhs, 2)/2 + 1
-            ! idl = size(fdmi(ib)%lhs, 2)/2 + 1
-            ! select case (ibc)
-            ! case (BCS_MIN)
-            !     fdmi(ib)%rhs(1, idr) = fdmi(ib)%rhs(1, idr)/dummy
-            !     fdmi(ib)%lhs(1, idl) = fdmi(ib)%lhs(1, idl)*dummy
-            ! case (BCS_MAX)
-            !     fdmi(ib)%rhs(kmax, idr) = fdmi(ib)%rhs(kmax, idr)/dummy
-            !     fdmi(ib)%lhs(kmax, idl) = fdmi(ib)%lhs(kmax, idl)*dummy
-            ! end select
-            ! !
+            ! call FDM_Int1_Initialize(g%der1, lambda, ibc, fdmi(ib))
+            call FDM_Int1_Initialize(fdm_der1, lambda, ibc, fdmi(ib))
 
             ! bcs
             select case (ibc)
@@ -216,24 +207,14 @@ program VINTEGRAL
 
             call FDM_Int1_Solve(nlines, fdmi(ib), fdmi(ib)%rhs, f, w_n, wrk2d, dw1_n(:, 1))
 
-            ! ! test external normalization of the schemes
-            ! select case (ibc)
-            ! case (BCS_MIN)
-            !     w_n(:, 1) = w_n(:, 1)*dummy
-            ! case (BCS_MAX)
-            !     w_n(:, kmax) = w_n(:, kmax)*dummy
-            ! end select
-            ! w_n = w_n/dummy
-            ! dw1_n(:, 1) = dw1_n(:, 1)/dummy
-            ! !
-
             write (str, *) im
             call check(u, w_n, 'integral-'//trim(adjustl(str))//'.dat')
 
             print *, 'Derivative'
             ! check the calculation of the derivative at the boundary
             print *, dw1_n(:, 1)
-            call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, w_n, dw1_n, wrk2d)
+            ! call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, w_n, dw1_n, wrk2d)
+            call fdm_der1%compute(nlines, w_n, dw1_n)
             select case (ibc)
             case (BCS_MIN)
                 print *, dw1_n(:, 1)
@@ -243,12 +224,12 @@ program VINTEGRAL
             f = f - lambda*u
             call check(f, dw1_n, 'integral-d-'//trim(adjustl(str))//'.dat')
 
-            ! Output to check condition number
-            call FDM_Int1_CreateSystem(g%der1, lambda, ibc, fdmi(ib))       ! create without lu decomposition
-            call write_scheme(fdmi(ib)%lhs(:, :), &
-                              fdmi(ib)%rhs(:, :), 'int1-'//trim(adjustl(str)))
-            ! call write_scheme(g%der1%lhs(:, :), &
-            !                   g%der1%rhs(:, :), 'fdm1-'//trim(adjustl(str)))
+            ! ! Output to check condition number
+            ! call FDM_Int1_CreateSystem(g%der1, lambda, ibc, fdmi(ib))       ! create without lu decomposition
+            ! call write_scheme(fdmi(ib)%lhs(:, :), &
+            !                   fdmi(ib)%rhs(:, :), 'int1-'//trim(adjustl(str)))
+            ! ! call write_scheme(g%der1%lhs(:, :), &
+            ! !                   g%der1%rhs(:, :), 'fdm1-'//trim(adjustl(str)))
 
         end do
 
@@ -266,8 +247,10 @@ program VINTEGRAL
 
         ! f = du2_a
         ! du1_n = du1_a ! I need it for the boundary conditions
-        call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, u, du1_n, wrk2d)
-        call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, du1_n, du2_n, wrk2d)
+        ! call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, u, du1_n, wrk2d)
+        ! call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, du1_n, du2_n, wrk2d)
+        call fdm_der1%compute(nlines, u, du1_n)
+        call fdm_der1%compute(nlines, du1_n, du2_n)
         ! call FDM_Der2_Solve(nlines, g%du1_n%der2, g%der2%lu, u, du2_n, du1_n, wrk2d)
         f = du2_n
 
@@ -311,8 +294,10 @@ program VINTEGRAL
         write (*, *) 'Eigenvalue ?'
         read (*, *) lambda
 
-        call FDM_Int1_Initialize(g%der1, lambda, BCS_MIN, fdmi(BCS_MIN))
-        call FDM_Int1_Initialize(g%der1, -lambda, BCS_MAX, fdmi(BCS_MAX))
+        ! call FDM_Int1_Initialize(g%der1, lambda, BCS_MIN, fdmi(BCS_MIN))
+        ! call FDM_Int1_Initialize(g%der1, -lambda, BCS_MAX, fdmi(BCS_MAX))
+        call FDM_Int1_Initialize(fdm_der1, lambda, BCS_MIN, fdmi(BCS_MIN))
+        call FDM_Int1_Initialize(fdm_der1, -lambda, BCS_MAX, fdmi(BCS_MAX))
 
         allocate (bcs(nlines, 2))
         ! call random_seed()
@@ -320,8 +305,10 @@ program VINTEGRAL
 
         ! f = du2_a - lambda*lambda*u
         ! du1_n = du1_a ! I need it for the boundary conditions
-        call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, u, du1_n, wrk2d)
-        call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, du1_n, du2_n, wrk2d)
+        ! call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, u, du1_n, wrk2d)
+        ! call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, du1_n, du2_n, wrk2d)
+        call fdm_der1%compute(nlines, u, du1_n)
+        call fdm_der1%compute(nlines, du1_n, du2_n)
         ! call FDM_Der2_Solve(nlines, g%der2, g%der2%lu, u, du2_n, du1_n, wrk2d)
         f = du2_n - lambda*lambda*u
 
@@ -420,32 +407,42 @@ program VINTEGRAL
         do im = 1, size(fdm_cases)
             print *, new_line('a'), fdm_names(im)
 
-            g%der1%mode_fdm = fdm_cases(im)
-            g%der2%mode_fdm = FDM_COM4_JACOBIAN ! not used
-            call FDM_CreatePlan(x, g)
+            ! g%der1%mode_fdm = fdm_cases(im)
+            ! g%der2%mode_fdm = FDM_COM4_JACOBIAN ! not used
+            ! call FDM_CreatePlan(x, g)
+            call FDM_CreatePlan_Der1(x, fdm_der1, fdm_cases(im))
 
-            do ib = 1, 2
-                ibc = bcs_cases(ib)
-                print *, new_line('a'), 'Bcs case ', ibc
+            select type (fdm_der1)
+            type is (der1_biased)
 
-                call FDM_Int1_CreateSystem(g%der1, 0.0_wp, ibc, fdmi(ib))
+                do ib = 1, 2
+                    ibc = bcs_cases(ib)
+                    print *, new_line('a'), 'Bcs case ', ibc
 
-                call FDM_Int1_CreateSystem(g%der1, 1.0_wp, ibc, fdmi_test(ib))
+                    ! call FDM_Int1_CreateSystem(g%der1, 0.0_wp, ibc, fdmi(ib))
 
-                call check(fdmi(ib)%rhs, fdmi_test(ib)%rhs, 'integral.dat')
-                ! print*,fdmi(ib)%rhs_b
-                ! print*,fdmi_test(ib)%rhs_b
-                ! print*,fdmi(ib)%rhs_t
-                ! print*,fdmi_test(ib)%rhs_t
+                    ! call FDM_Int1_CreateSystem(g%der1, 1.0_wp, ibc, fdmi_test(ib))
 
-                ! checking linearity in lhs
-                call FDM_Int1_CreateSystem(g%der1, lambda, fdmi(ib)%bc, fdmi_test_lambda(ib))
+                    call FDM_Int1_CreateSystem(fdm_der1, 0.0_wp, ibc, fdmi(ib))
 
-                call check(fdmi(ib)%lhs + lambda*(fdmi_test(ib)%lhs - fdmi(ib)%lhs), &
-                           fdmi_test_lambda(ib)%lhs, 'integral.dat')
+                    call FDM_Int1_CreateSystem(fdm_der1, 1.0_wp, ibc, fdmi_test(ib))
 
-            end do
+                    call check(fdmi(ib)%rhs, fdmi_test(ib)%rhs, 'integral.dat')
+                    ! print*,fdmi(ib)%rhs_b
+                    ! print*,fdmi_test(ib)%rhs_b
+                    ! print*,fdmi(ib)%rhs_t
+                    ! print*,fdmi_test(ib)%rhs_t
 
+                    ! checking linearity in lhs
+                    ! call FDM_Int1_CreateSystem(g%der1, lambda, fdmi(ib)%bc, fdmi_test_lambda(ib))
+                    call FDM_Int1_CreateSystem(fdm_der1, lambda, fdmi(ib)%bc, fdmi_test_lambda(ib))
+
+                    call check(fdmi(ib)%lhs + lambda*(fdmi_test(ib)%lhs - fdmi(ib)%lhs), &
+                               fdmi_test_lambda(ib)%lhs, 'integral.dat')
+
+                end do
+
+            end select
         end do
 
     end select

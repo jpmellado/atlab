@@ -83,8 +83,8 @@ contains
     subroutine OPR_Elliptic_Initialize(inifile)
         use FDM, only: g, FDM_CreatePlan
         use FDM_Derivative, only: FDM_NONE, FDM_COM4_JACOBIAN, FDM_COM6_JACOBIAN, FDM_COM4_DIRECT, FDM_COM6_DIRECT
-        use FDM, only: fdm_der1_X, fdm_der1_Y
-        use FDM_Derivative_1order_X, only: der1_periodic, FDM_Der1_ModifyWavenumbers
+        use FDM, only: fdm_der1_X, fdm_der1_Y, fdm_der1_Z
+        use FDM_Derivative_1order_X, only: der1_periodic, der1_biased, FDM_Der1_ModifyWavenumbers
 
         character(len=*), intent(in) :: inifile
 
@@ -219,7 +219,8 @@ contains
                         lambda(i, j) = mwn_x(iglobal)**2
                     end if
 
-                    call FDM_Int1_Initialize(fdm_loc%der1, &
+                    ! call FDM_Int1_Initialize(fdm_loc%der1, &
+                    call FDM_Int1_Initialize(fdm_der1_Z, &
                                              sqrt(lambda(i, j)), BCS_MIN, fdm_int1(BCS_MIN, i, j))
                     ! ! multiply by the FFT normalization
                     ! idl = ndl/2 + 1
@@ -230,7 +231,8 @@ contains
                     ! fdm_int1(BCS_MIN, i, j)%rhs_t(:, :) = fdm_int1(BCS_MIN, i, j)%rhs_t(:, :)*norm
                     ! fdm_int1(BCS_MIN, i, j)%lhs(1, idr) = fdm_int1(BCS_MIN, i, j)%lhs(1, idr)*norm
 
-                    call FDM_Int1_Initialize(fdm_loc%der1, &
+                    ! call FDM_Int1_Initialize(fdm_loc%der1, &
+                    call FDM_Int1_Initialize(fdm_der1_Z, &
                                              -sqrt(lambda(i, j)), BCS_MAX, fdm_int1(BCS_MAX, i, j))
                     ! ! multiply by the FFT normalization
                     ! fdm_int1(BCS_MAX, i, j)%rhs(:, :) = fdm_int1(BCS_MAX, i, j)%rhs(:, :)*norm
@@ -447,6 +449,8 @@ contains
     !#
     !########################################################################
     subroutine OPR_Helmholtz_FourierXZ_Factorize(nx, ny, nz, ibc, alpha, a, tmp1, tmp2, bcs_hb, bcs_ht)
+        use FDM, only: fdm_der1_Z
+        use FDM_Derivative_1order_X, only: der1_biased
         integer(wi), intent(in) :: nx, ny, nz
         integer, intent(in) :: ibc
         real(wp), intent(in) :: alpha
@@ -484,10 +488,12 @@ contains
                 bcs(1:2, 1) = f(1:2, i, j)                  ! bottom boundary conditions
                 bcs(1:2, 2) = f(2*nz - 1:2*nz, i, j)        ! top boundary conditions
 
-                call FDM_Int1_Initialize(fdm_loc%der1, &
+                ! call FDM_Int1_Initialize(fdm_loc%der1, &
+                call FDM_Int1_Initialize(fdm_der1_Z, &
                                          sqrt(lambda(i, j) - alpha), BCS_MIN, fdm_int1_loc(BCS_MIN))
 
-                call FDM_Int1_Initialize(fdm_loc%der1, &
+                ! call FDM_Int1_Initialize(fdm_loc%der1, &
+                call FDM_Int1_Initialize(fdm_der1_Z, &
                                          -sqrt(lambda(i, j) - alpha), BCS_MAX, fdm_int1_loc(BCS_MAX))
 
                 select case (ibc)

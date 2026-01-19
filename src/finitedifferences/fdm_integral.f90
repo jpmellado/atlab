@@ -13,7 +13,7 @@ module FDM_Integral
     use MatMul
     use MatMul_Thomas
     use Preconditioning
-    use FDM_Derivative, only: fdm_derivative_dt
+    ! use FDM_Derivative, only: fdm_derivative_dt
     use FDM_Base
     implicit none
     private
@@ -94,8 +94,11 @@ contains
     !# System normalized s.t. 1. upper-diagonal in B is 1 (except at boundaries)
     !#
     !########################################################################
-    subroutine FDM_Int1_Initialize(g, lambda, ibc, fdmi)
-        type(fdm_derivative_dt), intent(in) :: g        ! derivative plan to be inverted
+    ! subroutine FDM_Int1_Initialize(g, lambda, ibc, fdmi)
+    ! type(fdm_derivative_dt), intent(in) :: g        ! derivative plan to be inverted
+    subroutine FDM_Int1_Initialize(fdm_der, lambda, ibc, fdmi)
+        use FDM_Derivative_1order_X, only: der_dt, der1_biased
+        class(der_dt), intent(in) :: fdm_der
         real(wp), intent(in) :: lambda                  ! system constant
         integer, intent(in) :: ibc                      ! type of boundary condition
         type(fdm_integral_dt), intent(inout) :: fdmi    ! int_plan to be created; inout because otherwise allocatable arrays are deallocated
@@ -104,7 +107,11 @@ contains
         integer(wi) nx, ndl, ndr
 
         !########################################################################
-        call FDM_Int1_CreateSystem(g, lambda, ibc, fdmi)
+        ! call FDM_Int1_CreateSystem(g, lambda, ibc, fdmi)
+        select type (fdm_der)
+        type is (der1_biased)
+            call FDM_Int1_CreateSystem(fdm_der, lambda, ibc, fdmi)
+        end select
 
         ! LU decomposition
         nx = size(fdmi%lhs, 1)              ! # of grid points
@@ -147,8 +154,11 @@ contains
 
     !########################################################################
     !########################################################################
-    subroutine FDM_Int1_CreateSystem(g, lambda, ibc, fdmi)
-        type(fdm_derivative_dt), intent(in) :: g        ! derivative plan to be inverted
+    ! subroutine FDM_Int1_CreateSystem(g, lambda, ibc, fdmi)
+    !     type(fdm_derivative_dt), intent(in) :: g        ! derivative plan to be inverted
+    subroutine FDM_Int1_CreateSystem(fdm_der, lambda, ibc, fdmi)
+        use FDM_Derivative_1order_X, only: der1_biased
+        type(der1_biased), intent(in) :: fdm_der        ! derivative plan to be inverted
         real(wp), intent(in) :: lambda                  ! system constant
         integer, intent(in) :: ibc                      ! type of boundary condition
         type(fdm_integral_dt), intent(inout) :: fdmi    ! int_plan to be created; inout because otherwise allocatable arrays are deallocated
@@ -160,11 +170,14 @@ contains
         real(wp) locRhs_b(7, 8), locRhs_t(7, 8)
 
         ! ###################################################################
-        ndl = g%nb_diag(1)
+        ! ndl = g%nb_diag(1)
+        ndl = size(fdm_der%lhs, 2)
         idl = ndl/2 + 1             ! center diagonal in lhs
-        ndr = g%nb_diag(2)
+        ! ndr = g%nb_diag(2)
+        ndr = size(fdm_der%rhs, 2)
         idr = ndr/2 + 1             ! center diagonal in rhs
-        nx = g%size                 ! # grid points
+        ! nx = g%size                 ! # grid points
+        nx = size(fdm_der%lhs, 1)                ! # grid points
 
         ! check sizes
         if (abs(idl - idr) > 1) then
@@ -172,15 +185,17 @@ contains
             call TLab_Stop(DNS_ERROR_UNDEVELOP)
         end if
 
-        fdmi%mode_fdm = g%mode_fdm
+        ! fdmi%mode_fdm = g%mode_fdm
+        fdmi%mode_fdm = fdm_der%type
         fdmi%lambda = lambda
         fdmi%bc = ibc
 
         ! -------------------------------------------------------------------
         ! new rhs diagonals (array A), independent of lambda
         if (allocated(fdmi%rhs)) deallocate (fdmi%rhs)
-        allocate (fdmi%rhs(nx, ndl))
-        fdmi%rhs(1:nx, 1:ndl) = g%lhs(1:nx, 1:ndl)
+        ! allocate (fdmi%rhs(nx, ndl))
+        ! fdmi%rhs(1:nx, 1:ndl) = g%lhs(1:nx, 1:ndl)
+        allocate (fdmi%rhs, source=fdm_der%lhs)
 
         ! -------------------------------------------------------------------
         ! new lhs diagonals (array C), dependent on lambda
@@ -189,8 +204,9 @@ contains
         !
         ! and correspondingly for BCS_MAX
         if (allocated(fdmi%lhs)) deallocate (fdmi%lhs)
-        allocate (fdmi%lhs(nx, ndr))
-        fdmi%lhs(1:nx, 1:ndr) = g%rhs(1:nx, 1:ndr)
+        ! allocate (fdmi%lhs(nx, ndr))
+        ! fdmi%lhs(1:nx, 1:ndr) = g%rhs(1:nx, 1:ndr)
+        allocate (fdmi%lhs, source=fdm_der%rhs)
 
         select case (fdmi%bc)
         case (BCS_MIN)          ! first column of lambda h A is zero
@@ -199,10 +215,15 @@ contains
             nmin = 1; nmax = nx - 1
         end select
 
-        fdmi%lhs(nmin:nmax, idr) = fdmi%lhs(nmin:nmax, idr) + lambda*g%lhs(nmin:nmax, idl)  ! center diagonal
+        ! fdmi%lhs(nmin:nmax, idr) = fdmi%lhs(nmin:nmax, idr) + lambda*g%lhs(nmin:nmax, idl)  ! center diagonal
+        ! do ic = 1, idl - 1                                                                  ! off-center diagonals
+        !     fdmi%lhs(nmin + ic:nx, idr - ic) = fdmi%lhs(nmin + ic:nx, idr - ic) + lambda*g%lhs(nmin + ic:nx, idl - ic)
+        !     fdmi%lhs(1:nmax - ic, idr + ic) = fdmi%lhs(1:nmax - ic, idr + ic) + lambda*g%lhs(1:nmax - ic, idl + ic)
+        ! end do
+        fdmi%lhs(nmin:nmax, idr) = fdmi%lhs(nmin:nmax, idr) + lambda*fdm_der%lhs(nmin:nmax, idl)  ! center diagonal
         do ic = 1, idl - 1                                                                  ! off-center diagonals
-            fdmi%lhs(nmin + ic:nx, idr - ic) = fdmi%lhs(nmin + ic:nx, idr - ic) + lambda*g%lhs(nmin + ic:nx, idl - ic)
-            fdmi%lhs(1:nmax - ic, idr + ic) = fdmi%lhs(1:nmax - ic, idr + ic) + lambda*g%lhs(1:nmax - ic, idl + ic)
+            fdmi%lhs(nmin + ic:nx, idr - ic) = fdmi%lhs(nmin + ic:nx, idr - ic) + lambda*fdm_der%lhs(nmin + ic:nx, idl - ic)
+            fdmi%lhs(1:nmax - ic, idr + ic) = fdmi%lhs(1:nmax - ic, idr + ic) + lambda*fdm_der%lhs(1:nmax - ic, idl + ic)
         end do
 
         ! -------------------------------------------------------------------
@@ -418,6 +439,7 @@ contains
     !#
     !########################################################################
     subroutine FDM_Int2_Initialize(x, g, lambda2, ibc, fdmi)
+        use FDM_Derivative, only: fdm_derivative_dt
         real(wp), intent(in) :: x(:)                    ! node positions
         type(fdm_derivative_dt), intent(in) :: g        ! derivative plan to be inverted
         real(wp), intent(in) :: lambda2                 ! system constant
@@ -473,6 +495,7 @@ contains
     !########################################################################
     ! Follows FDM_Int1_CreateSystem very much (see notes)
     subroutine FDM_Int2_CreateSystem(x, g, lambda2, ibc, fdmi)
+        use FDM_Derivative, only: fdm_derivative_dt
         real(wp), intent(in) :: x(:)                    ! node positions
         type(fdm_derivative_dt), intent(in) :: g        ! derivative plan to be inverted
         real(wp), intent(in) :: lambda2                 ! system constant

@@ -173,16 +173,16 @@ program VPARTIAL
         do im = 1, size(fdm_cases)
             print *, new_line('a'), fdm_names(im)
 
-            ! old formulation
-            g%der1%mode_fdm = fdm_cases(im)
-            call FDM_CreatePlan(x, g)
+            ! ! old formulation
+            ! g%der1%mode_fdm = fdm_cases(im)
+            ! call FDM_CreatePlan(x, g)
 
-            call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, u, du1_n, wrk2d)
+            ! call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, u, du1_n, wrk2d)
 
-            write (str, *) im
-            call check(u, du1_a, du1_n, 'partial-old-'//trim(adjustl(str))//'.dat')
-            call write_scheme(g%der1%lhs(:, 1:g%der1%nb_diag(1)), &
-                              g%der1%rhs(:, 1:g%der1%nb_diag(2)), 'fdm1-old-'//trim(adjustl(str)))
+            ! write (str, *) im
+            ! call check(u, du1_a, du1_n, 'partial-old-'//trim(adjustl(str))//'.dat')
+            ! call write_scheme(g%der1%lhs(:, 1:g%der1%nb_diag(1)), &
+            !                   g%der1%rhs(:, 1:g%der1%nb_diag(2)), 'fdm1-old-'//trim(adjustl(str)))
 
             ! new formulation
             call FDM_CreatePlan_Der1(x, fdm_der1, fdm_cases(im))

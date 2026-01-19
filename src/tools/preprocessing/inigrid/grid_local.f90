@@ -80,7 +80,9 @@ contains
     subroutine BLD_EXP(idir, iseg, x, nmax, w)
         use TLab_Constants, only: BCS_MIN
         use TLab_Grid, only: grid_dt
-        use FDM, only: fdm_dt, FDM_CreatePlan
+        ! use FDM, only: fdm_dt, FDM_CreatePlan, FDM_CreatePlan_Der1
+        use FDM, only: FDM_CreatePlan_Der1
+        use FDM_Derivative_1order_X, only: der_dt, der1_biased
         use FDM_Derivative, only: FDM_COM6_JACOBIAN
         use FDM_Integral, only: FDM_Int1_Initialize, FDM_Int1_Solve, fdm_integral_dt
         integer(wi), intent(IN) :: idir, iseg, nmax
@@ -88,7 +90,8 @@ contains
 
         ! -----------------------------------------------------------------------
         type(grid_dt) x_loc
-        type(fdm_dt) fdm_loc
+        ! type(fdm_dt) fdm_loc
+        class(der_dt), allocatable :: fdm_der1
         type(fdm_integral_dt) fdmi
         real(wp) st(3), df(3), delta(3)             ! superposition of up to 3 modes, each with 3 parameters
         integer(wi) im
@@ -118,10 +121,12 @@ contains
         x_loc%nodes(:) = x(:)
         x_loc%scale = x_loc%nodes(x_loc%size) - x_loc%nodes(1)
 
-        fdm_loc%der1%mode_fdm = FDM_COM6_JACOBIAN
-        fdm_loc%der2%mode_fdm = FDM_COM6_JACOBIAN
-        call FDM_CreatePlan(x_loc, fdm_loc)
-        call FDM_Int1_Initialize(fdm_loc%der1, 0.0_wp, BCS_MIN, fdmi)
+        ! fdm_loc%der1%mode_fdm = FDM_COM6_JACOBIAN
+        ! fdm_loc%der2%mode_fdm = FDM_COM6_JACOBIAN
+        ! call FDM_CreatePlan(x_loc, fdm_loc)
+        call FDM_CreatePlan_Der1(x_loc, fdm_der1, FDM_COM6_JACOBIAN)
+        ! call FDM_Int1_Initialize(fdm_loc%der1, 0.0_wp, BCS_MIN, fdmi)
+        call FDM_Int1_Initialize(fdm_der1, 0.0_wp, BCS_MIN, fdmi)
         ! x(1) is already set
         call FDM_Int1_Solve(1, fdmi, fdmi%rhs, rhs(:), result(:), aux)
         x(:) = result(:)

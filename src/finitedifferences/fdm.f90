@@ -156,8 +156,10 @@ call TLab_Write_ASCII(bakfile, '#SchemeDerivative2=<CompactJacobian4/CompactJaco
 
         ! ###################################################################
         ! Initializing fdm plans for first-order integrals (cases lambda = 0.0_wp)
-        call FDM_Int1_Initialize(g(3)%der1, 0.0_wp, BCS_MIN, fdm_Int0(BCS_MIN))
-        call FDM_Int1_Initialize(g(3)%der1, 0.0_wp, BCS_MAX, fdm_Int0(BCS_MAX))
+        ! call FDM_Int1_Initialize(g(3)%der1, 0.0_wp, BCS_MIN, fdm_Int0(BCS_MIN))
+        ! call FDM_Int1_Initialize(g(3)%der1, 0.0_wp, BCS_MAX, fdm_Int0(BCS_MAX))
+        call FDM_Int1_Initialize(fdm_der1_Z, 0.0_wp, BCS_MIN, fdm_Int0(BCS_MIN))
+        call FDM_Int1_Initialize(fdm_der1_Z, 0.0_wp, BCS_MAX, fdm_Int0(BCS_MAX))
 
         return
     end subroutine FDM_Initialize

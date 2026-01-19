@@ -49,6 +49,8 @@ contains
         use TLab_Memory, only: imax, jmax, kmax, inb_flow_array, inb_scal_array, inb_scal
         use TLab_Arrays, only: wrk1d
         use FDM_derivative_Neumann
+        use FDM_Derivative_1order_X, only: der1_biased
+        use FDM, only: fdm_der1_Z
         use NavierStokes
 
         character*(*) inifile
@@ -166,13 +168,20 @@ contains
             ! Using only truncated versions because typical decay index is 30-40
             allocate (c_b(kmax), c_t(kmax))
 
-            call FDM_Der1_NeumannMin_Initialize(g(3)%der1, c_b(:), wrk1d(1, 1), wrk1d(1, 2), k_bcs_b)
-            write (str, *) k_bcs_b
-            call TLab_Write_ASCII(lfile, 'Decay to round-off in bottom Neumann condition in '//trim(adjustl(str))//' indexes.')
+            select type (fdm_der1_Z)
+            type is (der1_biased)
 
-            call FDM_Der1_NeumannMax_Initialize(g(3)%der1, c_t(:), wrk1d(1, 1), wrk1d(1, 2), k_bcs_t)
-            write (str, *) k_bcs_t
-            call TLab_Write_ASCII(lfile, 'Decay to round-off in top Neumann condition in '//trim(adjustl(str))//' indexes.')
+                ! call FDM_Der1_NeumannMin_Initialize(g(3)%der1, c_b(:), wrk1d(1, 1), wrk1d(1, 2), k_bcs_b)
+                call FDM_Der1_NeumannMin_Initialize(fdm_der1_Z, c_b(:), wrk1d(1, 1), wrk1d(1, 2), k_bcs_b)
+                write (str, *) k_bcs_b
+                call TLab_Write_ASCII(lfile, 'Decay to round-off in bottom Neumann condition in '//trim(adjustl(str))//' indexes.')
+
+                ! call FDM_Der1_NeumannMax_Initialize(g(3)%der1, c_t(:), wrk1d(1, 1), wrk1d(1, 2), k_bcs_t)
+                call FDM_Der1_NeumannMax_Initialize(fdm_der1_Z, c_t(:), wrk1d(1, 1), wrk1d(1, 2), k_bcs_t)
+                write (str, *) k_bcs_t
+                call TLab_Write_ASCII(lfile, 'Decay to round-off in top Neumann condition in '//trim(adjustl(str))//' indexes.')
+
+            end select
 
         case (DNS_EQNS_COMPRESSIBLE)
 
@@ -299,7 +308,7 @@ contains
 !             hfx_anom => aux(:, :, 4)
 !             ip = imax*(Kmax - 1) + 1
 !             do k = 1, kmax; ! Calculate the surface flux
-!                 hfx(:, k) = -diff*tmp1(ip:ip + imax - 1); ip = ip + nxy; 
+!                 hfx(:, k) = -diff*tmp1(ip:ip + imax - 1); ip = ip + nxy;
 !             end do
 !             hfx_avg = diff*AVG1V2D(imax, Kmax, kmax, 1, 1, tmp1)
 !             hfx_anom = hfx - hfx_avg

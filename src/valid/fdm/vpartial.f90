@@ -417,16 +417,22 @@ program VPARTIAL
 
             g%der1%mode_fdm = fdm_cases(im)
             call FDM_CreatePlan(x, g)
+            call FDM_CreatePlan_Der1(x, fdm_der1, fdm_cases(im))
 
             do ib = 1, 3
                 ibc = bcs_cases(ib)
                 print *, new_line('a'), 'Bcs case ', ibc
 
+                select type (fdm_der1)
+                type is (der1_biased)
                 ! truncated version
-                call FDM_Der1_NeumannMin_Initialize(g%der1, c_b(:), wrk1d(1, 3), wrk1d(1, 4), nmax)
-                ! print *, nmax
-                call FDM_Der1_NeumannMax_Initialize(g%der1, c_t(:), wrk1d(1, 3), wrk1d(1, 4), nmax)
-                ! print *, nmax
+                    ! call FDM_Der1_NeumannMin_Initialize(g%der1, c_b(:), wrk1d(1, 3), wrk1d(1, 4), nmax)
+                    call FDM_Der1_NeumannMin_Initialize(fdm_der1, c_b(:), wrk1d(1, 3), wrk1d(1, 4), nmax)
+                    ! print *, nmax
+                    ! call FDM_Der1_NeumannMax_Initialize(g%der1, c_t(:), wrk1d(1, 3), wrk1d(1, 4), nmax)
+                    call FDM_Der1_NeumannMax_Initialize(fdm_der1, c_t(:), wrk1d(1, 3), wrk1d(1, 4), nmax)
+                    ! print *, nmax
+                end select
 
                 if (any([BCS_ND, BCS_NN] == ibc)) then
                     bcs_hb(1:nlines) = du1_a(:, 1)*c_b(1)
@@ -446,7 +452,11 @@ program VPARTIAL
                 end if
 
                 ! ! full version
-                ! call FDM_Der1_Neumann_Initialize(ibc, g%der1, c_b(:), c_t(:), wrk1d(1, 3), wrk1d(1, 4))
+                ! select type (fdm_der1)
+                ! type is (der1_biased)
+                ! ! call FDM_Der1_Neumann_Initialize(ibc, g%der1, c_b(:), c_t(:), wrk1d(1, 3), wrk1d(1, 4))
+                ! call FDM_Der1_Neumann_Initialize(ibc, fdm_der1, c_b(:), c_t(:), wrk1d(1, 3), wrk1d(1, 4))
+                ! end select
 
                 ! nmin = 1; nmax = g%size
                 ! if (any([BCS_ND, BCS_NN] == ibc)) then

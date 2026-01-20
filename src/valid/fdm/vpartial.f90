@@ -7,7 +7,7 @@ program VPARTIAL
     use TLab_Arrays, only: wrk1d, wrk2d, txc
     use TLab_Grid, only: grid_dt
     use Thomas
-    use FDM, only: fdm_dt, FDM_CreatePlan
+    ! use FDM, only: fdm_dt, FDM_CreatePlan
     use FDM, only: FDM_CreatePlan_Der1, FDM_CreatePlan_Der2
     use FDM_Derivative
     use FDM_derivative_Neumann
@@ -26,8 +26,9 @@ program VPARTIAL
     real(wp), dimension(:, :), pointer :: du1_a, du1_b, du1_c, du1_n
     real(wp), dimension(:, :), pointer :: du2_a, du2_n1, du2_n2, du2_n3
     real(wp) :: wk, x_0, dummy
-    integer(wi) :: test_type, ibc, ic, ndr, idr, ndl, idl, im, ib!, ip
-    integer(wi) :: nmin, nmax, nsize
+    integer(wi) :: test_type, ibc, nx, ndr, idr, ndl, idl, im, ib!, ip, ic
+    integer nmax
+    ! integer(wi) :: nmin, nmax, nsize
 
     real(wp), allocatable :: c(:)         ! for case 5
 
@@ -45,7 +46,7 @@ program VPARTIAL
                                          'Direct 6']
     character(len=32) str
     type(grid_dt) :: x
-    type(fdm_dt) g
+    ! type(fdm_dt) g
     class(der_dt), allocatable :: fdm_der1
     class(der2_dt), allocatable :: fdm_der2
 
@@ -106,6 +107,7 @@ program VPARTIAL
         do i = 1, kmax
             read (21, *) x%nodes(i)
         end do
+        x%scale = x%nodes(kmax)
         ! wrk1d(1:kmax, 1) = x%nodes(1:kmax)  ! reverse
         ! do i = 1, kmax
         !     x%nodes(i) = x%nodes(kmax) - wrk1d(kmax - i + 1, 1)
@@ -117,9 +119,10 @@ program VPARTIAL
     ! g%der1%mode_fdm = FDM_COM6_JACOBIAN     ! default
     ! g%der2%mode_fdm = g%der1%mode_fdm
     ! call FDM_CreatePlan(x, g)
-    ! ndr = g%der1%nb_diag(2)
-    ! ndl = g%der1%nb_diag(1)
+    ! ! ndr = g%der1%nb_diag(2)
+    ! ! ndl = g%der1%nb_diag(1)
 
+    ! defaults
     call FDM_CreatePlan_Der1(x, fdm_der1, FDM_COM6_JACOBIAN)
     call FDM_CreatePlan_Der2(x, fdm_der2, FDM_COM6_JACOBIAN, fdm_der1)
 
@@ -129,17 +132,17 @@ program VPARTIAL
     wk = 6.0_wp
 
     do i = 1, kmax
-        ! single-mode
-        u(:, i) = 1.0_wp + sin(2.0_wp*pi_wp/g%scale*wk*(x%nodes(i) - x_0*x%scale)) ! + pi_wp/4.0_wp)
-        du1_a(:, i) = (2.0_wp*pi_wp/g%scale*wk) &
-                      *cos(2.0_wp*pi_wp/g%scale*wk*(x%nodes(i) - x_0*x%scale))! + pi_wp/4.0_wp)
-        du2_a(:, i) = -(2.0_wp*pi_wp/g%scale*wk)**2 &
-                      *sin(2.0_wp*pi_wp/g%scale*wk*(x%nodes(i) - x_0*x%scale))! + pi_wp/4.0_wp)
-        ! ! Gaussian
-        ! u(:, i) = exp(-(x%nodes(i) - x_0*g%scale)**2/(2.0_wp*(g%scale/wk)**2))
-        ! du1_a(:, i) = -(x%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*u(:, i)
-        ! du2_a(:, i) = -(x%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*du1_a(:, i) &
-        !               - 1.0_wp/(g%scale/wk)**2*u(:, i)
+        ! ! single-mode
+        ! u(:, i) = 1.0_wp + sin(2.0_wp*pi_wp/x%scale*wk*(x%nodes(i) - x_0*x%scale)) ! + pi_wp/4.0_wp)
+        ! du1_a(:, i) = (2.0_wp*pi_wp/x%scale*wk) &
+        !               *cos(2.0_wp*pi_wp/x%scale*wk*(x%nodes(i) - x_0*x%scale))! + pi_wp/4.0_wp)
+        ! du2_a(:, i) = -(2.0_wp*pi_wp/x%scale*wk)**2 &
+        !               *sin(2.0_wp*pi_wp/x%scale*wk*(x%nodes(i) - x_0*x%scale))! + pi_wp/4.0_wp)
+        ! Gaussian
+        u(:, i) = exp(-(x%nodes(i) - x_0*x%scale)**2/(2.0_wp*(x%scale/wk)**2))
+        du1_a(:, i) = -(x%nodes(i) - x_0*x%scale)/(x%scale/wk)**2*u(:, i)
+        du2_a(:, i) = -(x%nodes(i) - x_0*x%scale)/(x%scale/wk)**2*du1_a(:, i) &
+                      - 1.0_wp/(x%scale/wk)**2*u(:, i)
         ! ! exponential
         ! ! u(:, i) = exp(-x%nodes(i)*wk)
         ! ! du1_a(:, i) = -wk*u(:, i)
@@ -155,8 +158,8 @@ program VPARTIAL
         ! du1_a(:, i) = 0.5_wp*(1.0_wp + tanh(0.5_wp*(x%nodes(i) - x%nodes(kmax/2))/x_0))
         ! ! Polynomial
         ! ! dummy = 5.0_wp
-        ! ! u(:, i) = ((g%scale - x%nodes(i))*wk)**dummy
-        ! ! du1_a(:, i) = -dummy*wk*((g%scale - x%nodes(i))*wk)**(dummy - 1.0_wp)
+        ! ! u(:, i) = ((x%scale - x%nodes(i))*wk)**dummy
+        ! ! du1_a(:, i) = -dummy*wk*((x%scale - x%nodes(i))*wk)**(dummy - 1.0_wp)
         ! dummy = 4.0_wp
         ! u(:, i) = 1.0_wp + (x%nodes(i)*wk)**dummy
         ! du1_a(:, i) = dummy*wk*(x%nodes(i)*wk)**(dummy - 1.0_wp)
@@ -255,7 +258,7 @@ program VPARTIAL
         !         ibc = bcs_cases(ib)
         !         print *, new_line('a'), 'Bcs case ', ibc
 
-        !         nmin = 1; nmax = g%size
+        !         nmin = 1; nmax = x%size
         !         if (any([BCS_ND, BCS_NN] == ibc)) then
         !             du1_n(:, 1) = du1_a(:, 1)
         !             bcs_hb(1:nlines) = du1_a(1:nlines, 1)
@@ -281,24 +284,24 @@ program VPARTIAL
         !         case (BCS_DD)
         !             ! call g%der1%matmul(rhs=g%der1%rhs(:, 1:ndr), &
         !             !                         rhs_b=g%der1%rhs(1:ndr/2, 1:ndr), &
-        !             !                         rhs_t=g%der1%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
+        !             !                         rhs_t=g%der1%rhs(x%size - ndr/2 + 1:x%size, 1:ndr), &
         !             !                         u=u, &
         !             !                         f=du1_n)
         !             call g%der1%matmul_thomas(rhs=g%der1%rhs(:, 1:ndr), &
         !                                       rhs_b=g%der1%rhs(1:ndr/2, 1:ndr), &
-        !                                       rhs_t=g%der1%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
+        !                                       rhs_t=g%der1%rhs(x%size - ndr/2 + 1:x%size, 1:ndr), &
         !                                       u=u, &
         !                                       L=g%der1%lu(:, ip + 1:ip + ndl/2), &
         !                                       f=du1_n)
         !         case (BCS_ND)
         !             ! call g%der1%matmul(rhs=g%der1%rhs(:, 1:ndr), &
         !             !                         rhs_b=g%der1%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
-        !             !                         rhs_t=g%der1%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
+        !             !                         rhs_t=g%der1%rhs(x%size - ndr/2 + 1:x%size, 1:ndr), &
         !             !                         u=u, &
         !             !                         f=du1_n, bcs_b=bcs_hb(1:nlines))
         !             call g%der1%matmul_thomas(rhs=g%der1%rhs(:, 1:ndr), &
         !                                       rhs_b=g%der1%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
-        !                                       rhs_t=g%der1%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
+        !                                       rhs_t=g%der1%rhs(x%size - ndr/2 + 1:x%size, 1:ndr), &
         !                                       u=u, &
         !                                       L=g%der1%lu(:, ip + 1:ip + ndl/2), &
         !                                       f=du1_n, bcs_b=bcs_hb(1:nlines))
@@ -367,12 +370,11 @@ program VPARTIAL
             call FDM_CreatePlan_Der1(x, fdm_der1, fdm_cases(im))
 
             do ib = 1, 4
-                ibc = bcs_cases(ib)
-                print *, new_line('a'), 'Bcs case ', ibc
+                print *, new_line('a'), 'Bcs case ', bcs_cases(ib)
 
                 select type (fdm_der1)
                 type is (der1_biased)
-                    select case (ibc)
+                    select case (bcs_cases(ib))
                     case (BCS_DD)
                         call fdm_der1%bcsDD%compute(nlines, u, du1_n)
 
@@ -395,13 +397,13 @@ program VPARTIAL
                 write (str, *) im
                 call check(u, du1_a, du1_n, 'partial-'//trim(adjustl(str))//'.dat')
 
-                if (any([BCS_ND, BCS_NN] == ibc)) then
+                if (any([BCS_ND, BCS_NN] == bcs_cases(ib))) then
                     ! print *, u(:, 1)
                     ! print *, bcs_hb(1:nlines)
                     write (*, *) 'Boundary Relative Error Linf-norm ...:', &
                         maxval(abs(bcs_hb(1:nlines) - u(1:nlines, 1)))/maxval(abs(u(1:nlines, 1)))
                 end if
-                if (any([BCS_DN, BCS_NN] == ibc)) then
+                if (any([BCS_DN, BCS_NN] == bcs_cases(ib))) then
                     ! print *, u(:, kmax)
                     ! print *, bcs_ht(1:nlines)
                     write (*, *) 'Boundary Relative Error Linf-norm ...:', &
@@ -427,16 +429,15 @@ program VPARTIAL
 #define c_t(i) wrk1d(i,2)
 
         do im = 1, size(fdm_cases)
-            g%der1%mode_fdm = fdm_cases(im)
+            ! g%der1%mode_fdm = fdm_cases(im)
             print *, new_line('a'), fdm_names(im)
 
-            g%der1%mode_fdm = fdm_cases(im)
-            call FDM_CreatePlan(x, g)
+            ! g%der1%mode_fdm = fdm_cases(im)
+            ! call FDM_CreatePlan(x, g)
             call FDM_CreatePlan_Der1(x, fdm_der1, fdm_cases(im))
 
             do ib = 1, 3
-                ibc = bcs_cases(ib)
-                print *, new_line('a'), 'Bcs case ', ibc
+                print *, new_line('a'), 'Bcs case ', bcs_cases(ib)
 
                 select type (fdm_der1)
                 type is (der1_biased)
@@ -449,7 +450,7 @@ program VPARTIAL
                     ! print *, nmax
                 end select
 
-                if (any([BCS_ND, BCS_NN] == ibc)) then
+                if (any([BCS_ND, BCS_NN] == bcs_cases(ib))) then
                     bcs_hb(1:nlines) = du1_a(:, 1)*c_b(1)
                     do i = 2, nmax
                         bcs_hb(1:nlines) = bcs_hb(1:nlines) + c_b(i)*u(:, i)
@@ -457,9 +458,9 @@ program VPARTIAL
                     write (*, *) 'Boundary Relative Error Linf-norm ...:', &
                         maxval(abs(bcs_hb(1:nlines) - u(1:nlines, 1)))/maxval(abs(u(1:nlines, 1)))
                 end if
-                if (any([BCS_DN, BCS_NN] == ibc)) then
+                if (any([BCS_DN, BCS_NN] == bcs_cases(ib))) then
                     bcs_ht(1:nlines) = du1_a(:, kmax)*c_t(kmax)
-                    do i = g%size - 1, g%size - nmax + 1, -1
+                    do i = x%size - 1, x%size - nmax + 1, -1
                         bcs_ht(1:nlines) = bcs_ht(1:nlines) + c_t(i)*u(:, i)
                     end do
                     write (*, *) 'Boundary Relative Error Linf-norm ...:', &
@@ -469,23 +470,23 @@ program VPARTIAL
                 ! ! full version
                 ! select type (fdm_der1)
                 ! type is (der1_biased)
-                ! ! call FDM_Der1_Neumann_Initialize(ibc, g%der1, c_b(:), c_t(:), wrk1d(1, 3), wrk1d(1, 4))
-                ! call FDM_Der1_Neumann_Initialize(ibc, fdm_der1, c_b(:), c_t(:), wrk1d(1, 3), wrk1d(1, 4))
+                ! ! call FDM_Der1_Neumann_Initialize(bcs_cases(ib), g%der1, c_b(:), c_t(:), wrk1d(1, 3), wrk1d(1, 4))
+                ! call FDM_Der1_Neumann_Initialize(bcs_cases(ib), fdm_der1, c_b(:), c_t(:), wrk1d(1, 3), wrk1d(1, 4))
                 ! end select
 
-                ! nmin = 1; nmax = g%size
-                ! if (any([BCS_ND, BCS_NN] == ibc)) then
+                ! nmin = 1; nmax = x%size
+                ! if (any([BCS_ND, BCS_NN] == bcs_cases(ib))) then
                 !     bcs_hb(1:nlines) = du1_a(:, 1)*c_b(1)
                 !     bcs_ht(1:nlines) = du1_a(:, 1)*c_t(1)           ! only used in BCS_NN
                 !     nmin = nmin + 1
                 ! end if
-                ! if (any([BCS_DN, BCS_NN] == ibc)) then
+                ! if (any([BCS_DN, BCS_NN] == bcs_cases(ib))) then
                 !     bcs_hb(1:nlines) = du1_a(:, kmax)*c_b(kmax)     ! only used in BCS_NN
                 !     bcs_ht(1:nlines) = du1_a(:, kmax)*c_t(kmax)
                 !     nmax = nmax - 1
                 ! end if
 
-                ! if (any([BCS_ND, BCS_NN] == ibc)) then
+                ! if (any([BCS_ND, BCS_NN] == bcs_cases(ib))) then
                 !     do i = nmin, nmax
                 !         bcs_hb(1:nlines) = bcs_hb(1:nlines) + c_b(i)*u(:, i)
                 !     end do
@@ -494,7 +495,7 @@ program VPARTIAL
                 !     ! print *, u(:, 1)
                 !     ! print *, bcs_hb(1:nlines)
                 ! end if
-                ! if (any([BCS_DN, BCS_NN] == ibc)) then
+                ! if (any([BCS_DN, BCS_NN] == bcs_cases(ib))) then
                 !     do i = nmax, nmin, -1
                 !         bcs_ht(1:nlines) = bcs_ht(1:nlines) + c_t(i)*u(:, i)
                 !     end do
@@ -513,8 +514,138 @@ program VPARTIAL
 #undef bcs_hb
 #undef bcs_ht
 
+!         ! ###################################################################
+!         !   Testing the reduction routines
+!         ! ###################################################################
+!     case (5)
+!         bcs_cases(1:3) = [BCS_MIN, BCS_MAX, BCS_BOTH]
+
+! #define bcs_hb(i) wrk2d(i,1)
+! #define bcs_ht(i) wrk2d(i,2)
+
+!         do im = 1, size(fdm_cases)
+!             ! g%der1%mode_fdm = fdm_cases(im)
+!             print *, new_line('a'), fdm_names(im)
+
+!             g%der1%mode_fdm = fdm_cases(im)
+!             call FDM_CreatePlan(x, g)
+
+!             do ib = 1, 3
+!                 ibc = bcs_cases(ib)
+!                 print *, new_line('a'), 'Bcs case ', ibc
+
+!                 nmin = 1; nmax = x%size
+!                 if (any([BCS_MIN, BCS_BOTH] == ibc)) then
+!                     ! du1_n(:, 1) = u(:, 1)
+!                     bcs_hb(1:nlines) = u(1:nlines, 1)           ! boundary condition
+!                     nmin = nmin + 1
+!                 end if
+!                 if (any([BCS_MAX, BCS_BOTH] == ibc)) then
+!                     ! du1_n(:, kmax) = u(:, kmax)
+!                     bcs_ht(1:nlines) = u(1:nlines, kmax)
+!                     nmax = nmax - 1
+!                 end if
+!                 nsize = nmax - nmin + 1
+
+!                 ndl = g%der1%nb_diag(1)
+!                 idl = g%der1%nb_diag(1)/2 + 1
+!                 ndr = g%der1%nb_diag(2)
+!                 idr = g%der1%nb_diag(2)/2 + 1
+
+!                 g%der1%rhs_b1 = 0.0_wp
+!                 g%der1%rhs_t1 = 0.0_wp
+!                 g%der1%lu(:, 1:ndl) = g%der1%lhs(:, 1:ndl)
+!                 call FDM_Bcs_Reduce(ibc, g%der1%lu(:, 1:ndl), g%der1%rhs(:, 1:ndr), g%der1%rhs_b1, g%der1%rhs_t1)
+
+!                 ! new format; extending to ndr+2 diagonals
+!                 ! longer stencil
+!                 i = 1
+!                 g%der1%rhs_b1(i, ndr + 2) = g%der1%rhs_b1(i, 2); g%der1%rhs_b1(i, 2) = 0.0_wp
+!                 i = max(idl, idr + 1)
+!                 g%der1%rhs_t1(i, 1) = g%der1%rhs_t1(i, ndr + 1); g%der1%rhs_t1(i, ndr + 1) = 0.0_wp
+
+!                 call Thomas_FactorLU_InPlace(g%der1%lu(nmin:nmax, 1:ndl/2), &
+!                                              g%der1%lu(nmin:nmax, ndl/2 + 1:ndl))
+
+!                 ! -------------------------------------------------------------------
+!                 ! Calculate RHS in system of equations A u' = B u
+!                 select case (ibc)
+!                 case (BCS_MIN)
+!                     ! call g%der1%matmul(rhs=g%der1%rhs(:, 1:ndr), &
+!                     !                         rhs_b=g%der1%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
+!                     !                         rhs_t=g%der1%rhs(x%size - ndr/2 + 1:x%size, 1:ndr), &
+!                     !                         u=u, &
+!                     !                         f=du1_n)!, bcs_b=bcs_hb(1:nlines))
+!                     call g%der1%matmul_thomas(rhs=g%der1%rhs(:, 1:ndr), &
+!                                               rhs_b=g%der1%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
+!                                               rhs_t=g%der1%rhs(x%size - ndr/2 + 1:x%size, 1:ndr), &
+!                                               u=u, &
+!                                               L=g%der1%lu(:, 1:ndl/2), &
+!                                               f=du1_n, bcs_b=bcs_hb(1:nlines))
+!                 case (BCS_MAX)
+!                     ! call g%der1%matmul(rhs=g%der1%rhs(:, 1:ndr), &
+!                     !                         rhs_b=g%der1%rhs(1:ndr/2, 1:ndr), &
+!                     !                         rhs_t=g%der1%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
+!                     !                         u=u, &
+!                     !                         f=du1_n)!, bcs_t=bcs_ht(:))
+!                     call g%der1%matmul_thomas(rhs=g%der1%rhs(:, 1:ndr), &
+!                                               rhs_b=g%der1%rhs(1:ndr/2, 1:ndr), &
+!                                               rhs_t=g%der1%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
+!                                               u=u, &
+!                                               L=g%der1%lu(:, 1:ndl/2), &
+!                                               f=du1_n, bcs_t=bcs_ht(1:nlines))
+!                 case (BCS_BOTH)
+!                     ! call g%der1%matmul(rhs=g%der1%rhs(:, 1:ndr), &
+!                     !                         rhs_b=g%der1%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
+!                     !                         rhs_t=g%der1%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
+!                     !                         u=u, &
+!                     !                         f=du1_n)!, bcs_b=bcs_hb(:), bcs_t=bcs_ht(:))
+!                     call g%der1%matmul_thomas(rhs=g%der1%rhs(:, 1:ndr), &
+!                                               rhs_b=g%der1%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
+!                                               rhs_t=g%der1%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
+!                                               u=u, &
+!                                               L=g%der1%lu(:, 1:ndl/2), &
+!                                               f=du1_n, bcs_b=bcs_hb(1:nlines), bcs_t=bcs_ht(1:nlines))
+
+!                 end select
+
+!                 ! -------------------------------------------------------------------
+!                 ! Solve for u' in system of equations A u' = B u
+!                 ! call g%der1%thomasL(g%der1%lu(nmin:nmax, 1:ndl/2), du1_n(:, nmin:nmax))
+!                 call g%der1%thomasU(g%der1%lu(nmin:nmax, ndl/2 + 1:ndl), du1_n(:, nmin:nmax))
+
+!                 if (any([BCS_MIN, BCS_BOTH] == ibc)) then
+!                     du1_n(:, 1) = bcs_hb(1:nlines)
+!                     do ic = 1, idl - 1
+!                         du1_n(:, 1) = du1_n(:, 1) + g%der1%lu(1, idl + ic)*du1_n(:, 1 + ic)
+!                     end do
+!                     du1_n(:, 1) = du1_n(:, 1) + g%der1%lu(1, 1)*du1_n(:, 1 + ic)
+!                     du1_n(:, 1) = du1_n(:, 1)/g%der1%lu(1, idl)
+!                 end if
+!                 if (any([BCS_MAX, BCS_BOTH] == ibc)) then
+!                     du1_n(:, kmax) = bcs_ht(1:nlines)
+!                     do ic = 1, idl - 1
+!                         du1_n(:, kmax) = du1_n(:, kmax) + g%der1%lu(kmax, idl - ic)*du1_n(:, kmax - ic)
+!                     end do
+!                     du1_n(:, kmax) = du1_n(:, kmax) + g%der1%lu(kmax, ndl)*du1_n(:, kmax - ic)
+!                     du1_n(:, kmax) = du1_n(:, kmax)/g%der1%lu(kmax, idl)
+!                 end if
+
+!                 write (str, *) im
+!                 call check(u, du1_a, du1_n, 'partial-'//trim(adjustl(str))//'.dat')
+!                 ! call write_scheme(g%der1%lhs(:, 1:g%der1%nb_diag(1)), &
+!                 !                   g%der1%rhs(:, 1:g%der1%nb_diag(2)), 'fdm1-'//trim(adjustl(str)))
+
+!             end do
+
+!         end do
+
+! #undef bcs_hb
+! #undef bcs_ht
+
         ! ###################################################################
-        !   Testing the reduction routines
+        ! Testing the reduction routines
+        ! We adapt Neumann derivative routines; see fdm_derivative_X1
         ! ###################################################################
     case (5)
         bcs_cases(1:3) = [BCS_MIN, BCS_MAX, BCS_BOTH]
@@ -523,113 +654,83 @@ program VPARTIAL
 #define bcs_ht(i) wrk2d(i,2)
 
         do im = 1, size(fdm_cases)
-            g%der1%mode_fdm = fdm_cases(im)
             print *, new_line('a'), fdm_names(im)
 
-            g%der1%mode_fdm = fdm_cases(im)
-            call FDM_CreatePlan(x, g)
+            call FDM_CreatePlan_Der1(x, fdm_der1, fdm_cases(im))
+
+            nx = size(fdm_der1%lhs, 1)
+            ndl = size(fdm_der1%lhs, 2)
+            idl = ndl/2 + 1
+            ndr = size(fdm_der1%rhs, 2)
+            idr = ndr/2 + 1
 
             do ib = 1, 3
                 ibc = bcs_cases(ib)
                 print *, new_line('a'), 'Bcs case ', ibc
 
-                nmin = 1; nmax = g%size
-                if (any([BCS_MIN, BCS_BOTH] == ibc)) then
-                    ! du1_n(:, 1) = u(:, 1)
-                    bcs_hb(1:nlines) = u(1:nlines, 1)           ! boundary condition
-                    nmin = nmin + 1
-                end if
-                if (any([BCS_MAX, BCS_BOTH] == ibc)) then
-                    ! du1_n(:, kmax) = u(:, kmax)
-                    bcs_ht(1:nlines) = u(1:nlines, kmax)
-                    nmax = nmax - 1
-                end if
-                nsize = nmax - nmin + 1
+                select type (fdm_der1)
+                type is (der1_biased)
+                    select case (bcs_cases(ib))
+                    case (BCS_MIN)
+                        fdm_der1%bcsND%lu = fdm_der1%lhs
+                        call FDM_Bcs_Reduce(ibc, fdm_der1%bcsND%lu, fdm_der1%bcsND%rhs, &
+                                            rhs_b=fdm_der1%bcsND%rhs_b)
 
-                ndl = g%der1%nb_diag(1)
-                idl = g%der1%nb_diag(1)/2 + 1
-                ndr = g%der1%nb_diag(2)
-                idr = g%der1%nb_diag(2)/2 + 1
+                        ! moving extended stencil in first element of old array to natural position
+                        i = 1
+                        fdm_der1%bcsND%rhs_b(i, ndr + 2) = fdm_der1%bcsND%rhs_b(i, 2)
+                        fdm_der1%bcsND%rhs_b(i, 2) = 0.0_wp
 
-                g%der1%rhs_b1 = 0.0_wp
-                g%der1%rhs_t1 = 0.0_wp
-                g%der1%lu(:, 1:ndl) = g%der1%lhs(:, 1:ndl)
-                ! call FDM_Bcs_Reduce(ibc, g%der1%lu(:, 1:ndl), g%der1%rhs(:, 1:ndr), g%der1%rhs_b1, g%der1%rhs_t1(:,2:))
-                call FDM_Bcs_Reduce(ibc, g%der1%lu(:, 1:ndl), g%der1%rhs(:, 1:ndr), g%der1%rhs_b1, g%der1%rhs_t1)
+                        call Thomas_FactorLU_InPlace(fdm_der1%bcsND%lu(2:nx, 1:ndl/2), &
+                                                     fdm_der1%bcsND%lu(2:nx, ndl/2 + 1:ndl))
 
-                ! new format; extending to ndr+2 diagonals
-                ! longer stencil
-                i = 1
-                g%der1%rhs_b1(i, ndr + 2) = g%der1%rhs_b1(i, 2); g%der1%rhs_b1(i, 2) = 0.0_wp
-                i = max(idl, idr + 1)
-                g%der1%rhs_t1(i, 1) = g%der1%rhs_t1(i, ndr + 1); g%der1%rhs_t1(i, ndr + 1) = 0.0_wp
+                        bcs_hb(1:nlines) = u(1:nlines, 1)
+                        call fdm_der1%bcsND%compute(nlines, u, du1_n, bcs_hb(:))
+                        du1_n(:, 1) = du1_a(:, 1)
 
-                call Thomas_FactorLU_InPlace(g%der1%lu(nmin:nmax, 1:ndl/2), &
-                                             g%der1%lu(nmin:nmax, ndl/2 + 1:ndl))
+                    case (BCS_MAX)
+                        fdm_der1%bcsDN%lu = fdm_der1%lhs
+                        call FDM_Bcs_Reduce(ibc, fdm_der1%bcsDN%lu, fdm_der1%bcsDN%rhs, &
+                                            rhs_t=fdm_der1%bcsDN%rhs_t)
 
-                ! -------------------------------------------------------------------
-                ! Calculate RHS in system of equations A u' = B u
-                select case (ibc)
-                case (BCS_MIN)
-                    ! call g%der1%matmul(rhs=g%der1%rhs(:, 1:ndr), &
-                    !                         rhs_b=g%der1%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
-                    !                         rhs_t=g%der1%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
-                    !                         u=u, &
-                    !                         f=du1_n)!, bcs_b=bcs_hb(1:nlines))
-                    call g%der1%matmul_thomas(rhs=g%der1%rhs(:, 1:ndr), &
-                                              rhs_b=g%der1%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
-                                              rhs_t=g%der1%rhs(g%size - ndr/2 + 1:g%size, 1:ndr), &
-                                              u=u, &
-                                              L=g%der1%lu(:, 1:ndl/2), &
-                                              f=du1_n, bcs_b=bcs_hb(1:nlines))
-                case (BCS_MAX)
-                    ! call g%der1%matmul(rhs=g%der1%rhs(:, 1:ndr), &
-                    !                         rhs_b=g%der1%rhs(1:ndr/2, 1:ndr), &
-                    !                         rhs_t=g%der1%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
-                    !                         u=u, &
-                    !                         f=du1_n)!, bcs_t=bcs_ht(:))
-                    call g%der1%matmul_thomas(rhs=g%der1%rhs(:, 1:ndr), &
-                                              rhs_b=g%der1%rhs(1:ndr/2, 1:ndr), &
-                                              rhs_t=g%der1%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
-                                              u=u, &
-                                              L=g%der1%lu(:, 1:ndl/2), &
-                                              f=du1_n, bcs_t=bcs_ht(1:nlines))
-                case (BCS_BOTH)
-                    ! call g%der1%matmul(rhs=g%der1%rhs(:, 1:ndr), &
-                    !                         rhs_b=g%der1%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
-                    !                         rhs_t=g%der1%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
-                    !                         u=u, &
-                    !                         f=du1_n)!, bcs_b=bcs_hb(:), bcs_t=bcs_ht(:))
-                    call g%der1%matmul_thomas(rhs=g%der1%rhs(:, 1:ndr), &
-                                              rhs_b=g%der1%rhs_b1(1:max(idl, idr + 1), 1:ndr + 2), &
-                                              rhs_t=g%der1%rhs_t1(1:max(idl, idr + 1), 1:ndr + 2), &
-                                              u=u, &
-                                              L=g%der1%lu(:, 1:ndl/2), &
-                                              f=du1_n, bcs_b=bcs_hb(1:nlines), bcs_t=bcs_ht(1:nlines))
+                        ! moving extended stencil in first element of old array to natural position
+                        i = max(idl, idr + 1)
+                        fdm_der1%bcsDN%rhs_t(i, 1) = fdm_der1%bcsDN%rhs_t(i, ndr + 1)
+                        fdm_der1%bcsDN%rhs_t(i, ndr + 1) = 0.0_wp
 
+                        call Thomas_FactorLU_InPlace(fdm_der1%bcsDN%lu(1:nx - 1, 1:ndl/2), &
+                                                     fdm_der1%bcsDN%lu(1:nx - 1, ndl/2 + 1:ndl))
+
+                        bcs_ht(1:nlines) = u(1:nlines, kmax)
+                        call fdm_der1%bcsDN%compute(nlines, u, du1_n, bcs_ht(:))
+                        du1_n(:, kmax) = du1_a(:, kmax)
+
+                    case (BCS_BOTH)
+                        fdm_der1%bcsNN%lu = fdm_der1%lhs
+                        call FDM_Bcs_Reduce(ibc, fdm_der1%bcsNN%lu, fdm_der1%bcsNN%rhs, &
+                                            rhs_b=fdm_der1%bcsNN%rhs_b, &
+                                            rhs_t=fdm_der1%bcsNN%rhs_t)
+
+                        ! moving extended stencil in first element of old array to natural position
+                        i = 1
+                        fdm_der1%bcsNN%rhs_b(i, ndr + 2) = fdm_der1%bcsNN%rhs_b(i, 2)
+                        fdm_der1%bcsNN%rhs_b(i, 2) = 0.0_wp
+
+                        i = max(idl, idr + 1)
+                        fdm_der1%bcsNN%rhs_t(i, 1) = fdm_der1%bcsNN%rhs_t(i, ndr + 1)
+                        fdm_der1%bcsNN%rhs_t(i, ndr + 1) = 0.0_wp
+
+                        call Thomas_FactorLU_InPlace(fdm_der1%bcsNN%lu(2:nx - 1, 1:ndl/2), &
+                                                     fdm_der1%bcsNN%lu(2:nx - 1, ndl/2 + 1:ndl))
+
+                        bcs_hb(1:nlines) = u(1:nlines, 1)
+                        bcs_ht(1:nlines) = u(1:nlines, kmax)
+                        call fdm_der1%bcsNN%compute(nlines, u, du1_n, bcs_hb(:), bcs_ht(:))
+                        du1_n(:, 1) = du1_a(:, 1)
+                        du1_n(:, kmax) = du1_a(:, kmax)
+
+                    end select
                 end select
-
-                ! -------------------------------------------------------------------
-                ! Solve for u' in system of equations A u' = B u
-                ! call g%der1%thomasL(g%der1%lu(nmin:nmax, 1:ndl/2), du1_n(:, nmin:nmax))
-                call g%der1%thomasU(g%der1%lu(nmin:nmax, ndl/2 + 1:ndl), du1_n(:, nmin:nmax))
-
-                if (any([BCS_MIN, BCS_BOTH] == ibc)) then
-                    du1_n(:, 1) = bcs_hb(1:nlines)
-                    do ic = 1, idl - 1
-                        du1_n(:, 1) = du1_n(:, 1) + g%der1%lu(1, idl + ic)*du1_n(:, 1 + ic)
-                    end do
-                    du1_n(:, 1) = du1_n(:, 1) + g%der1%lu(1, 1)*du1_n(:, 1 + ic)
-                    du1_n(:, 1) = du1_n(:, 1)/g%der1%lu(1, idl)
-                end if
-                if (any([BCS_MAX, BCS_BOTH] == ibc)) then
-                    du1_n(:, kmax) = bcs_ht(1:nlines)
-                    do ic = 1, idl - 1
-                        du1_n(:, kmax) = du1_n(:, kmax) + g%der1%lu(kmax, idl - ic)*du1_n(:, kmax - ic)
-                    end do
-                    du1_n(:, kmax) = du1_n(:, kmax) + g%der1%lu(kmax, ndl)*du1_n(:, kmax - ic)
-                    du1_n(:, kmax) = du1_n(:, kmax)/g%der1%lu(kmax, idl)
-                end if
 
                 write (str, *) im
                 call check(u, du1_a, du1_n, 'partial-'//trim(adjustl(str))//'.dat')

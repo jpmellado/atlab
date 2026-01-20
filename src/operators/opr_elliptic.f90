@@ -33,7 +33,7 @@ module OPR_Elliptic
     abstract interface
         subroutine OPR_Poisson_interface(nx, ny, nz, ibc, p, tmp1, tmp2, bcs_hb, bcs_ht)
             use TLab_Constants, only: wi, wp
-            use FDM, only: fdm_dt
+            ! use FDM, only: fdm_dt
             integer(wi), intent(in) :: nx, ny, nz
             integer, intent(in) :: ibc                                      ! Dirichlet/Neumman BCs at kmin/kmax: BCS_DD, BCS_ND, BCS_DN, BCS_NN
             real(wp), intent(inout) :: p(nx, ny, nz)                        ! Forcing term, and solution field p
@@ -48,7 +48,7 @@ module OPR_Elliptic
     abstract interface
         subroutine OPR_Helmholtz_interface(nx, ny, nz, ibc, alpha, a, tmp1, tmp2, bcs_hb, bcs_ht)
             use TLab_Constants, only: wi, wp
-            use FDM, only: fdm_dt
+            ! use FDM, only: fdm_dt
             integer(wi), intent(in) :: nx, ny, nz
             integer, intent(in) :: ibc                                      ! Dirichlet/Neumman BCs at kmin/kmax: BCS_DD, BCS_ND, BCS_DN, BCS_NN
             real(wp), intent(in) :: alpha

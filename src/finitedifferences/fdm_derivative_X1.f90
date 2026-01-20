@@ -129,7 +129,7 @@ module FDM_Derivative_1order_X
 
     ! for the first-order derivative, we consider different types of boundary conditions
     type :: bcs
-        private
+        ! private
         ! procedure(matmul_ice), pointer, nopass :: matmul => null()
         procedure(matmul_thomas_ice), pointer, nopass :: matmul => null()
         procedure(thomas_ice), pointer, nopass :: thomasU => null()

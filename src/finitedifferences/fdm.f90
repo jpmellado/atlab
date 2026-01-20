@@ -13,22 +13,22 @@ module FDM
     implicit none
     private
 
-    type, public :: fdm_dt
-        sequence
-        character*8 name
-        integer(wi) size
-        logical :: uniform = .false.
-        logical :: periodic = .false.
-        real(wp) scale
-        !
-        real(wp), allocatable :: nodes(:)
-        real(wp), allocatable :: jac(:, :)      ! Jacobian of 1. order derivative; grid spacing
-        !                                         Jacobian of 2. order derivative; grid stretching
-        type(fdm_derivative_dt) :: der1
-        type(fdm_derivative_dt) :: der2
-        type(fdm_interpol_dt) :: intl
+    ! type, public :: fdm_dt
+    !     sequence
+    !     character*8 name
+    !     integer(wi) size
+    !     logical :: uniform = .false.
+    !     logical :: periodic = .false.
+    !     real(wp) scale
+    !     !
+    !     real(wp), allocatable :: nodes(:)
+    !     real(wp), allocatable :: jac(:, :)      ! Jacobian of 1. order derivative; grid spacing
+    !     !                                         Jacobian of 2. order derivative; grid stretching
+    !     type(fdm_derivative_dt) :: der1
+    !     type(fdm_derivative_dt) :: der2
+    !     type(fdm_interpol_dt) :: intl
 
-    end type fdm_dt
+    ! end type fdm_dt
 
     ! type(fdm_dt), public, protected :: g(3)                    ! fdm derivative plans along 3 directions
     type(fdm_integral_dt), public, protected :: fdm_Int0(2)    ! fdm integral plans along Oz (ode for lambda = 0)
@@ -37,7 +37,7 @@ module FDM
     class(der2_dt), allocatable, public, protected :: fdm_der2_X, fdm_der2_Y, fdm_der2_Z
 
     public :: FDM_Initialize
-    public :: FDM_CreatePlan
+    ! public :: FDM_CreatePlan
     public :: FDM_CreatePlan_Der1
     public :: FDM_CreatePlan_Der2
 
@@ -294,123 +294,123 @@ call TLab_Write_ASCII(bakfile, '#SchemeDerivative2=<CompactJacobian4/CompactJaco
         return
     end subroutine
 
-    ! ###################################################################
-    ! ###################################################################
-    subroutine FDM_CreatePlan(x, g, locScale)
-        type(grid_dt), intent(in) :: x
-        type(fdm_dt), intent(inout) :: g                            ! fdm plan for derivatives
-        real(wp), intent(in), optional :: locScale                  ! for consistency check
+!     ! ###################################################################
+!     ! ###################################################################
+!     subroutine FDM_CreatePlan(x, g, locScale)
+!         type(grid_dt), intent(in) :: x
+!         type(fdm_dt), intent(inout) :: g                            ! fdm plan for derivatives
+!         real(wp), intent(in), optional :: locScale                  ! for consistency check
 
-        ! -------------------------------------------------------------------
-        integer(wi) i, nx
+!         ! -------------------------------------------------------------------
+!         integer(wi) i, nx
 
-        ! ###################################################################
-        ! Consistency check
-        ! ###################################################################
-        if (g%periodic) then            ! if periodic, the grid is uniform,
-            !                             if uniform, direct and Jacobian formulations are the same,
-            !                             and periodic case is only implemented in Jacobian.
-            !                             Maybe one could call the Jacobian routines inside the direct ones
-            if (g%der1%mode_fdm == FDM_COM4_DIRECT) g%der1%mode_fdm = FDM_COM4_JACOBIAN
-            if (g%der1%mode_fdm == FDM_COM6_DIRECT) g%der1%mode_fdm = FDM_COM6_JACOBIAN
+!         ! ###################################################################
+!         ! Consistency check
+!         ! ###################################################################
+!         if (g%periodic) then            ! if periodic, the grid is uniform,
+!             !                             if uniform, direct and Jacobian formulations are the same,
+!             !                             and periodic case is only implemented in Jacobian.
+!             !                             Maybe one could call the Jacobian routines inside the direct ones
+!             if (g%der1%mode_fdm == FDM_COM4_DIRECT) g%der1%mode_fdm = FDM_COM4_JACOBIAN
+!             if (g%der1%mode_fdm == FDM_COM6_DIRECT) g%der1%mode_fdm = FDM_COM6_JACOBIAN
 
-            if (g%der2%mode_fdm == FDM_COM4_DIRECT) g%der2%mode_fdm = FDM_COM4_JACOBIAN
-            if (g%der2%mode_fdm == FDM_COM6_DIRECT) g%der2%mode_fdm = FDM_COM6_JACOBIAN
+!             if (g%der2%mode_fdm == FDM_COM4_DIRECT) g%der2%mode_fdm = FDM_COM4_JACOBIAN
+!             if (g%der2%mode_fdm == FDM_COM6_DIRECT) g%der2%mode_fdm = FDM_COM6_JACOBIAN
 
-        end if
-        if (g%der2%mode_fdm == FDM_COM6_DIRECT_HYPER) g%der2%mode_fdm = FDM_COM6_JACOBIAN_HYPER
+!         end if
+!         if (g%der2%mode_fdm == FDM_COM6_DIRECT_HYPER) g%der2%mode_fdm = FDM_COM6_JACOBIAN_HYPER
 
-        g%size = x%size
+!         g%size = x%size
 
-        if (g%size > 1) then
-            g%scale = x%nodes(g%size) - x%nodes(1)
-            if (g%periodic) g%scale = g%scale*(1.0_wp + 1.0_wp/real(g%size - 1, wp))
-        else
-            g%scale = 1.0_wp            ! to avoid conditionals and NaN in some of the calculations below
-        end if
+!         if (g%size > 1) then
+!             g%scale = x%nodes(g%size) - x%nodes(1)
+!             if (g%periodic) g%scale = g%scale*(1.0_wp + 1.0_wp/real(g%size - 1, wp))
+!         else
+!             g%scale = 1.0_wp            ! to avoid conditionals and NaN in some of the calculations below
+!         end if
 
-        if (present(locScale)) then
-! print *, abs((scale_loc - g%scale)/scale_loc)
-            if (abs((locScale - g%scale)/g%scale) > roundoff_wp) then
-                call TLab_Write_ASCII(efile, __FILE__//'. Unmatched domain scale.')
-                call TLab_Stop(DNS_ERROR_OPTION)
-            end if
-        end if
+!         if (present(locScale)) then
+! ! print *, abs((scale_loc - g%scale)/scale_loc)
+!             if (abs((locScale - g%scale)/g%scale) > roundoff_wp) then
+!                 call TLab_Write_ASCII(efile, __FILE__//'. Unmatched domain scale.')
+!                 call TLab_Stop(DNS_ERROR_OPTION)
+!             end if
+!         end if
 
-        ! ###################################################################
-        nx = g%size                     ! # of nodes, for clarity below
+!         ! ###################################################################
+!         nx = g%size                     ! # of nodes, for clarity below
 
-        if (allocated(g%nodes)) deallocate (g%nodes)
-        if (allocated(g%jac)) deallocate (g%jac)
-        allocate (g%nodes(nx))
-        allocate (g%jac(nx, 2 + 1))     ! I need 1 aux array to calculate the Jacobian for 2. order derivative; to be fixed
+!         if (allocated(g%nodes)) deallocate (g%nodes)
+!         if (allocated(g%jac)) deallocate (g%jac)
+!         allocate (g%nodes(nx))
+!         allocate (g%jac(nx, 2 + 1))     ! I need 1 aux array to calculate the Jacobian for 2. order derivative; to be fixed
 
-        if (nx == 1) then
-            g%jac(:, :) = 1.0_wp
-            return
-        end if
+!         if (nx == 1) then
+!             g%jac(:, :) = 1.0_wp
+!             return
+!         end if
 
-        ! ###################################################################
-        ! first-order derivative
-        ! ###################################################################
-        ! uniform grid to calculate Jacobian (used for the stencils below and also as grid spacing in the code).
-        g%nodes(:) = [(real(i - 1, wp), i=1, g%size)]
-        g%jac(:, 1) = 1.0_wp
+!         ! ###################################################################
+!         ! first-order derivative
+!         ! ###################################################################
+!         ! uniform grid to calculate Jacobian (used for the stencils below and also as grid spacing in the code).
+!         g%nodes(:) = [(real(i - 1, wp), i=1, g%size)]
+!         g%jac(:, 1) = 1.0_wp
 
-        call FDM_Der1_Initialize(g%nodes, g%jac(:, 1), g%der1, periodic=.false., bcs_cases=[BCS_DD])
+!         call FDM_Der1_Initialize(g%nodes, g%jac(:, 1), g%der1, periodic=.false., bcs_cases=[BCS_DD])
 
-        ! Calculating derivative dxds into g%jac(:, 1)
-        g%der1%periodic = .false.
-        call FDM_Der1_Solve(1, g%der1, g%der1%lu, x%nodes, g%jac(:, 1), g%jac(:, 2)) !g%jac(:, 2) is used as aux array...
+!         ! Calculating derivative dxds into g%jac(:, 1)
+!         g%der1%periodic = .false.
+!         call FDM_Der1_Solve(1, g%der1, g%der1%lu, x%nodes, g%jac(:, 1), g%jac(:, 2)) !g%jac(:, 2) is used as aux array...
 
-        ! -------------------------------------------------------------------
-        ! Actual grid; possibly nonuniform
-        g%nodes(:) = x%nodes(1:nx)
+!         ! -------------------------------------------------------------------
+!         ! Actual grid; possibly nonuniform
+!         g%nodes(:) = x%nodes(1:nx)
 
-        call FDM_Der1_Initialize(g%nodes, g%jac(:, 1), g%der1, periodic=g%periodic, bcs_cases=[BCS_DD, BCS_ND, BCS_DN, BCS_NN])
+!         call FDM_Der1_Initialize(g%nodes, g%jac(:, 1), g%der1, periodic=g%periodic, bcs_cases=[BCS_DD, BCS_ND, BCS_DN, BCS_NN])
 
-        if (g%periodic) g%der1%mwn(:) = g%der1%mwn(:)/g%jac(1, 1)           ! normalized by dx
+!         if (g%periodic) g%der1%mwn(:) = g%der1%mwn(:)/g%jac(1, 1)           ! normalized by dx
 
-        ! ###################################################################
-        ! second-order derivative
-        ! ###################################################################
-        ! -------------------------------------------------------------------
-        ! uniform grid to calculate Jacobian (needed to set up the Jacobian formulations and also a grid stretching in the code).
-        g%nodes(:) = [(real(i - 1, wp), i=1, g%size)]
-        g%jac(:, 2) = 1.0_wp
-        g%jac(:, 3) = 0.0_wp
+!         ! ###################################################################
+!         ! second-order derivative
+!         ! ###################################################################
+!         ! -------------------------------------------------------------------
+!         ! uniform grid to calculate Jacobian (needed to set up the Jacobian formulations and also a grid stretching in the code).
+!         g%nodes(:) = [(real(i - 1, wp), i=1, g%size)]
+!         g%jac(:, 2) = 1.0_wp
+!         g%jac(:, 3) = 0.0_wp
 
-        call FDM_Der2_Initialize(g%nodes, g%jac(:, 2:), g%der2, periodic=.false., uniform=.true.)
+!         call FDM_Der2_Initialize(g%nodes, g%jac(:, 2:), g%der2, periodic=.false., uniform=.true.)
 
-        ! Calculating derivative d2xds2 into g%jac(:, 3)
-        g%der2%periodic = .false.
-        call FDM_Der2_Solve(1, g%der2, g%der2%lu, x%nodes, g%jac(:, 2), g%jac(:, 3), g%jac(:, 3)) !g%jac(:, 3) is used as aux array...
+!         ! Calculating derivative d2xds2 into g%jac(:, 3)
+!         g%der2%periodic = .false.
+!         call FDM_Der2_Solve(1, g%der2, g%der2%lu, x%nodes, g%jac(:, 2), g%jac(:, 3), g%jac(:, 3)) !g%jac(:, 3) is used as aux array...
 
-        ! -------------------------------------------------------------------
-        ! Actual grid; possibly nonuniform
-        g%nodes(:) = x%nodes(1:nx)
+!         ! -------------------------------------------------------------------
+!         ! Actual grid; possibly nonuniform
+!         g%nodes(:) = x%nodes(1:nx)
 
-        call FDM_Der2_Initialize(g%nodes, g%jac, g%der2, g%periodic, g%uniform)
+!         call FDM_Der2_Initialize(g%nodes, g%jac, g%der2, g%periodic, g%uniform)
 
-        if (g%der2%periodic) g%der2%mwn(:) = g%der2%mwn(:)/(g%jac(1, 1)**2)      ! normalized by dx
+!         if (g%der2%periodic) g%der2%mwn(:) = g%der2%mwn(:)/(g%jac(1, 1)**2)      ! normalized by dx
 
-        ! ###################################################################
-        ! interpolation for staggered cases
-        ! ###################################################################
-        if (stagger_on) then
-            if (g%periodic) then
+!         ! ###################################################################
+!         ! interpolation for staggered cases
+!         ! ###################################################################
+!         if (stagger_on) then
+!             if (g%periodic) then
 
-                call FDM_Interpol_Initialize(x%nodes(:), g%jac(:, 1), g%intl, g%der1%mwn(:))
+!                 call FDM_Interpol_Initialize(x%nodes(:), g%jac(:, 1), g%intl, g%der1%mwn(:))
 
-                ! else
-                !     call TLab_Write_ASCII(efile, 'Staggered grid only along periodic directions.')
-                !     call TLab_Stop(DNS_ERROR_UNDEVELOP)
+!                 ! else
+!                 !     call TLab_Write_ASCII(efile, 'Staggered grid only along periodic directions.')
+!                 !     call TLab_Stop(DNS_ERROR_UNDEVELOP)
 
-            end if
+!             end if
 
-        end if
+!         end if
 
-        return
-    end subroutine FDM_CreatePlan
+!         return
+!     end subroutine FDM_CreatePlan
 
 end module FDM

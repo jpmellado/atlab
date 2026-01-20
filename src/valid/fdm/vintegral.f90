@@ -6,7 +6,7 @@ program VINTEGRAL
     use TLab_Memory, only: TLab_Initialize_Memory, TLab_Allocate_Real
     use TLab_Arrays, only: wrk1d, wrk2d, txc
     use TLab_Grid, only: grid_dt
-    use FDM, only: fdm_dt, FDM_CreatePlan
+    ! use FDM, only: fdm_dt, FDM_CreatePlan
     use FDM, only: FDM_CreatePlan_Der1, FDM_CreatePlan_Der2
     use FDM_Derivative
     use FDM_Derivative_1order_X

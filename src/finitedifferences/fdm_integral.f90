@@ -97,7 +97,7 @@ contains
     ! subroutine FDM_Int1_Initialize(g, lambda, ibc, fdmi)
     ! type(fdm_derivative_dt), intent(in) :: g        ! derivative plan to be inverted
     subroutine FDM_Int1_Initialize(fdm_der, lambda, ibc, fdmi)
-        use FDM_Derivative_1order_X, only: der_dt, der1_biased
+        use FDM_Derivative_1order_X, only: der_dt !, der1_biased
         class(der_dt), intent(in) :: fdm_der
         real(wp), intent(in) :: lambda                  ! system constant
         integer, intent(in) :: ibc                      ! type of boundary condition
@@ -154,8 +154,8 @@ contains
     ! subroutine FDM_Int1_CreateSystem(g, lambda, ibc, fdmi)
     !     type(fdm_derivative_dt), intent(in) :: g        ! derivative plan to be inverted
     subroutine FDM_Int1_CreateSystem(fdm_der, lambda, ibc, fdmi)
-        use FDM_Derivative_1order_X, only: der1_biased, der_dt
-        class(der_dt), intent(in) :: fdm_der        ! derivative plan to be inverted
+        use FDM_Derivative_1order_X, only: der_dt
+        class(der_dt), intent(in) :: fdm_der            ! derivative plan to be inverted
         real(wp), intent(in) :: lambda                  ! system constant
         integer, intent(in) :: ibc                      ! type of boundary condition
         type(fdm_integral_dt), intent(inout) :: fdmi    ! int_plan to be created; inout because otherwise allocatable arrays are deallocated
@@ -435,10 +435,13 @@ contains
     !# System normalized s.t. 1. upper-diagonal in B is 1 (except at boundaries)
     !#
     !########################################################################
-    subroutine FDM_Int2_Initialize(x, g, lambda2, ibc, fdmi)
-        use FDM_Derivative, only: fdm_derivative_dt
+    ! subroutine FDM_Int2_Initialize(x, g, lambda2, ibc, fdmi)
+    !     use FDM_Derivative, only: fdm_derivative_dt
+    ! type(fdm_derivative_dt), intent(in) :: g        ! derivative plan to be inverted
+    subroutine FDM_Int2_Initialize(x, fdm_der, lambda2, ibc, fdmi)
+        use FDM_Derivative_2order_X, only: der2_dt
+        class(der2_dt), intent(in) :: fdm_der
         real(wp), intent(in) :: x(:)                    ! node positions
-        type(fdm_derivative_dt), intent(in) :: g        ! derivative plan to be inverted
         real(wp), intent(in) :: lambda2                 ! system constant
         integer, intent(in) :: ibc                      ! type of boundary condition
         type(fdm_integral_dt), intent(inout) :: fdmi    ! int_plan to be created; inout because otherwise allocatable arrays are deallocated
@@ -447,7 +450,8 @@ contains
         integer(wi) nx, ndl, ndr
 
         !########################################################################
-        call FDM_Int2_CreateSystem(x, g, lambda2, ibc, fdmi)
+        ! call FDM_Int2_CreateSystem(x, g, lambda2, ibc, fdmi)
+        call FDM_Int2_CreateSystem(x, fdm_der, lambda2, ibc, fdmi)
 
         ! LU decomposition
         nx = size(fdmi%lhs, 1)              ! # of grid points
@@ -491,10 +495,13 @@ contains
     !########################################################################
     !########################################################################
     ! Follows FDM_Int1_CreateSystem very much (see notes)
-    subroutine FDM_Int2_CreateSystem(x, g, lambda2, ibc, fdmi)
-        use FDM_Derivative, only: fdm_derivative_dt
+    ! subroutine FDM_Int2_CreateSystem(x, g, lambda2, ibc, fdmi)
+    !     use FDM_Derivative, only: fdm_derivative_dt
+    !     type(fdm_derivative_dt), intent(in) :: g        ! derivative plan to be inverted
+    subroutine FDM_Int2_CreateSystem(x, fdm_der, lambda2, ibc, fdmi)
+        use FDM_Derivative_2order_X, only: der2_dt
+        class(der2_dt), intent(in) :: fdm_der           ! derivative plan to be inverted
         real(wp), intent(in) :: x(:)                    ! node positions
-        type(fdm_derivative_dt), intent(in) :: g        ! derivative plan to be inverted
         real(wp), intent(in) :: lambda2                 ! system constant
         integer, intent(in) :: ibc                      ! type of boundary condition
         type(fdm_integral_dt), intent(inout) :: fdmi    ! int_plan to be created; inout because otherwise allocatable arrays are deallocated
@@ -507,11 +514,14 @@ contains
         real(wp) coef(5)
 
         ! ###################################################################
-        ndl = g%nb_diag(1)
+        ! ndl = g%nb_diag(1)
+        ndl = size(fdm_der%lhs, 2)
         idl = ndl/2 + 1             ! center diagonal in lhs
-        ndr = g%nb_diag(2)
+        ! ndr = g%nb_diag(2)
+        ndr = size(fdm_der%rhs, 2)
         idr = ndr/2 + 1             ! center diagonal in rhs
-        nx = g%size                 ! # grid points
+        ! nx = g%size                 ! # grid points
+        nx = size(fdm_der%lhs, 1)                ! # grid points
 
         ! check sizes
         if (abs(idl - idr) > 1) then
@@ -519,26 +529,34 @@ contains
             call TLab_Stop(DNS_ERROR_UNDEVELOP)
         end if
 
-        fdmi%mode_fdm = g%mode_fdm
+        ! fdmi%mode_fdm = g%mode_fdm
+        fdmi%mode_fdm = fdm_der%type
         fdmi%lambda = lambda2
         fdmi%bc = ibc
 
         ! -------------------------------------------------------------------
         ! new rhs diagonals (array A22R), independent of lambda
         if (allocated(fdmi%rhs)) deallocate (fdmi%rhs)
-        allocate (fdmi%rhs(nx, ndl))
-        fdmi%rhs(1:nx, 1:ndl) = g%lhs(1:nx, 1:ndl)
+        ! allocate (fdmi%rhs(nx, ndl))
+        ! fdmi%rhs(1:nx, 1:ndl) = g%lhs(1:nx, 1:ndl)
+        allocate (fdmi%rhs, source=fdm_der%lhs)
 
         ! -------------------------------------------------------------------
         ! new lhs diagonals (array C22R); remember rhs center diagonal is not saved because it was 1
         if (allocated(fdmi%lhs)) deallocate (fdmi%lhs)
-        allocate (fdmi%lhs(nx, ndr))
-        fdmi%lhs(1:nx, 1:ndr) = g%rhs(1:nx, 1:ndr)
+        ! allocate (fdmi%lhs(nx, ndr))
+        ! fdmi%lhs(1:nx, 1:ndr) = g%rhs(1:nx, 1:ndr)
+        allocate (fdmi%lhs, source=fdm_der%rhs)
 
-        fdmi%lhs(:, idr) = fdmi%lhs(:, idr) - lambda2*g%lhs(:, idl)             ! center diagonal
+        ! fdmi%lhs(:, idr) = fdmi%lhs(:, idr) - lambda2*g%lhs(:, idl)             ! center diagonal
+        ! do ic = 1, idl - 1                                                      ! off-diagonals
+        !     fdmi%lhs(1 + ic:nx, idr - ic) = fdmi%lhs(1 + ic:nx, idr - ic) - lambda2*g%lhs(1 + ic:nx, idl - ic)
+        !     fdmi%lhs(1:nx - ic, idr + ic) = fdmi%lhs(1:nx - ic, idr + ic) - lambda2*g%lhs(1:nx - ic, idl + ic)
+        ! end do
+        fdmi%lhs(:, idr) = fdmi%lhs(:, idr) - lambda2*fdm_der%lhs(:, idl)             ! center diagonal
         do ic = 1, idl - 1                                                      ! off-diagonals
-            fdmi%lhs(1 + ic:nx, idr - ic) = fdmi%lhs(1 + ic:nx, idr - ic) - lambda2*g%lhs(1 + ic:nx, idl - ic)
-            fdmi%lhs(1:nx - ic, idr + ic) = fdmi%lhs(1:nx - ic, idr + ic) - lambda2*g%lhs(1:nx - ic, idl + ic)
+            fdmi%lhs(1 + ic:nx, idr - ic) = fdmi%lhs(1 + ic:nx, idr - ic) - lambda2*fdm_der%lhs(1 + ic:nx, idl - ic)
+            fdmi%lhs(1:nx - ic, idr + ic) = fdmi%lhs(1:nx - ic, idr + ic) - lambda2*fdm_der%lhs(1:nx - ic, idl + ic)
         end do
 
         ! -------------------------------------------------------------------
@@ -561,37 +579,29 @@ contains
 
         locRhs_b = 0.0_wp
         locRhs_t = 0.0_wp
-        ! call FDM_Bcs_Reduce_Old(BCS_BOTH, fdmi%rhs, g%rhs(:, 1:ndr), locRhs_b, locRhs_t)
-        call FDM_Bcs_Reduce(BCS_BOTH, fdmi%rhs, g%rhs(:, 1:ndr), locRhs_b(1:nx_t, 1:ndr_b), locRhs_t(1:nx_t, 1:ndr_t))
+        ! call FDM_Bcs_Reduce(BCS_BOTH, fdmi%rhs, g%rhs(:, 1:ndr), locRhs_b(1:nx_t, 1:ndr_b), locRhs_t(1:nx_t, 1:ndr_t))
+        call FDM_Bcs_Reduce(BCS_BOTH, fdmi%rhs, fdm_der%rhs(:, 1:ndr), locRhs_b(1:nx_t, 1:ndr_b), locRhs_t(1:nx_t, 1:ndr_t))
 
         ! bcs min
-        ! fdmi%rhs_b1(1:idl + 1, 2:ndl + 1) = fdmi%rhs(1:idl + 1, 1:ndl)
         fdmi%rhs_b1(1:nx_t, idr_b - ndl/2:idr_b + ndl/2) = fdmi%rhs(1:nx_t, 1:ndl)
         do ir = 1, idr - 1              ! change sign in b^R_{21} for nonzero bc
-            ! fdmi%rhs_b1(1 + ir, 1 + idl - ir) = -locRhs_b(1 + ir, idr - ir)
             fdmi%rhs_b1(1 + ir, idr_b - ir) = -locRhs_b(1 + ir, idr_b - ir)
         end do
 
-        ! fdmi%lhs(2:idr, 1:ndr) = locRhs_b(2:idr, 1:ndr)
         fdmi%lhs(2:idr, 1:ndr) = locRhs_b(2:idr, idr_b - ndr/2:idr_b + ndr/2)
         do ir = 1, idr - 1
-            ! fdmi%lhs(1 + ir, idr - idl + 1:idr + idl - 1) = fdmi%lhs(1 + ir, idr - idl + 1:idr + idl - 1) - lambda2*fdmi%rhs_b1(1 + ir, 2:ndl + 1)
             fdmi%lhs(1 + ir, idr - ndl/2:idr + ndl/2) = fdmi%lhs(1 + ir, idr - ndl/2:idr + ndl/2) &
                                                         - lambda2*fdmi%rhs_b1(1 + ir, idr_b - ndl/2:idr_b + ndl/2)
         end do
 
         ! bcs min
-        ! fdmi%rhs_t1(1:idl + 1, 2:ndl + 1) = fdmi%rhs(nx - idl:nx, 1:ndl)
         fdmi%rhs_t1(1:nx_t, idr_t - ndl/2:idr_t + ndl/2) = fdmi%rhs(nx - nx_t + 1:nx, 1:ndl)
         do ir = 1, idr - 1              ! change sign in b^R_{2n} for nonzero bc
-            ! fdmi%rhs_t1(1 + idl - ir, 1 + idl + ir) = -locRhs_t(idr - ir, idr + ir)
             fdmi%rhs_t1(nx_t - ir, idr_t + ir) = -locRhs_t(nx_t - ir, idr_t + ir)
         end do
 
-        ! fdmi%lhs(nx - idr + 1:nx - 1, 1:ndr) = locRhs_t(1:idr - 1, 1:ndr)
         fdmi%lhs(nx - idr + 1:nx - 1, 1:ndr) = locRhs_t(nx_t - idr + 1:nx_t - 1, idr_t - ndr/2:idr_t + ndr/2)
         do ir = 1, idr - 1
-            ! fdmi%lhs(nx - ir, idr - idl + 1:idr + idl - 1) = fdmi%lhs(nx - ir, idr - idl + 1:idr + idl - 1) - lambda2*fdmi%rhs_t1(1 + idl - ir, 2:ndl + 1)
             fdmi%lhs(nx - ir, idr - ndl/2:idr + ndl/2) = fdmi%lhs(nx - ir, idr - ndl/2:idr + ndl/2) &
                                                          - lambda2*fdmi%rhs_t1(nx_t - ir, idr_t - ndl/2:idr_t + ndl/2)
         end do

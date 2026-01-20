@@ -14,7 +14,9 @@ module OPR_Elliptic
 #ifdef USE_MPI
     use TLabMPI_VARS, only: ims_offset_i, ims_offset_j, ims_pro_i
 #endif
-    use FDM, only: fdm_dt
+    ! use FDM, only: fdm_dt
+    use FDM, only: fdm_der1_Z, FDM_CreatePlan_Der2
+    use FDM_Derivative_2order_X
     use FDM_Integral
     use OPR_Fourier, only: OPR_Fourier_XY_Backward, OPR_Fourier_XY_Forward
     use OPR_ODES
@@ -62,7 +64,8 @@ module OPR_Elliptic
     integer(wi) i_sing(2), j_sing(2)                                ! singular modes
     integer(wi) i, j, i_max, isize_line
 
-    type(fdm_dt) fdm_loc                                            ! scheme used for the elliptic solvers
+    ! type(fdm_dt) fdm_loc                                            ! scheme used for the elliptic solvers
+    class(der2_dt), allocatable :: fdm_der2
 
     type(fdm_integral_dt), allocatable :: fdm_int1(:, :, :)         ! factorized method
     real(wp), allocatable, target :: rhs_b(:, :), rhs_t(:, :)       ! rhs to free memory space
@@ -81,8 +84,9 @@ contains
     ! #######################################################################
     ! #######################################################################
     subroutine OPR_Elliptic_Initialize(inifile)
-        use FDM, only: g, FDM_CreatePlan
-        use FDM_Derivative, only: FDM_NONE, FDM_COM4_JACOBIAN, FDM_COM6_JACOBIAN, FDM_COM4_DIRECT, FDM_COM6_DIRECT
+        ! use FDM, only: g, FDM_CreatePlan
+        ! use FDM_Derivative, only: FDM_NONE, FDM_COM4_JACOBIAN, FDM_COM6_JACOBIAN, FDM_COM4_DIRECT, FDM_COM6_DIRECT
+        use FDM_Derivative, only: FDM_COM4_DIRECT, FDM_COM6_DIRECT
         use FDM, only: fdm_der1_X, fdm_der1_Y, fdm_der1_Z
         use FDM, only: fdm_der2_X, fdm_der2_Y, fdm_der2_Z
         use FDM_Derivative_1order_X, only: der1_periodic, der1_biased, FDM_Der1_ModifyWavenumbers
@@ -110,12 +114,12 @@ contains
         block = 'Space'
 
         imode_elliptic = TYPE_FACTORIZE                 ! default is the finite-difference method used for the derivatives
-        fdm_loc%der1%mode_fdm = g(3)%der1%mode_fdm      ! to impose zero divergence down to round-off error in the interior points
-        !                                                 If factorize type, it needs to be equal to the scheme used to calculate
-        !                                                 derivatives and thus Neumann boundary conditions,
-        !                                                 because of the compatibility constraint in pressure-Poisson equation
+        ! fdm_loc%der1%mode_fdm = g(3)%der1%mode_fdm      ! to impose zero divergence down to round-off error in the interior points
+        ! !                                                 If factorize type, it needs to be equal to the scheme used to calculate
+        ! !                                                 derivatives and thus Neumann boundary conditions,
+        ! !                                                 because of the compatibility constraint in pressure-Poisson equation
         ! fdm_loc%der2%mode_fdm = FDM_NONE
-        fdm_loc%der2%mode_fdm = g(3)%der2%mode_fdm      ! I still need it in FDM_CreatePlan
+        ! fdm_loc%der2%mode_fdm = g(3)%der2%mode_fdm      ! I still need it in FDM_CreatePlan
 
         call ScanFile_Char(bakfile, inifile, block, 'SchemeElliptic', 'void', sRes)
         ! call ScanFile_Char(bakfile, inifile, block, 'SchemeElliptic', 'compactdirect6', sRes)
@@ -123,10 +127,14 @@ contains
         case ('void')
         case ('compactdirect4')
             imode_elliptic = TYPE_DIRECT
-            fdm_loc%der2%mode_fdm = FDM_COM4_DIRECT
+            ! fdm_loc%der2%mode_fdm = FDM_COM4_DIRECT
+            call FDM_CreatePlan_Der2(z, fdm_der2, FDM_COM4_DIRECT, fdm_der1_Z)
+
         case ('compactdirect6')
             imode_elliptic = TYPE_DIRECT
-            fdm_loc%der2%mode_fdm = FDM_COM6_DIRECT
+            ! fdm_loc%der2%mode_fdm = FDM_COM6_DIRECT
+            call FDM_CreatePlan_Der2(z, fdm_der2, FDM_COM6_DIRECT, fdm_der1_Z)
+
         case default
             call TLab_Write_ASCII(efile, __FILE__//'. Undeveloped SchemeElliptic.')
             call TLab_Stop(DNS_ERROR_OPTION)
@@ -134,7 +142,7 @@ contains
 
         ! ###################################################################
         ! Initializing
-        call FDM_CreatePlan(z, fdm_loc)
+        ! call FDM_CreatePlan(z, fdm_loc)
 
         isize_line = imax/2 + 1
 
@@ -146,8 +154,10 @@ contains
             OPR_Poisson => OPR_Poisson_FourierXZ_Factorize
             OPR_Helmholtz => OPR_Helmholtz_FourierXZ_Factorize
 
-            ndl = fdm_loc%der1%nb_diag(1)
-            ndr = fdm_loc%der1%nb_diag(2)
+            ! ndl = fdm_loc%der1%nb_diag(1)
+            ! ndr = fdm_loc%der1%nb_diag(2)
+            ndl = size(fdm_der1_Z%lhs, 2)
+            ndr = size(fdm_der1_Z%rhs, 2)
             nd = ndl
             allocate (fdm_int1(2, isize_line, jmax))
             call TLab_Allocate_Real(__FILE__, rhs_b, [z%size, nd], 'rhs_b')
@@ -167,8 +177,10 @@ contains
             OPR_Poisson => OPR_Poisson_FourierXZ_Direct
             OPR_Helmholtz => OPR_Helmholtz_FourierXZ_Direct
 
-            ndl = fdm_loc%der2%nb_diag(1)
-            ndr = fdm_loc%der2%nb_diag(2)
+            ! ndl = fdm_loc%der2%nb_diag(1)
+            ! ndr = fdm_loc%der2%nb_diag(2)
+            ndl = size(fdm_der2%lhs, 2)
+            ndr = size(fdm_der2%rhs, 2)
             nd = ndl
             allocate (fdm_int2(isize_line, jmax))
             call TLab_Allocate_Real(__FILE__, rhs_d, [z%size, nd], 'rhs_d')
@@ -272,9 +284,11 @@ contains
 
                     ! Compatibility constraint. The reference value of p at the lower boundary will be set to zero
                     if (any(i_sing == i) .and. any(j_sing == j)) then
-                        call FDM_Int2_Initialize(fdm_loc%nodes(:), fdm_loc%der2, lambda(i, j), BCS_DN, fdm_int2(i, j))
+                        ! call FDM_Int2_Initialize(fdm_loc%nodes(:), fdm_loc%der2, lambda(i, j), BCS_DN, fdm_int2(i, j))
+                        call FDM_Int2_Initialize(z%nodes(:), fdm_der2, lambda(i, j), BCS_DN, fdm_int2(i, j))
                     else
-                        call FDM_Int2_Initialize(fdm_loc%nodes(:), fdm_loc%der2, lambda(i, j), BCS_NN, fdm_int2(i, j))
+                        ! call FDM_Int2_Initialize(fdm_loc%nodes(:), fdm_loc%der2, lambda(i, j), BCS_NN, fdm_int2(i, j))
+                        call FDM_Int2_Initialize(z%nodes(:), fdm_der2, lambda(i, j), BCS_NN, fdm_int2(i, j))
                     end if
                     ! multiply by the FFT normalization
                     fdm_int2(i, j)%rhs = fdm_int2(i, j)%rhs*norm
@@ -424,7 +438,8 @@ contains
                     ! already done at initialization
 
                 case default            ! Need to calculate and factorize LHS
-                    call FDM_Int2_Initialize(fdm_loc%nodes(:), fdm_loc%der2, lambda(i, j), ibc, fdm_int2_loc)
+                    ! call FDM_Int2_Initialize(fdm_loc%nodes(:), fdm_loc%der2, lambda(i, j), ibc, fdm_int2_loc)
+                    call FDM_Int2_Initialize(z%nodes(:), fdm_der2, lambda(i, j), ibc, fdm_int2_loc)
                     call FDM_Int2_Solve(2, fdm_int2_loc, fdm_int2_loc%rhs, f(:, i, j), u(:, i, j), wrk2d)
 
                     ! multiply by the FFT normalization
@@ -568,7 +583,8 @@ contains
                 u(1:2, i, j) = f(1:2, i, j)
                 u(2*nz - 1:2*nz, i, j) = f(2*nz - 1:2*nz, i, j)
 
-                call FDM_Int2_Initialize(fdm_loc%nodes(:), fdm_loc%der2, lambda(i, j) - alpha, ibc, fdm_int2_loc)
+                ! call FDM_Int2_Initialize(fdm_loc%nodes(:), fdm_loc%der2, lambda(i, j) - alpha, ibc, fdm_int2_loc)
+                call FDM_Int2_Initialize(z%nodes(:), fdm_der2, lambda(i, j) - alpha, ibc, fdm_int2_loc)
                 call FDM_Int2_Solve(2, fdm_int2_loc, fdm_int2_loc%rhs, f(:, i, j), u(:, i, j), wrk2d)
 
                 ! multiply by the FFT normalization

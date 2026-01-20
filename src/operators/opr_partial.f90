@@ -10,9 +10,10 @@ module OPR_Partial
     use FDM_Derivative_MPISplit
 #endif
     use TLab_Grid, only: x, y, z
-    use FDM, only: g
     use FDM, only: fdm_der1_X, fdm_der1_Y, fdm_der1_Z
-    use FDM_Derivative, only: FDM_Der2_Solve!, FDM_Der1_Solve
+    use FDM, only: fdm_der2_X, fdm_der2_Y, fdm_der2_Z
+    use FDM, only: g
+    ! use FDM_Derivative, only: FDM_Der2_Solve!, FDM_Der1_Solve
     use Thomas_Split
     implicit none
     private
@@ -95,7 +96,7 @@ contains
         end if
 
         call ScanFile_Char(bakfile, inifile, block, 'DerivativeModeJ', 'split', sRes)
-        if (trim(adjustl(sRes)) == 'transpose') then; der_mode_j = TYPE_TRANSPOSE
+        if (trim(adjustl(sRes)) == 'transpose') then; der_mode_i = TYPE_TRANSPOSE
         elseif (trim(adjustl(sRes)) == 'split') then; der_mode_j = TYPE_SPLIT
         else
             call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Wrong DerivativeModeJ option.')
@@ -188,12 +189,14 @@ contains
         case (OPR_P2)
             ! if (g(1)%der2%need_1der) call FDM_Der1_Solve(ny*nz, g(1)%der1, g(1)%der1%lu, result, tmp1, wrk2d, ibc_loc)
             if (.not. x%uniform) call fdm_der1_X%compute(ny*nz, result, tmp1)
-            call FDM_Der2_Solve(ny*nz, g(1)%der2, g(1)%der2%lu, result, wrk3d, tmp1, wrk2d)
+            ! call FDM_Der2_Solve(ny*nz, g(1)%der2, g(1)%der2%lu, result, wrk3d, tmp1, wrk2d)
+            call fdm_der2_X%compute(ny*nz, result, wrk3d, tmp1)
 
         case (OPR_P2_P1)
             ! call FDM_Der1_Solve(ny*nz, g(1)%der1, g(1)%der1%lu, result, wrk3d, wrk2d, ibc_loc)
             call fdm_der1_X%compute(ny*nz, result, wrk3d)
-            call FDM_Der2_Solve(ny*nz, g(1)%der2, g(1)%der2%lu, result, tmp1, wrk3d, wrk2d)
+            ! call FDM_Der2_Solve(ny*nz, g(1)%der2, g(1)%der2%lu, result, tmp1, wrk3d, wrk2d)
+            call fdm_der2_X%compute(ny*nz, result, tmp1, wrk3d)
 
         case (OPR_P1, OPR_P1_ADD, OPR_P1_SUBTRACT)
             ! call FDM_Der1_Solve(ny*nz, g(1)%der1, g(1)%der1%lu, result, wrk3d, wrk2d, ibc_loc)
@@ -255,12 +258,14 @@ contains
         case (OPR_P2)
             ! if (g(1)%der2%need_1der) call FDM_Der1_Solve(nlines, g(1)%der1, g(1)%der1%lu, wrk3d, tmp1, wrk2d, ibc_loc)
             if (.not. x%uniform) call fdm_der1_X%compute(nlines, wrk3d, tmp1)
-            call FDM_Der2_Solve(nlines, g(1)%der2, g(1)%der2%lu, wrk3d, result, tmp1, wrk2d)
+            ! call FDM_Der2_Solve(nlines, g(1)%der2, g(1)%der2%lu, wrk3d, result, tmp1, wrk2d)
+            call fdm_der2_X%compute(ny*nz, wrk3d, result, tmp1)
 
         case (OPR_P2_P1)
             ! call FDM_Der1_Solve(nlines, g(1)%der1, g(1)%der1%lu, wrk3d, tmp1, wrk2d, ibc_loc)
             call fdm_der1_X%compute(nlines, wrk3d, tmp1)
-            call FDM_Der2_Solve(nlines, g(1)%der2, g(1)%der2%lu, wrk3d, result, tmp1, wrk2d)
+            ! call FDM_Der2_Solve(nlines, g(1)%der2, g(1)%der2%lu, wrk3d, result, tmp1, wrk2d)
+            call fdm_der2_X%compute(ny*nz, wrk3d, result, tmp1)
 
         case (OPR_P1, OPR_P1_ADD, OPR_P1_SUBTRACT)
             ! call FDM_Der1_Solve(nlines, g(1)%der1, g(1)%der1%lu, wrk3d, result, wrk2d, ibc_loc)
@@ -398,12 +403,14 @@ contains
         case (OPR_P2)
             ! if (g(2)%der2%need_1der) call FDM_Der1_Solve(nlines, g(2)%der1, g(2)%der1%lu, result, tmp1, wrk2d, ibc_loc)
             if (.not. y%uniform) call fdm_der1_Y%compute(nlines, result, tmp1)
-            call FDM_Der2_Solve(nlines, g(2)%der2, g(2)%der2%lu, result, wrk3d, tmp1, wrk2d)
+            ! call FDM_Der2_Solve(nlines, g(2)%der2, g(2)%der2%lu, result, wrk3d, tmp1, wrk2d)
+            call fdm_der2_Y%compute(ny*nz, result, wrk3d, tmp1)
 
         case (OPR_P2_P1)
             ! call FDM_Der1_Solve(nlines, g(2)%der1, g(2)%der1%lu, result, wrk3d, wrk2d, ibc_loc)
             call fdm_der1_Y%compute(nlines, result, wrk3d)
-            call FDM_Der2_Solve(nlines, g(2)%der2, g(2)%der2%lu, result, tmp1, wrk3d, wrk2d)
+            ! call FDM_Der2_Solve(nlines, g(2)%der2, g(2)%der2%lu, result, tmp1, wrk3d, wrk2d)
+            call fdm_der2_Y%compute(ny*nz, result, tmp1, wrk3d)
 
         case (OPR_P1, OPR_P1_ADD, OPR_P1_SUBTRACT)
             ! call FDM_Der1_Solve(nlines, g(2)%der1, g(2)%der1%lu, result, wrk3d, wrk2d, ibc_loc)
@@ -464,12 +471,14 @@ contains
         case (OPR_P2)
 !            if (g(2)%der2%need_1der) call FDM_Der1_Solve(nlines, g(2)%der1, g(2)%der1%lu, wrk3d, tmp1, wrk2d, ibc_loc)
             if (.not. y%uniform) call fdm_der1_Y%compute(nlines, wrk3d, tmp1)
-            call FDM_Der2_Solve(nlines, g(2)%der2, g(2)%der2%lu, wrk3d, result, tmp1, wrk2d)
+            ! call FDM_Der2_Solve(nlines, g(2)%der2, g(2)%der2%lu, wrk3d, result, tmp1, wrk2d)
+            call fdm_der2_Y%compute(nlines, wrk3d, result, tmp1)
 
         case (OPR_P2_P1)
             ! call FDM_Der1_Solve(nlines, g(2)%der1, g(2)%der1%lu, wrk3d, tmp1, wrk2d, ibc_loc)
             call fdm_der1_Y%compute(nlines, wrk3d, tmp1)
-            call FDM_Der2_Solve(nlines, g(2)%der2, g(2)%der2%lu, wrk3d, result, tmp1, wrk2d)
+            ! call FDM_Der2_Solve(nlines, g(2)%der2, g(2)%der2%lu, wrk3d, result, tmp1, wrk2d)
+            call fdm_der2_Y%compute(nlines, wrk3d, result, tmp1)
 
         case (OPR_P1, OPR_P1_ADD, OPR_P1_SUBTRACT)
             ! call FDM_Der1_Solve(nlines, g(2)%der1, g(2)%der1%lu, wrk3d, result, wrk2d, ibc_loc)
@@ -600,7 +609,8 @@ contains
                 !     call FDM_Der1_Solve(nx*ny, g(3)%der1, g(3)%der1%lu, u, wrk3d, wrk2d, ibc_loc)
                 ! end if
             end if
-            call FDM_Der2_Solve(nx*ny, g(3)%der2, g(3)%der2%lu, u, result, wrk3d, wrk2d)
+            ! call FDM_Der2_Solve(nx*ny, g(3)%der2, g(3)%der2%lu, u, result, wrk3d, wrk2d)
+            call fdm_der2_Z%compute(nx*ny, u, result, wrk3d)
 
         case (OPR_P2_P1)
             ! if (ibc_loc == BCS_NONE) then       ! testing
@@ -609,6 +619,7 @@ contains
             !     call FDM_Der1_Solve(nx*ny, g(3)%der1, g(3)%der1%lu, u, tmp1, wrk2d, ibc_loc)
             ! end if
             ! call FDM_Der2_Solve(nx*ny, g(3)%der2, g(3)%der2%lu, u, result, tmp1, wrk2d)
+            call fdm_der2_Z%compute(nx*ny, u, result, tmp1)
 
         case (OPR_P1)
             ! if (ibc_loc == BCS_NONE) then       ! testing

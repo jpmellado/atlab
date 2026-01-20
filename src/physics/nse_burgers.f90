@@ -12,6 +12,7 @@ module NSE_Burgers
     use TLab_Grid, only: x, y, z
     use FDM, only: fdm_dt, g
     use FDM, only: fdm_der1_X, fdm_der1_Y, fdm_der1_Z
+    use FDM, only: fdm_der2_X, fdm_der2_Y, fdm_der2_Z
     use NavierStokes, only: nse_eqns, DNS_EQNS_ANELASTIC
     use Thermo_Anelastic, only: ribackground, rbackground
     use NavierStokes, only: visc, schmidt
@@ -222,20 +223,37 @@ contains
         nlines = ny*nz
 
         ! call FDM_Der1_Solve(nlines, g(1)%der1, g(1)%der1%lu, tmp1, result, wrk2d)
+        ! call FDM_Der2_Solve(nlines, g(1)%der2, fdmDiffusion(1)%lu(:, :, is), tmp1, wrk3d, result, wrk2d)
+
+        ! if (present(rhou_in)) then      ! transposed velocity (times density) is passed as argument
+        !     wrk3d(1:nx*ny*nz) = wrk3d(1:nx*ny*nz) - rhou_in(:)*result(:)
+        ! else
+        !     if (nse_eqns == DNS_EQNS_ANELASTIC) then
+        !         call NSE_Burgers_1D(nlines, nx, &
+        !                             der1=result, &
+        !                             der2=wrk3d, &
+        !                             rhou=tmp1, &
+        !                             rho_xy=rho_yz(:))
+        !     else
+        !         wrk3d(1:nx*ny*nz) = wrk3d(1:nx*ny*nz) - tmp1(:)*result(:)
+        !     end if
+        ! end if
+
         call fdm_der1_X%compute(nlines, tmp1, result)
-        call FDM_Der2_Solve(nlines, g(1)%der2, fdmDiffusion(1)%lu(:, :, is), tmp1, wrk3d, result, wrk2d)
+        call fdm_der2_X%compute(nlines, tmp1, wrk3d, result)
 
         if (present(rhou_in)) then      ! transposed velocity (times density) is passed as argument
-            wrk3d(1:nx*ny*nz) = wrk3d(1:nx*ny*nz) - rhou_in(:)*result(:)
+            wrk3d(1:nx*ny*nz) = wrk3d(1:nx*ny*nz)*diffusivity(is) - rhou_in(:)*result(:)
         else
             if (nse_eqns == DNS_EQNS_ANELASTIC) then
-                call NSE_Burgers_1D(nlines, nx, &
-                                    der1=result, &
-                                    der2=wrk3d, &
-                                    rhou=tmp1, &
-                                    rho_xy=rho_yz(:))
+                call NSE_Burgers_1D_Diff(nlines, nx, &
+                                         der1=result, &
+                                         der2=wrk3d, &
+                                         rhou=tmp1, &
+                                         rho_xy=rho_yz(:), &
+                                         diff=diffusivity(is))
             else
-                wrk3d(1:nx*ny*nz) = wrk3d(1:nx*ny*nz) - tmp1(:)*result(:)
+                wrk3d(1:nx*ny*nz) = wrk3d(1:nx*ny*nz)*diffusivity(is) - tmp1(:)*result(:)
             end if
         end if
 
@@ -282,20 +300,37 @@ contains
 #endif
 
         ! call FDM_Der1_Solve(nlines, g(1)%der1, g(1)%der1%lu, tmp1, wrk3d, wrk2d)
+        ! call FDM_Der2_Solve(nlines, g(1)%der2, fdmDiffusion(1)%lu(:, :, is), tmp1, result, wrk3d, wrk2d)
+
+        ! if (present(rhou_in)) then      ! transposed velocity (times density) is passed as argument
+        !     result(:) = result(:) - rhou_in(:)*wrk3d(1:nx*ny*nz)
+        ! else
+        !     if (nse_eqns == DNS_EQNS_ANELASTIC) then
+        !         call NSE_Burgers_1D(nlines, nx*ims_npro_i, &
+        !                             der1=wrk3d, &
+        !                             der2=result, &
+        !                             rhou=tmp1, &
+        !                             rho_xy=rho_yz(:))
+        !     else
+        !         result(:) = result(:) - tmp1(:)*wrk3d(1:nx*ny*nz)
+        !     end if
+        ! end if
+
         call fdm_der1_X%compute(nlines, tmp1, wrk3d)
-        call FDM_Der2_Solve(nlines, g(1)%der2, fdmDiffusion(1)%lu(:, :, is), tmp1, result, wrk3d, wrk2d)
+        call fdm_der2_X%compute(nlines, tmp1, result, wrk3d)
 
         if (present(rhou_in)) then      ! transposed velocity (times density) is passed as argument
-            result(:) = result(:) - rhou_in(:)*wrk3d(1:nx*ny*nz)
+            result(:) = result(:)*diffusivity(is) - rhou_in(:)*wrk3d(1:nx*ny*nz)
         else
             if (nse_eqns == DNS_EQNS_ANELASTIC) then
-                call NSE_Burgers_1D(nlines, nx*ims_npro_i, &
-                                    der1=wrk3d, &
-                                    der2=result, &
-                                    rhou=tmp1, &
-                                    rho_xy=rho_yz(:))
+                call NSE_Burgers_1D_Diff(nlines, nx*ims_npro_i, &
+                                         der1=wrk3d, &
+                                         der2=result, &
+                                         rhou=tmp1, &
+                                         rho_xy=rho_yz(:), &
+                                         diff=diffusivity(is))
             else
-                result(:) = result(:) - tmp1(:)*wrk3d(1:nx*ny*nz)
+                result(:) = result(:)*diffusivity(is) - tmp1(:)*wrk3d(1:nx*ny*nz)
             end if
         end if
 
@@ -357,12 +392,12 @@ contains
             wrk3d(1:nx*ny*nz) = wrk3d(1:nx*ny*nz)*diffusivity(is) - rhou_in(:)*result(:)
         else
             if (nse_eqns == DNS_EQNS_ANELASTIC) then
-                call NSE_Burgers_1D_Split(nlines, nx, &
-                                          der1=result, &
-                                          der2=wrk3d, &
-                                          rhou=tmp1, &
-                                          rho_xy=rho_yz(:), &
-                                          diff=diffusivity(is))
+                call NSE_Burgers_1D_Diff(nlines, nx, &
+                                         der1=result, &
+                                         der2=wrk3d, &
+                                         rhou=tmp1, &
+                                         rho_xy=rho_yz(:), &
+                                         diff=diffusivity(is))
             else
                 wrk3d(1:nx*ny*nz) = wrk3d(1:nx*ny*nz)*diffusivity(is) - tmp1(:)*result(:)
             end if
@@ -411,20 +446,38 @@ contains
         nlines = nx*nz
 
         ! call FDM_Der1_Solve(nlines, g(2)%der1, g(2)%der1%lu, tmp1, result, wrk2d)
+        ! call FDM_Der2_Solve(nlines, g(2)%der2, fdmDiffusion(2)%lu(:, :, is), tmp1, wrk3d, result, wrk2d)
+
+        ! if (present(rhou_in)) then      ! transposed velocity (times density) is passed as argument
+        !     wrk3d(1:nx*ny*nz) = wrk3d(1:nx*ny*nz) - rhou_in(:)*result(:)
+        ! else
+        !     if (nse_eqns == DNS_EQNS_ANELASTIC) then
+        !         call NSE_Burgers_1D(nlines, ny, &
+        !                             der1=result, &
+        !                             der2=wrk3d, &
+        !                             rhou=tmp1, &
+        !                             rho_xy=rho_xz(:))
+        !     else
+        !         wrk3d(1:nx*ny*nz) = wrk3d(1:nx*ny*nz) - tmp1(:)*result(:)
+        !     end if
+
+        ! end if
+
         call fdm_der1_Y%compute(nlines, tmp1, result)
-        call FDM_Der2_Solve(nlines, g(2)%der2, fdmDiffusion(2)%lu(:, :, is), tmp1, wrk3d, result, wrk2d)
+        call fdm_der2_Y%compute(nlines, tmp1, wrk3d, result)
 
         if (present(rhou_in)) then      ! transposed velocity (times density) is passed as argument
-            wrk3d(1:nx*ny*nz) = wrk3d(1:nx*ny*nz) - rhou_in(:)*result(:)
+            wrk3d(1:nx*ny*nz) = wrk3d(1:nx*ny*nz)*diffusivity(is) - rhou_in(:)*result(:)
         else
             if (nse_eqns == DNS_EQNS_ANELASTIC) then
-                call NSE_Burgers_1D(nlines, ny, &
-                                    der1=result, &
-                                    der2=wrk3d, &
-                                    rhou=tmp1, &
-                                    rho_xy=rho_xz(:))
+                call NSE_Burgers_1D_Diff(nlines, ny, &
+                                         der1=result, &
+                                         der2=wrk3d, &
+                                         rhou=tmp1, &
+                                         rho_xy=rho_xz(:), &
+                                         diff=diffusivity(is))
             else
-                wrk3d(1:nx*ny*nz) = wrk3d(1:nx*ny*nz) - tmp1(:)*result(:)
+                wrk3d(1:nx*ny*nz) = wrk3d(1:nx*ny*nz)*diffusivity(is) - tmp1(:)*result(:)
             end if
 
         end if
@@ -471,20 +524,38 @@ contains
         nlines = tmpi_plan_dy%nlines
 
         ! call FDM_Der1_Solve(nlines, g(2)%der1, g(2)%der1%lu, tmp1, wrk3d, wrk2d)
+        ! call FDM_Der2_Solve(nlines, g(2)%der2, fdmDiffusion(2)%lu(:, :, is), tmp1, result, wrk3d, wrk2d)
+
+        ! if (present(rhou_in)) then      ! transposed velocity (times density) is passed as argument
+        !     result(:) = result(:) - rhou_in(:)*wrk3d(1:nx*ny*nz)
+        ! else
+        !     if (nse_eqns == DNS_EQNS_ANELASTIC) then
+        !         call NSE_Burgers_1D(nlines, ny*ims_npro_j, &
+        !                             der1=wrk3d, &
+        !                             der2=result, &
+        !                             rhou=tmp1, &
+        !                             rho_xy=rho_xz(:))
+        !     else
+        !         result(:) = result(:) - tmp1(:)*wrk3d(1:nx*ny*nz)
+        !     end if
+
+        ! end if
+
         call fdm_der1_Y%compute(nlines, tmp1, wrk3d)
-        call FDM_Der2_Solve(nlines, g(2)%der2, fdmDiffusion(2)%lu(:, :, is), tmp1, result, wrk3d, wrk2d)
+        call fdm_der2_Y%compute(nlines, tmp1, result, wrk3d)
 
         if (present(rhou_in)) then      ! transposed velocity (times density) is passed as argument
-            result(:) = result(:) - rhou_in(:)*wrk3d(1:nx*ny*nz)
+            result(:) = result(:)*diffusivity(is) - rhou_in(:)*wrk3d(1:nx*ny*nz)
         else
             if (nse_eqns == DNS_EQNS_ANELASTIC) then
-                call NSE_Burgers_1D(nlines, ny*ims_npro_j, &
-                                    der1=wrk3d, &
-                                    der2=result, &
-                                    rhou=tmp1, &
-                                    rho_xy=rho_xz(:))
+                call NSE_Burgers_1D_Diff(nlines, ny*ims_npro_j, &
+                                         der1=wrk3d, &
+                                         der2=result, &
+                                         rhou=tmp1, &
+                                         rho_xy=rho_xz(:), &
+                                         diff=diffusivity(is))
             else
-                result(:) = result(:) - tmp1(:)*wrk3d(1:nx*ny*nz)
+                result(:) = result(:)*diffusivity(is) - tmp1(:)*wrk3d(1:nx*ny*nz)
             end if
 
         end if
@@ -547,12 +618,12 @@ contains
             wrk3d(1:nx*ny*nz) = wrk3d(1:nx*ny*nz)*diffusivity(is) - rhou_in(:)*result(:)
         else
             if (nse_eqns == DNS_EQNS_ANELASTIC) then
-                call NSE_Burgers_1D_Split(nlines, ny, &
-                                          der1=result, &
-                                          der2=wrk3d, &
-                                          rhou=tmp1, &
-                                          rho_xy=rho_xz(:), &
-                                          diff=diffusivity(is))
+                call NSE_Burgers_1D_Diff(nlines, ny, &
+                                         der1=result, &
+                                         der2=wrk3d, &
+                                         rhou=tmp1, &
+                                         rho_xy=rho_xz(:), &
+                                         diff=diffusivity(is))
             else
                 wrk3d(1:nx*ny*nz) = wrk3d(1:nx*ny*nz)*diffusivity(is) - tmp1(:)*result(:)
             end if
@@ -596,7 +667,9 @@ contains
 
         ! call FDM_Der1_Solve(nlines, g(3)%der1, g(3)%der1%lu, s, wrk3d, wrk2d)
         call fdm_der1_Z%compute(nlines, s, wrk3d)
-        call FDM_Der2_Solve(nlines, g(3)%der2, fdmDiffusion(3)%lu(:, :, is), s, tmp1, wrk3d, wrk2d)
+        ! call FDM_Der2_Solve(nlines, g(3)%der2, fdmDiffusion(3)%lu(:, :, is), s, tmp1, wrk3d, wrk2d)
+        call fdm_der2_Z%compute(nlines, s, tmp1, wrk3d)
+        tmp1 = tmp1*diffusivity(is)
 
         if (present(rhou_in)) then      ! transposed velocity (times density) is passed as argument
             if (subsidenceProps%type == TYPE_SUB_CONSTANT) then
@@ -646,8 +719,7 @@ contains
 
     !########################################################################
     !########################################################################
-#ifdef USE_MPI
-    subroutine NSE_Burgers_1D_Split(nlines, nsize, der1, der2, rhou, rho_xy, diff)
+    subroutine NSE_Burgers_1D_Diff(nlines, nsize, der1, der2, rhou, rho_xy, diff)
         integer(wi), intent(in) :: nlines, nsize
         real(wp), intent(in) :: der1(nlines, nsize)
         real(wp), intent(inout) :: der2(nlines, nsize)
@@ -663,7 +735,6 @@ contains
         end do
 
         return
-    end subroutine NSE_Burgers_1D_Split
-#endif
+    end subroutine NSE_Burgers_1D_Diff
 
 end module NSE_Burgers

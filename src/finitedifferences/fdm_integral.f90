@@ -108,10 +108,7 @@ contains
 
         !########################################################################
         ! call FDM_Int1_CreateSystem(g, lambda, ibc, fdmi)
-        select type (fdm_der)
-        type is (der1_biased)
-            call FDM_Int1_CreateSystem(fdm_der, lambda, ibc, fdmi)
-        end select
+        call FDM_Int1_CreateSystem(fdm_der, lambda, ibc, fdmi)
 
         ! LU decomposition
         nx = size(fdmi%lhs, 1)              ! # of grid points
@@ -157,8 +154,8 @@ contains
     ! subroutine FDM_Int1_CreateSystem(g, lambda, ibc, fdmi)
     !     type(fdm_derivative_dt), intent(in) :: g        ! derivative plan to be inverted
     subroutine FDM_Int1_CreateSystem(fdm_der, lambda, ibc, fdmi)
-        use FDM_Derivative_1order_X, only: der1_biased
-        type(der1_biased), intent(in) :: fdm_der        ! derivative plan to be inverted
+        use FDM_Derivative_1order_X, only: der1_biased, der_dt
+        class(der_dt), intent(in) :: fdm_der        ! derivative plan to be inverted
         real(wp), intent(in) :: lambda                  ! system constant
         integer, intent(in) :: ibc                      ! type of boundary condition
         type(fdm_integral_dt), intent(inout) :: fdmi    ! int_plan to be created; inout because otherwise allocatable arrays are deallocated

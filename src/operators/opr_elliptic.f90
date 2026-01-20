@@ -84,7 +84,9 @@ contains
         use FDM, only: g, FDM_CreatePlan
         use FDM_Derivative, only: FDM_NONE, FDM_COM4_JACOBIAN, FDM_COM6_JACOBIAN, FDM_COM4_DIRECT, FDM_COM6_DIRECT
         use FDM, only: fdm_der1_X, fdm_der1_Y, fdm_der1_Z
+        use FDM, only: fdm_der2_X, fdm_der2_Y, fdm_der2_Z
         use FDM_Derivative_1order_X, only: der1_periodic, der1_biased, FDM_Der1_ModifyWavenumbers
+        use FDM_Derivative_2order_X, only: der2_periodic, der2_biased, FDM_Der2_ModifyWavenumbers
 
         character(len=*), intent(in) :: inifile
 
@@ -154,6 +156,13 @@ contains
             i_sing = [1, x%size/2 + 1]      ! global indexes, transformed below to task-local indexes.
             j_sing = [1, y%size/2 + 1]
 
+            if (x%size > 1) &
+                call FDM_Der1_ModifyWavenumbers(size(fdm_der1_X%lhs, 1), fdm_der1_X%lhs(1, :), fdm_der1_X%rhs(1, :), mwn_x)
+            ! print *, maxval(abs(mwn_x(:) - g(1)%der1%mwn(:)))
+            if (y%size > 1) &
+                call FDM_Der1_ModifyWavenumbers(size(fdm_der1_Y%lhs, 1), fdm_der1_Y%lhs(1, :), fdm_der1_Y%rhs(1, :), mwn_y)
+            ! print *, maxval(abs(mwn_y(:) - g(2)%der1%mwn(:)))
+
         case (TYPE_DIRECT)
             OPR_Poisson => OPR_Poisson_FourierXZ_Direct
             OPR_Helmholtz => OPR_Helmholtz_FourierXZ_Direct
@@ -166,6 +175,13 @@ contains
 
             i_sing = [1, 1]                 ! 2nd order FDMs are non-zero at Nyquist
             j_sing = [1, 1]
+
+            if (x%size > 1) &
+                call FDM_Der2_ModifyWavenumbers(size(fdm_der2_X%lhs, 1), fdm_der2_X%lhs(1, :), fdm_der2_X%rhs(1, :), mwn_x)
+            ! print *, maxval(abs(mwn_x(:) - g(1)%der2%mwn(:)))
+            if (y%size > 1) &
+                call FDM_Der2_ModifyWavenumbers(size(fdm_der2_Y%lhs, 1), fdm_der2_Y%lhs(1, :), fdm_der2_Y%rhs(1, :), mwn_y)
+            ! print *, maxval(abs(mwn_y(:) - g(2)%der2%mwn(:)))
 
         end select
 
@@ -181,17 +197,6 @@ contains
         i_sing = i_sing - [fft_offset_i, fft_offset_i]          ! Singular modes in task-local variables
         j_sing = j_sing - [fft_offset_j, fft_offset_j]
         i_max = min(x%size/2 + 1 - fft_offset_i, isize_line)    ! Maximum mode is x direction
-
-        select type (fdm_der1_X)
-        type is (der1_periodic)
-            call FDM_Der1_ModifyWavenumbers(size(fdm_der1_X%lhs, 1), fdm_der1_X%lhs(1, :), fdm_der1_X%rhs(1, :), mwn_x)
-            ! print *, maxval(mwn_x(:) - g(1)%der1%mwn(:))
-        end select
-        select type (fdm_der1_Y)
-        type is (der1_periodic)
-            call FDM_Der1_ModifyWavenumbers(size(fdm_der1_Y%lhs, 1), fdm_der1_Y%lhs(1, :), fdm_der1_Y%rhs(1, :), mwn_y)
-            ! print *, maxval(mwn_y(:) - g(2)%der1%mwn(:))
-        end select
 
         do i = 1, i_max
 #ifdef USE_MPI
@@ -258,9 +263,11 @@ contains
                 case (TYPE_DIRECT)     ! only for case BCS_NN
                     ! Define \lambda based on modified wavenumbers (real)
                     if (y%size > 1) then
-                        lambda(i, j) = g(1)%der2%mwn(iglobal) + g(2)%der2%mwn(jglobal)
+                        ! lambda(i, j) = g(1)%der2%mwn(iglobal) + g(2)%der2%mwn(jglobal)
+                        lambda(i, j) = mwn_x(iglobal) + mwn_y(jglobal)
                     else
-                        lambda(i, j) = g(1)%der2%mwn(iglobal)
+                        ! lambda(i, j) = g(1)%der2%mwn(iglobal)
+                        lambda(i, j) = mwn_x(iglobal)
                     end if
 
                     ! Compatibility constraint. The reference value of p at the lower boundary will be set to zero

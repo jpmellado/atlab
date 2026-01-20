@@ -7,7 +7,8 @@ program VPARTIAL
     use TLab_Arrays, only: wrk1d, wrk2d, txc
     use TLab_Grid, only: grid_dt
     use Thomas
-    use FDM, only: fdm_dt, FDM_CreatePlan, FDM_CreatePlan_Der1
+    use FDM, only: fdm_dt, FDM_CreatePlan
+    use FDM, only: FDM_CreatePlan_Der1, FDM_CreatePlan_Der2
     use FDM_Derivative
     use FDM_derivative_Neumann
     use FDM_ComX_Direct
@@ -15,6 +16,7 @@ program VPARTIAL
     use FDM_Com1_Jacobian
     use FDM_Com2_Jacobian
     use FDM_Derivative_1order_X
+    use FDM_Derivative_2order_X
 
     implicit none
 
@@ -45,6 +47,7 @@ program VPARTIAL
     type(grid_dt) :: x
     type(fdm_dt) g
     class(der_dt), allocatable :: fdm_der1
+    class(der2_dt), allocatable :: fdm_der2
 
     ! ###################################################################
     ! Initialize
@@ -57,6 +60,7 @@ program VPARTIAL
     x%scale = 1.0_wp
     x%periodic = .false.
     ! x%periodic = .true.
+    ! x%uniform = .true.
     allocate (x%nodes(kmax))
 
     isize_field = imax*jmax*kmax
@@ -117,6 +121,7 @@ program VPARTIAL
     ndl = g%der1%nb_diag(1)
 
     call FDM_CreatePlan_Der1(x, fdm_der1, FDM_COM6_JACOBIAN)
+    call FDM_CreatePlan_Der2(x, fdm_der2, FDM_COM6_JACOBIAN, fdm_der1)
 
     ! ###################################################################
     ! Define the function and analytic derivatives
@@ -124,17 +129,17 @@ program VPARTIAL
     wk = 6.0_wp
 
     do i = 1, kmax
-        ! ! single-mode
-        ! u(:, i) = 1.0_wp + sin(2.0_wp*pi_wp/g%scale*wk*(x%nodes(i) - x_0*x%scale)) ! + pi_wp/4.0_wp)
-        ! du1_a(:, i) = (2.0_wp*pi_wp/g%scale*wk) &
-        !               *cos(2.0_wp*pi_wp/g%scale*wk*(x%nodes(i) - x_0*x%scale))! + pi_wp/4.0_wp)
-        ! du2_a(:, i) = -(2.0_wp*pi_wp/g%scale*wk)**2 &
-        !               *sin(2.0_wp*pi_wp/g%scale*wk*(x%nodes(i) - x_0*x%scale))! + pi_wp/4.0_wp)
-        ! Gaussian
-        u(:, i) = exp(-(x%nodes(i) - x_0*g%scale)**2/(2.0_wp*(g%scale/wk)**2))
-        du1_a(:, i) = -(x%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*u(:, i)
-        du2_a(:, i) = -(x%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*du1_a(:, i) &
-                      - 1.0_wp/(g%scale/wk)**2*u(:, i)
+        ! single-mode
+        u(:, i) = 1.0_wp + sin(2.0_wp*pi_wp/g%scale*wk*(x%nodes(i) - x_0*x%scale)) ! + pi_wp/4.0_wp)
+        du1_a(:, i) = (2.0_wp*pi_wp/g%scale*wk) &
+                      *cos(2.0_wp*pi_wp/g%scale*wk*(x%nodes(i) - x_0*x%scale))! + pi_wp/4.0_wp)
+        du2_a(:, i) = -(2.0_wp*pi_wp/g%scale*wk)**2 &
+                      *sin(2.0_wp*pi_wp/g%scale*wk*(x%nodes(i) - x_0*x%scale))! + pi_wp/4.0_wp)
+        ! ! Gaussian
+        ! u(:, i) = exp(-(x%nodes(i) - x_0*g%scale)**2/(2.0_wp*(g%scale/wk)**2))
+        ! du1_a(:, i) = -(x%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*u(:, i)
+        ! du2_a(:, i) = -(x%nodes(i) - x_0*g%scale)/(g%scale/wk)**2*du1_a(:, i) &
+        !               - 1.0_wp/(g%scale/wk)**2*u(:, i)
         ! ! exponential
         ! ! u(:, i) = exp(-x%nodes(i)*wk)
         ! ! du1_a(:, i) = -wk*u(:, i)
@@ -205,16 +210,27 @@ program VPARTIAL
         do im = 1, size(fdm_cases)
             print *, new_line('a'), fdm_names(im)
 
-            g%der2%mode_fdm = fdm_cases(im)
-            call FDM_CreatePlan(x, g)
+            ! ! old formulation
+            ! g%der2%mode_fdm = fdm_cases(im)
+            ! call FDM_CreatePlan(x, g)
 
-            call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, u, du1_n, wrk2d)  ! I need du1_n in Jacobian formulation
-            call FDM_Der2_Solve(nlines, g%der2, g%der2%lu, u, du2_n1, du1_n, wrk2d)
+            ! call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, u, du1_n, wrk2d)  ! I need du1_n in Jacobian formulation
+            ! call FDM_Der2_Solve(nlines, g%der2, g%der2%lu, u, du2_n1, du1_n, wrk2d)
 
-            write (str, *) im
+            ! write (str, *) im
+            ! call check(u, du2_a, du2_n1, 'partial-old-'//trim(adjustl(str))//'.dat')
+            ! call write_scheme(g%der2%lhs(:, 1:g%der2%nb_diag(1)), &
+            !                   g%der2%rhs(:, 1:g%der2%nb_diag(2)), 'fdm2-old-'//trim(adjustl(str)))
+
+            ! new formulation
+            call FDM_CreatePlan_Der2(x, fdm_der2, fdm_cases(im), fdm_der1)
+
+            call fdm_der1%compute(nlines, u, du1_n)
+            call fdm_der2%compute(nlines, u, du2_n1, du1_n)
+
             call check(u, du2_a, du2_n1, 'partial-'//trim(adjustl(str))//'.dat')
-            call write_scheme(g%der2%lhs(:, 1:g%der2%nb_diag(1)), &
-                              g%der2%rhs(:, 1:g%der2%nb_diag(2)), 'fdm2-'//trim(adjustl(str)))
+            call write_scheme(fdm_der2%lhs, &
+                              fdm_der2%rhs, 'fdm2-'//trim(adjustl(str)))
 
         end do
 
@@ -425,7 +441,7 @@ program VPARTIAL
 
                 select type (fdm_der1)
                 type is (der1_biased)
-                ! truncated version
+                    ! truncated version
                     ! call FDM_Der1_NeumannMin_Initialize(g%der1, c_b(:), wrk1d(1, 3), wrk1d(1, 4), nmax)
                     call FDM_Der1_NeumannMin_Initialize(fdm_der1, c_b(:), wrk1d(1, 3), wrk1d(1, 4), nmax)
                     ! print *, nmax

@@ -83,8 +83,9 @@ contains
         use TLab_Memory, only: TLab_Allocate_Real
         use TLab_Arrays, only: wrk1d
         use TLab_Grid, only: grid, x, y, z
-        use FDM, only: g
-        use FDM_Derivative, only: FDM_Der1_Solve
+        use FDM, only: fdm_der1_X, fdm_der1_Y, fdm_der1_Z
+        ! use FDM, only: g
+        ! use FDM_Derivative, only: FDM_Der1_Solve
 
         character*(*) inifile
 
@@ -247,7 +248,15 @@ contains
             else
                 ! ds(ig)%one_ov_ds1(:) = 1.0_wp/g(ig)%jac(:, 1)
                 wrk1d(1:grid(ig)%size, 1) = [(real(i - 1, wp), i=1, grid(ig)%size)]
-                call FDM_Der1_Solve(1, g(ig)%der1, g(ig)%der1%lu, wrk1d(:, 1), ds(ig)%one_ov_ds1(:), wrk1d(:, 3))
+                ! call FDM_Der1_Solve(1, g(ig)%der1, g(ig)%der1%lu, wrk1d(:, 1), ds(ig)%one_ov_ds1(:), wrk1d(:, 3))
+                select case (ig)
+                case (1)
+                    call fdm_der1_X%compute(1, wrk1d(:, 1), ds(ig)%one_ov_ds1(:))
+                case (2)
+                    call fdm_der1_Y%compute(1, wrk1d(:, 1), ds(ig)%one_ov_ds1(:))
+                case (3)
+                    call fdm_der1_Z%compute(1, wrk1d(:, 1), ds(ig)%one_ov_ds1(:))
+                end select
             end if
 
             allocate (ds(ig)%one_ov_ds2(grid(ig)%size))

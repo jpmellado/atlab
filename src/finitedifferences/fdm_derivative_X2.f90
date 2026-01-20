@@ -15,8 +15,7 @@ module FDM_Derivative_2order_X
     ! public :: der_dt            ! Made public to make it accessible by loading FDM_Derivative_X and not necessarily FDM_Base_X
     public :: der2_periodic
     public :: der2_biased
-
-    !
+    public :: FDM_Der2_ModifyWavenumbers
 
     ! -----------------------------------------------------------------------
     ! ! Types for periodic boundary conditions
@@ -52,14 +51,15 @@ module FDM_Derivative_2order_X
             class(der2_dt), intent(out) :: self
             real(wp), intent(in) :: x(:), dx(:, :)
             integer, intent(in) :: fdm_type
-            logical :: uniform
+            logical, intent(in), optional :: uniform
         end subroutine
-        subroutine compute_ice(self, u, result, du)
-            import der2_dt, wp
+        subroutine compute_ice(self, nlines, u, result, du)
+            import der2_dt, wp, wi
             class(der2_dt), intent(in) :: self
-            real(wp), intent(in) :: u(:, :)
-            real(wp), intent(out) :: result(size(u, 1), size(u, 2))
-            real(wp), intent(in), optional :: du(size(u, 1), size(u, 2))
+            integer(wi), intent(in) :: nlines
+            real(wp), intent(in) :: u(nlines, size(self%lhs, 1))
+            real(wp), intent(out) :: result(nlines, size(self%lhs, 1))
+            real(wp), intent(in), optional :: du(nlines, size(self%lhs, 1))
         end subroutine
     end interface
 
@@ -67,7 +67,7 @@ module FDM_Derivative_2order_X
         ! procedure(matmul_halo_ice), pointer, nopass :: matmul => null()
         procedure(matmul_halo_thomas_ice), pointer, nopass :: matmul => null()
         procedure(thomas_ice), pointer, nopass :: thomasU => null()
-        real(wp), allocatable :: mwn(:)                 ! modified wavenumbers
+        ! real(wp), allocatable :: mwn(:)                 ! modified wavenumbers
         real(wp), allocatable :: lu(:, :)               ! LU decomposition
         real(wp), allocatable :: z(:, :)                ! boundary corrections
     contains
@@ -132,16 +132,15 @@ contains
     ! ###################################################################
     subroutine der2_periodic_initialize(self, x, dx, fdm_type, uniform)
         use Preconditioning
+        use FDM_Base, only: MultiplyByDiagonal
         class(der2_periodic), intent(out) :: self
         real(wp), intent(in) :: x(:), dx(:, :)
         integer, intent(in) :: fdm_type
-        logical :: uniform
+        logical, intent(in), optional :: uniform
 
         integer nx, ndl
 
         ! ###################################################################
-        print *, 'iniPer'
-
         self%type = fdm_type
 
         select case (fdm_type)              ! periodic implies uniform grid, direct schemes coincide with Jacobian ones
@@ -154,6 +153,13 @@ contains
         end select
 
         call FDM_Der2_CreateSystem(x, self, periodic=.true.)
+
+        ! Jacobian, if needed
+        ! select case (self%type)
+        ! case (FDM_COM4_JACOBIAN, FDM_COM6_JACOBIAN, FDM_COM6_JACOBIAN_HYPER)
+        call MultiplyByDiagonal(self%lhs, dx(1, :))
+        call MultiplyByDiagonal(self%lhs, dx(1, :))
+        ! end select
 
         call NormalizeByDiagonal(self%rhs, &
                                  1, &                           ! use 1. upper diagonal in rhs to normalize system
@@ -192,17 +198,17 @@ contains
         return
     end subroutine der2_periodic_initialize
 
-    subroutine der2_periodic_compute(self, u, result, du)
+    subroutine der2_periodic_compute(self, nlines, u, result, du)
         use TLab_Arrays, only: wrk2d
         class(der2_periodic), intent(in) :: self
-        real(wp), intent(in) :: u(:, :)
-        real(wp), intent(out) :: result(size(u, 1), size(u, 2))
-        real(wp), intent(in), optional :: du(size(u, 1), size(u, 2))
+        integer(wi), intent(in) :: nlines
+        real(wp), intent(in) :: u(nlines, size(self%lhs, 1))
+        real(wp), intent(out) :: result(nlines, size(self%lhs, 1))
+        real(wp), intent(in), optional :: du(nlines, size(self%lhs, 1))
 
         integer nx, ndl, ndr
 
         ! ###################################################################
-        print *, 'comPer'
         nx = size(self%lhs, 1)
         ndl = size(self%lhs, 2)
         ndr = size(self%rhs, 2)
@@ -242,13 +248,11 @@ contains
         class(der2_biased), intent(out) :: self
         real(wp), intent(in) :: x(:), dx(:, :)
         integer, intent(in) :: fdm_type
-        logical :: uniform
+        logical, intent(in), optional :: uniform
 
         integer ndl
 
         ! ###################################################################
-        print *, 'iniDD'
-
         self%type = fdm_type
 
         select case (fdm_type)
@@ -266,10 +270,10 @@ contains
                 if (allocated(self%rhs_d1)) deallocate (self%rhs_d1)  ! Contribution from 1. order derivative in nonuniform grids
                 allocate (self%rhs_d1, mold=self%lhs)
                 self%rhs_d1 = -self%lhs
-                call MultiplyByDiagonal(self%rhs_d1, dx(:, 2))
+                call MultiplyByDiagonal(self%rhs_d1, dx(2, :))
             end if
-            call MultiplyByDiagonal(self%lhs, dx(:, 1))            ! multiply by the Jacobians
-            call MultiplyByDiagonal(self%lhs, dx(:, 1))
+            call MultiplyByDiagonal(self%lhs, dx(1, :))            ! multiply by the Jacobians
+            call MultiplyByDiagonal(self%lhs, dx(1, :))
         end select
 
         ! Preconditioning
@@ -322,16 +326,16 @@ contains
         return
     end subroutine der2_biased_initialize
 
-    subroutine der2_biased_compute(self, u, result, du)
+    subroutine der2_biased_compute(self, nlines, u, result, du)
         class(der2_biased), intent(in) :: self
-        real(wp), intent(in) :: u(:, :)
-        real(wp), intent(out) :: result(size(u, 1), size(u, 2))
-        real(wp), intent(in), optional :: du(size(u, 1), size(u, 2))
+        integer(wi), intent(in) :: nlines
+        real(wp), intent(in) :: u(nlines, size(self%lhs, 1))
+        real(wp), intent(out) :: result(nlines, size(self%lhs, 1))
+        real(wp), intent(in), optional :: du(nlines, size(self%lhs, 1))
 
         integer nx, ndl, ndr
 
         ! ###################################################################
-        print *, 'comDD'
         nx = size(self%lu, 1)
         ndl = size(self%lu, 2)
         ndr = size(self%rhs, 2)
@@ -376,7 +380,6 @@ contains
     ! ###################################################################
     ! ###################################################################
     subroutine FDM_Der2_CreateSystem(x, g, periodic)
-        use TLab_Constants, only: pi_wp
         use FDM_ComX_Direct
         use FDM_Com2_Jacobian
         real(wp), intent(in) :: x(:)            ! node positions
@@ -384,22 +387,18 @@ contains
         logical, intent(in) :: periodic
 
         ! -------------------------------------------------------------------
-        real(wp) :: coef(5)
-        integer(wi) nx
+        real(wp) :: coef(5)     ! not needed any more, to be removed
 
         ! ###################################################################
-        nx = size(x)                            ! # grid points
-
-        ! -------------------------------------------------------------------
         select case (g%type)
         case (FDM_COM4_JACOBIAN)
-            call FDM_C2N4_Jacobian(nx, g%lhs, g%rhs, coef, periodic)
+            call FDM_C2N4_Jacobian(size(x), g%lhs, g%rhs, coef, periodic)
 
         case (FDM_COM6_JACOBIAN)
-            call FDM_C2N6_Jacobian(nx, g%lhs, g%rhs, coef, periodic)
+            call FDM_C2N6_Jacobian(size(x), g%lhs, g%rhs, coef, periodic)
 
         case (FDM_COM6_JACOBIAN_HYPER)
-            call FDM_C2N6_Hyper_Jacobian(nx, g%lhs, g%rhs, coef, periodic)
+            call FDM_C2N6_Hyper_Jacobian(size(x), g%lhs, g%rhs, coef, periodic)
 
         case (FDM_COM4_DIRECT)
             call FDM_C2N4_Direct(x, g%lhs, g%rhs)
@@ -409,41 +408,50 @@ contains
 
         end select
 
-        select type (g)
-        type is (der2_periodic)
-            call FDM_Der2_ModifyWavenumbers(nx, coef, g%mwn)
-            ! call FDM_Der2_ModifyWavenumbers(nx, g%lhs(1, :), g%rhs(1, :), g%mwn)
-        end select
-
         return
     end subroutine FDM_Der2_CreateSystem
 
-    subroutine FDM_Der2_ModifyWavenumbers(nx, coef, modified_wn)
-    ! subroutine FDM_Der2_ModifyWavenumbers(nx, lhs, rhs, modified_wn)
+    ! #######################################################################
+    ! #######################################################################
+    subroutine FDM_Der2_ModifyWavenumbers(nx, c_lhs, c_rhs, modified_wn)
         use TLab_Constants, only: pi_wp
         integer, intent(in) :: nx
-        ! real(wp), intent(in) :: lhs(:), rhs(:)
-        real(wp), intent(in) :: coef(:)
+        real(wp), intent(in) :: c_lhs(:), c_rhs(:)              ! coefficients of A u' = B u
         real(wp), allocatable, intent(out) :: modified_wn(:)
 
-        integer i
+        integer i, ic, ndl, idl, ndr, idr
+        real(wp) num, den
 
+        ! #######################################################################
         allocate (modified_wn(nx), source=0.0_wp)
+
+        ndl = size(c_lhs, 1)
+        idl = ndl/2 + 1
+        ndr = size(c_rhs, 1)
+        idr = ndr/2 + 1
 
 #define wn(i) modified_wn(i)
 
-        do i = 1, nx        ! wavenumbers, the independent variable to construct the modified ones
+        do i = 1, nx
+            ! wavenumbers, the independent variable to construct the modified ones
             if (i <= nx/2 + 1) then
                 wn(i) = 2.0_wp*pi_wp*real(i - 1, wp)/real(nx, wp)
             else
                 wn(i) = 2.0_wp*pi_wp*real(i - 1 - nx, wp)/real(nx, wp)
             end if
-        end do
 
-        modified_wn(:) = 2.0_wp*(coef(3)*(1.0_wp - cos(wn(:))) + coef(4)*(1.0_wp - cos(2.0_wp*wn(:))) + coef(5)*(1.0_wp - cos(3.0_wp*wn(:)))) &
-                         /(1.0_wp + 2.0_wp*coef(1)*cos(wn(:)) + 2.0_wp*coef(2)*cos(2.0_wp*wn(:)))
-        ! modified_wn(:) = 2.0_wp*(rhs(1)*(1.0_wp - cos(wn(:))) + rhs(2)*(1.0_wp - cos(2.0_wp*wn(:))) + rhs(3)*(1.0_wp - cos(3.0_wp*wn(:)))) &
-        !                  /(lhs(1) + 2.0_wp*lhs(2)*cos(wn(:)) + 2.0_wp*lhs(3)*cos(2.0_wp*wn(:)))
+            ! compute modified wavenumbers
+            num = 0.0_wp
+            do ic = 1, ndr/2
+                num = num + 2.0_wp*c_rhs(idr + ic)*(1.0_wp - cos(real(ic, wp)*wn(i)))
+            end do
+            den = c_lhs(idl)
+            do ic = 1, ndl/2
+                den = den + 2.0_wp*c_lhs(idl + ic)*cos(real(ic, wp)*wn(i))
+            end do
+            modified_wn(i) = num/den
+
+        end do
 
 #undef wn
 

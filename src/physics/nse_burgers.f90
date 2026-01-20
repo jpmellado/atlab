@@ -9,14 +9,14 @@ module NSE_Burgers
     use TLabMPI_VARS, only: ims_npro_i, ims_npro_j
     use TLabMPI_Transpose
 #endif
-    use TLab_Grid, only: x, y, z
-    use FDM, only: fdm_dt, g
+    use TLab_Grid, only: x, y, z, grid
+    ! use FDM, only: fdm_dt, g
     use FDM, only: fdm_der1_X, fdm_der1_Y, fdm_der1_Z
     use FDM, only: fdm_der2_X, fdm_der2_Y, fdm_der2_Z
     use NavierStokes, only: nse_eqns, DNS_EQNS_ANELASTIC
     use Thermo_Anelastic, only: ribackground, rbackground
     use NavierStokes, only: visc, schmidt
-    use FDM_Derivative, only: FDM_Der2_Solve !, FDM_Der1_Solve
+    ! use FDM_Derivative, only: FDM_Der2_Solve !, FDM_Der1_Solve
 #ifdef USE_MPI
     use OPR_Partial
 #endif
@@ -45,11 +45,11 @@ module NSE_Burgers
     end interface
     procedure(NSE_AddBurgers_PerVolume_dt), pointer :: NSE_AddBurgers_PerVolume_X, NSE_AddBurgers_PerVolume_Y
 
-    type :: fdm_diffusion_dt
-        sequence
-        real(wp), allocatable :: lu(:, :, :)
-    end type fdm_diffusion_dt
-    type(fdm_diffusion_dt) :: fdmDiffusion(3)
+    ! type :: fdm_diffusion_dt
+    !     sequence
+    !     real(wp), allocatable :: lu(:, :, :)
+    ! end type fdm_diffusion_dt
+    ! type(fdm_diffusion_dt) :: fdmDiffusion(3)
 
     real(wp), allocatable :: rho_yz(:), rho_xz(:)   ! rho in anelastic formulation, x and y directions
     real(wp) :: diffusivity(0:MAX_VARS)
@@ -72,7 +72,7 @@ contains
         ! -----------------------------------------------------------------------
         character(len=32) bakfile
 
-        integer(wi) ig, is, ip, j, ndl, idl
+        integer(wi) ig, is, ip, j !, ndl, idl
         integer(wi) nlines, offset
 
         ! ###################################################################
@@ -82,16 +82,16 @@ contains
         ! ###################################################################
         ! Initialize LU factorization of the second-order derivative times the diffusivity
         do ig = 1, 3
-            if (g(ig)%size == 1) cycle
+            if (grid(ig)%size == 1) cycle
 
-            ndl = g(ig)%der2%nb_diag(1)
-            if (g(ig)%periodic) then
-                allocate (fdmDiffusion(ig)%lu(g(ig)%size, ndl + 2, 0:inb_scal))
-            else
-                allocate (fdmDiffusion(ig)%lu(g(ig)%size, ndl, 0:inb_scal))
-            end if
+            ! ndl = g(ig)%der2%nb_diag(1)
+            ! if (g(ig)%periodic) then
+            !     allocate (fdmDiffusion(ig)%lu(g(ig)%size, ndl + 2, 0:inb_scal))
+            ! else
+            !     allocate (fdmDiffusion(ig)%lu(g(ig)%size, ndl, 0:inb_scal))
+            ! end if
 
-            idl = ndl/2 + 1
+            ! idl = ndl/2 + 1
             do is = 0, inb_scal ! case 0 for the reynolds number
                 if (is == 0) then
                     diffusivity(is) = visc
@@ -99,8 +99,8 @@ contains
                     diffusivity(is) = visc/schmidt(is)
                 end if
 
-                fdmDiffusion(ig)%lu(:, :, is) = g(ig)%der2%lu(:, :)                 ! Check routines Thomas3C_LU and Thomas3C_Solve
-                fdmDiffusion(ig)%lu(:, idl, is) = g(ig)%der2%lu(:, idl)*diffusivity(is)
+                ! fdmDiffusion(ig)%lu(:, :, is) = g(ig)%der2%lu(:, :)                 ! Check routines Thomas3C_LU and Thomas3C_Solve
+                ! fdmDiffusion(ig)%lu(:, idl, is) = g(ig)%der2%lu(:, idl)*diffusivity(is)
 
             end do
         end do
@@ -294,9 +294,9 @@ contains
         ! Transposition: make x-direction the last one
         call TLabMPI_Trp_ExecI_Forward(s, result, tmpi_plan_dx)
 #ifdef USE_ESSL
-        call DGETMO(result, g(1)%size, g(1)%size, nlines, tmp1, nlines)
+        call DGETMO(result, x%size, x%size, nlines, tmp1, nlines)
 #else
-        call TLab_Transpose_Real(result, g(1)%size, nlines, g(1)%size, tmp1, nlines)
+        call TLab_Transpose_Real(result, x%size, nlines, x%size, tmp1, nlines)
 #endif
 
         ! call FDM_Der1_Solve(nlines, g(1)%der1, g(1)%der1%lu, tmp1, wrk3d, wrk2d)
@@ -336,9 +336,9 @@ contains
 
         ! Put arrays back in the order in which they came in
 #ifdef USE_ESSL
-        call DGETMO(result, nlines, nlines, g(1)%size, wrk3d, g(1)%size)
+        call DGETMO(result, nlines, nlines, x%size, wrk3d, x%size)
 #else
-        call TLab_Transpose_Real(result, nlines, g(1)%size, nlines, wrk3d, g(1)%size)
+        call TLab_Transpose_Real(result, nlines, x%size, nlines, wrk3d, x%size)
 #endif
         call TLabMPI_Trp_ExecI_Backward(wrk3d, result, tmpi_plan_dx)
         rhs = rhs + result
@@ -698,24 +698,24 @@ contains
         return
     end subroutine NSE_AddBurgers_PerVolume_Z
 
-    !########################################################################
-    !########################################################################
-    subroutine NSE_Burgers_1D(nlines, nsize, der1, der2, rhou, rho_xy)
-        integer(wi), intent(in) :: nlines, nsize
-        real(wp), intent(in) :: der1(nlines, nsize)
-        real(wp), intent(inout) :: der2(nlines, nsize)
-        real(wp), intent(inout) :: rhou(nlines, nsize)
-        real(wp), intent(in) :: rho_xy(nlines)
+    ! !########################################################################
+    ! !########################################################################
+    ! subroutine NSE_Burgers_1D(nlines, nsize, der1, der2, rhou, rho_xy)
+    !     integer(wi), intent(in) :: nlines, nsize
+    !     real(wp), intent(in) :: der1(nlines, nsize)
+    !     real(wp), intent(inout) :: der2(nlines, nsize)
+    !     real(wp), intent(inout) :: rhou(nlines, nsize)
+    !     real(wp), intent(in) :: rho_xy(nlines)
 
-        integer(wi) ij
+    !     integer(wi) ij
 
-        do ij = 1, nsize
-            rhou(:, ij) = rhou(:, ij)*rho_xy(:)
-            der2(:, ij) = der2(:, ij) - rhou(:, ij)*der1(:, ij)
-        end do
+    !     do ij = 1, nsize
+    !         rhou(:, ij) = rhou(:, ij)*rho_xy(:)
+    !         der2(:, ij) = der2(:, ij) - rhou(:, ij)*der1(:, ij)
+    !     end do
 
-        return
-    end subroutine NSE_Burgers_1D
+    !     return
+    ! end subroutine NSE_Burgers_1D
 
     !########################################################################
     !########################################################################

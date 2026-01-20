@@ -49,28 +49,38 @@ module FDM_Derivative_MPISplit
 contains
     ! ###################################################################
     ! ###################################################################
-    subroutine FDM_MPISplit_Initialize(order, g, gSplit, axis)
-        use FDM_Derivative, only: fdm_derivative_dt
+    ! subroutine FDM_MPISplit_Initialize(order, g, gSplit, axis)
+    !     use FDM_Derivative, only: fdm_derivative_dt
+    !     integer, intent(in) :: order                            ! order of the derivative
+    !     type(fdm_derivative_dt), intent(in) :: g                ! original information about derivative
+    subroutine FDM_MPISplit_Initialize(order, lhs, rhs, gSplit, axis)
         integer, intent(in) :: order                            ! order of the derivative
-        type(fdm_derivative_dt), intent(in) :: g                ! original information about derivative
+        real(wp), intent(in) :: lhs(:, :), rhs(:, :)            ! original information about derivative
         type(fdm_derivative_split_dt), intent(out) :: gSplit    ! split information
         character(len=*), intent(in) :: axis
 
-        integer(wi) nsize, nd
+        integer(wi) nsize, ndl, ndr
         integer k
         real(wp), allocatable :: lhs_loc(:, :)
 
         ! ###################################################################
-        nsize = size(g%lhs, 1)
-        nd = g%nb_diag(1)
-        if (nd /= 3) then
+        ! nsize = size(g%lhs, 1)
+        ! ndl = g%nb_diag(1)
+        nsize = size(lhs, 1)
+        ndl = size(lhs, 2)
+        ndr = size(rhs, 2)
+
+        if (ndl /= 3) then
             call TLab_Write_ASCII(efile, __FILE__//'. Matrix splitting only for tridiagonal.')
             call TLab_Stop(DNS_ERROR_UNDEVELOP)
         end if
 
+        ! if (allocated(gSplit%rhs)) deallocate (gSplit%rhs)
+        ! allocate (gSplit%rhs(g%nb_diag(2)))
+        ! gSplit%rhs(:) = g%rhs(1, 1:g%nb_diag(2))    ! assuming periodic over uniform grid
         if (allocated(gSplit%rhs)) deallocate (gSplit%rhs)
-        allocate (gSplit%rhs(g%nb_diag(2)))
-        gSplit%rhs(:) = g%rhs(1, 1:g%nb_diag(2))    ! assuming periodic over uniform grid
+        allocate (gSplit%rhs(ndr))
+        gSplit%rhs(:) = rhs(1, :)               ! assuming periodic over uniform grid
 
         select case (trim(adjustl(axis)))
         case ('x')
@@ -88,13 +98,15 @@ contains
         gSplit%thomas3%circulant = .true.
         gSplit%thomas3%block_id = gSplit%thomas3%rank + 1
 
-        allocate (lhs_loc(nsize, nd))
-        lhs_loc(1:nsize, 1:nd) = g%lhs(1:nsize, 1:nd)
+        ! allocate (lhs_loc(nsize, ndl))
+        ! lhs_loc(1:nsize, 1:ndl) = g%lhs(1:nsize, 1:ndl)
+        allocate (lhs_loc, source=lhs)
         call Thomas_Split_3_Initialize(lhs_loc(:, 1:1), lhs_loc(:, 2:3), &
                                        [(k, k=nsize/gSplit%thomas3%n_ranks, nsize, nsize/gSplit%thomas3%n_ranks)], &
                                        gSplit%thomas3)
 
-        select case (g%nb_diag(2))
+        ! select case (g%nb_diag(2))
+        select case (ndr)
         case (3)
             ! if (order == 1) gSplit%matmul_halo => MatMul_Halo_3d_antisym
             ! if (order == 2) gSplit%matmul_halo => MatMul_Halo_3d_sym

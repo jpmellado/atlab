@@ -12,7 +12,7 @@ module OPR_Partial
     use TLab_Grid, only: x, y, z
     use FDM, only: fdm_der1_X, fdm_der1_Y, fdm_der1_Z
     use FDM, only: fdm_der2_X, fdm_der2_Y, fdm_der2_Z
-    use FDM, only: g
+    ! use FDM, only: g
     ! use FDM_Derivative, only: FDM_Der2_Solve!, FDM_Der1_Solve
     use Thomas_Split
     implicit none
@@ -115,8 +115,10 @@ contains
                 OPR_Partial_X => OPR_Partial_X_MPITranspose
             case (TYPE_SPLIT)
                 OPR_Partial_X => OPR_Partial_X_MPISplit
-                call FDM_MPISplit_Initialize(1, g(1)%der1, der1_split_x, 'x')
-                call FDM_MPISplit_Initialize(2, g(1)%der2, der2_split_x, 'x')
+                ! call FDM_MPISplit_Initialize(1, g(1)%der1, der1_split_x, 'x')
+                ! call FDM_MPISplit_Initialize(2, g(1)%der2, der2_split_x, 'x')
+                call FDM_MPISplit_Initialize(1, fdm_der1_X%lhs, fdm_der1_X%rhs, der1_split_x, 'x')
+                call FDM_MPISplit_Initialize(2, fdm_der2_X%lhs, fdm_der2_X%rhs, der2_split_x, 'x')
                 np = max(np, size(der1_split_x%rhs)/2)
                 np = max(np, size(der2_split_x%rhs)/2)
             end select
@@ -135,8 +137,10 @@ contains
                 OPR_Partial_Y => OPR_Partial_Y_MPITranspose
             case (TYPE_SPLIT)
                 OPR_Partial_Y => OPR_Partial_Y_MPISplit
-                call FDM_MPISplit_Initialize(1, g(2)%der1, der1_split_y, 'y')
-                call FDM_MPISplit_Initialize(2, g(2)%der2, der2_split_y, 'y')
+                ! call FDM_MPISplit_Initialize(1, g(2)%der1, der1_split_y, 'y')
+                ! call FDM_MPISplit_Initialize(2, g(2)%der2, der2_split_y, 'y')
+                call FDM_MPISplit_Initialize(1, fdm_der1_Y%lhs, fdm_der1_Y%rhs, der1_split_y, 'y')
+                call FDM_MPISplit_Initialize(2, fdm_der2_Y%lhs, fdm_der2_Y%rhs, der2_split_y, 'y')
                 np = max(np, size(der1_split_y%rhs)/2)
                 np = max(np, size(der2_split_y%rhs)/2)
             end select
@@ -249,9 +253,9 @@ contains
         ! Transposition: make x-direction the last one
         call TLabMPI_Trp_ExecI_Forward(u, result, tmpi_plan_dx)
 #ifdef USE_ESSL
-        call DGETMO(result, g(1)%size, g(1)%size, nlines, wrk3d, nlines)
+        call DGETMO(result, x%size, x%size, nlines, wrk3d, nlines)
 #else
-        call TLab_Transpose_Real(result, g(1)%size, nlines, g(1)%size, wrk3d, nlines)
+        call TLab_Transpose_Real(result, x%size, nlines, x%size, wrk3d, nlines)
 #endif
 
         select case (type)
@@ -276,23 +280,23 @@ contains
         ! Put arrays back in the order in which they came in
         select case (type)
         case (OPR_P2_P1)
-            call TLab_Transpose_Real(tmp1, nlines, g(1)%size, nlines, wrk3d, g(1)%size)
-            call TLab_Transpose_Real(result, nlines, g(1)%size, nlines, tmp1, g(1)%size)
+            call TLab_Transpose_Real(tmp1, nlines, x%size, nlines, wrk3d, x%size)
+            call TLab_Transpose_Real(result, nlines, x%size, nlines, tmp1, x%size)
             call TLabMPI_Trp_ExecI_Backward(tmp1, result, tmpi_plan_dx)
             call TLabMPI_Trp_ExecI_Backward(wrk3d, tmp1, tmpi_plan_dx)
 
         case (OPR_P1_ADD)
-            call TLab_Transpose_Real(result, nlines, g(1)%size, nlines, wrk3d, g(1)%size)
+            call TLab_Transpose_Real(result, nlines, x%size, nlines, wrk3d, x%size)
             call TLabMPI_Trp_ExecI_Backward(wrk3d, result, tmpi_plan_dx)
             tmp1 = tmp1 + result
 
         case (OPR_P1_SUBTRACT)
-            call TLab_Transpose_Real(result, nlines, g(1)%size, nlines, wrk3d, g(1)%size)
+            call TLab_Transpose_Real(result, nlines, x%size, nlines, wrk3d, x%size)
             call TLabMPI_Trp_ExecI_Backward(wrk3d, result, tmpi_plan_dx)
             tmp1 = tmp1 - result
 
         case default
-            call TLab_Transpose_Real(result, nlines, g(1)%size, nlines, wrk3d, g(1)%size)
+            call TLab_Transpose_Real(result, nlines, x%size, nlines, wrk3d, x%size)
             call TLabMPI_Trp_ExecI_Backward(wrk3d, result, tmpi_plan_dx)
 
         end select

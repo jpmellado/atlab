@@ -113,12 +113,12 @@ program VPARTIAL
         close (21)
     end if
 
-    g%periodic = x%periodic
-    g%der1%mode_fdm = FDM_COM6_JACOBIAN     ! default
-    g%der2%mode_fdm = g%der1%mode_fdm
-    call FDM_CreatePlan(x, g)
-    ndr = g%der1%nb_diag(2)
-    ndl = g%der1%nb_diag(1)
+    ! g%periodic = x%periodic
+    ! g%der1%mode_fdm = FDM_COM6_JACOBIAN     ! default
+    ! g%der2%mode_fdm = g%der1%mode_fdm
+    ! call FDM_CreatePlan(x, g)
+    ! ndr = g%der1%nb_diag(2)
+    ! ndl = g%der1%nb_diag(1)
 
     call FDM_CreatePlan_Der1(x, fdm_der1, FDM_COM6_JACOBIAN)
     call FDM_CreatePlan_Der2(x, fdm_der2, FDM_COM6_JACOBIAN, fdm_der1)
@@ -228,6 +228,7 @@ program VPARTIAL
             call fdm_der1%compute(nlines, u, du1_n)
             call fdm_der2%compute(nlines, u, du2_n1, du1_n)
 
+            write (str, *) im
             call check(u, du2_a, du2_n1, 'partial-'//trim(adjustl(str))//'.dat')
             call write_scheme(fdm_der2%lhs, &
                               fdm_der2%rhs, 'fdm2-'//trim(adjustl(str)))
@@ -391,8 +392,6 @@ program VPARTIAL
                     end select
                 end select
 
-                ! if (any([BCS_ND, BCS_NN] == ibc)) du1_n(:, 1) = du1_a(:, 1)         ! to check whole array
-                ! if (any([BCS_DN, BCS_NN] == ibc)) du1_n(:, kmax) = du1_a(:, kmax)
                 write (str, *) im
                 call check(u, du1_a, du1_n, 'partial-'//trim(adjustl(str))//'.dat')
 

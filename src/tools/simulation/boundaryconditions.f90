@@ -5,7 +5,8 @@ module BoundaryConditions
     use TLab_Constants, only: BCS_DD, BCS_DN, BCS_ND, BCS_NN, BCS_NONE, BCS_MIN, BCS_MAX, BCS_BOTH, MAX_VARS
     use TLab_Constants, only: efile
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
-    use FDM, only: g
+    ! use FDM, only: g
+    use TLab_Grid, only: x, y, z
     implicit none
     private
 
@@ -84,19 +85,19 @@ contains
         ! Scalar terms (including surface model at vertical boundaries)
         ! -------------------------------------------------------------------
         BcsScalImin%type(:) = DNS_BCS_NONE; BcsScalImax%type(:) = DNS_BCS_NONE
-        if (.not. g(1)%periodic) then
+        if (.not. x%periodic) then
             call BCS_Scal_ReadBlock(bakfile, inifile, block, 'Imin', BcsScalImin)
             call BCS_Scal_ReadBlock(bakfile, inifile, block, 'Imax', BcsScalImax)
         end if
 
         BcsScalJmin%type(:) = DNS_BCS_NONE; BcsScalJmax%type(:) = DNS_BCS_NONE
-        if (.not. g(2)%periodic) then
+        if (.not. y%periodic) then
             call BCS_Scal_ReadBlock(bakfile, inifile, block, 'Jmin', BcsScalJmin)
             call BCS_Scal_ReadBlock(bakfile, inifile, block, 'Jmax', BcsScalJmax)
         end if
 
         BcsScalKmin%type(:) = DNS_BCS_NONE; BcsScalKmax%type(:) = DNS_BCS_NONE
-        if (.not. g(3)%periodic) then
+        if (.not. z%periodic) then
             call BCS_Scal_ReadBlock(bakfile, inifile, block, 'Kmin', BcsScalKmin)
             call BCS_Scal_ReadBlock(bakfile, inifile, block, 'Kmax', BcsScalKmax)
         end if
@@ -115,15 +116,15 @@ contains
         ! Boundary conditions
         ! -------------------------------------------------------------------
         ! Make sure periodic BCs are not modified
-        if (g(1)%periodic) then; 
+        if (x%periodic) then; 
             BcsFlowImin%type(:) = DNS_BCS_NONE; BcsFlowImax%type(:) = DNS_BCS_NONE
             BcsScalImin%type(:) = DNS_BCS_NONE; BcsScalImax%type(:) = DNS_BCS_NONE
         end if
-        if (g(2)%periodic) then; 
+        if (y%periodic) then; 
             BcsFlowJmin%type(:) = DNS_BCS_NONE; BcsFlowJmax%type(:) = DNS_BCS_NONE
             BcsScalJmin%type(:) = DNS_BCS_NONE; BcsScalJmax%type(:) = DNS_BCS_NONE
         end if
-        if (g(3)%periodic) then; 
+        if (z%periodic) then; 
             BcsFlowKmin%type(:) = DNS_BCS_NONE; BcsFlowKmax%type(:) = DNS_BCS_NONE
             BcsScalKmin%type(:) = DNS_BCS_NONE; BcsScalKmax%type(:) = DNS_BCS_NONE
         end if

@@ -30,7 +30,7 @@ module FDM
 
     end type fdm_dt
 
-    type(fdm_dt), public, protected :: g(3)                    ! fdm derivative plans along 3 directions
+    ! type(fdm_dt), public, protected :: g(3)                    ! fdm derivative plans along 3 directions
     type(fdm_integral_dt), public, protected :: fdm_Int0(2)    ! fdm integral plans along Oz (ode for lambda = 0)
 
     class(der_dt), allocatable, public, protected :: fdm_der1_X, fdm_der1_Y, fdm_der1_Z
@@ -146,19 +146,19 @@ call TLab_Write_ASCII(bakfile, '#SchemeDerivative2=<CompactJacobian4/CompactJaco
         call FDM_CreatePlan_Der2(y, fdm_der2_Y, der2_type, fdm_der1_Y)
         call FDM_CreatePlan_Der2(z, fdm_der2_Z, der2_type, fdm_der1_Z)
 
-        ! old
-        g(1:3)%der1%mode_fdm = der1_type
-        g(1:3)%der2%mode_fdm = der2_type
-        g(1)%periodic = x%periodic
-        g(2)%periodic = y%periodic
-        g(3)%periodic = z%periodic
-        g(1)%uniform = x%uniform
-        g(2)%uniform = y%uniform
-        g(3)%uniform = z%uniform
+        ! ! old
+        ! g(1:3)%der1%mode_fdm = der1_type
+        ! g(1:3)%der2%mode_fdm = der2_type
+        ! g(1)%periodic = x%periodic
+        ! g(2)%periodic = y%periodic
+        ! g(3)%periodic = z%periodic
+        ! g(1)%uniform = x%uniform
+        ! g(2)%uniform = y%uniform
+        ! g(3)%uniform = z%uniform
 
-        call FDM_CreatePlan(x, g(1))
-        call FDM_CreatePlan(y, g(2))
-        call FDM_CreatePlan(z, g(3))
+        ! call FDM_CreatePlan(x, g(1))
+        ! call FDM_CreatePlan(y, g(2))
+        ! call FDM_CreatePlan(z, g(3))
 
         ! ###################################################################
         ! Initializing fdm plans for first-order integrals (cases lambda = 0.0_wp)

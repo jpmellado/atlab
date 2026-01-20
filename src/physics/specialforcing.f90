@@ -269,13 +269,11 @@ contains
     !########################################################################
     ! Velocity field with no-slip
     !########################################################################
-    subroutine SpecialForcing_Sinusoidal_NoSlip(nx, ny, nz, time, visc, g, h1, h2, tmp1, tmp2, tmp3, tmp4)
-        use FDM, only: fdm_dt
+    subroutine SpecialForcing_Sinusoidal_NoSlip(nx, ny, nz, time, visc, h1, h2, tmp1, tmp2, tmp3, tmp4)
         use OPR_Partial, only: OPR_Partial_X, OPR_Partial_Z, OPR_P1, OPR_P2_P1
 
         integer(wi) nx, ny, nz
         real(wp) time, visc
-        type(fdm_dt) :: g(:)
         real(wp), dimension(nx, ny, nz) :: h1, h2
         real(wp), dimension(nx, ny, nz) :: tmp1, tmp2, tmp3, tmp4
 

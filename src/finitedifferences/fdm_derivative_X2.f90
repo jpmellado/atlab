@@ -7,7 +7,7 @@ module FDM_Derivative_2order_X
     ! use MatMul_Halo
     use MatMul_Thomas
     use MatMul_Halo_Thomas
-    use FDM_Derivative          ! to be removed
+    use FDM_Base
     implicit none
     private
 
@@ -67,7 +67,6 @@ module FDM_Derivative_2order_X
         ! procedure(matmul_halo_ice), pointer, nopass :: matmul => null()
         procedure(matmul_halo_thomas_ice), pointer, nopass :: matmul => null()
         procedure(thomas_ice), pointer, nopass :: thomasU => null()
-        ! real(wp), allocatable :: mwn(:)                 ! modified wavenumbers
         real(wp), allocatable :: lu(:, :)               ! LU decomposition
         real(wp), allocatable :: z(:, :)                ! boundary corrections
     contains

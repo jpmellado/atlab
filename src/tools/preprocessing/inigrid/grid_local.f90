@@ -83,7 +83,7 @@ contains
         ! use FDM, only: fdm_dt, FDM_CreatePlan, FDM_CreatePlan_Der1
         use FDM, only: FDM_CreatePlan_Der1
         use FDM_Derivative_1order_X, only: der_dt, der1_biased
-        use FDM_Derivative, only: FDM_COM6_JACOBIAN
+        use FDM_Base, only: FDM_COM6_JACOBIAN
         use FDM_Integral, only: FDM_Int1_Initialize, FDM_Int1_Solve, fdm_integral_dt
         integer(wi), intent(IN) :: idir, iseg, nmax
         real(wp), intent(INOUT) :: x(nmax), w(nmax, 8)

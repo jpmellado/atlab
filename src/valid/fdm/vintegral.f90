@@ -6,9 +6,8 @@ program VINTEGRAL
     use TLab_Memory, only: TLab_Initialize_Memory, TLab_Allocate_Real
     use TLab_Arrays, only: wrk1d, wrk2d, txc
     use TLab_Grid, only: grid_dt
-    ! use FDM, only: fdm_dt, FDM_CreatePlan
     use FDM, only: FDM_CreatePlan_Der1, FDM_CreatePlan_Der2
-    use FDM_Derivative
+    use FDM_Base
     use FDM_Derivative_1order_X
     use FDM_Derivative_2order_X
     use FDM_Integral
@@ -106,13 +105,8 @@ program VINTEGRAL
         close (21)
     end if
 
-    ! g%der1%mode_fdm = FDM_COM6_JACOBIAN     ! default
-    ! ! g%der1%mode_fdm = FDM_COM6_DIRECT     ! default
-    ! g%der2%mode_fdm = g%der1%mode_fdm
-    ! call FDM_CreatePlan(x, g)
+    ! defaults
     call FDM_CreatePlan_Der1(x, fdm_der1, FDM_COM6_JACOBIAN)
-    ! call FDM_Int1_Initialize(g%der1, 0.0_wp, BCS_MIN, fdmi(BCS_MIN))
-    ! call FDM_Int1_Initialize(g%der1, 0.0_wp, BCS_MAX, fdmi(BCS_MAX))
     call FDM_Int1_Initialize(fdm_der1, 0.0_wp, BCS_MIN, fdmi(BCS_MIN))
     call FDM_Int1_Initialize(fdm_der1, 0.0_wp, BCS_MAX, fdmi(BCS_MAX))
 
@@ -186,18 +180,12 @@ program VINTEGRAL
 
         do im = 1, size(fdm_cases)
             print *, new_line('a'), fdm_names(im)
-
-            ! g%der1%mode_fdm = fdm_cases(im)
-            ! g%der2%mode_fdm = FDM_COM4_JACOBIAN     ! not used
-            ! call FDM_CreatePlan(x, g)
             call FDM_CreatePlan_Der1(x, fdm_der1, fdm_cases(im))
 
             ! f = du1_a
-            ! call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, u, f, wrk2d)
             call fdm_der1%compute(nlines, u, f)
             f = f + lambda*u
 
-            ! call FDM_Int1_Initialize(g%der1, lambda, ibc, fdmi(ib))
             call FDM_Int1_Initialize(fdm_der1, lambda, ibc, fdmi(ib))
 
             ! bcs
@@ -216,7 +204,6 @@ program VINTEGRAL
             print *, 'Derivative'
             ! check the calculation of the derivative at the boundary
             print *, dw1_n(:, 1)
-            ! call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, w_n, dw1_n, wrk2d)
             call fdm_der1%compute(nlines, w_n, dw1_n)
             select case (ibc)
             case (BCS_MIN)
@@ -250,11 +237,8 @@ program VINTEGRAL
 
         ! f = du2_a
         ! du1_n = du1_a ! I need it for the boundary conditions
-        ! call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, u, du1_n, wrk2d)
-        ! call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, du1_n, du2_n, wrk2d)
         call fdm_der1%compute(nlines, u, du1_n)
         call fdm_der1%compute(nlines, du1_n, du2_n)
-        ! call FDM_Der2_Solve(nlines, g%du1_n%der2, g%der2%lu, u, du2_n, du1_n, wrk2d)
         f = du2_n
 
         bcs_cases(1:4) = [BCS_DD, BCS_DN, BCS_ND, BCS_NN]
@@ -297,8 +281,6 @@ program VINTEGRAL
         write (*, *) 'Eigenvalue ?'
         read (*, *) lambda
 
-        ! call FDM_Int1_Initialize(g%der1, lambda, BCS_MIN, fdmi(BCS_MIN))
-        ! call FDM_Int1_Initialize(g%der1, -lambda, BCS_MAX, fdmi(BCS_MAX))
         call FDM_Int1_Initialize(fdm_der1, lambda, BCS_MIN, fdmi(BCS_MIN))
         call FDM_Int1_Initialize(fdm_der1, -lambda, BCS_MAX, fdmi(BCS_MAX))
 
@@ -308,11 +290,8 @@ program VINTEGRAL
 
         ! f = du2_a - lambda*lambda*u
         ! du1_n = du1_a ! I need it for the boundary conditions
-        ! call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, u, du1_n, wrk2d)
-        ! call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, du1_n, du2_n, wrk2d)
         call fdm_der1%compute(nlines, u, du1_n)
         call fdm_der1%compute(nlines, du1_n, du2_n)
-        ! call FDM_Der2_Solve(nlines, g%der2, g%der2%lu, u, du2_n, du1_n, wrk2d)
         f = du2_n - lambda*lambda*u
 
         bcs_cases(1:2) = [BCS_DD, BCS_NN]!, BCS_DN, BCS_ND]
@@ -354,9 +333,6 @@ program VINTEGRAL
         allocate (si(x%size, 2))
         allocate (bcs(nlines, 2))
 
-        ! g%der1%mode_fdm = FDM_COM6_JACOBIAN
-        ! g%der2%mode_fdm = FDM_COM6_DIRECT
-        ! call FDM_CreatePlan(x, g)
         call FDM_CreatePlan_Der2(x, fdm_der2, FDM_COM6_DIRECT, fdm_der1)
 
         ! call random_seed()
@@ -364,9 +340,6 @@ program VINTEGRAL
 
         ! f = du2_a - lambda*u
         ! ! du1_n = du1_a ! I need it for the boundary conditions
-        ! call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, u, du1_n, wrk2d)
-        ! ! call FDM_Der1_Solve(nlines, g%der1, g%der1%lu, du1_n, du2_n, wrk2d)
-        ! call FDM_Der2_Solve(nlines, g%der2, g%der2%lu, u, du2_n, du1_n, wrk2d)
         call fdm_der1%compute(nlines, u, du1_n)
         call fdm_der2%compute(nlines, u, du2_n, du1_n)
         f = du2_n - lambda*u
@@ -392,7 +365,6 @@ program VINTEGRAL
                 w_n(:, 1) = du1_n(:, 1); w_n(:, kmax) = du1_n(:, kmax)
             end select
 
-            ! call FDM_Int2_Initialize(x%nodes(:), g%der2, lambda, ibc, fdmi(2))
             call FDM_Int2_Initialize(x%nodes(:), fdm_der2, lambda, ibc, fdmi(2))
 
             call FDM_Int2_Solve(nlines, fdmi(2), fdmi(2)%rhs, f, w_n, wrk2d)
@@ -413,10 +385,6 @@ program VINTEGRAL
 
         do im = 1, size(fdm_cases)
             print *, new_line('a'), fdm_names(im)
-
-            ! g%der1%mode_fdm = fdm_cases(im)
-            ! g%der2%mode_fdm = FDM_COM4_JACOBIAN ! not used
-            ! call FDM_CreatePlan(x, g)
             call FDM_CreatePlan_Der1(x, fdm_der1, fdm_cases(im))
 
             select type (fdm_der1)
@@ -425,10 +393,6 @@ program VINTEGRAL
                 do ib = 1, 2
                     ibc = bcs_cases(ib)
                     print *, new_line('a'), 'Bcs case ', ibc
-
-                    ! call FDM_Int1_CreateSystem(g%der1, 0.0_wp, ibc, fdmi(ib))
-
-                    ! call FDM_Int1_CreateSystem(g%der1, 1.0_wp, ibc, fdmi_test(ib))
 
                     call FDM_Int1_CreateSystem(fdm_der1, 0.0_wp, ibc, fdmi(ib))
 
@@ -441,7 +405,6 @@ program VINTEGRAL
                     ! print*,fdmi_test(ib)%rhs_t
 
                     ! checking linearity in lhs
-                    ! call FDM_Int1_CreateSystem(g%der1, lambda, fdmi(ib)%bc, fdmi_test_lambda(ib))
                     call FDM_Int1_CreateSystem(fdm_der1, lambda, fdmi(ib)%bc, fdmi_test_lambda(ib))
 
                     call check(fdmi(ib)%lhs + lambda*(fdmi_test(ib)%lhs - fdmi(ib)%lhs), &

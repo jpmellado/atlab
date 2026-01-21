@@ -27,6 +27,17 @@ module FDM_Base
 
     public MultiplyByDiagonal   ! To multiply by Jacobians in non-uniform grids
 
+    integer, parameter, public :: FDM_NONE = 0
+
+    integer, parameter, public :: FDM_COM4_JACOBIAN = 1
+    integer, parameter, public :: FDM_COM6_JACOBIAN = 2
+    integer, parameter, public :: FDM_COM6_JACOBIAN_HYPER = 3
+    integer, parameter, public :: FDM_COM6_JACOBIAN_PENTA = 4
+
+    integer, parameter, public :: FDM_COM4_DIRECT = 11
+    integer, parameter, public :: FDM_COM6_DIRECT = 12
+    integer, parameter, public :: FDM_COM6_DIRECT_HYPER = 13
+
 contains
     !########################################################################
     !########################################################################

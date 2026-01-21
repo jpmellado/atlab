@@ -5,7 +5,6 @@ module BoundaryConditions
     use TLab_Constants, only: BCS_DD, BCS_DN, BCS_ND, BCS_NN, BCS_NONE, BCS_MIN, BCS_MAX, BCS_BOTH, MAX_VARS
     use TLab_Constants, only: efile
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
-    ! use FDM, only: g
     use TLab_Grid, only: x, y, z
     implicit none
     private
@@ -172,12 +171,10 @@ contains
             select type (fdm_der1_Z)
             type is (der1_biased)
 
-                ! call FDM_Der1_NeumannMin_Initialize(g(3)%der1, c_b(:), wrk1d(1, 1), wrk1d(1, 2), k_bcs_b)
                 call FDM_Der1_NeumannMin_Initialize(fdm_der1_Z, c_b(:), wrk1d(1, 1), wrk1d(1, 2), k_bcs_b)
                 write (str, *) k_bcs_b
                 call TLab_Write_ASCII(lfile, 'Decay to round-off in bottom Neumann condition in '//trim(adjustl(str))//' indexes.')
 
-                ! call FDM_Der1_NeumannMax_Initialize(g(3)%der1, c_t(:), wrk1d(1, 1), wrk1d(1, 2), k_bcs_t)
                 call FDM_Der1_NeumannMax_Initialize(fdm_der1_Z, c_t(:), wrk1d(1, 1), wrk1d(1, 2), k_bcs_t)
                 write (str, *) k_bcs_t
                 call TLab_Write_ASCII(lfile, 'Decay to round-off in top Neumann condition in '//trim(adjustl(str))//' indexes.')

@@ -15,7 +15,7 @@ module OPR_Elliptic
     use TLabMPI_VARS, only: ims_offset_i, ims_offset_j, ims_pro_i
 #endif
     use FDM, only: fdm_der1_Z, FDM_CreatePlan_Der2
-    use FDM_Derivative_2order_X
+    use FDM_Derivative_2order
     use FDM_Integral
     use OPR_Fourier, only: OPR_Fourier_XY_Backward, OPR_Fourier_XY_Forward
     use OPR_ODES
@@ -61,7 +61,6 @@ module OPR_Elliptic
     integer(wi) i_sing(2), j_sing(2)                                ! singular modes
     integer(wi) i, j, i_max, isize_line
 
-    ! type(fdm_dt) fdm_loc                                            ! scheme used for the elliptic solvers
     class(der2_dt), allocatable :: fdm_der2
 
     type(fdm_integral_dt), allocatable :: fdm_int1(:, :, :)         ! factorized method
@@ -83,9 +82,9 @@ contains
     subroutine OPR_Elliptic_Initialize(inifile)
         use FDM_Base, only: FDM_COM4_DIRECT, FDM_COM6_DIRECT
         use FDM, only: fdm_der1_X, fdm_der1_Y, fdm_der1_Z
-        use FDM, only: fdm_der2_X, fdm_der2_Y, fdm_der2_Z
-        use FDM_Derivative_1order_X, only: der1_periodic, der1_biased, FDM_Der1_ModifyWavenumbers
-        use FDM_Derivative_2order_X, only: der2_periodic, der2_biased, FDM_Der2_ModifyWavenumbers
+        use FDM, only: fdm_der2_X, fdm_der2_Y
+        use FDM_Derivative_1order, only: der1_periodic, der1_biased, FDM_Der1_ModifyWavenumbers
+        use FDM_Derivative_2order, only: der2_periodic, der2_biased, FDM_Der2_ModifyWavenumbers
 
         character(len=*), intent(in) :: inifile
 
@@ -445,7 +444,7 @@ contains
     !########################################################################
     subroutine OPR_Helmholtz_FourierXZ_Factorize(nx, ny, nz, ibc, alpha, a, tmp1, tmp2, bcs_hb, bcs_ht)
         use FDM, only: fdm_der1_Z
-        use FDM_Derivative_1order_X, only: der1_biased
+        use FDM_Derivative_1order, only: der1_biased
         integer(wi), intent(in) :: nx, ny, nz
         integer, intent(in) :: ibc
         real(wp), intent(in) :: alpha

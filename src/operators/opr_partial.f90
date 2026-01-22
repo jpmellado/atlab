@@ -599,7 +599,7 @@ contains
     subroutine OPR_Partial_Z_Bcs(nx, ny, nz, u, result, ibc)
         use TLab_Constants, only: BCS_DD, BCS_ND, BCS_DN, BCS_NN
         use TLab_Arrays, only: wrk2d
-        use FDM_Derivative_1order_X, only: der1_biased
+        use FDM_Derivative_1order, only: der1_biased
         integer(wi), intent(in) :: nx, ny, nz
         real(wp), intent(in) :: u(nx*ny*nz)
         real(wp), intent(out) :: result(nx*ny*nz)

@@ -49,7 +49,7 @@ contains
         use TLab_Memory, only: imax, jmax, kmax, inb_flow_array, inb_scal_array, inb_scal
         use TLab_Arrays, only: wrk1d
         use FDM_derivative_Neumann
-        use FDM_Derivative_1order_X, only: der1_biased
+        use FDM_Derivative_1order, only: der1_biased
         use FDM, only: fdm_der1_Z
         use NavierStokes
 

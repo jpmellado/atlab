@@ -8,8 +8,8 @@ program VINTEGRAL
     use TLab_Grid, only: grid_dt
     use FDM, only: FDM_CreatePlan_Der1, FDM_CreatePlan_Der2
     use FDM_Base
-    use FDM_Derivative_1order_X
-    use FDM_Derivative_2order_X
+    use FDM_Derivative_1order
+    use FDM_Derivative_2order
     use FDM_Integral
     use OPR_Partial
     use OPR_ODES

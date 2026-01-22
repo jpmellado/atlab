@@ -2,7 +2,7 @@
 module FDM_derivative_Neumann
     use TLab_Constants, only: wp, wi, roundoff_wp
     use TLab_Constants, only: BCS_ND, BCS_DN, BCS_NN
-    use FDM_Derivative_1order_X, only: der1_biased
+    use FDM_Derivative_1order, only: der1_biased
     implicit none
     private
 

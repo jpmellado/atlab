@@ -1,6 +1,6 @@
-module FDM_Derivative_2order_X
+module FDM_Derivative_2order
     use TLab_Constants, only: wp, wi
-    use FDM_Base_X, only: matmul_halo_thomas_ice, matmul_thomas_ice, thomas_ice
+    use FDM_Derivative_Base, only: matmul_halo_thomas_ice, matmul_thomas_ice, thomas_ice
     use Thomas
     use Thomas_Circulant
     ! use MatMul
@@ -12,7 +12,7 @@ module FDM_Derivative_2order_X
     private
 
     public :: der2_dt
-    ! public :: der_dt            ! Made public to make it accessible by loading FDM_Derivative_X and not necessarily FDM_Base_X
+    ! public :: der_dt            ! Made public to make it accessible by loading FDM_Derivative_X and not necessarily FDM_Derivative_Base
     public :: der2_periodic
     public :: der2_biased
     public :: FDM_Der2_ModifyWavenumbers
@@ -457,14 +457,14 @@ contains
         return
     end subroutine FDM_Der2_ModifyWavenumbers
 
-end module FDM_Derivative_2order_X
+end module FDM_Derivative_2order
 
 ! ! ###################################################################
 ! ! ###################################################################
 ! program test2
 !     use TLab_Constants, only: wp, wi, pi_wp
 !     use TLab_Arrays, only: wrk2d
-!     use FDM_Derivative_2order_X
+!     use FDM_Derivative_2order
 !     use FDM_Derivative
 
 !     integer, parameter :: nx = 32

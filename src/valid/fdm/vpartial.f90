@@ -13,8 +13,8 @@ program VPARTIAL
     use FDM_Base
     use FDM_Com1_Jacobian
     use FDM_Com2_Jacobian
-    use FDM_Derivative_1order_X
-    use FDM_Derivative_2order_X
+    use FDM_Derivative_1order
+    use FDM_Derivative_2order
 
     implicit none
 

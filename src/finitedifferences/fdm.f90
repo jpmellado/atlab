@@ -6,8 +6,8 @@ module FDM
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, stagger_on
     use TLab_Grid, only: grid_dt
     use FDM_Base
-    use FDM_Derivative_1order_X
-    use FDM_Derivative_2order_X
+    use FDM_Derivative_1order
+    use FDM_Derivative_2order
     use FDM_Interpolate
     use FDM_Integral
     implicit none

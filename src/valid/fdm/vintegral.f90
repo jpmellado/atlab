@@ -333,45 +333,49 @@ program VINTEGRAL
         allocate (si(x%size, 2))
         allocate (bcs(nlines, 2))
 
-        call FDM_CreatePlan_Der2(x, fdm_der2, FDM_COM6_DIRECT, fdm_der1)
+        do im = 4, size(fdm_cases)
+            print *, new_line('a'), fdm_names(im)
+            call FDM_CreatePlan_Der2(x, fdm_der2, fdm_cases(im), fdm_der1)
 
-        ! call random_seed()
-        ! call random_number(u)
+            ! call random_seed()
+            ! call random_number(u)
 
-        ! f = du2_a - lambda*u
-        ! ! du1_n = du1_a ! I need it for the boundary conditions
-        call fdm_der1%compute(nlines, u, du1_n)
-        call fdm_der2%compute(nlines, u, du2_n, du1_n)
-        f = du2_n - lambda*u
+            ! f = du2_a - lambda*u
+            ! ! du1_n = du1_a ! I need it for the boundary conditions
+            call fdm_der1%compute(nlines, u, du1_n)
+            call fdm_der2%compute(nlines, u, du2_n, du1_n)
+            f = du2_n - lambda*u
 
-        bcs_cases(1:4) = [BCS_DD, BCS_NN, BCS_DN, BCS_ND]
+            bcs_cases(1:4) = [BCS_DD, BCS_NN, BCS_DN, BCS_ND]
 
-        do ib = 1, 4
-            ibc = bcs_cases(ib)
-            print *, new_line('a')
+            do ib = 1, 4
+                ibc = bcs_cases(ib)
+                print *, new_line('a')
 
-            select case (ibc)
-            case (BCS_DD)
-                print *, 'Dirichlet/Dirichlet'
-                w_n(:, 1) = u(:, 1); w_n(:, kmax) = u(:, kmax)
-            case (BCS_DN)
-                print *, 'Dirichlet/Neumann'
-                w_n(:, 1) = u(:, 1); w_n(:, kmax) = du1_n(:, kmax)
-            case (BCS_ND)
-                print *, 'Neumann/Dirichlet'
-                w_n(:, 1) = du1_n(:, 1); w_n(:, kmax) = u(:, kmax)
-            case (BCS_NN)
-                print *, 'Neumann/Neumann'
-                w_n(:, 1) = du1_n(:, 1); w_n(:, kmax) = du1_n(:, kmax)
-            end select
+                select case (ibc)
+                case (BCS_DD)
+                    print *, 'Dirichlet/Dirichlet'
+                    w_n(:, 1) = u(:, 1); w_n(:, kmax) = u(:, kmax)
+                case (BCS_DN)
+                    print *, 'Dirichlet/Neumann'
+                    w_n(:, 1) = u(:, 1); w_n(:, kmax) = du1_n(:, kmax)
+                case (BCS_ND)
+                    print *, 'Neumann/Dirichlet'
+                    w_n(:, 1) = du1_n(:, 1); w_n(:, kmax) = u(:, kmax)
+                case (BCS_NN)
+                    print *, 'Neumann/Neumann'
+                    w_n(:, 1) = du1_n(:, 1); w_n(:, kmax) = du1_n(:, kmax)
+                end select
 
-            call FDM_Int2_Initialize(x%nodes(:), fdm_der2, lambda, ibc, fdmi(2))
+                call FDM_Int2_Initialize(x%nodes(:), fdm_der2, lambda, ibc, fdmi(2))
 
-            call FDM_Int2_Solve(nlines, fdmi(2), fdmi(2)%rhs, f, w_n, wrk2d)
+                call FDM_Int2_Solve(nlines, fdmi(2), fdmi(2)%rhs, f, w_n, wrk2d)
 
-            write (str, *) im
-            call check(u, w_n, 'integral-'//trim(adjustl(str))//'.dat')
+                write (str, *) im
+                call check(u, w_n, 'integral-'//trim(adjustl(str))//'.dat')
 
+            end do
+            
         end do
 
         ! ###################################################################

@@ -157,8 +157,7 @@ contains
         ! -------------------------------------------------------------------
         integer(wi) idl, ndl, idr, ndr, ir, ic, nx, nmin, nmax
         integer(wi) idr_t, ndr_t, idr_b, ndr_b, nx_t
-        ! real(wp) locRhs_b(5, 0:7), locRhs_t(0:4, 8)
-        real(wp) locRhs_b(7, 8), locRhs_t(7, 8)
+        real(wp), allocatable :: locRhs_b(:, :), locRhs_t(:, :)
 
         ! ###################################################################
         ndl = size(fdm_der%lhs, 2)
@@ -208,10 +207,8 @@ contains
         ! Reduction; extending 2 diagonals the rhs at the boundaries
         if (allocated(fdmi%rhs_b1)) deallocate (fdmi%rhs_b1)
         if (allocated(fdmi%rhs_t1)) deallocate (fdmi%rhs_t1)
-        allocate (fdmi%rhs_b1(max(idr, idl) + 1, 1:max(ndl, ndr) + 2))
-        allocate (fdmi%rhs_t1(max(idr, idl) + 1, 1:max(ndl, ndr) + 2))
-        fdmi%rhs_b1(:, :) = 0.0_wp
-        fdmi%rhs_t1(:, :) = 0.0_wp
+        allocate (fdmi%rhs_b1(max(idr, idl) + 1, 1:max(ndl, ndr) + 2), source=0.0_wp)
+        allocate (fdmi%rhs_t1(max(idr, idl) + 1, 1:max(ndl, ndr) + 2), source=0.0_wp)
 
         ndr_b = size(fdmi%rhs_b1, 2)    ! they can have a different number of diagonals than rhs
         idr_b = ndr_b/2 + 1
@@ -220,9 +217,11 @@ contains
 
         nx_t = size(fdmi%rhs_t1, 1)
 
-        locRhs_b = 0.0_wp
-        locRhs_t = 0.0_wp
-        call FDM_Bcs_Reduce(fdmi%bc, fdmi%rhs, fdmi%lhs, locRhs_b(1:nx_t, 1:ndr_b), locRhs_t(1:nx_t, 1:ndr_t))
+        if (allocated(locRhs_b)) deallocate (locRhs_b)
+        allocate (locRhs_b(nx_t, ndr_b), source=0.0_wp)
+        if (allocated(locRhs_t)) deallocate (locRhs_t)
+        allocate (locRhs_t(nx_t, ndr_t), source=0.0_wp)
+        call FDM_Bcs_Reduce(fdmi%bc, fdmi%rhs, fdmi%lhs, rhs_b=locRhs_b, rhs_t=locRhs_t)
 
         select case (fdmi%bc)
         case (BCS_MIN)
@@ -466,16 +465,15 @@ contains
         ! -------------------------------------------------------------------
         integer(wi) idl, ndl, idr, ndr, ir, nx, ic
         integer(wi) idr_t, ndr_t, idr_b, ndr_b, nx_t
-        ! real(wp) locRhs_b(5, 0:7), locRhs_t(0:4, 8)
-        real(wp) locRhs_b(5, 8), locRhs_t(5, 8)
+        real(wp), allocatable :: locRhs_b(:, :), locRhs_t(:, :)
         real(wp) coef(5)
 
         ! ###################################################################
         ndl = size(fdm_der%lhs, 2)
-        idl = ndl/2 + 1             ! center diagonal in lhs
+        idl = ndl/2 + 1                 ! center diagonal in lhs
         ndr = size(fdm_der%rhs, 2)
-        idr = ndr/2 + 1             ! center diagonal in rhs
-        nx = size(fdm_der%lhs, 1)                ! # grid points
+        idr = ndr/2 + 1                 ! center diagonal in rhs
+        nx = size(fdm_der%lhs, 1)       ! # grid points
 
         ! check sizes
         if (abs(idl - idr) > 1) then
@@ -507,10 +505,8 @@ contains
         ! Reduction; extending 2 diagonals the rhs at the boundaries
         if (allocated(fdmi%rhs_b1)) deallocate (fdmi%rhs_b1)
         if (allocated(fdmi%rhs_t1)) deallocate (fdmi%rhs_t1)
-        allocate (fdmi%rhs_b1(max(idr, idl + 1), 1:ndl + 2))
-        allocate (fdmi%rhs_t1(max(idr, idl + 1), 1:ndl + 2))
-        fdmi%rhs_b1(:, :) = 0.0_wp
-        fdmi%rhs_t1(:, :) = 0.0_wp
+        allocate (fdmi%rhs_b1(max(idr, idl) + 1, 1:max(ndl, ndr) + 2), source=0.0_wp)
+        allocate (fdmi%rhs_t1(max(idr, idl) + 1, 1:max(ndl, ndr) + 2), source=0.0_wp)
 
         ndr_b = size(fdmi%rhs_b1, 2)    ! they can have a different number of diagonals than rhs
         idr_b = ndr_b/2 + 1
@@ -519,9 +515,11 @@ contains
 
         nx_t = size(fdmi%rhs_t1, 1)
 
-        locRhs_b = 0.0_wp
-        locRhs_t = 0.0_wp
-        call FDM_Bcs_Reduce(BCS_BOTH, fdmi%rhs, fdm_der%rhs(:, 1:ndr), locRhs_b(1:nx_t, 1:ndr_b), locRhs_t(1:nx_t, 1:ndr_t))
+        if (allocated(locRhs_b)) deallocate (locRhs_b)
+        allocate (locRhs_b(nx_t, ndr_b), source=0.0_wp)
+        if (allocated(locRhs_t)) deallocate (locRhs_t)
+        allocate (locRhs_t(nx_t, ndr_t), source=0.0_wp)
+        call FDM_Bcs_Reduce(BCS_BOTH, fdmi%rhs, fdm_der%rhs, rhs_b=locRhs_b, rhs_t=locRhs_t)
 
         ! bcs min
         fdmi%rhs_b1(1:nx_t, idr_b - ndl/2:idr_b + ndl/2) = fdmi%rhs(1:nx_t, 1:ndl)
@@ -547,6 +545,14 @@ contains
                                                          - lambda2*fdmi%rhs_t1(nx_t - ir, idr_t - ndl/2:idr_t + ndl/2)
         end do
 
+        ! moving extended stencil in last element of old array to natural position
+        ir = 1
+        fdmi%rhs_b1(ir, idr_b + ndl/2 + 1) = fdmi%rhs_b1(ir, idr_b - ndl/2)
+        fdmi%rhs_b1(ir, idr_b - ndl/2) = 0.0_wp
+        ir = nx_t
+        fdmi%rhs_t1(ir, idr_t - ndl/2 - 1) = fdmi%rhs_t1(ir, idr_t + ndl/2)
+        fdmi%rhs_t1(ir, idr_t + ndl/2) = 0.0_wp
+
         ! -------------------------------------------------------------------
         ! Corrections to the BCS_DD to account for Neumann using third-order fdm for derivative at the boundary
         if (any([BCS_ND, BCS_NN] == fdmi%bc)) then
@@ -566,22 +572,16 @@ contains
             fdmi%rhs_b1(1, idr_b + 1) = -coef(5)/coef(1)           ! vector e_2, only 1 component
 
             ! Construct vector d + lambda^2h^2 e, e only 1 component
-            ! fdmi%lhs(1, 1) = fdmi%lhs(1, 1) + lambda2*fdmi%rhs_b1(1, 1 + idl + 1)
             fdmi%lhs(1, 1:1) = fdmi%lhs(1, 1:1) + lambda2*fdmi%rhs_b1(1, idr_b + 1:idr_b + 1)
 
             do ir = 1, idr - 1
-                ! fdmi%lhs(1 + ir, idr - ir + 1:idr - ir + 1 + 2) = fdmi%lhs(1 + ir, idr - ir + 1:idr - ir + 1 + 2) &
-                !                                                   - fdmi%rhs_b1(1 + ir, 1 + idl - ir)*fdmi%lhs(1, 1:3)       ! in reduced C matrix
                 fdmi%lhs(1 + ir, idr - ir + 1:idr - ir + 1 + 2) = fdmi%lhs(1 + ir, idr - ir + 1:idr - ir + 1 + 2) &
-                                                                  - fdmi%rhs_b1(1 + ir, idr_b - ir)*fdmi%lhs(1, 1:3)       ! in reduced C matrix
+                                                                  - fdmi%rhs_b1(1 + ir, idr_b - ir)*fdmi%lhs(1, 1:3)    ! in reduced C matrix
 
-                ! fdmi%rhs_b1(1 + ir, 1 + idl - ir + 1) = fdmi%rhs_b1(1 + ir, 1 + idl - ir + 1) &
-                !                                         + fdmi%rhs_b1(1 + ir, 1 + idl - ir)*fdmi%rhs_b1(1, 1 + idl + 1)                ! in reduced A matrix
                 fdmi%rhs_b1(1 + ir, idr_b - ir + 1) = fdmi%rhs_b1(1 + ir, idr_b - ir + 1) &
-                                                      + fdmi%rhs_b1(1 + ir, idr_b - ir)*fdmi%rhs_b1(1, idr_b + 1)                ! in reduced A matrix
+                                                      + fdmi%rhs_b1(1 + ir, idr_b - ir)*fdmi%rhs_b1(1, idr_b + 1)       ! in reduced A matrix
 
-                ! fdmi%rhs_b1(1 + ir, 1 + idl - ir) = fdmi%rhs_b1(1 + ir, 1 + idl - ir)*fdmi%rhs_b1(1, 1 + idl)                          ! d_1 b^R_{21}
-                fdmi%rhs_b1(1 + ir, idr_b - ir) = fdmi%rhs_b1(1 + ir, idr_b - ir)*fdmi%rhs_b1(1, idr_b)                          ! d_1 b^R_{21}
+                fdmi%rhs_b1(1 + ir, idr_b - ir) = fdmi%rhs_b1(1 + ir, idr_b - ir)*fdmi%rhs_b1(1, idr_b)                 ! d_1 b^R_{21}
             end do
 
         end if
@@ -604,35 +604,19 @@ contains
             fdmi%rhs_t1(nx_t, idr_t - 1) = -coef(5)/coef(1)           ! vector e_n-1, only 1 component
 
             ! Construct vector d + lambda^2h^2 e, e only 1 component
-            ! fdmi%lhs(nx, ndr) = fdmi%lhs(nx, ndr) + lambda2*fdmi%rhs_t1(1 + idl, 1 + idl - 1)
             fdmi%lhs(nx, ndr:ndr) = fdmi%lhs(nx, ndr:ndr) + lambda2*fdmi%rhs_t1(nx_t, idr_t - 1:idr_t - 1)
 
             do ir = 1, idr - 1
-                ! fdmi%lhs(nx - ir, ir - 1 + 1:ir - 1 + 3) = fdmi%lhs(nx - ir, ir - 1 + 1:ir - 1 + 3) &
-                !                                            - fdmi%rhs_t1(1 + idl - ir, 1 + idl + ir)*fdmi%lhs(nx, ndr - 2:ndr)              ! in reduced C matrix
                 fdmi%lhs(nx - ir, ir - 1 + 1:ir - 1 + 3) = fdmi%lhs(nx - ir, ir - 1 + 1:ir - 1 + 3) &
-                                                           - fdmi%rhs_t1(nx_t - ir, idr_t + ir)*fdmi%lhs(nx, ndr - 2:ndr)              ! in reduced C matrix
+                                                           - fdmi%rhs_t1(nx_t - ir, idr_t + ir)*fdmi%lhs(nx, ndr - 2:ndr)   ! in reduced C matrix
 
-                ! fdmi%rhs_t1(1 + idl - ir, 1 + idl + ir - 1) = fdmi%rhs_t1(1 + idl - ir, 1 + idl + ir - 1) &
-                !                                               + fdmi%rhs_t1(1 + idl - ir, 1 + idl + ir)*fdmi%rhs_t1(1 + idl, 1 + idl - 1)      ! in reduced A matrix
                 fdmi%rhs_t1(nx_t - ir, idr_t + ir - 1) = fdmi%rhs_t1(nx_t - ir, idr_t + ir - 1) &
-                                                         + fdmi%rhs_t1(nx_t - ir, idr_t + ir)*fdmi%rhs_t1(nx_t, idr_t - 1)      ! in reduced A matrix
+                                                         + fdmi%rhs_t1(nx_t - ir, idr_t + ir)*fdmi%rhs_t1(nx_t, idr_t - 1)  ! in reduced A matrix
 
-                ! fdmi%rhs_t1(1 + idl - ir, 1 + idl + ir) = fdmi%rhs_t1(1 + idl - ir, 1 + idl + ir)*fdmi%rhs_t1(1 + idl, 1 + idl)                ! d_n b^R_{2n}
-                fdmi%rhs_t1(nx_t - ir, idr_t + ir) = fdmi%rhs_t1(nx_t - ir, idr_t + ir)*fdmi%rhs_t1(nx_t, idr_t)                ! d_n b^R_{2n}
+                fdmi%rhs_t1(nx_t - ir, idr_t + ir) = fdmi%rhs_t1(nx_t - ir, idr_t + ir)*fdmi%rhs_t1(nx_t, idr_t)            ! d_n b^R_{2n}
             end do
 
         end if
-
-        ! moving extended stencil in last element of old array to natural position
-        ir = 1
-        ! fdmi%rhs_b1(ir, ndl + 2) = fdmi%rhs_b1(ir, 2); fdmi%rhs_b1(ir, 2) = 0.0_wp
-        fdmi%rhs_b1(ir, idr_b + ndl/2 + 1) = fdmi%rhs_b1(ir, idr_b - ndl/2)
-        fdmi%rhs_b1(ir, idr_b - ndl/2) = 0.0_wp
-        ir = nx_t
-        ! fdmi%rhs_t1(ir, 1) = fdmi%rhs_t1(ir, ndl + 1); fdmi%rhs_t1(ir, ndl + 1) = 0.0_wp
-        fdmi%rhs_t1(ir, idr_t - ndl/2 - 1) = fdmi%rhs_t1(ir, idr_t + ndl/2)
-        fdmi%rhs_t1(ir, idr_t + ndl/2) = 0.0_wp
 
         ! -------------------------------------------------------------------
         ! normalization such that new central diagonal in rhs is 1

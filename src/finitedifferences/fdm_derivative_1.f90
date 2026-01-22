@@ -602,7 +602,7 @@ contains
         integer(wi) idl, ndl, idr, ndr, ir, nx
         integer(wi) idr_t, ndr_t, idr_b, ndr_b, nx_t
         real(wp), allocatable :: aux(:, :)
-        real(wp) locRhs_b(7, 8), locRhs_t(7, 8)
+        real(wp), allocatable :: locRhs_b(:, :), locRhs_t(:, :)
 
         ! ###################################################################
         nx = size(lhs, 1)           ! # grid points
@@ -636,9 +636,9 @@ contains
 
             aux(1:nx, 1:ndr) = rhs(1:nx, 1:ndr)     ! array changed in FDM_Bcs_Reduce
 
-            locRhs_b = 0.0_wp
-            call FDM_Bcs_Reduce(BCS_MIN, aux, lhs, &
-                                rhs_b=locRhs_b(1:max(idl, idr + 1), 1:ndr_b))
+            if (allocated(locRhs_b)) deallocate (locRhs_b)
+            allocate (locRhs_b(max(idl, idr + 1), ndr_b), source=0.0_wp)
+            call FDM_Bcs_Reduce(BCS_MIN, aux, lhs, rhs_b=locRhs_b)
 
             r_rhs_b(:, :) = 0.0_wp
             r_rhs_b(1:idr + 1, idr_b - ndr/2:idr_b + ndr/2) = aux(1:idr + 1, 1:ndr)
@@ -663,9 +663,9 @@ contains
 
             aux(1:nx, 1:ndr) = rhs(1:nx, 1:ndr)     ! array changed in FDM_Bcs_Reduce
 
-            locRhs_t = 0.0_wp
-            call FDM_Bcs_Reduce(BCS_MAX, aux, lhs, &
-                                rhs_t=locRhs_t(1:max(idl, idr + 1), 1:ndr_t))
+            if (allocated(locRhs_t)) deallocate (locRhs_t)
+            allocate (locRhs_t(max(idl, idr + 1), ndr_t), source=0.0_wp)
+            call FDM_Bcs_Reduce(BCS_MAX, aux, lhs, rhs_t=locRhs_t)
 
             r_rhs_t(:, :) = 0.0_wp
             r_rhs_t(nx_t - idr:nx_t, idr_t - ndr/2:idr_t + ndr/2) = aux(nx - idr:nx, 1:ndr)

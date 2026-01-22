@@ -208,7 +208,6 @@ contains
         integer, intent(in) :: ibc
         real(wp), intent(inout) :: lhs(:, :)
         real(wp), intent(in), optional :: rhs(:, :)
-        ! real(wp), intent(out), optional :: rhs_b(:, 0:), rhs_t(0:, :)
         real(wp), intent(out), optional :: rhs_b(:, :), rhs_t(:, :)
 
         integer(wi) idl, ndl, idr, ndr, ir, ic, nx, nx_t
@@ -217,35 +216,35 @@ contains
 
         ! -------------------------------------------------------------------
         ndl = size(lhs, 2)
-        idl = ndl/2 + 1        ! center diagonal in lhs
+        idl = ndl/2 + 1         ! center diagonal in lhs
         ndr = size(rhs, 2)
-        idr = ndr/2 + 1        ! center diagonal in rhs
-        nx = size(lhs, 1)               ! # grid points
+        idr = ndr/2 + 1         ! center diagonal in rhs
+        nx = size(lhs, 1)       ! # grid points
 
         ! -------------------------------------------------------------------
         if (any([BCS_MIN, BCS_BOTH] == ibc)) then
-            dummy = 1.0_wp/lhs(1, idl)      ! normalize by l11
+            dummy = 1.0_wp/lhs(1, idl)          ! normalize by l11
 
             ! reduced array A^R_{22}
             lhs(1, 1:ndl) = -lhs(1, 1:ndl); lhs(1, idl) = -lhs(1, idl)
-            do ir = 1, idl - 1              ! rows
-                do ic = idl + 1, ndl        ! columns
+            do ir = 1, idl - 1                  ! rows
+                do ic = idl + 1, ndl            ! columns
                     lhs(1 + ir, ic - ir) = lhs(1 + ir, ic - ir) + lhs(1 + ir, idl - ir)*lhs(1, ic)*dummy
                 end do
-                ic = ndl + 1                ! longer stencil at the boundary
+                ic = ndl + 1                    ! longer stencil at the boundary
                 lhs(1 + ir, ic - ir) = lhs(1 + ir, ic - ir) + lhs(1 + ir, idl - ir)*lhs(1, 1)*dummy
             end do
 
             ! reduced array B^R_{22}
             if (present(rhs_b)) then
-                if (size(rhs_b, 1) < idl + 1 .or. size(rhs_b, 2) < ndr) then
+                ndr_b = size(rhs_b, 2)          ! they can have a different number of diagonals than rhs
+                idr_b = ndr_b/2 + 1
+                nx_t = size(rhs_b, 1)
+
+                if (nx_t < idl + 1 .or. ndr_b < ndr + 2) then
                     call TLab_Write_ASCII(efile, __FILE__//'. rhs_b array is too small.')
                     call TLab_Stop(DNS_ERROR_UNDEVELOP)
                 end if
-                ndr_b = size(rhs_b, 2)          ! they can have a different number of diagonals than rhs
-                idr_b = ndr_b/2 + 1
-
-                nx_t = size(rhs_b, 1)
 
                 rhs_b(1:nx_t, idr_b - ndr/2:idr_b + ndr/2) = rhs(1:nx_t, 1:ndr)
 
@@ -253,9 +252,14 @@ contains
                     do ic = 0, ndr/2            ! columns; ic = 0 corresponds to vector b^R_{21}
                         rhs_b(1 + ir, idr_b + ic - ir) = rhs_b(1 + ir, idr_b + ic - ir) - lhs(1 + ir, idl - ir)*rhs_b(1, idr_b + ic)*dummy
                     end do
-                    ic = ndr/2 + 1                ! longer stencil at the boundary
+                    ic = ndr/2 + 1              ! longer stencil at the boundary
                     rhs_b(1 + ir, idr_b + ic - ir) = rhs_b(1 + ir, idr_b + ic - ir) - lhs(1 + ir, idl - ir)*rhs_b(1, idr_b - ndr/2)*dummy
                 end do
+
+                ! ! moving extended stencil in first element of old array to natural position
+                ! rhs_b(1, idr_b + ndr/2 + 1) = rhs_b(1, idr_b - ndr/2)
+                ! rhs_b(1, idr_b - ndr/2) = 0.0_wp
+                ! cannot make it here because the fdm_derivative_Neumann uses the old position in lhs.
             end if
 
         end if
@@ -275,23 +279,29 @@ contains
 
             ! reduced array B^R_{11}
             if (present(rhs_t)) then
-                if (size(rhs_t, 1) < idl + 1 .or. size(rhs_t, 2) < ndr) then
-                    call TLab_Write_ASCII(efile, __FILE__//'. rhs_t array is too small.')
-                    call TLab_Stop(DNS_ERROR_UNDEVELOP)
-                end if
                 ndr_t = size(rhs_t, 2)
                 idr_t = ndr_t/2 + 1
                 nx_t = size(rhs_t, 1)
 
+                if (nx_t < idl + 1 .or. ndr_t < ndr + 2) then
+                    call TLab_Write_ASCII(efile, __FILE__//'. rhs_t array is too small.')
+                    call TLab_Stop(DNS_ERROR_UNDEVELOP)
+                end if
+
                 rhs_t(1:nx_t, idr_t - ndr/2:idr_t + ndr/2) = rhs(nx - nx_t + 1:nx, 1:ndr)
 
-                do ir = 1, idl - 1              ! rows
-                    do ic = 0, ndr/2            ! ic = 0 corresponds to vector b^R_{1n}
+                do ir = 1, idl - 1          ! rows
+                    do ic = 0, ndr/2        ! ic = 0 corresponds to vector b^R_{1n}
                         rhs_t(nx_t - ir, idr_t - ic + ir) = rhs_t(nx_t - ir, idr_t - ic + ir) - lhs(nx - ir, idl + ir)*rhs_t(nx_t, idr_t - ic)*dummy
                     end do
-                    ic = ndr/2 + 1                ! longer stencil at the boundary
+                    ic = ndr/2 + 1          ! longer stencil at the boundary
                     rhs_t(nx_t - ir, idr_t - ic + ir) = rhs_t(nx_t - ir, idr_t - ic + ir) - lhs(nx - ir, idl + ir)*rhs_t(nx_t, idr_t + ndr/2)*dummy
                 end do
+
+                ! ! moving extended stencil in last element of old array to natural position
+                ! rhs_t(nx_t, idr_t - ndr/2 - 1) = rhs_t(nx_t, idr_t + ndr/2)
+                ! rhs_t(nx_t, idr_t + ndr/2) = 0.0_wp
+
             end if
 
         end if

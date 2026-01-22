@@ -10,7 +10,8 @@ program VINTEGRAL
     use FDM_Base
     use FDM_Derivative_1order
     use FDM_Derivative_2order
-    use FDM_Integral
+    use FDM_Integral_1
+    use FDM_Integral_2
     use OPR_Partial
     use OPR_ODES
 

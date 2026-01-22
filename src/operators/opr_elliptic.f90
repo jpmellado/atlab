@@ -16,7 +16,8 @@ module OPR_Elliptic
 #endif
     use FDM, only: fdm_der1_Z, FDM_CreatePlan_Der2
     use FDM_Derivative_2order
-    use FDM_Integral
+    use FDM_Integral_1
+    use FDM_Integral_2
     use OPR_Fourier, only: OPR_Fourier_XY_Backward, OPR_Fourier_XY_Forward
     use OPR_ODES
     use, intrinsic :: iso_c_binding, only: c_f_pointer, c_loc

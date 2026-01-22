@@ -191,7 +191,7 @@ contains
     subroutine Gravity_Hydrostatic_Enthalpy(fdmi, z, s, ep, T, p, zref, pref, equilibrium)
         use TLab_Constants, only: BCS_MIN
         use TLab_Arrays, only: wrk1d
-        use FDM_Integral, only: FDM_Int1_Solve, fdm_integral_dt
+        use FDM_Integral_1, only: FDM_Int1_Solve, fdm_integral_dt
         use Thermodynamics, only: imode_thermo, THERMO_TYPE_ANELASTIC, THERMO_TYPE_COMPRESSIBLE
         use Thermo_Anelastic
         use OPR_ODES

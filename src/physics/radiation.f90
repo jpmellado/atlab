@@ -8,7 +8,7 @@ module Radiation
     use TLab_Memory, only: TLab_Allocate_Real
     use TLab_Grid, only: z
     use FDM, only: fdm_Int0
-    use FDM_Integral, only: FDM_Int1_Solve, fdm_integral_dt
+    use FDM_Integral_1
     use NavierStokes, only: nse_eqns, DNS_EQNS_ANELASTIC
     use Thermo_Base, only: imixture, MIXT_TYPE_AIRWATER
     use Thermo_AirWater, only: inb_scal_e, inb_scal_qt, inb_scal_ql, inb_scal_T

@@ -8,8 +8,7 @@ module FDM
     use FDM_Base
     use FDM_Derivative_1order
     use FDM_Derivative_2order
-    use FDM_Interpolate
-    use FDM_Integral
+    use FDM_Integral_1
     implicit none
     private
 

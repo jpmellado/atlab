@@ -6,7 +6,7 @@
 module OPR_ODES
     use TLab_Constants, only: wp, wi
     use TLab_Constants, only: BCS_MIN, BCS_MAX
-    use FDM_Integral, only: fdm_integral_dt, FDM_Int1_Solve
+    use FDM_Integral_1
     implicit none
     private
 

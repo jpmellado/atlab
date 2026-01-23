@@ -136,16 +136,12 @@ call TLab_Write_ASCII(bakfile, '#SchemeDerivative2=<CompactJacobian4/CompactJaco
 
     ! ###################################################################
     ! ###################################################################
+    ! to be removed a call directly locDer%initialize(x%nodes, type)
+    ! from parent procedure
     subroutine FDM_CreatePlan_Der1(x, locDer, type)
         type(grid_dt), intent(in) :: x
         class(der_dt), allocatable, intent(out) :: locDer
         integer, intent(in) :: type
-
-        ! -------------------------------------------------------------------
-        real(wp), allocatable :: x_aux(:, :)        ! uniform grid to calculate Jacobians; shape to comply with %compute routines below
-        real(wp), allocatable :: dx(:, :)           ! Jacobians
-
-        integer i
 
         ! ###################################################################
         if (x%size == 1) return
@@ -156,34 +152,7 @@ call TLab_Write_ASCII(bakfile, '#SchemeDerivative2=<CompactJacobian4/CompactJaco
             allocate (der1_biased :: locDer)
         end if
 
-        ! -------------------------------------------------------------------
-        ! Calculate Jacobian for the Jacobian formulations
-        if (allocated(x_aux)) deallocate (x_aux)
-        allocate (x_aux(1, x%size))
-        if (allocated(dx)) deallocate (dx)
-        allocate (dx(1, x%size))
-
-        select type (locDer)
-        type is (der1_biased)
-            ! -------------------------------------------------------------------
-            ! uniform grid to calculate Jacobian (used for the stencils below and also as grid spacing in the code).
-            x_aux(1, :) = [(real(i - 1, wp), i=1, x%size)]
-            dx(1, :) = 1.0_wp
-
-            call locDer%initialize(x_aux(1, :), dx(1, :), type)
-
-            ! Calculating derivative dxds
-            x_aux(1, :) = x%nodes(:)                    ! I need shape (1,nx) in the procedure
-            call locDer%compute(1, x_aux, dx)
-
-        type is (der1_periodic)
-            dx(1, :) = x%nodes(2) - x%nodes(1)
-
-        end select
-
-        ! -------------------------------------------------------------------
-        ! Actual grid; possibly nonuniform
-        call locDer%initialize(x%nodes, dx(1, :), type)
+        call locDer%initialize(x%nodes, type)
 
         return
     end subroutine
@@ -235,9 +204,6 @@ call TLab_Write_ASCII(bakfile, '#SchemeDerivative2=<CompactJacobian4/CompactJaco
             ! Calculating derivative dx2ds2
             x_aux(1, :) = x%nodes(:)                    ! I need shape (1,nx) in the procedure
             call locDer%compute(1, x_aux, dx(2:2, :))
-
-        type is (der2_periodic)
-            dx(1, :) = x%nodes(2) - x%nodes(1)
 
         end select
 

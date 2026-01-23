@@ -38,15 +38,14 @@ contains
     !########################################################################
     ! rhs is still pentadiagonal because of the bcs
     ! intent out in allocatable array deallocate previous allocations
-    subroutine FDM_C2N4_Jacobian(nx, lhs, rhs, coef, periodic)
+    subroutine FDM_C2N4_Jacobian(nx, lhs, rhs, periodic)
         integer(wi), intent(in) :: nx
         real(wp), allocatable, intent(out) :: lhs(:, :)     ! LHS diagonals; a_2 = 0
         real(wp), allocatable, intent(out) :: rhs(:, :)     ! RHS diagonals; b_2, b_3 = 0
-        real(wp), intent(out) :: coef(5)                    ! a_1, a_2, b_1, b_2, b_3
         logical, intent(in), optional :: periodic
 
         ! -------------------------------------------------------------------
-        ! real(wp) coef_bc1(6)
+        real(wp) :: coef(5)                         ! a_1, a_2, b_1, b_2, b_3
         real(wp) :: coef_bc1(2 + 3 + 1) = 0.0_wp    ! 2 lhs, 3 +1 rhs (1 additional point to the 5-diagonal rhs)
 
         ! #######################################################################
@@ -80,15 +79,14 @@ contains
     end subroutine FDM_C2N4_Jacobian
 
     !########################################################################
-    subroutine FDM_C2N6_Jacobian(nx, lhs, rhs, coef, periodic)
+    subroutine FDM_C2N6_Jacobian(nx, lhs, rhs, periodic)
         integer(wi), intent(in) :: nx
         real(wp), allocatable, intent(out) :: lhs(:, :)     ! LHS diagonals; a_2 = 0
         real(wp), allocatable, intent(out) :: rhs(:, :)     ! RHS diagonals; b_2, b_3 = 0
-        real(wp), intent(out) :: coef(5)                    ! a_1, a_2, b_1, b_2, b_3
         logical, intent(in), optional :: periodic
 
         ! -------------------------------------------------------------------
-        ! real(wp) coef_bc1(6), coef_bc2(6)
+        real(wp) :: coef(5)                         ! a_1, a_2, b_1, b_2, b_3
         real(wp) :: coef_bc1(2 + 3 + 1) = 0.0_wp    ! 2 lhs, 3 +1 rhs (1 additional point to the 5-diagonal rhs)
         real(wp) :: coef_bc2(2 + 4) = 0.0_wp        ! 2 lhs, 4 rhs
 
@@ -127,15 +125,14 @@ contains
     end subroutine FDM_C2N6_Jacobian
 
     !########################################################################
-    subroutine FDM_C2N6_Hyper_Jacobian(nx,lhs, rhs, coef, periodic)
+    subroutine FDM_C2N6_Hyper_Jacobian(nx,lhs, rhs, periodic)
         integer(wi), intent(in) :: nx
         real(wp), allocatable, intent(out) :: lhs(:, :)     ! LHS diagonals; a_2 = 0
         real(wp), allocatable, intent(out) :: rhs(:, :)     ! RHS diagonals; b_2, b_3 = 0
-        real(wp), intent(out) :: coef(5)                    ! a_1, a_2, b_1, b_2, b_3
         logical, intent(in), optional :: periodic
 
         ! -------------------------------------------------------------------
-        ! real(wp) coef_bc1(6), coef_bc2(6), coef_bc3(8)
+        real(wp) :: coef(5)                         ! a_1, a_2, b_1, b_2, b_3
         real(wp) kc
         real(wp) :: coef_bc1(2 + 4 + 1) = 0.0_wp    ! 2 lhs, 4 +1 rhs (1 additional point to the 7-diagonal rhs)
         real(wp) :: coef_bc2(2 + 5) = 0.0_wp        ! 2 lhs, 5 rhs

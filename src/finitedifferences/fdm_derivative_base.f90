@@ -13,10 +13,10 @@ module FDM_Derivative_Base
         procedure(compute_ice), deferred :: compute
     end type
     abstract interface
-        subroutine initialize_ice(self, x, dx, fdm_type)
+        subroutine initialize_ice(self, x, fdm_type)
             import der_dt, wp
             class(der_dt), intent(out) :: self
-            real(wp), intent(in) :: x(:), dx(:)
+            real(wp), intent(in) :: x(:)
             integer, intent(in) :: fdm_type
         end subroutine
         subroutine compute_ice(self, nlines, u, result)

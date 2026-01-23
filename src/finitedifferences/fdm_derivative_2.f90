@@ -153,11 +153,26 @@ contains
 
         call FDM_Der2_CreateSystem(x, self, periodic=.true.)
 
+        ! -------------------------------------------------------------------
+        ! Procedure pointers to matrix multiplication to calculate the right-hand side
+        select case (self%type)
+        case (FDM_COM4_JACOBIAN, FDM_COM6_JACOBIAN)
+            self%matmul => MatMul_Halo_5_sym_ThomasL_3      ! MatMul_Halo_3_sym together with self%thomasL => Thomas3_SolveL
+            self%thomasU => Thomas3_SolveU
+
+        case (FDM_COM6_JACOBIAN_HYPER)
+            self%matmul => MatMul_Halo_7_sym_ThomasL_3      ! MatMul_Halo_7_sym together with self%thomasL => Thomas3_SolveL
+            self%thomasU => Thomas3_SolveU
+
+        end select
+
+        ! -------------------------------------------------------------------
         ! Jacobian, if needed
         ! select case (self%type)
         ! case (FDM_COM4_JACOBIAN, FDM_COM6_JACOBIAN, FDM_COM6_JACOBIAN_HYPER)
-        call MultiplyByDiagonal(self%lhs, dx(1, :))
-        call MultiplyByDiagonal(self%lhs, dx(1, :))
+        ! call MultiplyByDiagonal(self%lhs, dx(1, :))
+        ! call MultiplyByDiagonal(self%lhs, dx(1, :))
+        self%lhs = self%lhs*(x(2) - x(1))*(x(2) - x(1))
         ! end select
 
         call NormalizeByDiagonal(self%rhs, &
@@ -179,19 +194,6 @@ contains
             call ThomasCirculant_3_Initialize(self%lu(:, 1:ndl/2), &
                                               self%lu(:, ndl/2 + 1:ndl), &
                                               self%z)
-        end select
-
-        ! -------------------------------------------------------------------
-        ! Procedure pointers to matrix multiplication to calculate the right-hand side
-        select case (self%type)
-        case (FDM_COM4_JACOBIAN, FDM_COM6_JACOBIAN)
-            self%matmul => MatMul_Halo_5_sym_ThomasL_3      ! MatMul_Halo_3_sym together with self%thomasL => Thomas3_SolveL
-            self%thomasU => Thomas3_SolveU
-
-        case (FDM_COM6_JACOBIAN_HYPER)
-            self%matmul => MatMul_Halo_7_sym_ThomasL_3      ! MatMul_Halo_7_sym together with self%thomasL => Thomas3_SolveL
-            self%thomasU => Thomas3_SolveU
-
         end select
 
         return
@@ -261,6 +263,32 @@ contains
 
         call FDM_Der2_CreateSystem(x, self, periodic=.false.)
 
+        ! -------------------------------------------------------------------
+        ! Procedure pointers to linear solvers
+        select case (self%type)
+        case (FDM_COM4_JACOBIAN, FDM_COM6_JACOBIAN)
+            if (.not. uniform) then                                ! add Jacobian correction A_2 dx2 du
+                self%matmul_add => MatMul_5_sym_add_3_ThomasL_3     ! MatMul_5_sym together with self%thomasL => Thomas3_SolveL
+            else
+                self%matmul => MatMul_5_sym_ThomasL_3               ! MatMul_5_sym together with self%thomasL => Thomas3_SolveL
+            end if
+            self%thomasU => Thomas3_SolveU
+
+        case (FDM_COM6_JACOBIAN_HYPER)
+            if (.not. uniform) then                                ! add Jacobian correction A_2 dx2 du
+                self%matmul_add => MatMul_7_sym_add_3_ThomasL_3     ! MatMul_7_sym together with self%thomasL => Thomas3_SolveL
+            else
+                self%matmul => MatMul_7_sym_ThomasL_3               ! MatMul_7_sym together with self%thomasL => Thomas3_SolveL
+            end if
+            self%thomasU => Thomas3_SolveU
+
+        case (FDM_COM4_DIRECT, FDM_COM6_DIRECT)
+            self%matmul => MatMul_5_ThomasL_3           ! MatMul_5 together with self%thomasL => Thomas3_SolveL
+            self%thomasU => Thomas3_SolveU
+
+        end select
+
+        ! -------------------------------------------------------------------
         ! Jacobian, if needed
         select case (self%type)
         case (FDM_COM4_JACOBIAN, FDM_COM6_JACOBIAN, FDM_COM6_JACOBIAN_HYPER)
@@ -296,31 +324,6 @@ contains
         ndl = size(self%lhs, 2)
         call Thomas_FactorLU_InPlace(self%lu(:, 1:ndl/2), &
                                      self%lu(:, ndl/2 + 1:ndl))
-
-        ! -------------------------------------------------------------------
-        ! Procedure pointers to linear solvers
-        select case (self%type)
-        case (FDM_COM4_JACOBIAN, FDM_COM6_JACOBIAN)
-            if (self%need_1der) then                                ! add Jacobian correction A_2 dx2 du
-                self%matmul_add => MatMul_5_sym_add_3_ThomasL_3     ! MatMul_5_sym together with self%thomasL => Thomas3_SolveL
-            else
-                self%matmul => MatMul_5_sym_ThomasL_3               ! MatMul_5_sym together with self%thomasL => Thomas3_SolveL
-            end if
-            self%thomasU => Thomas3_SolveU
-
-        case (FDM_COM6_JACOBIAN_HYPER)
-            if (self%need_1der) then                                ! add Jacobian correction A_2 dx2 du
-                self%matmul_add => MatMul_7_sym_add_3_ThomasL_3     ! MatMul_7_sym together with self%thomasL => Thomas3_SolveL
-            else
-                self%matmul => MatMul_7_sym_ThomasL_3               ! MatMul_7_sym together with self%thomasL => Thomas3_SolveL
-            end if
-            self%thomasU => Thomas3_SolveU
-
-        case (FDM_COM4_DIRECT, FDM_COM6_DIRECT)
-            self%matmul => MatMul_5_ThomasL_3           ! MatMul_5 together with self%thomasL => Thomas3_SolveL
-            self%thomasU => Thomas3_SolveU
-
-        end select
 
         return
     end subroutine der2_biased_initialize
@@ -385,19 +388,16 @@ contains
         class(der2_dt), intent(inout) :: g      ! fdm plan for 2. order derivative
         logical, intent(in) :: periodic
 
-        ! -------------------------------------------------------------------
-        real(wp) :: coef(5)     ! not needed any more, to be removed
-
         ! ###################################################################
         select case (g%type)
         case (FDM_COM4_JACOBIAN)
-            call FDM_C2N4_Jacobian(size(x), g%lhs, g%rhs, coef, periodic)
+            call FDM_C2N4_Jacobian(size(x), g%lhs, g%rhs, periodic)
 
         case (FDM_COM6_JACOBIAN)
-            call FDM_C2N6_Jacobian(size(x), g%lhs, g%rhs, coef, periodic)
+            call FDM_C2N6_Jacobian(size(x), g%lhs, g%rhs, periodic)
 
         case (FDM_COM6_JACOBIAN_HYPER)
-            call FDM_C2N6_Hyper_Jacobian(size(x), g%lhs, g%rhs, coef, periodic)
+            call FDM_C2N6_Hyper_Jacobian(size(x), g%lhs, g%rhs, periodic)
 
         case (FDM_COM4_DIRECT)
             call FDM_C2N4_Direct(x, g%lhs, g%rhs)

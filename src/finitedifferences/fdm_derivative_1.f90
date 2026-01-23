@@ -87,11 +87,13 @@ module FDM_Derivative_1order
 contains
     ! ###################################################################
     ! ###################################################################
-    subroutine der1_periodic_initialize(self, x, dx, fdm_type)
-        use Preconditioning
+    subroutine der1_periodic_initialize(self, x, fdm_type)
         use FDM_Base, only: MultiplyByDiagonal
+        use FDM_ComX_Direct
+        use FDM_Com1_Jacobian
+        use Preconditioning
         class(der1_periodic), intent(out) :: self
-        real(wp), intent(in) :: x(:), dx(:)
+        real(wp), intent(in) :: x(:)
         integer, intent(in) :: fdm_type
 
         ! ###################################################################
@@ -104,17 +106,30 @@ contains
             self%type = FDM_COM6_JACOBIAN
         end select
 
-        call FDM_Der1_CreateSystem(x, self, periodic=.true.)
+        select case (self%type)
+        case (FDM_COM4_JACOBIAN)
+            call FDM_C1N4_Jacobian(size(x), self%lhs, self%rhs, periodic=.true.)
+            self%matmul => MatMul_Halo_3_antisym_ThomasL_3   ! MatMul_Halo_3_antisym together with self%thomasL => Thomas3_SolveL
+            self%thomasU => Thomas3_SolveU
 
-        ! Jacobian, if needed
-        ! select case (self%type)
-        ! case (FDM_COM4_JACOBIAN, FDM_COM6_JACOBIAN, FDM_COM6_JACOBIAN_PENTA)
-        call MultiplyByDiagonal(self%lhs, dx)    ! multiply by the Jacobian
-        ! end select
+        case (FDM_COM6_JACOBIAN)
+            call FDM_C1N6_Jacobian(size(x), self%lhs, self%rhs, periodic=.true.)
+            self%matmul => MatMul_Halo_5_antisym_ThomasL_3   ! MatMul_Halo_5_antisym together with self%thomasL => Thomas3_SolveL
+            self%thomasU => Thomas3_SolveU
 
+        case (FDM_COM6_JACOBIAN_PENTA)
+            call FDM_C1N6_Jacobian_Penta(size(x), self%lhs, self%rhs, periodic=.true.)
+            self%matmul => MatMul_Halo_7_antisym_ThomasL_5   ! MatMul_Halo_7_antisym together with self%thomasL => Thomas5_SolveL
+            self%thomasU => Thomas5_SolveU
+
+        end select
+
+        ! Jacobian
+        self%lhs = self%lhs*(x(2) - x(1))
+
+        ! Preconditioning; the linear procedures assume 1 in the first upper diagonal.
         call Precon_Rhs(self%lhs, self%rhs, periodic=.true.)
 
-        ! -------------------------------------------------------------------
         ! Construct LU decomposition
         nx = size(self%lhs, 1)
         ndl = size(self%lhs, 2)
@@ -132,23 +147,6 @@ contains
             call ThomasCirculant_5_Initialize(self%lu(:, 1:ndl/2), &
                                               self%lu(:, ndl/2 + 1:ndl), &
                                               self%z)
-        end select
-
-        ! -------------------------------------------------------------------
-        ! Procedure pointers to matrix multiplication to calculate the right-hand side
-        select case (self%type)
-        case (FDM_COM4_JACOBIAN)
-            self%matmul => MatMul_Halo_3_antisym_ThomasL_3   ! MatMul_Halo_3_antisym together with self%thomasL => Thomas3_SolveL
-            self%thomasU => Thomas3_SolveU
-
-        case (FDM_COM6_JACOBIAN)
-            self%matmul => MatMul_Halo_5_antisym_ThomasL_3   ! MatMul_Halo_5_antisym together with self%thomasL => Thomas3_SolveL
-            self%thomasU => Thomas3_SolveU
-
-        case (FDM_COM6_JACOBIAN_PENTA)
-            self%matmul => MatMul_Halo_7_antisym_ThomasL_5   ! MatMul_Halo_7_antisym together with self%thomasL => Thomas5_SolveL
-            self%thomasU => Thomas5_SolveU
-
         end select
 
         return
@@ -202,51 +200,65 @@ contains
 
     ! ###################################################################
     ! ###################################################################
-    subroutine der1_biased_initialize(self, x, dx, fdm_type)
-        use Preconditioning
+    subroutine der1_biased_initialize(self, x, fdm_type)
         use FDM_Base, only: MultiplyByDiagonal
+        use FDM_ComX_Direct
+        use FDM_Com1_Jacobian
+        use Preconditioning
         class(der1_biased), intent(out) :: self
-        real(wp), intent(in) :: x(:), dx(:)
+        real(wp), intent(in) :: x(:)
         integer, intent(in) :: fdm_type
+
+        real(wp), allocatable :: dx(:, :)
 
         ! ###################################################################
         self%type = fdm_type
 
-        call FDM_Der1_CreateSystem(x, self, periodic=.false.)
-
-        ! Jacobian, if needed
-        select case (self%type)
-        case (FDM_COM4_JACOBIAN, FDM_COM6_JACOBIAN, FDM_COM6_JACOBIAN_PENTA)
-            call MultiplyByDiagonal(self%lhs, dx)    ! multiply by the Jacobian
-        end select
-
-        ! Preconditioning
-        call Precon_Rhs(self%lhs, self%rhs, periodic=.false.)
-
-        ! -------------------------------------------------------------------
-        ! Procedure pointers to linear solvers
         select case (self%type)
         case (FDM_COM4_JACOBIAN)
+            call FDM_C1N4_Jacobian(size(x), self%lhs, self%rhs, periodic=.false.)
             self%matmul => MatMul_3_antisym_ThomasL_3   ! MatMul_3_antisym together with self%thomasL => Thomas3_SolveL
             self%thomasU => Thomas3_SolveU
 
         case (FDM_COM6_JACOBIAN)
+            call FDM_C1N6_Jacobian(size(x), self%lhs, self%rhs, periodic=.false.)
             self%matmul => MatMul_5_antisym_ThomasL_3   ! MatMul_5_antisym together with self%thomasL => Thomas3_SolveL
             self%thomasU => Thomas3_SolveU
 
         case (FDM_COM6_JACOBIAN_PENTA)
+            call FDM_C1N6_Jacobian_Penta(size(x), self%lhs, self%rhs, periodic=.false.)
             self%matmul => MatMul_7_antisym_ThomasL_5   ! MatMul_7_antisym together with self%thomasL => Thomas5_SolveL
             self%thomasU => Thomas5_SolveU
 
         case (FDM_COM4_DIRECT)
+            call FDM_C1N4_Direct(x, self%lhs, self%rhs)
             self%matmul => MatMul_3_ThomasL_3           ! MatMul_3 together with self%thomasL => Thomas3_SolveL
             self%thomasU => Thomas3_SolveU
 
         case (FDM_COM6_DIRECT)
+            call FDM_C1N6_Direct(x, self%lhs, self%rhs)
             self%matmul => MatMul_5_ThomasL_3           ! MatMul_5 together with self%thomasL => Thomas3_SolveL
             self%thomasU => Thomas3_SolveU
 
         end select
+
+        ! Jacobian, if needed
+        select case (self%type)
+        case (FDM_COM4_JACOBIAN, FDM_COM6_JACOBIAN, FDM_COM6_JACOBIAN_PENTA)
+            if (allocated(dx)) deallocate (dx)
+            allocate (dx(1, size(x)), source=1.0_wp)
+
+            ! Preconditioning; the linear procedures assume 1 in the first upper diagonal.
+            call Precon_Rhs(self%lhs, self%rhs, periodic=.false.)
+            call self%bcsDD%initialize(self)
+            call self%bcsDD%compute(1, x, dx)
+
+            call MultiplyByDiagonal(self%lhs, dx(1, :))    ! multiply by the Jacobian
+
+        end select
+
+        ! Preconditioning
+        call Precon_Rhs(self%lhs, self%rhs, periodic=.false.)
 
         ! -------------------------------------------------------------------
         ! Construct LU decomposition
@@ -553,40 +565,6 @@ contains
 
         return
     end subroutine bcsNN_compute
-
-    ! ###################################################################
-    ! ###################################################################
-    subroutine FDM_Der1_CreateSystem(x, g, periodic)
-        use FDM_ComX_Direct
-        use FDM_Com1_Jacobian
-        real(wp), intent(in) :: x(:)            ! node positions
-        class(der_dt), intent(inout) :: g       ! fdm plan for 1. order derivative
-        logical, intent(in) :: periodic
-
-        ! -------------------------------------------------------------------
-        real(wp) :: coef(5)     ! not needed any more, to be removed
-
-        ! ###################################################################
-        select case (g%type)
-        case (FDM_COM4_JACOBIAN)
-            call FDM_C1N4_Jacobian(size(x), g%lhs, g%rhs, coef, periodic)
-
-        case (FDM_COM6_JACOBIAN)
-            call FDM_C1N6_Jacobian(size(x), g%lhs, g%rhs, coef, periodic)
-
-        case (FDM_COM6_JACOBIAN_PENTA)
-            call FDM_C1N6_Jacobian_Penta(size(x), g%lhs, g%rhs, coef, periodic)
-
-        case (FDM_COM4_DIRECT)
-            call FDM_C1N4_Direct(x, g%lhs, g%rhs)
-
-        case (FDM_COM6_DIRECT)
-            call FDM_C1N6_Direct(x, g%lhs, g%rhs)
-
-        end select
-
-        return
-    end subroutine FDM_Der1_CreateSystem
 
 ! #######################################################################
 ! #######################################################################

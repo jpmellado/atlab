@@ -30,7 +30,7 @@ module FDM_Derivative_1order
 
     ! for the first-order derivative, we consider different types of boundary conditions
     type :: bcs
-        ! private
+        ! private; I need public for vpartial
         ! procedure(matmul_ice), pointer, nopass :: matmul => null()
         procedure(matmul_thomas_ice), pointer, nopass :: matmul => null()
         procedure(thomas_ice), pointer, nopass :: thomasU => null()
@@ -88,7 +88,6 @@ contains
     ! ###################################################################
     ! ###################################################################
     subroutine der1_periodic_initialize(self, x, fdm_type)
-        use FDM_Base, only: MultiplyByDiagonal
         use FDM_ComX_Direct
         use FDM_Com1_Jacobian
         use Preconditioning
@@ -260,8 +259,7 @@ contains
         ! Preconditioning
         call Precon_Rhs(self%lhs, self%rhs, periodic=.false.)
 
-        ! -------------------------------------------------------------------
-        ! Construct LU decomposition
+        ! Construct LU decomposition for different types of bcs
         call self%bcsDD%initialize(self)
         call self%bcsND%initialize(self)
         call self%bcsDN%initialize(self)

@@ -165,12 +165,6 @@ call TLab_Write_ASCII(bakfile, '#SchemeDerivative2=<CompactJacobian4/CompactJaco
         integer, intent(in) :: type
         class(der_dt), intent(in) :: fdm_der1
 
-        ! -------------------------------------------------------------------
-        real(wp), allocatable :: x_aux(:, :)    ! uniform grid to calculate Jacobians; shape to comply with %compute routines below
-        real(wp), allocatable :: dx(:, :)       ! Jacobians
-
-        integer i
-
         ! ###################################################################
         if (x%size == 1) return
 
@@ -180,36 +174,7 @@ call TLab_Write_ASCII(bakfile, '#SchemeDerivative2=<CompactJacobian4/CompactJaco
             allocate (der2_biased :: locDer)
         end if
 
-        ! -------------------------------------------------------------------
-        ! Calculate Jacobian for the Jacobian formulations
-        if (allocated(x_aux)) deallocate (x_aux)
-        allocate (x_aux(1, x%size))
-        if (allocated(dx)) deallocate (dx)
-        allocate (dx(2, x%size))
-
-        select type (locDer)
-        type is (der2_biased)
-            ! -------------------------------------------------------------------
-            ! uniform grid to calculate Jacobian (used for the stencils below and also as grid spacing in the code).
-            x_aux(1, :) = [(real(i - 1, wp), i=1, x%size)]
-            dx(1, :) = 1.0_wp
-            dx(2, :) = 0.0_wp
-
-            call locDer%initialize(x_aux(1, :), dx(:, :), type, uniform=.true.)
-
-            ! Calculating derivative dxds; calculate dsdx and invert it
-            call fdm_der1%compute(1, x_aux, dx(1:1, :))
-            dx(1, :) = 1.0_wp/dx(1, :)
-
-            ! Calculating derivative dx2ds2
-            x_aux(1, :) = x%nodes(:)                    ! I need shape (1,nx) in the procedure
-            call locDer%compute(1, x_aux, dx(2:2, :))
-
-        end select
-
-        ! -------------------------------------------------------------------
-        ! Actual grid; possibly nonuniform
-        call locDer%initialize(x%nodes, dx(:, :), type, uniform=x%uniform)
+        call locDer%initialize(x%nodes, type, fdm_der1=fdm_der1, uniform=x%uniform)
 
         return
     end subroutine

@@ -241,23 +241,21 @@ contains
 
         end select
 
+        ! Preconditioning; Jacobian linear procedures assume 1 in the first upper diagonal.
+        call Precon_Rhs(self%lhs, self%rhs, periodic=.false.)
+
         ! Jacobian, if needed
         select case (self%type)
         case (FDM_COM4_JACOBIAN, FDM_COM6_JACOBIAN, FDM_COM6_JACOBIAN_PENTA)
-            if (allocated(dx)) deallocate (dx)
-            allocate (dx(1, size(x)), source=1.0_wp)
+            call self%bcsDD%initialize(self)                ! Construct system for uniform grid
 
-            ! Preconditioning; the linear procedures assume 1 in the first upper diagonal.
-            call Precon_Rhs(self%lhs, self%rhs, periodic=.false.)
-            call self%bcsDD%initialize(self)
+            if (allocated(dx)) deallocate (dx)
+            allocate (dx(1, size(x)))
             call self%bcsDD%compute(1, x, dx)
 
-            call MultiplyByDiagonal(self%lhs, dx(1, :))    ! multiply by the Jacobian
+            call MultiplyByDiagonal(self%lhs, dx(1, :))     ! multiply by the Jacobian
 
         end select
-
-        ! Preconditioning
-        call Precon_Rhs(self%lhs, self%rhs, periodic=.false.)
 
         ! Construct LU decomposition for different types of bcs
         call self%bcsDD%initialize(self)
@@ -375,10 +373,6 @@ contains
         ndr = size(self%rhs, 2)
         idr = ndr/2 + 1
 
-        ! ! homogeneous Neumann bcs
-        ! result(:, 1) = 0.0_wp
-        ! bcs_hb(1:nlines) = 0.0_wp
-
         result(:, 1) = bcs_b(:)
 
         ! Calculate RHS in A u' = B u
@@ -395,7 +389,6 @@ contains
         call self%thomasU(self%lu(2:nx, ndl/2 + 1:ndl), result(:, 2:nx))
 
         ! Calculate boundary value of u; u is not overwritten, this should be done outside if needed
-        ! to be checked
         do ic = 1, idl - 1
             bcs_b(:) = bcs_b(:) + self%lu(1, idl + ic)*result(:, 1 + ic)
         end do
@@ -450,10 +443,6 @@ contains
         ndr = size(self%rhs, 2)
         idr = ndr/2 + 1
 
-        ! ! homogeneous Neumann bcs
-        ! result(:, nx) = 0.0_wp
-        ! bcs_ht(1:nlines) = 0.0_wp
-
         result(:, nx) = bcs_t(:)
 
         ! Calculate RHS in A u' = B u
@@ -470,7 +459,6 @@ contains
         call self%thomasU(self%lu(1:nx - 1, ndl/2 + 1:ndl), result(:, 1:nx - 1))
 
         ! Calculate boundary value of u; u is not overwritten, this should be done outside if needed
-        ! to be checked
         do ic = 1, idl - 1
             bcs_t(:) = bcs_t(:) + self%lu(nx, idl - ic)*result(:, nx - ic)
         end do
@@ -526,12 +514,6 @@ contains
         ndr = size(self%rhs, 2)
         idr = ndr/2 + 1
 
-        ! ! homogeneous Neumann bcs
-        ! result(:, 1) = 0.0_wp
-        ! bcs_hb(:) = 0.0_wp
-        ! result(:, nx) = 0.0_wp
-        ! bcs_ht(:) = 0.0_wp
-
         result(:, 1) = bcs_b(:)
         result(:, nx) = bcs_t(:)
 
@@ -550,7 +532,6 @@ contains
         call self%thomasU(self%lu(2:nx - 1, ndl/2 + 1:ndl), result(:, 2:nx - 1))
 
         ! Calculate boundary value of u; u is not overwritten, this should be done outside if needed
-        ! to be checked
         do ic = 1, idl - 1
             bcs_b(:) = bcs_b(:) + self%lu(1, idl + ic)*result(:, 1 + ic)
         end do

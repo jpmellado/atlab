@@ -46,11 +46,13 @@ module FDM_Derivative_2order
         procedure(compute_ice), deferred :: compute
     end type
     abstract interface
-        subroutine initialize_ice(self, x, dx, fdm_type, uniform)
+        subroutine initialize_ice(self, x, fdm_type, fdm_der1, uniform)
+            use FDM_Derivative_1order, only: der_dt
             import der2_dt, wp
             class(der2_dt), intent(out) :: self
-            real(wp), intent(in) :: x(:), dx(:, :)
+            real(wp), intent(in) :: x(:)
             integer, intent(in) :: fdm_type
+            class(der_dt), intent(in), optional :: fdm_der1
             logical, intent(in), optional :: uniform
         end subroutine
         subroutine compute_ice(self, nlines, u, result, du)
@@ -157,13 +159,15 @@ module FDM_Derivative_2order
 contains
     ! ###################################################################
     ! ###################################################################
-    subroutine der2_periodic_initialize(self, x, dx, fdm_type, uniform)
+    subroutine der2_periodic_initialize(self, x, fdm_type, fdm_der1, uniform)
         use FDM_ComX_Direct
         use FDM_Com2_Jacobian
+        use FDM_Derivative_1order, only: der_dt
         use Preconditioning
         class(der2_periodic), intent(out) :: self
-        real(wp), intent(in) :: x(:), dx(:, :)
+        real(wp), intent(in) :: x(:)
         integer, intent(in) :: fdm_type
+        class(der_dt), optional, intent(in) :: fdm_der1
         logical, intent(in), optional :: uniform
 
         integer nx, ndl
@@ -201,9 +205,9 @@ contains
         ! Jacobian
         self%lhs = self%lhs*(x(2) - x(1))*(x(2) - x(1))
 
-        ! Preconditioning
+        ! Preconditioning; Jacobian linear procedures assume 1 in the first upper diagonal.
         call NormalizeByDiagonal(self%rhs, &
-                                 1, &                           ! use 1. upper diagonal in rhs to normalize system
+                                 1, &                       ! use 1. upper diagonal in rhs to normalize system
                                  self%lhs, &
                                  switchAtBoundary=.false.)
 
@@ -269,15 +273,20 @@ contains
 
     ! ###################################################################
     ! ###################################################################
-    subroutine der2_biased_initialize(self, x, dx, fdm_type, uniform)
+    subroutine der2_biased_initialize(self, x, fdm_type, fdm_der1, uniform)
         use FDM_Base, only: MultiplyByDiagonal
+        use FDM_Derivative_1order, only: der_dt
         use FDM_ComX_Direct
         use FDM_Com2_Jacobian
         use Preconditioning
         class(der2_biased), intent(out) :: self
-        real(wp), intent(in) :: x(:), dx(:, :)
+        real(wp), intent(in) :: x(:)
         integer, intent(in) :: fdm_type
+        class(der_dt), intent(in), optional :: fdm_der1
         logical, intent(in), optional :: uniform
+
+        real(wp), allocatable :: x_aux(:, :), dx(:, :)
+        integer i
 
         ! ###################################################################
         self%type = fdm_type
@@ -318,27 +327,35 @@ contains
 
         end select
 
+        ! Preconditioning; Jacobian linear procedures assume 1 in the first upper diagonal.
+        call NormalizeByDiagonal(self%rhs, &
+                                 1, &                   ! use 1. upper diagonal in rhs
+                                 self%lhs, &
+                                 switchAtBoundary=.true.)
+
+        ! Jacobian, if needed
+        select case (self%type)
+        case (FDM_COM4_JACOBIAN, FDM_COM6_JACOBIAN, FDM_COM6_JACOBIAN_HYPER)
+            if (allocated(x_aux)) deallocate (x_aux)
+            allocate (x_aux(1, size(x)))
+            if (allocated(dx)) deallocate (dx)
+            allocate (dx(1, size(x)))
+
+            ! Calculating derivative dxds; calculate dsdx and invert it
+            x_aux(1, :) = [(real(i - 1, wp), i=1, size(x))]
+            call fdm_der1%compute(1, x_aux, dx)
+            dx(1, :) = 1.0_wp/dx(1, :)
+
+            call MultiplyByDiagonal(self%lhs, dx(1, :))     ! multiply by the Jacobians
+            call MultiplyByDiagonal(self%lhs, dx(1, :))
+        end select
+
+        ! Construct LU decomposition
+        call self%bcsDD%initialize(self)
+
         ! Contribution from 1. order derivative in nonuniform grids
         if (self%need_1der) then
-            call self%bcsDD_jacobian%initialize(self, dx)
-
-        else
-            ! Jacobian, if needed
-            select case (self%type)
-            case (FDM_COM4_JACOBIAN, FDM_COM6_JACOBIAN, FDM_COM6_JACOBIAN_HYPER)
-                call MultiplyByDiagonal(self%lhs, dx(1, :))     ! multiply by the Jacobians
-                call MultiplyByDiagonal(self%lhs, dx(1, :))
-            end select
-
-            ! Preconditioning
-            call NormalizeByDiagonal(self%rhs, &
-                                     1, &                       ! use 1. upper diagonal in rhs
-                                     self%lhs, &
-                                     switchAtBoundary=.true.)
-
-            ! Construct LU decomposition
-            call self%bcsDD%initialize(self)
-
+            call self%bcsDD_jacobian%initialize(self, x)
         end if
 
         return
@@ -418,14 +435,14 @@ contains
 
     ! ###################################################################
     ! ###################################################################
-    subroutine bcsDD_jacobian_initialize(self, ref, dx)
+    subroutine bcsDD_jacobian_initialize(self, ref, x)
         use Preconditioning
         use FDM_Base, only: MultiplyByDiagonal
         class(bcsDD_jacobian), intent(out) :: self
-        class(der2_biased), intent(inout), target :: ref
-        real(wp), intent(in) :: dx(:, :)
+        class(der2_biased), intent(in), target :: ref
+        real(wp), intent(in) :: x(:)
 
-        integer ndl
+        real(wp), allocatable :: dx(:, :)
 
         ! ###################################################################
         select case (ref%type)
@@ -437,23 +454,17 @@ contains
         self%thomasU => ref%thomasU
         self%rhs => ref%rhs
 
-        allocate (self%rhs_d1, mold=ref%lhs)   ! Contribution from 1. order derivative in nonuniform grids
+        allocate (self%lu, source=ref%bcsDD%lu)
+
+        ! Contribution from 1. order derivative in nonuniform grids
+        allocate (self%rhs_d1, mold=ref%lhs)
         self%rhs_d1 = -ref%lhs
-        call MultiplyByDiagonal(self%rhs_d1, dx(2, :))
-        call NormalizeByDiagonal(ref%rhs, &
-                                 1, &                           ! use 1. upper diagonal in rhs
-                                 ref%lhs, &
-                                 self%rhs_d1, &
-                                 switchAtBoundary=.true.)
-        call MultiplyByDiagonal(ref%lhs, dx(1, :))            ! multiply by the Jacobians
-        call MultiplyByDiagonal(ref%lhs, dx(1, :))
 
-        allocate (self%lu, source=ref%lhs)
+        if (allocated(dx)) deallocate (dx)                  ! Calculate dx2ds2
+        allocate (dx(1, size(x)))
+        call ref%bcsDD%compute(1, x, dx)
 
-        ndl = size(ref%lhs, 2)
-
-        call Thomas_FactorLU_InPlace(self%lu(:, 1:ndl/2), &
-                                     self%lu(:, ndl/2 + 1:ndl))
+        call MultiplyByDiagonal(self%rhs_d1, dx(1, :))      ! multiply by the Jacobian
 
         return
     end subroutine bcsDD_jacobian_initialize

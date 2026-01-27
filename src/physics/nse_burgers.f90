@@ -12,6 +12,7 @@ module NSE_Burgers
     use TLab_Grid, only: x, y, z, grid
     use FDM, only: fdm_der1_X, fdm_der1_Y, fdm_der1_Z
     use FDM, only: fdm_der2_X, fdm_der2_Y, fdm_der2_Z
+    ! use FDM_Derivative_Burgers
     use NavierStokes, only: nse_eqns, DNS_EQNS_ANELASTIC
     use Thermo_Anelastic, only: ribackground, rbackground
     use NavierStokes, only: visc, schmidt
@@ -48,6 +49,8 @@ module NSE_Burgers
 
     real(wp), allocatable :: rho_wbackground(:)     ! subsidence velocity (times density)
 
+    ! type(der_burgers) :: fdm_burgersX, fdm_burgersY
+
 contains
     !########################################################################
     !########################################################################
@@ -81,6 +84,21 @@ contains
             end if
 
         end do
+
+        ! select type (fdm_der1_X)
+        ! type is (der1_periodic)
+        !     select type (fdm_der2_X)
+        !     type is (der2_periodic)
+        !         call fdm_burgersX%initialize(fdm_der1_X, fdm_der2_X)
+        !     end select
+        ! end select
+        ! select type (fdm_der1_Y)
+        ! type is (der1_periodic)
+        !     select type (fdm_der2_Y)
+        !     type is (der2_periodic)
+        !         call fdm_burgersY%initialize(fdm_der1_Y, fdm_der2_Y)
+        !     end select
+        ! end select
 
         ! ###################################################################
         ! Initialize anelastic density correction
@@ -201,6 +219,7 @@ contains
 
         call fdm_der1_X%compute(nlines, tmp1, result)
         call fdm_der2_X%compute(nlines, tmp1, wrk3d, result)
+        ! call fdm_burgersX%compute(nlines, tmp1, result, wrk3d)
 
         if (present(rhou_in)) then      ! transposed velocity (times density) is passed as argument
             wrk3d(1:nx*ny*nz) = wrk3d(1:nx*ny*nz)*diffusivity(is) - rhou_in(:)*result(:)
@@ -390,6 +409,7 @@ contains
 
         call fdm_der1_Y%compute(nlines, tmp1, result)
         call fdm_der2_Y%compute(nlines, tmp1, wrk3d, result)
+        ! call fdm_burgersY%compute(nlines, tmp1, result, wrk3d)
 
         if (present(rhou_in)) then      ! transposed velocity (times density) is passed as argument
             wrk3d(1:nx*ny*nz) = wrk3d(1:nx*ny*nz)*diffusivity(is) - rhou_in(:)*result(:)

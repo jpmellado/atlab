@@ -21,6 +21,8 @@ module Matmul_Halo_Thomas
     public :: MatMul_Halo_7_antisym_ThomasL_5
     public :: MatMul_Halo_7_sym_ThomasL_5
 
+    public :: MatMul_Halo_5_antisym_7_sym_ThomasL_3
+
 contains
     ! ###################################################################
     ! ###################################################################
@@ -700,5 +702,120 @@ contains
 
         return
     end subroutine MatMul_Halo_7_sym_ThomasL_5
+
+    !########################################################################
+    !########################################################################
+    ! combination of 5_antisym_ThomasL_3 and 7_sym_ThomasL_3
+    subroutine MatMul_Halo_5_antisym_7_sym_ThomasL_3(rhs1, rhs2, u, u_halo_m, u_halo_p, f, L1, g, L2)
+        real(wp), intent(in) :: rhs1(:)             ! diagonals of B1
+        real(wp), intent(in) :: rhs2(:)             ! diagonals of B2
+        real(wp), intent(in) :: u(:, :)             ! vector u
+        real(wp), intent(in) :: u_halo_m(:, :)      ! minus, coming from left
+        real(wp), intent(in) :: u_halo_p(:, :)      ! plus, coming from right
+        real(wp), intent(out) :: f(:, :)            ! vector f = B1 u
+        real(wp), intent(in) :: L1(:, :)
+        real(wp), intent(out) :: g(:, :)            ! vector g = B2 u
+        real(wp), intent(in) :: L2(:, :)
+
+        ! -------------------------------------------------------------------
+        integer(wi) n, nx
+        real(wp) r5_loc     ! 2. upper-diagonal
+        real(wp) r4_loc     ! center diagonal
+        real(wp) r6_loc     ! 2. upper-diagonal
+        real(wp) r7_loc     ! 3. upper-diagonal
+
+        ! #######################################################################
+        nx = size(f, 2)
+
+        r5_loc = rhs1(5)
+
+        r7_loc = rhs2(7)
+        r6_loc = rhs2(6)
+        r4_loc = rhs2(4)
+
+        ! -------------------------------------------------------------------
+        ! Halo left
+        n = 1
+        f(:, n) = u(:, n + 1) - u_halo_m(:, 3) &
+                  + r5_loc*(u(:, n + 2) - u_halo_m(:, 2))
+
+        g(:, n) = r4_loc*u(:, n) &
+                  + u(:, n + 1) + u_halo_m(:, 3) &
+                  + r6_loc*(u(:, n + 2) + u_halo_m(:, 2)) &
+                  + r7_loc*(u(:, n + 3) + u_halo_m(:, 1))
+
+        n = 2
+        f(:, n) = u(:, n + 1) - u(:, n - 1) &
+                  + r5_loc*(u(:, n + 2) - u_halo_m(:, 3))
+        f(:, n) = f(:, n) + f(:, n - 1)*L1(n, 1)  ! solve L
+
+        g(:, n) = r4_loc*u(:, n) &
+                  + u(:, n + 1) + u(:, n - 1) &
+                  + r6_loc*(u(:, n + 2) + u_halo_m(:, 3)) &
+                  + r7_loc*(u(:, n + 3) + u_halo_m(:, 2))
+        g(:, n) = g(:, n) + g(:, n - 1)*L2(n, 1)  ! solve L
+
+        n = 3
+        f(:, n) = u(:, n + 1) - u(:, n - 1) &
+                  + r5_loc*(u(:, n + 2) - u(:, n - 2))
+        f(:, n) = f(:, n) + f(:, n - 1)*L1(n, 1)  ! solve L
+
+        g(:, n) = r4_loc*u(:, n) &
+                  + u(:, n + 1) + u(:, n - 1) &
+                  + r6_loc*(u(:, n + 2) + u(:, n - 2)) &
+                  + r7_loc*(u(:, n + 3) + u_halo_m(:, 3))
+        g(:, n) = g(:, n) + g(:, n - 1)*L2(n, 1)  ! solve L
+
+        ! -------------------------------------------------------------------
+        ! Interior points
+        do n = 4, nx - 3
+            f(:, n) = u(:, n + 1) - u(:, n - 1) &
+                      + r5_loc*(u(:, n + 2) - u(:, n - 2))
+            f(:, n) = f(:, n) + f(:, n - 1)*L1(n, 1)  ! solve L
+
+            g(:, n) = r4_loc*u(:, n) &
+                      + u(:, n + 1) + u(:, n - 1) &
+                      + r6_loc*(u(:, n + 2) + u(:, n - 2)) &
+                      + r7_loc*(u(:, n + 3) + u(:, n - 3))
+            g(:, n) = g(:, n) + g(:, n - 1)*L2(n, 1)  ! solve L
+        end do
+
+        ! -------------------------------------------------------------------
+        ! Halo right
+        n = nx - 2
+        f(:, n) = u(:, n + 1) - u(:, n - 1) &
+                  + r5_loc*(u(:, n + 2) - u(:, n - 2))
+        f(:, n) = f(:, n) + f(:, n - 1)*L1(n, 1)  ! solve L
+
+        g(:, n) = r4_loc*u(:, n) &
+                  + u(:, n + 1) + u(:, n - 1) &
+                  + r6_loc*(u(:, n + 2) + u(:, n - 2)) &
+                  + r7_loc*(u_halo_p(:, 1) + u(:, n - 3))
+        g(:, n) = g(:, n) + g(:, n - 1)*L2(n, 1)  ! solve L
+
+        n = nx - 1
+        f(:, n) = u(:, n + 1) - u(:, n - 1) &
+                  + r5_loc*(u_halo_p(:, 1) - u(:, n - 2))
+        f(:, n) = f(:, n) + f(:, n - 1)*L1(n, 1)  ! solve L
+
+        g(:, n) = r4_loc*u(:, n) &
+                  + u(:, n + 1) + u(:, n - 1) &
+                  + r6_loc*(u_halo_p(:, 1) + u(:, n - 2)) &
+                  + r7_loc*(u_halo_p(:, 2) + u(:, n - 3))
+        g(:, n) = g(:, n) + g(:, n - 1)*L2(n, 1)  ! solve L
+
+        n = nx
+        f(:, n) = u_halo_p(:, 1) - u(:, n - 1) &
+                  + r5_loc*(u_halo_p(:, 2) - u(:, n - 2))
+        f(:, n) = f(:, n) + f(:, n - 1)*L1(n, 1)  ! solve L
+
+        g(:, n) = r4_loc*u(:, n) &
+                  + u_halo_p(:, 1) + u(:, n - 1) &
+                  + r6_loc*(u_halo_p(:, 2) + u(:, n - 2)) &
+                  + r7_loc*(u_halo_p(:, 3) + u(:, n - 3))
+        g(:, n) = g(:, n) + g(:, n - 1)*L2(n, 1)  ! solve L
+
+        return
+    end subroutine MatMul_Halo_5_antisym_7_sym_ThomasL_3
 
 end module Matmul_Halo_Thomas

@@ -20,12 +20,11 @@ contains
         character(len=*), intent(in) :: inifile
 
         ! -----------------------------------------------------------------------
-        integer(wi) id, ip
         integer(wi) dims(2), coord(2)
         logical period(2), remain_dims(2), reorder
 
-        character(len=32) bakfile, block
-        character(len=512) sRes, line
+        character(len=32) bakfile !, block
+        character(len=512) sRes!, line
         character*64 lstr
         integer(wi) nsize_total
 

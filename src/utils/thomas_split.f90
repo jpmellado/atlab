@@ -265,8 +265,7 @@ contains
         real(wp), intent(inout) :: alpha(:)         ! auxiliary memory space for local alpha
         real(wp), intent(inout) :: tmp(:)           ! auxiliary memory space
         integer(wi) n, nsize, nlines
-        integer(wi) m
-        integer(wi) k, nblocks
+        integer(wi) nblocks
 
         integer ims_err
         integer source, dest, tag

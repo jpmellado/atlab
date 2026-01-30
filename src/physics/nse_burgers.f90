@@ -340,15 +340,19 @@ contains
 
         nlines = ny*nz
 
-        np1 = size(der1_split_x%rhs)/2
-        np2 = size(der2_split_x%rhs)/2
+        ! np1 = size(der1_split_x%rhs)/2
+        ! np2 = size(der2_split_x%rhs)/2
+        np1 = size(fdm_der1_X_split%rhs, 2)/2
+        np2 = size(fdm_der2_X_split%rhs, 2)/2
         np = max(np1, np2)
         call TLabMPI_Halos_X(tmp1, nlines, np, pyz_halo_m(:, 1), pyz_halo_p(:, 1))
 
-        call FDM_MPISplit_Solve(nlines, nx, der1_split_x, tmp1, &
-                                pyz_halo_m(:, np - np1 + 1:np), pyz_halo_p, result, wrk2d)
-        call FDM_MPISplit_Solve(nlines, nx, der2_split_x, tmp1, &
-                                pyz_halo_m(:, np - np2 + 1:np), pyz_halo_p, wrk3d, wrk2d)
+        ! call FDM_MPISplit_Solve(nlines, nx, der1_split_x, tmp1, &
+        !                         pyz_halo_m(:, np - np1 + 1:np), pyz_halo_p, result, wrk2d)
+        ! call FDM_MPISplit_Solve(nlines, nx, der2_split_x, tmp1, &
+        !                         pyz_halo_m(:, np - np2 + 1:np), pyz_halo_p, wrk3d, wrk2d)
+        call fdm_der1_X_split%compute(nlines, tmp1, pyz_halo_m(:, np - np1 + 1:np), pyz_halo_p, result)
+        call fdm_der2_X_split%compute(nlines, tmp1, pyz_halo_m(:, np - np2 + 1:np), pyz_halo_p, wrk3d)
 
         if (present(rhou_in)) then      ! transposed velocity (times density) is passed as argument
             wrk3d(1:nx*ny*nz) = wrk3d(1:nx*ny*nz)*diffusivity(is) - rhou_in(:)*result(:)
@@ -531,15 +535,19 @@ contains
 
         nlines = nx*nz
 
-        np1 = size(der1_split_y%rhs)/2
-        np2 = size(der2_split_y%rhs)/2
+        ! np1 = size(der1_split_y%rhs)/2
+        ! np2 = size(der2_split_y%rhs)/2
+        np1 = size(fdm_der1_Y_split%rhs, 2)/2
+        np2 = size(fdm_der2_Y_split%rhs, 2)/2
         np = max(np1, np2)
         call TLabMPI_Halos_Y(tmp1, nlines, np, pxz_halo_m(:, 1), pxz_halo_p(:, 1))
 
-        call FDM_MPISplit_Solve(nlines, ny, der1_split_y, tmp1, &
-                                pxz_halo_m(:, np - np1 + 1:np), pxz_halo_p, result, wrk2d)
-        call FDM_MPISplit_Solve(nlines, ny, der2_split_y, tmp1, &
-                                pxz_halo_m(:, np - np2 + 1:np), pxz_halo_p, wrk3d, wrk2d)
+        ! call FDM_MPISplit_Solve(nlines, ny, der1_split_y, tmp1, &
+        !                         pxz_halo_m(:, np - np1 + 1:np), pxz_halo_p, result, wrk2d)
+        ! call FDM_MPISplit_Solve(nlines, ny, der2_split_y, tmp1, &
+        !                         pxz_halo_m(:, np - np2 + 1:np), pxz_halo_p, wrk3d, wrk2d)
+        call fdm_der1_Y_split%compute(nlines, tmp1, pxz_halo_m(:, np - np1 + 1:np), pxz_halo_p, result)
+        call fdm_der2_Y_split%compute(nlines, tmp1, pxz_halo_m(:, np - np2 + 1:np), pxz_halo_p, wrk3d)
 
         if (present(rhou_in)) then      ! transposed velocity (times density) is passed as argument
             wrk3d(1:nx*ny*nz) = wrk3d(1:nx*ny*nz)*diffusivity(is) - rhou_in(:)*result(:)

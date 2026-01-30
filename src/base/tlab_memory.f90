@@ -180,7 +180,7 @@ contains
         use TLab_Constants, only: i8
         use TLab_Arrays
 #ifdef USE_MPI
-        use TLabMPI_VARS, only: ims_npro, ims_npro_i, ims_npro_j, ims_npro_k
+        use TLabMPI_VARS, only: ims_npro_i, ims_npro_j, ims_npro_k
 #endif
 
         character(len=*), intent(in) :: C_FILE_LOC

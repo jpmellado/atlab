@@ -45,8 +45,6 @@ module OPR_Partial
     procedure(OPR_Partial_dt), pointer :: OPR_Partial_X, OPR_Partial_Y
 
 #ifdef USE_MPI
-    ! type(fdm_derivative_split_dt), public, protected :: der1_split_x, der2_split_x
-    ! type(fdm_derivative_split_dt), public, protected :: der1_split_y, der2_split_y
     type(der_periodic_mpisplit), public, protected :: fdm_der1_X_split, fdm_der2_X_split
     type(der_periodic_mpisplit), public, protected :: fdm_der1_Y_split, fdm_der2_Y_split
     real(wp), allocatable, target :: halo_m(:), halo_p(:)
@@ -117,10 +115,6 @@ contains
                 OPR_Partial_X => OPR_Partial_X_MPITranspose
             case (TYPE_SPLIT)
                 OPR_Partial_X => OPR_Partial_X_MPISplit
-                ! call FDM_MPISplit_Initialize(1, fdm_der1_X%lhs, fdm_der1_X%rhs, der1_split_x, 'x')
-                ! call FDM_MPISplit_Initialize(2, fdm_der2_X%lhs, fdm_der2_X%rhs, der2_split_x, 'x')
-                ! np = max(np, size(der1_split_x%rhs)/2)
-                ! np = max(np, size(der2_split_x%rhs)/2)
                 select type (fdm_der1_X)
                 type is (der1_periodic)
                     call fdm_der1_X_split%initialize(fdm_der1_X, 'x')
@@ -147,10 +141,6 @@ contains
                 OPR_Partial_Y => OPR_Partial_Y_MPITranspose
             case (TYPE_SPLIT)
                 OPR_Partial_Y => OPR_Partial_Y_MPISplit
-                ! call FDM_MPISplit_Initialize(1, fdm_der1_Y%lhs, fdm_der1_Y%rhs, der1_split_y, 'y')
-                ! call FDM_MPISplit_Initialize(2, fdm_der2_Y%lhs, fdm_der2_Y%rhs, der2_split_y, 'y')
-                ! np = max(np, size(der1_split_y%rhs)/2)
-                ! np = max(np, size(der2_split_y%rhs)/2)
                 select type (fdm_der1_Y)
                 type is (der1_periodic)
                     call fdm_der1_Y_split%initialize(fdm_der1_Y, 'y')
@@ -339,8 +329,6 @@ contains
         call TLab_Transpose_Real(u, nx, ny*nz, nx, result, ny*nz, locBlock=trans_x_forward)
 #endif
 
-        ! np1 = size(der1_split_x%rhs)/2
-        ! np2 = size(der2_split_x%rhs)/2
         np1 = size(fdm_der1_X_split%rhs, 2)/2
         np2 = size(fdm_der2_X_split%rhs, 2)/2
         np = max(np1, np2)
@@ -348,21 +336,13 @@ contains
 
         select case (type)
         case (OPR_P2)
-            ! call FDM_MPISplit_Solve(ny*nz, nx, der2_split_x, result, &
-            !                         pyz_halo_m(:, np - np2 + 1:np), pyz_halo_p, wrk3d, wrk2d)
             call fdm_der2_X_split%compute(ny*nz, result, pyz_halo_m(:, np - np2 + 1:np), pyz_halo_p, wrk3d)
 
         case (OPR_P2_P1)
-            ! call FDM_MPISplit_Solve(ny*nz, nx, der2_split_x, result, &
-            !                         pyz_halo_m(:, np - np2 + 1:np), pyz_halo_p, tmp1, wrk2d)
-            ! call FDM_MPISplit_Solve(ny*nz, nx, der1_split_x, result, &
-            !                         pyz_halo_m(:, np - np1 + 1:np), pyz_halo_p, wrk3d, wrk2d)
             call fdm_der2_X_split%compute(ny*nz, result, pyz_halo_m(:, np - np2 + 1:np), pyz_halo_p, tmp1)
             call fdm_der1_X_split%compute(ny*nz, result, pyz_halo_m(:, np - np1 + 1:np), pyz_halo_p, wrk3d)
 
         case (OPR_P1, OPR_P1_ADD, OPR_P1_SUBTRACT)
-            ! call FDM_MPISplit_Solve(ny*nz, nx, der1_split_x, result, &
-            !                         pyz_halo_m(:, np - np1 + 1:np), pyz_halo_p, wrk3d, wrk2d)
             call fdm_der1_X_split%compute(ny*nz, result, pyz_halo_m(:, np - np1 + 1:np), pyz_halo_p, wrk3d)
 
         end select
@@ -546,8 +526,6 @@ contains
         call TLab_Transpose_Real(u, nx*ny, nz, nx*ny, result, nz, locBlock=trans_y_forward)
 #endif
 
-        ! np1 = size(der1_split_y%rhs)/2
-        ! np2 = size(der2_split_y%rhs)/2
         np1 = size(fdm_der1_Y_split%rhs, 2)/2
         np2 = size(fdm_der2_Y_split%rhs, 2)/2
         np = max(np1, np2)
@@ -555,21 +533,13 @@ contains
 
         select case (type)
         case (OPR_P2)
-            ! call FDM_MPISplit_Solve(nx*nz, ny, der2_split_y, result, &
-            !                         pxz_halo_m(:, np - np2 + 1:np), pxz_halo_p, pxz_wrk3d, wrk2d)
             call fdm_der2_Y_split%compute(nx*nz, result, pxz_halo_m(:, np - np2 + 1:np), pxz_halo_p, wrk3d)
 
         case (OPR_P2_P1)
-            ! call FDM_MPISplit_Solve(nx*nz, ny, der2_split_y, result, &
-            !                         pxz_halo_m(:, np - np2 + 1:np), pxz_halo_p, tmp1, wrk2d)
-            ! call FDM_MPISplit_Solve(nx*nz, ny, der1_split_y, result, &
-            !                         pxz_halo_m(:, np - np1 + 1:np), pxz_halo_p, pxz_wrk3d, wrk2d)
             call fdm_der2_Y_split%compute(nx*nz, result, pxz_halo_m(:, np - np2 + 1:np), pxz_halo_p, tmp1)
             call fdm_der1_Y_split%compute(nx*nz, result, pxz_halo_m(:, np - np1 + 1:np), pxz_halo_p, wrk3d)
 
         case (OPR_P1, OPR_P1_ADD, OPR_P1_SUBTRACT)
-            ! call FDM_MPISplit_Solve(nx*nz, ny, der1_split_y, result, &
-            !                         pxz_halo_m(:, np - np1 + 1:np), pxz_halo_p, pxz_wrk3d, wrk2d)
             call fdm_der1_Y_split%compute(nx*nz, result, pxz_halo_m(:, np - np1 + 1:np), pxz_halo_p, wrk3d)
 
         end select

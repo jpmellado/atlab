@@ -62,7 +62,7 @@ module OPR_Elliptic
     integer(wi) i_sing(2), j_sing(2)                                ! singular modes
     integer(wi) i, j, i_max, isize_line
 
-    class(der2_dt), allocatable :: fdm_der2
+    class(der_extended_dt), allocatable :: fdm_der2
 
     type(fdm_integral_dt), allocatable :: fdm_int1(:, :, :)         ! factorized method
     real(wp), allocatable, target :: rhs_b(:, :), rhs_t(:, :)       ! rhs to free memory space
@@ -85,7 +85,7 @@ contains
         use FDM, only: fdm_der1_X, fdm_der1_Y, fdm_der1_Z
         use FDM, only: fdm_der2_X, fdm_der2_Y
         use FDM_Derivative_1order, only: der1_periodic, der1_biased, FDM_Der1_ModifyWavenumbers
-        use FDM_Derivative_2order, only: der2_periodic, der2_biased, FDM_Der2_ModifyWavenumbers
+        use FDM_Derivative_2order, only: der2_extended_periodic, der2_extended_biased, FDM_Der2_ModifyWavenumbers
 
         character(len=*), intent(in) :: inifile
 

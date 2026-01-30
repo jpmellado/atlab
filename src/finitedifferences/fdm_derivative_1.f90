@@ -244,21 +244,23 @@ contains
         ! Preconditioning; Jacobian linear procedures assume 1 in the first upper diagonal.
         call Precon_Rhs(self%lhs, self%rhs, periodic=.false.)
 
+        ! Construct LU decomposition
+        call self%bcsDD%initialize(self)
+
         ! Jacobian, if needed
         select case (self%type)
         case (FDM_COM4_JACOBIAN, FDM_COM6_JACOBIAN, FDM_COM6_JACOBIAN_PENTA)
-            call self%bcsDD%initialize(self)                ! Construct system for uniform grid
-
             if (allocated(dx)) deallocate (dx)
             allocate (dx(1, size(x)))
             call self%bcsDD%compute(1, x, dx)
 
             call MultiplyByDiagonal(self%lhs, dx(1, :))     ! multiply by the Jacobian
 
+            call self%bcsDD%initialize(self)                ! Reconstruct LU decomposition
+
         end select
 
         ! Construct LU decomposition for different types of bcs
-        call self%bcsDD%initialize(self)
         call self%bcsND%initialize(self)
         call self%bcsDN%initialize(self)
         call self%bcsNN%initialize(self)

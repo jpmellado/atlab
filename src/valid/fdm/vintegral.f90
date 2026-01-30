@@ -45,7 +45,7 @@ program VINTEGRAL
     ! type(fdm_dt) :: g
     type(fdm_integral_dt) :: fdmi(2), fdmi_test(2), fdmi_test_lambda(2)
     class(der_dt), allocatable :: fdm_der1
-    class(der2_dt), allocatable :: fdm_der2
+    class(der_extended_dt), allocatable :: fdm_der2
 
     ! ###################################################################
     ! Initialize

@@ -88,14 +88,14 @@ contains
         ! select type (fdm_der1_X)
         ! type is (der1_periodic)
         !     select type (fdm_der2_X)
-        !     type is (der2_periodic)
+        !     type is (der2_extended_periodic)
         !         call fdm_burgersX%initialize(fdm_der1_X, fdm_der2_X)
         !     end select
         ! end select
         ! select type (fdm_der1_Y)
         ! type is (der1_periodic)
         !     select type (fdm_der2_Y)
-        !     type is (der2_periodic)
+        !     type is (der2_extended_periodic)
         !         call fdm_burgersY%initialize(fdm_der1_Y, fdm_der2_Y)
         !     end select
         ! end select

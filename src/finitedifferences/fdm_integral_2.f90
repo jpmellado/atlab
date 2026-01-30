@@ -46,8 +46,8 @@ contains
     !########################################################################
     !########################################################################
     subroutine FDM_Int2_Initialize(x, fdm_der, lambda2, ibc, fdmi)
-        use FDM_Derivative_2order, only: der2_dt
-        class(der2_dt), intent(in) :: fdm_der
+        use FDM_Derivative_2order, only: der_extended_dt
+        class(der_extended_dt), intent(in) :: fdm_der
         real(wp), intent(in) :: x(:)                    ! node positions
         real(wp), intent(in) :: lambda2                 ! system constant
         integer, intent(in) :: ibc                      ! type of boundary condition
@@ -101,8 +101,8 @@ contains
     !########################################################################
     !########################################################################
     subroutine FDM_Int2_CreateSystem(x, fdm_der, lambda2, ibc, fdmi)
-        use FDM_Derivative_2order, only: der2_dt
-        class(der2_dt), intent(in) :: fdm_der           ! derivative plan to be inverted
+        use FDM_Derivative_2order, only: der_extended_dt
+        class(der_extended_dt), intent(in) :: fdm_der           ! derivative plan to be inverted
         real(wp), intent(in) :: x(:)                    ! node positions
         real(wp), intent(in) :: lambda2                 ! system constant
         integer, intent(in) :: ibc                      ! type of boundary condition

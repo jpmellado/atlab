@@ -3,11 +3,11 @@ module FDM_Derivative_Burgers
     use FDM_Base, only: FDM_COM6_JACOBIAN, FDM_COM6_JACOBIAN_HYPER
     use FDM_Derivative_Base
     use FDM_Derivative_1order, only: der1_periodic
-    use FDM_Derivative_2order, only: der2_periodic
+    use FDM_Derivative_2order, only: der2_extended_periodic
     implicit none
     private
 
-    public :: der1_periodic, der2_periodic
+    public :: der1_periodic, der2_extended_periodic
 
     type, public :: der_burgers
         procedure(matmul_halo_thomas_combined_ice), pointer, nopass :: matmul => null()
@@ -51,7 +51,7 @@ contains
         use Matmul_Halo_Thomas
         class(der_burgers), intent(out) :: self
         type(der1_periodic), intent(in), target :: fdm_der1
-        type(der2_periodic), intent(in), target :: fdm_der2
+        type(der2_extended_periodic), intent(in), target :: fdm_der2
 
         ! ###################################################################
         self%lu1 => fdm_der1%lu

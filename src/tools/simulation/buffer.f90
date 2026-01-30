@@ -203,7 +203,7 @@ contains
         io_subarrays%communicator = MPI_COMM_WORLD
         io_subarrays%subarray = IO_Create_Subarray_XOY(imax, jmax, locVar%size, MPI_REAL8)
 #endif
-        idummy = imax*jmax*locVar%size; io_sizes = (/idummy, 1, idummy, 1, 1/)
+        idummy = imax*jmax*locVar%size; io_sizes = [ idummy, 1, idummy, 1, 1 ]
 
         name = trim(adjustl(tag))
 
@@ -215,10 +215,9 @@ contains
                 kglobal = k + locVar%offset
                 locVar%ref(:, :, k) = AVG1V2D(imax, jmax, kmax, kglobal, 1, field)
             end do
-
             idummy = index(name, '.', back=.true.)
             write (str, *) itime; name = trim(name(1:idummy - 1))//'.'//trim(adjustl(str))//trim(name(idummy:))
-            call IO_Write_Subarray(io_subarrays, name, [''], locVar%ref, io_sizes)
+            call IO_Write_Subarray(io_subarrays, name, [' '], locVar%ref, io_sizes)
 
         end if
 

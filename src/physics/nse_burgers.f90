@@ -8,6 +8,7 @@ module NSE_Burgers
 #ifdef USE_MPI
     use TLabMPI_VARS, only: ims_npro_i, ims_npro_j
     use TLabMPI_Transpose
+    use FDM_Derivative_MPISplit
 #endif
     use TLab_Grid, only: x, y, z, grid
     use FDM, only: fdm_der1_X, fdm_der1_Y, fdm_der1_Z
@@ -49,7 +50,11 @@ module NSE_Burgers
 
     real(wp), allocatable :: rho_wbackground(:)     ! subsidence velocity (times density)
 
+#ifdef USE_MPI
+    type(der_burgers_mpisplit) :: fdm_burgersX_split, fdm_burgersY_split
+#else
     ! type(der_burgers) :: fdm_burgersX, fdm_burgersY
+#endif
 
 contains
     !########################################################################
@@ -163,6 +168,7 @@ contains
                 NSE_AddBurgers_PerVolume_X => NSE_AddBurgers_PerVolume_X_MPITranspose
             case (TYPE_SPLIT)
                 NSE_AddBurgers_PerVolume_X => NSE_AddBurgers_PerVolume_X_MPISplit
+                call fdm_burgersX_split%initialize(fdm_der1_X, fdm_der2_X, 'x')
             end select
         else
 #endif
@@ -178,6 +184,7 @@ contains
                 NSE_AddBurgers_PerVolume_Y => NSE_AddBurgers_PerVolume_Y_MPITranspose
             case (TYPE_SPLIT)
                 NSE_AddBurgers_PerVolume_Y => NSE_AddBurgers_PerVolume_Y_MPISplit
+                call fdm_burgersY_split%initialize(fdm_der1_Y, fdm_der2_Y, 'y')
             end select
         else
 #endif
@@ -345,8 +352,9 @@ contains
         np = max(np1, np2)
         call TLabMPI_Halos_X(tmp1, nlines, np, pyz_halo_m(:, 1), pyz_halo_p(:, 1))
 
-        call fdm_der1_X_split%compute(nlines, tmp1, pyz_halo_m(:, np - np1 + 1:np), pyz_halo_p, result)
-        call fdm_der2_X_split%compute(nlines, tmp1, pyz_halo_m(:, np - np2 + 1:np), pyz_halo_p, wrk3d)
+        ! call fdm_der1_X_split%compute(nlines, tmp1, pyz_halo_m(:, np - np1 + 1:np), pyz_halo_p, result)
+        ! call fdm_der2_X_split%compute(nlines, tmp1, pyz_halo_m(:, np - np2 + 1:np), pyz_halo_p, wrk3d)
+        call fdm_burgersX_split%compute(nlines, tmp1, pyz_halo_m(:, 1:np), pyz_halo_p(:, 1:np), result, wrk3d)
 
         if (present(rhou_in)) then      ! transposed velocity (times density) is passed as argument
             wrk3d(1:nx*ny*nz) = wrk3d(1:nx*ny*nz)*diffusivity(is) - rhou_in(:)*result(:)
@@ -534,8 +542,9 @@ contains
         np = max(np1, np2)
         call TLabMPI_Halos_Y(tmp1, nlines, np, pxz_halo_m(:, 1), pxz_halo_p(:, 1))
 
-        call fdm_der1_Y_split%compute(nlines, tmp1, pxz_halo_m(:, np - np1 + 1:np), pxz_halo_p, result)
-        call fdm_der2_Y_split%compute(nlines, tmp1, pxz_halo_m(:, np - np2 + 1:np), pxz_halo_p, wrk3d)
+        ! call fdm_der1_Y_split%compute(nlines, tmp1, pxz_halo_m(:, np - np1 + 1:np), pxz_halo_p, result)
+        ! call fdm_der2_Y_split%compute(nlines, tmp1, pxz_halo_m(:, np - np2 + 1:np), pxz_halo_p, wrk3d)
+        call fdm_burgersY_split%compute(nlines, tmp1, pxz_halo_m(:, 1:np), pxz_halo_p(:, 1:np), result, wrk3d)
 
         if (present(rhou_in)) then      ! transposed velocity (times density) is passed as argument
             wrk3d(1:nx*ny*nz) = wrk3d(1:nx*ny*nz)*diffusivity(is) - rhou_in(:)*result(:)

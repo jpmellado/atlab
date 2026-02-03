@@ -28,22 +28,6 @@ module FDM_Derivative_Burgers
 
     end type
 
-    ! -----------------------------------------------------------------------
-    abstract interface
-        subroutine matmul_halo_thomas_combined_ice(rhs1, rhs2, u, u_halo_m, u_halo_p, f, L1, g, L2)
-            import wp
-            real(wp), intent(in) :: rhs1(:)             ! diagonals of B1
-            real(wp), intent(in) :: rhs2(:)             ! diagonals of B2
-            real(wp), intent(in) :: u(:, :)             ! vector u
-            real(wp), intent(in) :: u_halo_m(:, :)      ! minus, coming from left
-            real(wp), intent(in) :: u_halo_p(:, :)      ! plus, coming from right
-            real(wp), intent(out) :: f(:, :)            ! vector f = B1 u
-            real(wp), intent(in) :: L1(:, :)
-            real(wp), intent(out) :: g(:, :)            ! vector g = B2 u
-            real(wp), intent(in) :: L2(:, :)
-        end subroutine
-    end interface
-
 contains
     ! ###################################################################
     ! ###################################################################

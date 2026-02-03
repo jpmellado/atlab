@@ -173,7 +173,8 @@ contains
         logical, intent(in), optional :: uniform
 
         call self%der2%initialize(x, fdm_type)
-
+        self%type = self%der2%type
+        
         ! I need it in elliptic operators
         allocate (self%lhs, source=self%der2%lhs)
         allocate (self%rhs, source=self%der2%rhs)

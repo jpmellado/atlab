@@ -11,6 +11,7 @@ module FDM_Derivative_2order
     implicit none
     private
 
+    public :: der2_periodic
     public :: der_extended_dt
     ! public :: der_dt            ! Made public to make it accessible by loading FDM_Derivative_X and not necessarily FDM_Derivative_Base
     public :: der2_extended_periodic

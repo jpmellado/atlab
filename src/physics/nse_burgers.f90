@@ -13,7 +13,9 @@ module NSE_Burgers
     use TLab_Grid, only: x, y, z, grid
     use FDM, only: fdm_der1_X, fdm_der1_Y, fdm_der1_Z
     use FDM, only: fdm_der2_X, fdm_der2_Y, fdm_der2_Z
-    ! use FDM_Derivative_Burgers
+    use FDM_Derivative_Burgers
+    use FDM_Derivative_1order, only: der1_periodic
+    use FDM_Derivative_2order, only: der2_extended_periodic
     use NavierStokes, only: nse_eqns, DNS_EQNS_ANELASTIC
     use Thermo_Anelastic, only: ribackground, rbackground
     use NavierStokes, only: visc, schmidt
@@ -53,7 +55,7 @@ module NSE_Burgers
 #ifdef USE_MPI
     type(der_burgers_mpisplit) :: fdm_burgersX_split, fdm_burgersY_split
 #else
-    ! type(der_burgers) :: fdm_burgersX, fdm_burgersY
+    type(der_burgers) :: fdm_burgersX, fdm_burgersY
 #endif
 
 contains
@@ -90,20 +92,20 @@ contains
 
         end do
 
-        ! select type (fdm_der1_X)
-        ! type is (der1_periodic)
-        !     select type (fdm_der2_X)
-        !     type is (der2_extended_periodic)
-        !         call fdm_burgersX%initialize(fdm_der1_X, fdm_der2_X)
-        !     end select
-        ! end select
-        ! select type (fdm_der1_Y)
-        ! type is (der1_periodic)
-        !     select type (fdm_der2_Y)
-        !     type is (der2_extended_periodic)
-        !         call fdm_burgersY%initialize(fdm_der1_Y, fdm_der2_Y)
-        !     end select
-        ! end select
+        select type (fdm_der1_X)
+        type is (der1_periodic)
+            select type (fdm_der2_X)
+            type is (der2_extended_periodic)
+                call fdm_burgersX%initialize(fdm_der1_X, fdm_der2_X%der2)
+            end select
+        end select
+        select type (fdm_der1_Y)
+        type is (der1_periodic)
+            select type (fdm_der2_Y)
+            type is (der2_extended_periodic)
+                call fdm_burgersY%initialize(fdm_der1_Y, fdm_der2_Y%der2)
+            end select
+        end select
 
         ! ###################################################################
         ! Initialize anelastic density correction

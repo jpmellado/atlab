@@ -6,6 +6,7 @@ module NSE_Pressure
     use TLab_Constants, only: wp, wi, BCS_NN
     use TLab_Memory, only: imax, jmax, kmax, isize_field, isize_txc_field
     use TLab_Memory, only: inb_flow_array, inb_flow, inb_scal_array
+    use TLab_Time, only: rtime
     use OPR_Partial
     use NavierStokes
     use Thermo_Anelastic, only: rbackground, Thermo_Anelastic_Weight_InPlace
@@ -43,7 +44,7 @@ contains
         ! #######################################################################
         ! Add forcing terms
         ! #######################################################################
-        call TLab_Sources_Flow(q, s, hq, tmp1)
+        call TLab_Sources_Flow(q, s, rtime, hq, tmp1)
 
         ! We are missing the buffer nudging here.
 

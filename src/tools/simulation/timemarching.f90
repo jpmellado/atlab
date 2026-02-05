@@ -35,7 +35,7 @@ module TimeMarching
     public :: TMarch_Courant
 
     real(wp), public :: dtime                       ! time step
-    real(wp), public :: dte                         ! time step of each substep
+    real(wp), public :: dte                         ! explicit scheme coefficient at each RK substep; to be removed from public
     logical, public :: remove_divergence            ! Remove residual divergence every time step
     logical, public :: use_variable_timestep = .true.
 
@@ -60,10 +60,10 @@ module TimeMarching
     integer(wi) :: rkm_substep                  ! substep counter
 
     real(wp) :: cfla, cfld, cflr                ! CFL numbers
-    real(wp) etime                              ! time at each substep
 
     real(wp) kdt(5), kco(4), ktime(5)           ! explicit scheme coefficients
     real(wp) kex(3), kim(3)                     ! implicit scheme coefficients
+    real(wp) :: etime                           ! time at each RK substep; rtime is time at each iteration, not at each RK substep
 
     real(wp) schmidtfactor, dx2i
     integer(wi) i, j, k, kdsp, jdsp, idsp, is
@@ -558,7 +558,7 @@ contains
 
         ! #######################################################################
         ! Accumulate RHS terms
-        call TLab_Sources_Flow(q, s, hq, txc(:, 1))
+        call TLab_Sources_Flow(q, s, etime, hq, txc(:, 1))
         call TLab_Sources_Scal(s, hs, txc(:, 1), txc(:, 2), txc(:, 3), txc(:, 4))
 
         if (bufferType == BUFFER_TYPE_NUDGE) call Buffer_Nudge()
@@ -591,7 +591,7 @@ contains
 
         ! #######################################################################
         ! Accumulate RHS terms
-        call TLab_Sources_Flow(q, s, hq, txc(:, 1))
+        call TLab_Sources_Flow(q, s, etime, hq, txc(:, 1))
         call TLab_Sources_Scal(s, hs, txc(:, 1), txc(:, 2), txc(:, 3), txc(:, 4))
 
         if (bufferType == BUFFER_TYPE_NUDGE) call Buffer_Nudge()

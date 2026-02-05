@@ -54,9 +54,8 @@ module NSE_Burgers
 
 #ifdef USE_MPI
     type(der_burgers_mpisplit) :: fdm_burgersX_split, fdm_burgersY_split
-#else
-    type(der_burgers) :: fdm_burgersX, fdm_burgersY
 #endif
+    type(der_burgers) :: fdm_burgersX, fdm_burgersY
 
 contains
     !########################################################################
@@ -91,21 +90,6 @@ contains
             end if
 
         end do
-
-        select type (fdm_der1_X)
-        type is (der1_periodic)
-            select type (fdm_der2_X)
-            type is (der2_extended_periodic)
-                call fdm_burgersX%initialize(fdm_der1_X, fdm_der2_X%der2)
-            end select
-        end select
-        select type (fdm_der1_Y)
-        type is (der1_periodic)
-            select type (fdm_der2_Y)
-            type is (der2_extended_periodic)
-                call fdm_burgersY%initialize(fdm_der1_Y, fdm_der2_Y%der2)
-            end select
-        end select
 
         ! ###################################################################
         ! Initialize anelastic density correction
@@ -175,6 +159,14 @@ contains
         else
 #endif
             NSE_AddBurgers_PerVolume_X => NSE_AddBurgers_PerVolume_X_Serial
+            select type (fdm_der1_X)
+            type is (der1_periodic)
+                select type (fdm_der2_X)
+                type is (der2_extended_periodic)
+                    call fdm_burgersX%initialize(fdm_der1_X, fdm_der2_X%der2)
+                end select
+            end select
+
 #ifdef USE_MPI
         end if
 #endif
@@ -191,6 +183,14 @@ contains
         else
 #endif
             NSE_AddBurgers_PerVolume_Y => NSE_AddBurgers_PerVolume_Y_Serial
+            select type (fdm_der1_Y)
+            type is (der1_periodic)
+                select type (fdm_der2_Y)
+                type is (der2_extended_periodic)
+                    call fdm_burgersY%initialize(fdm_der1_Y, fdm_der2_Y%der2)
+                end select
+            end select
+
 #ifdef USE_MPI
         end if
 #endif
@@ -354,9 +354,9 @@ contains
         np = max(np1, np2)
         call TLabMPI_Halos_X(tmp1, nlines, np, pyz_halo_m(:, 1), pyz_halo_p(:, 1))
 
-        ! call fdm_der1_X_split%compute(nlines, tmp1, pyz_halo_m(:, np - np1 + 1:np), pyz_halo_p, result)
-        ! call fdm_der2_X_split%compute(nlines, tmp1, pyz_halo_m(:, np - np2 + 1:np), pyz_halo_p, wrk3d)
-        call fdm_burgersX_split%compute(nlines, tmp1, pyz_halo_m(:, 1:np), pyz_halo_p(:, 1:np), result, wrk3d)
+        call fdm_der1_X_split%compute(nlines, tmp1, pyz_halo_m(:, np - np1 + 1:np), pyz_halo_p, result)
+        call fdm_der2_X_split%compute(nlines, tmp1, pyz_halo_m(:, np - np2 + 1:np), pyz_halo_p, wrk3d)
+        ! call fdm_burgersX_split%compute(nlines, tmp1, pyz_halo_m(:, 1:np), pyz_halo_p(:, 1:np), result, wrk3d)
 
         if (present(rhou_in)) then      ! transposed velocity (times density) is passed as argument
             wrk3d(1:nx*ny*nz) = wrk3d(1:nx*ny*nz)*diffusivity(is) - rhou_in(:)*result(:)
@@ -544,9 +544,9 @@ contains
         np = max(np1, np2)
         call TLabMPI_Halos_Y(tmp1, nlines, np, pxz_halo_m(:, 1), pxz_halo_p(:, 1))
 
-        ! call fdm_der1_Y_split%compute(nlines, tmp1, pxz_halo_m(:, np - np1 + 1:np), pxz_halo_p, result)
-        ! call fdm_der2_Y_split%compute(nlines, tmp1, pxz_halo_m(:, np - np2 + 1:np), pxz_halo_p, wrk3d)
-        call fdm_burgersY_split%compute(nlines, tmp1, pxz_halo_m(:, 1:np), pxz_halo_p(:, 1:np), result, wrk3d)
+        call fdm_der1_Y_split%compute(nlines, tmp1, pxz_halo_m(:, np - np1 + 1:np), pxz_halo_p, result)
+        call fdm_der2_Y_split%compute(nlines, tmp1, pxz_halo_m(:, np - np2 + 1:np), pxz_halo_p, wrk3d)
+        ! call fdm_burgersY_split%compute(nlines, tmp1, pxz_halo_m(:, 1:np), pxz_halo_p(:, 1:np), result, wrk3d)
 
         if (present(rhou_in)) then      ! transposed velocity (times density) is passed as argument
             wrk3d(1:nx*ny*nz) = wrk3d(1:nx*ny*nz)*diffusivity(is) - rhou_in(:)*result(:)

@@ -96,7 +96,7 @@ contains
         end if
 
         call ScanFile_Char(bakfile, inifile, block, 'DerivativeModeJ', 'split', sRes)
-        if (trim(adjustl(sRes)) == 'transpose') then; der_mode_i = TYPE_TRANSPOSE
+        if (trim(adjustl(sRes)) == 'transpose') then; der_mode_j = TYPE_TRANSPOSE
         elseif (trim(adjustl(sRes)) == 'split') then; der_mode_j = TYPE_SPLIT
         else
             call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Wrong DerivativeModeJ option.')
@@ -502,7 +502,6 @@ contains
     !########################################################################
     subroutine OPR_Partial_Y_MPISplit(type, nx, ny, nz, u, result, tmp1)
         use TLabMPI_PROCS, only: TLabMPI_Halos_Y
-        use TLab_Pointers_2D, only: pxz_wrk3d
         integer(wi), intent(in) :: type                         ! OPR_P1, OPR_P2, OPR_P2_P1
         integer(wi), intent(in) :: nx, ny, nz
         real(wp), intent(in) :: u(nx*ny*nz)

@@ -28,6 +28,10 @@ FILE(GLOB sourcefiles "elliptic/velliptic.f90")
 add_executable(velliptic.x ${sourcefiles})
 target_link_libraries(velliptic.x physics mappings operators finitedifferences ${LEVEL1_LIBS} ${LIBS})
 
+# FILE(GLOB sourcefiles "thermo/vthermo.f90")
+# add_executable(vthermo.x ${sourcefiles})
+# target_link_libraries(vthermo.x thermodynamics ${LEVEL1_LIBS} ${LIBS})
+
 # FILE(GLOB sourcefiles "interpol/*.f90")
 # add_executable(vinterpol.x ${sourcefiles})
 # target_link_libraries(vinterpol.x operators filters finitedifferences ${LEVEL1_LIBS} ${LIBS})

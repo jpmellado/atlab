@@ -103,6 +103,7 @@ module FDM_Derivative_2order
         procedure(thomas_ice), pointer, nopass :: thomasU => null()
         real(wp), allocatable :: lu(:, :)
         real(wp), pointer :: rhs(:, :) => null()
+        type(thomas_dt) :: thomas
     end type
 
     type, extends(bcs) :: bcsDD
@@ -421,19 +422,21 @@ contains
         class(bcsDD), intent(out) :: self
         class(der2_extended_biased), intent(in), target :: ref
 
-        integer ndl
+        ! integer ndl
 
         ! ###################################################################
         self%matmul => ref%matmul
-        self%thomasU => ref%thomasU
         self%rhs => ref%rhs
+        ! self%thomasU => ref%thomasU
 
-        allocate (self%lu, source=ref%lhs)
+        ! allocate (self%lu, source=ref%lhs)
 
-        ndl = size(ref%lhs, 2)
+        ! ndl = size(ref%lhs, 2)
 
-        call Thomas_FactorLU_InPlace(self%lu(:, 1:ndl/2), &
-                                     self%lu(:, ndl/2 + 1:ndl))
+        ! call Thomas_FactorLU_InPlace(self%lu(:, 1:ndl/2), &
+        !                              self%lu(:, ndl/2 + 1:ndl))
+
+        call self%thomas%initialize(ref%lhs)
 
         return
     end subroutine bcsDD_initialize
@@ -441,14 +444,17 @@ contains
     subroutine bcsDD_compute(self, nlines, u, result)
         class(bcsDD), intent(in) :: self
         integer(wi), intent(in) :: nlines
-        real(wp), intent(in) :: u(nlines, size(self%lu, 1))
-        real(wp), intent(out) :: result(nlines, size(self%lu, 1))
+        ! real(wp), intent(in) :: u(nlines, size(self%lu, 1))
+        ! real(wp), intent(out) :: result(nlines, size(self%lu, 1))
+        real(wp), intent(in) :: u(nlines, size(self%rhs, 1))
+        real(wp), intent(out) :: result(nlines, size(self%rhs, 1))
 
-        integer nx, ndl, ndr
+        integer nx, ndr !ndl, ndr
 
         ! ###################################################################
-        nx = size(self%lu, 1)
-        ndl = size(self%lu, 2)
+        ! nx = size(self%lu, 1)
+        nx = size(self%rhs, 1)
+        ! ndl = size(self%lu, 2)
         ndr = size(self%rhs, 2)
 
         ! call self%matmul(rhs=self%rhs, &
@@ -461,11 +467,15 @@ contains
                          rhs_t=self%rhs(nx - ndr/2 + 1:nx, 1:ndr), &
                          u=u, &
                          f=result, &
-                         L=self%lu(:, 1:ndl/2))
+                         L=self%thomas%L)
+                        !  L=self%lu(:, 1:ndl/2))
 
         ! Solve for u' in system of equations A u' = B u
         ! call self%thomasL(lu(:, 1:ndl/2), result)
-        call self%thomasU(self%lu(:, ndl/2 + 1:ndl), result)
+        ! call self%thomasU(self%lu(:, ndl/2 + 1:ndl), result)
+
+        ! call self%thomas%solveL(result)
+        call self%thomas%solveU(result)
 
         return
     end subroutine bcsDD_compute
@@ -491,7 +501,8 @@ contains
         self%thomasU => ref%thomasU
         self%rhs => ref%rhs
 
-        allocate (self%lu, source=ref%bcsDD%lu)
+        ! allocate (self%lu, source=ref%bcsDD%lu)
+        self%thomas = ref%bcsDD%thomas
 
         ! Contribution from 1. order derivative in nonuniform grids
         allocate (self%rhs_d1, mold=ref%lhs)
@@ -510,14 +521,17 @@ contains
         class(bcsDD_jacobian), intent(in) :: self
         integer(wi), intent(in) :: nlines
         real(wp), intent(in) :: u(nlines, size(self%lu, 1))
-        real(wp), intent(out) :: result(nlines, size(self%lu, 1))
-        real(wp), intent(in) :: du(nlines, size(self%lu, 1))
+        ! real(wp), intent(out) :: result(nlines, size(self%lu, 1))
+        ! real(wp), intent(in) :: du(nlines, size(self%lu, 1))
+        real(wp), intent(out) :: result(nlines, size(self%rhs, 1))
+        real(wp), intent(in) :: du(nlines, size(self%rhs, 1))
 
-        integer nx, ndl, ndr
+        integer nx, ndr !ndl, ndr
 
         ! ###################################################################
-        nx = size(self%lu, 1)
-        ndl = size(self%lu, 2)
+        ! nx = size(self%lu, 1)
+        nx = size(self%rhs, 1)
+        ! ndl = size(self%lu, 2)
         ndr = size(self%rhs, 2)
 
         ! call self%matmul(rhs=self%rhs, &
@@ -534,11 +548,15 @@ contains
                          rhs_add=self%rhs_d1, &
                          u_add=du, &
                          f=result, &
-                         L=self%lu(:, 1:ndl/2))
+                         L=self%thomas%L)
+                        !  L=self%lu(:, 1:ndl/2))
 
         ! Solve for u' in system of equations A u' = B u
         ! call self%thomasL(lu(:, 1:ndl/2), result)
-        call self%thomasU(self%lu(:, ndl/2 + 1:ndl), result)
+        ! call self%thomasU(self%lu(:, ndl/2 + 1:ndl), result)
+
+        ! call self%thomas%solveL(result)
+        call self%thomas%solveU(result)
 
         return
     end subroutine bcsDD_jacobian_compute

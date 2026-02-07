@@ -36,6 +36,7 @@ module FDM_Derivative_1order
         procedure(thomas_ice), pointer, nopass :: thomasU => null()
         real(wp), allocatable :: lu(:, :)
         real(wp), pointer :: rhs(:, :) => null()
+        type(thomas_dt) :: thomas
     end type
 
     type, extends(bcs) :: bcsDD
@@ -290,15 +291,17 @@ contains
 
         ! ###################################################################
         self%matmul => ref%matmul
-        self%thomasU => ref%thomasU
         self%rhs => ref%rhs
+        ! self%thomasU => ref%thomasU
 
-        allocate (self%lu, source=ref%lhs)
+        ! allocate (self%lu, source=ref%lhs)
 
-        ndl = size(ref%lhs, 2)
+        ! ndl = size(ref%lhs, 2)
 
-        call Thomas_FactorLU_InPlace(self%lu(:, 1:ndl/2), &
-                                     self%lu(:, ndl/2 + 1:ndl))
+        ! call Thomas_FactorLU_InPlace(self%lu(:, 1:ndl/2), &
+        !                              self%lu(:, ndl/2 + 1:ndl))
+
+        call self%thomas%initialize(ref%lhs)
 
         return
     end subroutine bcsDD_initialize
@@ -306,12 +309,15 @@ contains
     subroutine bcsDD_compute(self, nlines, u, result)
         class(bcsDD), intent(in) :: self
         integer(wi), intent(in) :: nlines
-        real(wp), intent(in) :: u(nlines, size(self%lu, 1))
-        real(wp), intent(out) :: result(nlines, size(self%lu, 1))
+        ! real(wp), intent(in) :: u(nlines, size(self%lu, 1))
+        ! real(wp), intent(out) :: result(nlines, size(self%lu, 1))
+        real(wp), intent(in) :: u(nlines, size(self%rhs, 1))
+        real(wp), intent(out) :: result(nlines, size(self%rhs, 1))
 
         ! ###################################################################
-        nx = size(self%lu, 1)
-        ndl = size(self%lu, 2)
+        ! nx = size(self%lu, 1)
+        nx = size(self%rhs, 1)
+        ! ndl = size(self%lu, 2)
         ndr = size(self%rhs, 2)
 
         ! Calculate RHS in A u' = B u
@@ -320,11 +326,15 @@ contains
                          rhs_t=self%rhs(nx - ndr/2 + 1:nx, 1:ndr), &
                          u=u, &
                          f=result, &
-                         L=self%lu(:, 1:ndl/2))
+                         L=self%thomas%L)
+        !  L=self%lu(:, 1:ndl/2))
 
         ! Solve for u' in system of equations A u' = B u
         ! call self%thomasL(self%lu(:,1:ndl/2), result)
-        call self%thomasU(self%lu(:, ndl/2 + 1:ndl), result)
+        ! call self%thomasU(self%lu(:, ndl/2 + 1:ndl), result)
+
+        ! call self%thomas%solveL(result)
+        call self%thomas%solveU(result)
 
         return
     end subroutine bcsDD_compute

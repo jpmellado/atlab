@@ -1,9 +1,11 @@
 ! Calculate the non-linear operator N(u)(s) = dyn_visc* d^2/dx^2 s - rho u d/dx s
 
 module NSE_Burgers
-    use TLab_Constants, only: wp, wi, efile, lfile, BCS_NONE, MAX_VARS
+    use TLab_Constants, only: wp, wi
+    use TLab_Constants, only: MAX_VARS
+    use TLab_Constants, only: efile, lfile
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
-    use TLab_Arrays, only: wrk2d, wrk3d
+    use TLab_Arrays, only: wrk3d
     use TLab_Transpose
 #ifdef USE_MPI
     use TLabMPI_VARS, only: ims_npro_i, ims_npro_j
@@ -154,7 +156,7 @@ contains
                 NSE_AddBurgers_PerVolume_X => NSE_AddBurgers_PerVolume_X_MPITranspose
             case (TYPE_SPLIT)
                 NSE_AddBurgers_PerVolume_X => NSE_AddBurgers_PerVolume_X_MPISplit
-                call fdm_burgersX_split%initialize(fdm_der1_X, fdm_der2_X, 'x')
+                call fdm_burgersX_split%initialize(fdm_der1_X_split, fdm_der2_X_split)
             end select
         else
 #endif
@@ -178,7 +180,7 @@ contains
                 NSE_AddBurgers_PerVolume_Y => NSE_AddBurgers_PerVolume_Y_MPITranspose
             case (TYPE_SPLIT)
                 NSE_AddBurgers_PerVolume_Y => NSE_AddBurgers_PerVolume_Y_MPISplit
-                call fdm_burgersY_split%initialize(fdm_der1_Y, fdm_der2_Y, 'y')
+                call fdm_burgersY_split%initialize(fdm_der1_Y_split, fdm_der2_Y_split)
             end select
         else
 #endif

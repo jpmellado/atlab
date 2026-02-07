@@ -1,14 +1,17 @@
+#include "tlab_error.h"
+
 module FDM_Derivative_Burgers
     use TLab_Constants, only: wp, wi
     use FDM_Base, only: FDM_COM6_JACOBIAN, FDM_COM6_JACOBIAN_HYPER
-    use FDM_Derivative_Base
+    use FDM_Derivative_Base, only: matmul_halo_thomas_combined_ice
     use FDM_Derivative_1order, only: der1_periodic
     use FDM_Derivative_2order, only: der2_periodic
     implicit none
     private
 
-    public :: der1_periodic, der2_periodic
+    public :: der_burgers
 
+    ! -----------------------------------------------------------------------
     type, public :: der_burgers
         procedure(matmul_halo_thomas_combined_ice), pointer, nopass :: matmul => null()
         type(der1_periodic), pointer :: der1 => null()
@@ -22,7 +25,9 @@ contains
     ! ###################################################################
     ! ###################################################################
     subroutine der_burgers_periodic_initialize(self, fdm_der1, fdm_der2)
-        use Matmul_Halo_Thomas
+        use TLab_Constants, only: efile
+        use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
+        use Matmul_Halo_Thomas, only: MatMul_Halo_5_antisym_7_sym_ThomasL_3
         class(der_burgers), intent(out) :: self
         class(der1_periodic), intent(in), target :: fdm_der1
         class(der2_periodic), intent(in), target :: fdm_der2
@@ -31,11 +36,12 @@ contains
         self%der1 => fdm_der1
         self%der2 => fdm_der2
 
-        if (fdm_der1%type == FDM_COM6_JACOBIAN .and. fdm_der2%type == FDM_COM6_JACOBIAN_HYPER) then
+        if (fdm_der1%type == FDM_COM6_JACOBIAN .and. &
+            fdm_der2%type == FDM_COM6_JACOBIAN_HYPER) then
             self%matmul => MatMul_Halo_5_antisym_7_sym_ThomasL_3
         else
-            print *, 'undeveloped'
-            stop
+            call TLab_Write_ASCII(efile, __FILE__//'. Burgers splitting only for tridiagonal.')
+            call TLab_Stop(DNS_ERROR_UNDEVELOP)
         end if
 
         return

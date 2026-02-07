@@ -603,27 +603,26 @@ contains
 
         call fdm_der1_Z%compute(nlines, s, wrk3d)
         call fdm_der2_Z%compute(nlines, s, tmp1, wrk3d)
-        tmp1 = tmp1*diffusivity(is)
 
         if (present(rhou_in)) then      ! transposed velocity (times density) is passed as argument
             if (subsidenceProps%type == TYPE_SUB_CONSTANT) then
                 do k = 1, nz
-                    result(:, k) = result(:, k) + tmp1(:, k) + (rho_wbackground(k) - rhou_in(:, k))*pxy_wrk3d(:, k)
+                    result(:, k) = result(:, k) + tmp1(:, k)*diffusivity(is) + (rho_wbackground(k) - rhou_in(:, k))*pxy_wrk3d(:, k)
                 end do
             else
-                result(:, :) = result(:, :) + tmp1(:, :) - rhou_in(:, :)*pxy_wrk3d(:, :)
+                result(:, :) = result(:, :) + tmp1(:, :)*diffusivity(is) - rhou_in(:, :)*pxy_wrk3d(:, :)
             end if
 
         else                            ! Only used in anelastic formulation
             if (subsidenceProps%type == TYPE_SUB_CONSTANT) then
                 do k = 1, nz
                     rhou_out(:, k) = s(:, k)*rbackground(k)
-                    result(:, k) = result(:, k) + tmp1(:, k) + (rho_wbackground(k) - rhou_out(:, k))*pxy_wrk3d(:, k)
+                    result(:, k) = result(:, k) + tmp1(:, k)*diffusivity(is) + (rho_wbackground(k) - rhou_out(:, k))*pxy_wrk3d(:, k)
                 end do
             else
                 do k = 1, nz
                     rhou_out(:, k) = s(:, k)*rbackground(k)
-                    result(:, k) = result(:, k) + tmp1(:, k) - rhou_out(:, k)*pxy_wrk3d(:, k)
+                    result(:, k) = result(:, k) + tmp1(:, k)*diffusivity(is) - rhou_out(:, k)*pxy_wrk3d(:, k)
                 end do
             end if
 

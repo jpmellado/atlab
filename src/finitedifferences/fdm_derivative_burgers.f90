@@ -12,7 +12,7 @@ module FDM_Derivative_Burgers
     public :: der_burgers
 
     ! -----------------------------------------------------------------------
-    type, public :: der_burgers
+    type :: der_burgers
         procedure(matmul_halo_thomas_combined_ice), pointer, nopass :: matmul => null()
         type(der1_periodic), pointer :: der1 => null()
         type(der2_periodic), pointer :: der2 => null()

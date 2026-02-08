@@ -1,5 +1,7 @@
 module FDM_Derivative_Base
     use TLab_Constants, only: wp, wi
+    use Thomas, only: thomas_dt
+    use Thomas_Circulant, only: thomas_circulant_dt
     implicit none
     ! everything is public, so no private statement
 
@@ -31,9 +33,10 @@ module FDM_Derivative_Base
     type, extends(der_dt), abstract :: der_periodic
         ! procedure(matmul_halo_ice), pointer, nopass :: matmul => null()
         procedure(matmul_halo_thomas_ice), pointer, nopass :: matmul => null()
-        procedure(thomas_ice), pointer, nopass :: thomasU => null()
-        real(wp), allocatable :: lu(:, :)               ! LU decomposition
-        real(wp), allocatable :: z(:, :)                ! boundary corrections
+        ! procedure(thomas_ice), pointer, nopass :: thomasU => null()
+        ! real(wp), allocatable :: lu(:, :)               ! LU decomposition
+        ! real(wp), allocatable :: z(:, :)                ! boundary corrections
+        type(thomas_circulant_dt) :: thomas
     contains
     end type
 

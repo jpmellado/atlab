@@ -22,14 +22,14 @@ module FDM_Derivative_MPISplit
     ! -----------------------------------------------------------------------
     type :: der_mpisplit
         integer type                                ! finite-difference method
-        ! procedure(matmul_halo_ice), pointer, nopass :: matmul
-        procedure(matmul_halo_thomas_ice), pointer, nopass :: matmul
         real(wp), pointer :: rhs(:, :) => null()
-        type(thomas3_split_dt) thomas3
     contains
     end type
 
     type, extends(der_mpisplit) :: der_periodic_mpisplit
+        ! procedure(matmul_halo_ice), pointer, nopass :: matmul => null()
+        procedure(matmul_halo_thomas_ice), pointer, nopass :: matmul => null()
+        type(thomas3_split_dt) thomas3
     contains
         procedure :: initialize => der_periodic_initialize
         procedure :: compute => der_periodic_compute

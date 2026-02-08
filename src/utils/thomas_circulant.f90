@@ -18,7 +18,124 @@ module Thomas_Circulant
     public :: ThomasCirculant_5_Initialize
     public :: ThomasCirculant_5_Reduce
 
+    public :: thomas_circulant_dt
+
+    ! -----------------------------------------------------------------------
+    type, extends(thomas_dt) :: thomas_circulant_dt
+        real(wp), allocatable :: z(:, :)
+    contains
+        procedure :: initialize => thomas_initialize_dt
+        procedure :: solveL => thomas_solveL_dt
+        procedure :: solveU => thomas_solveU_dt
+        procedure :: reduce => thomas_reduce_dt
+    end type
+
 contains
+    ! #######################################################################
+    ! #######################################################################
+    subroutine thomas_initialize_dt(self, lhs)
+        class(thomas_circulant_dt), intent(out) :: self
+        real(wp), intent(in) :: lhs(:, :)
+
+        integer ndl
+        real(wp), allocatable :: lu_aux(:, :)
+
+        allocate (lu_aux, source=lhs)
+        ndl = size(lu_aux, 2)
+
+        allocate (self%z(ndl/2, size(lhs, 1)))
+        select case (ndl)
+        case (3)
+            call ThomasCirculant_3_Initialize(lu_aux(:, 1:ndl/2), &
+                                              lu_aux(:, ndl/2 + 1:ndl), &
+                                              self%z)
+        case (5)
+            call ThomasCirculant_5_Initialize(lu_aux(:, 1:ndl/2), &
+                                              lu_aux(:, ndl/2 + 1:ndl), &
+                                              self%z)
+        end select
+
+        allocate (self%L, source=lu_aux(:, 1:ndl/2))
+        allocate (self%U, source=lu_aux(:, ndl/2 + 1:ndl))
+        deallocate (lu_aux)
+
+        select case (ndl)
+        case (3)
+            self%ptr_solveL => Thomas3_SolveL
+            self%ptr_solveU => Thomas3_SolveU
+        case (5)
+            self%ptr_solveL => Thomas5_SolveL
+            self%ptr_solveU => Thomas5_SolveU
+        case (7)
+            self%ptr_solveL => Thomas7_SolveL
+            self%ptr_solveU => Thomas7_SolveU
+        end select
+
+        return
+    end subroutine
+
+    subroutine thomas_solveL_dt(self, f)
+        class(thomas_circulant_dt), intent(in) :: self
+        real(wp), intent(inout) :: f(:, :)
+
+        call self%ptr_solveL(self%L, f)
+
+        return
+    end subroutine
+
+    ! subroutine thomas_solveU_dt(self, f)
+    !     use TLab_Arrays, only: wrk2d
+    !     class(thomas_circulant_dt), intent(in) :: self
+    !     real(wp), intent(inout) :: f(:, :)
+
+    !     call self%ptr_solveU(self%U, f)
+
+    !     select case (size(self%L, 2))
+    !     case (1)
+    !         call ThomasCirculant_3_Reduce(self%L, &
+    !                                       self%U, &
+    !                                       self%z(1, :), &
+    !                                       f, wrk2d(:, 1))
+    !     case (2)
+    !         call ThomasCirculant_5_Reduce(self%L, &
+    !                                       self%U, &
+    !                                       self%z, &
+    !                                       f)!, wrk2d)
+    !     end select
+
+    !     return
+    ! end subroutine
+
+    subroutine thomas_solveU_dt(self, f)
+        class(thomas_circulant_dt), intent(in) :: self
+        real(wp), intent(inout) :: f(:, :)
+
+        call self%ptr_solveU(self%U, f)
+
+        return
+    end subroutine
+
+    subroutine thomas_reduce_dt(self, f)
+        use TLab_Arrays, only: wrk2d
+        class(thomas_circulant_dt), intent(in) :: self
+        real(wp), intent(inout) :: f(:, :)
+
+        select case (size(self%L, 2))
+        case (1)
+            call ThomasCirculant_3_Reduce(self%L, &
+                                          self%U, &
+                                          self%z(1, :), &
+                                          f, wrk2d(:, 1))
+        case (2)
+            call ThomasCirculant_5_Reduce(self%L, &
+                                          self%U, &
+                                          self%z, &
+                                          f)!, wrk2d)
+        end select
+
+        return
+    end subroutine
+
     !########################################################################
     !########################################################################
     subroutine ThomasCirculant_3_Initialize(L, U, z_mem)

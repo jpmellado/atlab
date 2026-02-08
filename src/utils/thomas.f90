@@ -32,9 +32,9 @@ module Thomas
     end type
 
     abstract interface
-        subroutine thomas_ice(L, f)
+        subroutine thomas_ice(A, f)
             import wp
-            real(wp), intent(in) :: L(:, :)
+            real(wp), intent(in) :: A(:, :)
             real(wp), intent(inout) :: f(:, :)          ! RHS and solution
         end subroutine thomas_ice
     end interface

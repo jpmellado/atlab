@@ -3,7 +3,7 @@ module FDM_Derivative_1order
     use TLab_Constants, only: BCS_DD, BCS_ND, BCS_DN, BCS_NN
     use FDM_Derivative_Base
     use Thomas
-    use Thomas_Circulant
+    ! use Thomas_Circulant
     ! use MatMul
     ! use MatMul_Halo
     use MatMul_Thomas
@@ -110,17 +110,17 @@ contains
         case (FDM_COM4_JACOBIAN)
             call FDM_C1N4_Jacobian(size(x), self%lhs, self%rhs, periodic=.true.)
             self%matmul => MatMul_Halo_3_antisym_ThomasL_3   ! MatMul_Halo_3_antisym together with self%thomasL => Thomas3_SolveL
-            self%thomasU => Thomas3_SolveU
+            ! self%thomasU => Thomas3_SolveU
 
         case (FDM_COM6_JACOBIAN)
             call FDM_C1N6_Jacobian(size(x), self%lhs, self%rhs, periodic=.true.)
             self%matmul => MatMul_Halo_5_antisym_ThomasL_3   ! MatMul_Halo_5_antisym together with self%thomasL => Thomas3_SolveL
-            self%thomasU => Thomas3_SolveU
+            ! self%thomasU => Thomas3_SolveU
 
         case (FDM_COM6_JACOBIAN_PENTA)
             call FDM_C1N6_Jacobian_Penta(size(x), self%lhs, self%rhs, periodic=.true.)
             self%matmul => MatMul_Halo_7_antisym_ThomasL_5   ! MatMul_Halo_7_antisym together with self%thomasL => Thomas5_SolveL
-            self%thomasU => Thomas5_SolveU
+            ! self%thomasU => Thomas5_SolveU
 
         end select
 
@@ -131,23 +131,25 @@ contains
         call Precon_Rhs(self%lhs, self%rhs, periodic=.true.)
 
         ! Construct LU decomposition
-        nx = size(self%lhs, 1)
-        ndl = size(self%lhs, 2)
+        ! nx = size(self%lhs, 1)
+        ! ndl = size(self%lhs, 2)
 
-        allocate (self%lu, source=self%lhs)
+        ! allocate (self%lu, source=self%lhs)
 
-        allocate (self%z(ndl/2, nx))
+        ! allocate (self%z(ndl/2, nx))
 
-        select case (ndl)
-        case (3)
-            call ThomasCirculant_3_Initialize(self%lu(:, 1:ndl/2), &
-                                              self%lu(:, ndl/2 + 1:ndl), &
-                                              self%z)
-        case (5)
-            call ThomasCirculant_5_Initialize(self%lu(:, 1:ndl/2), &
-                                              self%lu(:, ndl/2 + 1:ndl), &
-                                              self%z)
-        end select
+        ! select case (ndl)
+        ! case (3)
+        !     call ThomasCirculant_3_Initialize(self%lu(:, 1:ndl/2), &
+        !                                       self%lu(:, ndl/2 + 1:ndl), &
+        !                                       self%z)
+        ! case (5)
+        !     call ThomasCirculant_5_Initialize(self%lu(:, 1:ndl/2), &
+        !                                       self%lu(:, ndl/2 + 1:ndl), &
+        !                                       self%z)
+        ! end select
+
+        call self%thomas%initialize(self%lhs)
 
         return
     end subroutine der1_periodic_initialize
@@ -155,7 +157,7 @@ contains
     ! ###################################################################
     ! ###################################################################
     subroutine der1_periodic_compute(self, nlines, u, result)
-        use TLab_Arrays, only: wrk2d
+        ! use TLab_Arrays, only: wrk2d
         class(der1_periodic), intent(in) :: self
         integer(wi), intent(in) :: nlines
         real(wp), intent(in) :: u(nlines, size(self%lhs, 1))
@@ -163,7 +165,7 @@ contains
 
         ! ###################################################################
         nx = size(self%lhs, 1)
-        ndl = size(self%lhs, 2)
+        ! ndl = size(self%lhs, 2)
         ndr = size(self%rhs, 2)
 
         ! Calculate RHS in system of equations A u' = B u
@@ -177,23 +179,28 @@ contains
                          u_halo_m=u(:, nx - ndr/2 + 1:nx), &
                          u_halo_p=u(:, 1:ndr/2), &
                          f=result, &
-                         L=self%lu(:, 1:ndl/2))
+                         L=self%thomas%L)
+                        !  L=self%lu(:, 1:ndl/2))
 
         ! Solve for u' in system of equations A u' = B u
-        ! call self%thomasL(self%lu(:, 1:ndl/2), result)
-        call self%thomasU(self%lu(:, ndl/2 + 1:ndl), result)
-        select case (ndl)
-        case (3)
-            call ThomasCirculant_3_Reduce(self%lu(:, 1:ndl/2), &
-                                          self%lu(:, ndl/2 + 1:ndl), &
-                                          self%z(1, :), &
-                                          result, wrk2d(:, 1))
-        case (5)
-            call ThomasCirculant_5_Reduce(self%lu(:, 1:ndl/2), &
-                                          self%lu(:, ndl/2 + 1:ndl), &
-                                          self%z, &
-                                          result)!, wrk2d)
-        end select
+        ! ! call self%thomasL(self%lu(:, 1:ndl/2), result)
+        ! call self%thomasU(self%lu(:, ndl/2 + 1:ndl), result)
+        ! select case (ndl)
+        ! case (3)
+        !     call ThomasCirculant_3_Reduce(self%lu(:, 1:ndl/2), &
+        !                                   self%lu(:, ndl/2 + 1:ndl), &
+        !                                   self%z(1, :), &
+        !                                   result, wrk2d(:, 1))
+        ! case (5)
+        !     call ThomasCirculant_5_Reduce(self%lu(:, 1:ndl/2), &
+        !                                   self%lu(:, ndl/2 + 1:ndl), &
+        !                                   self%z, &
+        !                                   result)!, wrk2d)
+        ! end select
+
+        ! call self%thomas%solveL(result)
+        call self%thomas%solveU(result)
+        call self%thomas%reduce(result)
 
         return
     end subroutine der1_periodic_compute
@@ -345,10 +352,12 @@ contains
         class(bcsND), intent(out) :: self
         class(der1_biased), intent(in), target :: ref
 
+        ! real(wp), allocatable :: r_lhs_aux(:, :)
+
         ! ###################################################################
         self%matmul => ref%matmul
-        self%thomasU => ref%thomasU
         self%rhs => ref%rhs
+        self%thomasU => ref%thomasU
 
         nx = size(ref%lhs, 1)
         ndl = size(ref%lhs, 2)
@@ -357,14 +366,20 @@ contains
         idr = ndr/2 + 1
 
         allocate (self%lu, source=ref%lhs)
+        ! allocate (r_lhs_aux, source=ref%lhs)
 
         allocate (self%rhs_b(max(idl, idr + 1), 1:ndr + 2), source=0.0_wp)
 
         call FDM_Der1_Neumann_Reduce(ref%lhs, ref%rhs, &
+                                     !  r_lhs_aux, r_rhs_b=self%rhs_b)
                                      self%lu, r_rhs_b=self%rhs_b)
 
         call Thomas_FactorLU_InPlace(self%lu(2:nx, 1:ndl/2), &
                                      self%lu(2:nx, ndl/2 + 1:ndl))
+
+        ! call self%thomas%initialize(r_lhs_aux(2, :))
+
+        ! deallocate (r_lhs_aux)
 
         return
     end subroutine bcsND_initialize
@@ -394,15 +409,20 @@ contains
                          u=u, &
                          f=result, &
                          L=self%lu(:, 1:ndl/2), &
+                        !  L=self%L, &
                          bcs_b=bcs_b)
 
         ! Solve for u' in system of equations A u' = B u
-        ! call self%thomasL(self%lu(:,1:ndl/2), result)
+        ! call self%thomasL(self%lu(2:,1:ndl/2), result(:, 2:nx))
         call self%thomasU(self%lu(2:nx, ndl/2 + 1:ndl), result(:, 2:nx))
+
+        ! ! call self%thomas%solveL(result(:, 2:nx))
+        ! call self%thomas%solveU(result(:, 2:nx))
 
         ! Calculate boundary value of u; u is not overwritten, this should be done outside if needed
         do ic = 1, idl - 1
             bcs_b(:) = bcs_b(:) + self%lu(1, idl + ic)*result(:, 1 + ic)
+            ! bcs_b(:) = bcs_b(:) + self%U(1, 1 + ic)*result(:, 1 + ic)
         end do
         bcs_b(:) = bcs_b(:)/self%rhs(1, idr)
 
@@ -467,7 +487,7 @@ contains
                          bcs_t=bcs_t)
 
         ! Solve for u' in system of equations A u' = B u
-        ! call self%thomasL(self%lu(:,1:ndl/2), result)
+        ! call self%thomasL(self%lu(:nx-1,1:ndl/2), result(:, 1:nx - 1))
         call self%thomasU(self%lu(1:nx - 1, ndl/2 + 1:ndl), result(:, 1:nx - 1))
 
         ! Calculate boundary value of u; u is not overwritten, this should be done outside if needed

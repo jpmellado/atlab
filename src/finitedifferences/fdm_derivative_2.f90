@@ -1,8 +1,8 @@
 module FDM_Derivative_2order
     use TLab_Constants, only: wp, wi
-    use FDM_Derivative_Base!, only: matmul_halo_thomas_ice, matmul_thomas_ice, thomas_ice
-    use Thomas
-    ! use Thomas_Circulant
+    use FDM_Derivative_Base, only: matmul_halo_thomas_ice, matmul_thomas_ice
+    use FDM_Derivative_Base, only: der_periodic, der_dt
+    use FDM_Derivative_Base, only: thomas_dt
     ! use MatMul
     ! use MatMul_Halo
     use MatMul_Thomas
@@ -12,8 +12,8 @@ module FDM_Derivative_2order
     private
 
     public :: der2_periodic
-    public :: der_extended_dt
     ! public :: der_dt            ! Made public to make it accessible by loading FDM_Derivative_X and not necessarily FDM_Derivative_Base
+    public :: der_extended_dt
     public :: der2_extended_periodic
     public :: der2_extended_biased
     public :: FDM_Der2_ModifyWavenumbers
@@ -50,7 +50,7 @@ module FDM_Derivative_2order
     end type
     abstract interface
         subroutine initialize_extended_ice(self, x, fdm_type, fdm_der1, uniform)
-            use FDM_Derivative_1order, only: der_dt
+            import der_dt
             import der_extended_dt, wp
             class(der_extended_dt), intent(out) :: self
             real(wp), intent(in) :: x(:)
@@ -68,25 +68,9 @@ module FDM_Derivative_2order
         end subroutine
     end interface
 
-    type, extends(der_extended_dt), abstract :: der_extended_periodic
-        ! procedure(matmul_halo_ice), pointer, nopass :: matmul => null()
-        procedure(matmul_halo_thomas_ice), pointer, nopass :: matmul => null()
-        procedure(thomas_ice), pointer, nopass :: thomasU => null()
-        real(wp), allocatable :: lu(:, :)               ! LU decomposition
-        real(wp), allocatable :: z(:, :)                ! boundary corrections
-    contains
-    end type
-
-    type, extends(der_extended_dt), abstract :: der_extended_biased
-        ! procedure(matmul_ice), pointer, nopass :: matmul => null()
-        procedure(matmul_thomas_ice), pointer, nopass :: matmul => null()
-        procedure(thomas_ice), pointer, nopass :: thomasU => null()
-    contains
-    end type
-
     ! -----------------------------------------------------------------------
     ! Types for periodic boundary conditions
-    type, extends(der_extended_periodic) :: der2_extended_periodic
+    type, extends(der_extended_dt) :: der2_extended_periodic
         ! private
         type(der2_periodic) :: der2
     contains
@@ -100,8 +84,6 @@ module FDM_Derivative_2order
     ! I need to consider a case with Jacobian, nonuniform
     type :: bcs
         private
-        procedure(thomas_ice), pointer, nopass :: thomasU => null()
-        real(wp), allocatable :: lu(:, :)
         real(wp), pointer :: rhs(:, :) => null()
         type(thomas_dt) :: thomas
     end type
@@ -125,8 +107,10 @@ module FDM_Derivative_2order
         procedure, public :: compute => bcsDD_jacobian_compute
     end type
 
-    type, extends(der_extended_biased) :: der2_extended_biased
+    type, extends(der_extended_dt) :: der2_extended_biased
         private
+        ! procedure(matmul_ice), pointer, nopass :: matmul => null()
+        procedure(matmul_thomas_ice), pointer, nopass :: matmul => null()
         logical :: need_1der = .false.  ! In nonuniform, Jacobian formulation, we need 1. order derivative for the 2. order one
         type(bcsDD), public :: bcsDD
         type(bcsDD_jacobian), public :: bcsDD_jacobian
@@ -167,7 +151,6 @@ contains
     ! ###################################################################
     ! Wrappers
     subroutine der2_extended_periodic_initialize(self, x, fdm_type, fdm_der1, uniform)
-        use FDM_Derivative_1order, only: der_dt
         class(der2_extended_periodic), intent(out) :: self
         real(wp), intent(in) :: x(:)
         integer, intent(in) :: fdm_type
@@ -206,8 +189,6 @@ contains
         real(wp), intent(in) :: x(:)
         integer, intent(in) :: fdm_type
 
-        ! integer nx, ndl
-
         ! ###################################################################
         self%type = fdm_type
 
@@ -223,18 +204,15 @@ contains
         select case (self%type)
         case (FDM_COM4_JACOBIAN)
             call FDM_C2N4_Jacobian(size(x), self%lhs, self%rhs, periodic=.true.)
-            self%matmul => MatMul_Halo_5_sym_ThomasL_3      ! MatMul_Halo_3_sym together with self%thomasL => Thomas3_SolveL
-            ! self%thomasU => Thomas3_SolveU
+            self%matmul => MatMul_Halo_5_sym_ThomasL_3      ! MatMul_Halo_3_sym + Thomas3_SolveL
 
         case (FDM_COM6_JACOBIAN)
             call FDM_C2N6_Jacobian(size(x), self%lhs, self%rhs, periodic=.true.)
-            self%matmul => MatMul_Halo_5_sym_ThomasL_3      ! MatMul_Halo_3_sym together with self%thomasL => Thomas3_SolveL
-            ! self%thomasU => Thomas3_SolveU
+            self%matmul => MatMul_Halo_5_sym_ThomasL_3      ! MatMul_Halo_3_sym + Thomas3_SolveL
 
         case (FDM_COM6_JACOBIAN_HYPER)
             call FDM_C2N6_Hyper_Jacobian(size(x), self%lhs, self%rhs, periodic=.true.)
-            self%matmul => MatMul_Halo_7_sym_ThomasL_3      ! MatMul_Halo_7_sym together with self%thomasL => Thomas3_SolveL
-            ! self%thomasU => Thomas3_SolveU
+            self%matmul => MatMul_Halo_7_sym_ThomasL_3      ! MatMul_Halo_7_sym + Thomas3_SolveL
 
         end select
 
@@ -248,20 +226,6 @@ contains
                                  switchAtBoundary=.false.)
 
         ! Construct LU decomposition
-        ! nx = size(self%lhs, 1)
-        ! ndl = size(self%lhs, 2)
-
-        ! allocate (self%lu, source=self%lhs)
-
-        ! allocate (self%z(ndl/2, nx))
-
-        ! select case (ndl)
-        ! case (3)
-        !     call ThomasCirculant_3_Initialize(self%lu(:, 1:ndl/2), &
-        !                                       self%lu(:, ndl/2 + 1:ndl), &
-        !                                       self%z)
-        ! end select
-
         call self%thomas%initialize(self%lhs)
 
         return
@@ -270,17 +234,15 @@ contains
     ! ###################################################################
     ! ###################################################################
     subroutine der2_periodic_compute(self, nlines, u, result)
-        ! use TLab_Arrays, only: wrk2d
         class(der2_periodic), intent(in) :: self
         integer(wi), intent(in) :: nlines
         real(wp), intent(in) :: u(nlines, size(self%lhs, 1))
         real(wp), intent(out) :: result(nlines, size(self%lhs, 1))
 
-        integer nx, ndr !ndl, ndr
+        integer nx, ndr
 
         ! ###################################################################
         nx = size(self%lhs, 1)
-        ! ndl = size(self%lhs, 2)
         ndr = size(self%rhs, 2)
 
         ! Calculate RHS in system of equations A u' = B u
@@ -295,19 +257,8 @@ contains
                          u_halo_p=u(:, 1:ndr/2), &
                          f=result, &
                          L=self%thomas%L)
-                        !  L=self%lu(:, 1:ndl/2))
 
         ! Solve for u' in system of equations A u' = B u
-        ! ! call self%thomasL(self%lu(:, 1:ndl/2), result)
-        ! call self%thomasU(self%lu(:, ndl/2 + 1:ndl), result)
-        ! select case (ndl)
-        ! case (3)
-        !     call ThomasCirculant_3_Reduce(self%lu(:, 1:ndl/2), &
-        !                                   self%lu(:, ndl/2 + 1:ndl), &
-        !                                   self%z(1, :), &
-        !                                   result, wrk2d(:, 1))
-        ! end select
-
         ! call self%thomas%solveL(result)
         call self%thomas%solveU(result)
         call self%thomas%reduce(result)
@@ -319,7 +270,6 @@ contains
     ! ###################################################################
     subroutine der2_extended_biased_initialize(self, x, fdm_type, fdm_der1, uniform)
         use FDM_Base, only: MultiplyByDiagonal
-        use FDM_Derivative_1order, only: der_dt
         use FDM_ComX_Direct
         use FDM_Com2_Jacobian
         use Preconditioning
@@ -343,28 +293,23 @@ contains
         select case (self%type)
         case (FDM_COM4_JACOBIAN)
             call FDM_C2N4_Jacobian(size(x), self%lhs, self%rhs, periodic=.false.)
-            self%matmul => MatMul_5_sym_ThomasL_3       ! MatMul_5_sym together with self%thomasL => Thomas3_SolveL
-            self%thomasU => Thomas3_SolveU
+            self%matmul => MatMul_5_sym_ThomasL_3       ! MatMul_5_sym t + Thomas3_SolveL
 
         case (FDM_COM6_JACOBIAN)
             call FDM_C2N6_Jacobian(size(x), self%lhs, self%rhs, periodic=.false.)
-            self%matmul => MatMul_5_sym_ThomasL_3       ! MatMul_5_sym together with self%thomasL => Thomas3_SolveL
-            self%thomasU => Thomas3_SolveU
+            self%matmul => MatMul_5_sym_ThomasL_3       ! MatMul_5_sym + Thomas3_SolveL
 
         case (FDM_COM6_JACOBIAN_HYPER)
             call FDM_C2N6_Hyper_Jacobian(size(x), self%lhs, self%rhs, periodic=.false.)
-            self%matmul => MatMul_7_sym_ThomasL_3       ! MatMul_7_sym together with self%thomasL => Thomas3_SolveL
-            self%thomasU => Thomas3_SolveU
+            self%matmul => MatMul_7_sym_ThomasL_3       ! MatMul_7_sym + Thomas3_SolveL
 
         case (FDM_COM4_DIRECT)
             call FDM_C2N4_Direct(x, self%lhs, self%rhs)
-            self%matmul => MatMul_5_ThomasL_3           ! MatMul_5 together with self%thomasL => Thomas3_SolveL
-            self%thomasU => Thomas3_SolveU
+            self%matmul => MatMul_5_ThomasL_3           ! MatMul_5 together + Thomas3_SolveL
 
         case (FDM_COM6_DIRECT)
             call FDM_C2N6_Direct(x, self%lhs, self%rhs)
-            self%matmul => MatMul_5_ThomasL_3           ! MatMul_5 together with self%thomasL => Thomas3_SolveL
-            self%thomasU => Thomas3_SolveU
+            self%matmul => MatMul_5_ThomasL_3           ! MatMul_5 together + Thomas3_SolveL
 
         end select
 
@@ -429,19 +374,9 @@ contains
         class(bcsDD), intent(out) :: self
         class(der2_extended_biased), intent(in), target :: ref
 
-        ! integer ndl
-
         ! ###################################################################
         self%matmul => ref%matmul
         self%rhs => ref%rhs
-        ! self%thomasU => ref%thomasU
-
-        ! allocate (self%lu, source=ref%lhs)
-
-        ! ndl = size(ref%lhs, 2)
-
-        ! call Thomas_FactorLU_InPlace(self%lu(:, 1:ndl/2), &
-        !                              self%lu(:, ndl/2 + 1:ndl))
 
         call self%thomas%initialize(ref%lhs)
 
@@ -451,17 +386,13 @@ contains
     subroutine bcsDD_compute(self, nlines, u, result)
         class(bcsDD), intent(in) :: self
         integer(wi), intent(in) :: nlines
-        ! real(wp), intent(in) :: u(nlines, size(self%lu, 1))
-        ! real(wp), intent(out) :: result(nlines, size(self%lu, 1))
         real(wp), intent(in) :: u(nlines, size(self%rhs, 1))
         real(wp), intent(out) :: result(nlines, size(self%rhs, 1))
 
-        integer nx, ndr !ndl, ndr
+        integer nx, ndr
 
         ! ###################################################################
-        ! nx = size(self%lu, 1)
         nx = size(self%rhs, 1)
-        ! ndl = size(self%lu, 2)
         ndr = size(self%rhs, 2)
 
         ! call self%matmul(rhs=self%rhs, &
@@ -475,12 +406,8 @@ contains
                          u=u, &
                          f=result, &
                          L=self%thomas%L)
-                        !  L=self%lu(:, 1:ndl/2))
 
         ! Solve for u' in system of equations A u' = B u
-        ! call self%thomasL(lu(:, 1:ndl/2), result)
-        ! call self%thomasU(self%lu(:, ndl/2 + 1:ndl), result)
-
         ! call self%thomas%solveL(result)
         call self%thomas%solveU(result)
 
@@ -501,14 +428,12 @@ contains
         ! ###################################################################
         select case (ref%type)
         case (FDM_COM4_JACOBIAN, FDM_COM6_JACOBIAN)
-            self%matmul => MatMul_5_sym_add_3_ThomasL_3     ! MatMul_5_sym together with self%thomasL => Thomas3_SolveL
+            self%matmul => MatMul_5_sym_add_3_ThomasL_3     ! MatMul_5_sym + Thomas3_SolveL
         case (FDM_COM6_JACOBIAN_HYPER)
-            self%matmul => MatMul_7_sym_add_3_ThomasL_3     ! MatMul_7_sym together with self%thomasL => Thomas3_SolveL
+            self%matmul => MatMul_7_sym_add_3_ThomasL_3     ! MatMul_7_sym + Thomas3_SolveL
         end select
-        self%thomasU => ref%thomasU
         self%rhs => ref%rhs
 
-        ! allocate (self%lu, source=ref%bcsDD%lu)
         self%thomas = ref%bcsDD%thomas
 
         ! Contribution from 1. order derivative in nonuniform grids
@@ -527,18 +452,14 @@ contains
     subroutine bcsDD_jacobian_compute(self, nlines, u, result, du)
         class(bcsDD_jacobian), intent(in) :: self
         integer(wi), intent(in) :: nlines
-        real(wp), intent(in) :: u(nlines, size(self%lu, 1))
-        ! real(wp), intent(out) :: result(nlines, size(self%lu, 1))
-        ! real(wp), intent(in) :: du(nlines, size(self%lu, 1))
+        real(wp), intent(in) :: u(nlines, size(self%rhs, 1))
         real(wp), intent(out) :: result(nlines, size(self%rhs, 1))
         real(wp), intent(in) :: du(nlines, size(self%rhs, 1))
 
-        integer nx, ndr !ndl, ndr
+        integer nx, ndr
 
         ! ###################################################################
-        ! nx = size(self%lu, 1)
         nx = size(self%rhs, 1)
-        ! ndl = size(self%lu, 2)
         ndr = size(self%rhs, 2)
 
         ! call self%matmul(rhs=self%rhs, &
@@ -556,12 +477,8 @@ contains
                          u_add=du, &
                          f=result, &
                          L=self%thomas%L)
-                        !  L=self%lu(:, 1:ndl/2))
 
         ! Solve for u' in system of equations A u' = B u
-        ! call self%thomasL(lu(:, 1:ndl/2), result)
-        ! call self%thomasU(self%lu(:, ndl/2 + 1:ndl), result)
-
         ! call self%thomas%solveL(result)
         call self%thomas%solveU(result)
 

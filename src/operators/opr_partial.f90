@@ -617,7 +617,7 @@ contains
         type is (der1_biased)
             select case (ibc)
             case (BCS_DD)
-                call fdm_der1_Z%bcsDD%compute(nx*ny, u, result)
+                call fdm_der1_Z%compute(nx*ny, u, result)
 
             case (BCS_ND)
                 bcs_b(1:nx*ny) = 0.0_wp

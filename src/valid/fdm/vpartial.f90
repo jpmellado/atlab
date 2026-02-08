@@ -222,7 +222,7 @@ program VPARTIAL
                 type is (der1_biased)
                     select case (bcs_cases(ib))
                     case (BCS_DD)
-                        call fdm_der1%bcsDD%compute(nlines, u, du1_n)
+                        call fdm_der1%compute(nlines, u, du1_n)
 
                     case (BCS_ND)
                         bcs_hb(1:nlines) = du1_a(1:nlines, 1)

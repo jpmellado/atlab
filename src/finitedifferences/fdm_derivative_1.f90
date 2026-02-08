@@ -36,13 +36,6 @@ module FDM_Derivative_1order
         type(thomas_dt) :: thomas
     end type
 
-    type, extends(bcs) :: bcsDD
-    contains
-        private
-        procedure :: initialize => bcsDD_initialize
-        procedure, public :: compute => bcsDD_compute
-    end type
-
     type, extends(bcs) :: bcsND
         real(wp), allocatable :: rhs_b(:, :)
     contains
@@ -70,7 +63,6 @@ module FDM_Derivative_1order
 
     type, extends(der_biased) :: der1_biased
         private
-        type(bcsDD), public :: bcsDD
         type(bcsDN), public :: bcsDN
         type(bcsND), public :: bcsND
         type(bcsNN), public :: bcsNN
@@ -208,18 +200,18 @@ contains
         call Precon_Rhs(self%lhs, self%rhs, periodic=.false.)
 
         ! Construct LU decomposition
-        call self%bcsDD%initialize(self)
+        call self%thomas%initialize(self%lhs)
 
         ! Jacobian, if needed
         select case (self%type)
         case (FDM_COM4_JACOBIAN, FDM_COM6_JACOBIAN, FDM_COM6_JACOBIAN_PENTA)
             if (allocated(dx)) deallocate (dx)
             allocate (dx(1, size(x)))
-            call self%bcsDD%compute(1, x, dx)
+            call self%compute(1, x, dx)
 
             call MultiplyByDiagonal(self%lhs, dx(1, :))     ! multiply by the Jacobian
 
-            call self%bcsDD%initialize(self)                ! Reconstruct LU decomposition
+            call self%thomas%initialize(self%lhs)           ! Reconstruct LU decomposition
 
         end select
 
@@ -228,39 +220,13 @@ contains
         call self%bcsDN%initialize(self)
         call self%bcsNN%initialize(self)
 
-        nullify (self%matmul)
-
         return
     end subroutine der1_biased_initialize
 
+    ! ###################################################################
+    ! ###################################################################
     subroutine der1_biased_compute(self, nlines, u, result)
         class(der1_biased), intent(in) :: self
-        integer(wi), intent(in) :: nlines
-        real(wp), intent(in) :: u(nlines, size(self%lhs, 1))
-        real(wp), intent(out) :: result(nlines, size(self%lhs, 1))
-
-        call self%bcsDD%compute(nlines, u, result)
-
-        return
-    end subroutine der1_biased_compute
-
-    ! ###################################################################
-    ! ###################################################################
-    subroutine bcsDD_initialize(self, ref)
-        class(bcsDD), intent(out) :: self
-        class(der1_biased), intent(in), target :: ref
-
-        ! ###################################################################
-        self%matmul => ref%matmul
-        self%rhs => ref%rhs
-
-        call self%thomas%initialize(ref%lhs)
-
-        return
-    end subroutine bcsDD_initialize
-
-    subroutine bcsDD_compute(self, nlines, u, result)
-        class(bcsDD), intent(in) :: self
         integer(wi), intent(in) :: nlines
         real(wp), intent(in) :: u(nlines, size(self%rhs, 1))
         real(wp), intent(out) :: result(nlines, size(self%rhs, 1))
@@ -284,7 +250,7 @@ contains
         call self%thomas%solveU(result)
 
         return
-    end subroutine bcsDD_compute
+    end subroutine der1_biased_compute
 
     ! ###################################################################
     ! ###################################################################

@@ -11,8 +11,9 @@ module FDM_Derivative_2order
     implicit none
     private
 
-    public :: der2_periodic
     ! public :: der_dt            ! Made public to make it accessible by loading FDM_Derivative_X and not necessarily FDM_Derivative_Base
+    public :: der2_periodic
+    ! public :: der2_biased
     public :: der_extended_dt
     public :: der2_extended_periodic
     public :: der2_extended_biased
@@ -28,8 +29,6 @@ module FDM_Derivative_2order
 
     ! ! Types for biased boundary conditions
     ! type, extends(der_biased) :: der2_biased
-    !     private
-    !     real(wp), allocatable :: lu(:, :)               ! LU decomposition
     ! contains
     !     procedure :: initialize => der2_biased_initialize
     !     procedure :: compute => der2_biased_compute

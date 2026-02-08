@@ -40,7 +40,6 @@ module FDM_Derivative_Base
     type, extends(der_dt), abstract :: der_biased
         ! procedure(matmul_ice), pointer, nopass :: matmul => null()
         procedure(matmul_thomas_ice), pointer, nopass :: matmul => null()
-        procedure(thomas_ice), pointer, nopass :: thomasU => null()
     contains
     end type
 

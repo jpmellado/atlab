@@ -38,26 +38,17 @@ contains
         real(wp), intent(in) :: lhs(:, :)
 
         integer ndl
-        real(wp), allocatable :: lu_aux(:, :)
 
-        allocate (lu_aux, source=lhs)
-        ndl = size(lu_aux, 2)
-
+        ndl = size(lhs, 2)
+        allocate (self%L, source=lhs(:, 1:ndl/2))
+        allocate (self%U, source=lhs(:, ndl/2 + 1:ndl))
         allocate (self%z(ndl/2, size(lhs, 1)))
         select case (ndl)
         case (3)
-            call ThomasCirculant_3_Initialize(lu_aux(:, 1:ndl/2), &
-                                              lu_aux(:, ndl/2 + 1:ndl), &
-                                              self%z)
+            call ThomasCirculant_3_Initialize(self%L, self%U, self%z)
         case (5)
-            call ThomasCirculant_5_Initialize(lu_aux(:, 1:ndl/2), &
-                                              lu_aux(:, ndl/2 + 1:ndl), &
-                                              self%z)
+            call ThomasCirculant_5_Initialize(self%L, self%U, self%z)
         end select
-
-        allocate (self%L, source=lu_aux(:, 1:ndl/2))
-        allocate (self%U, source=lu_aux(:, ndl/2 + 1:ndl))
-        deallocate (lu_aux)
 
         select case (ndl)
         case (3)

@@ -47,15 +47,11 @@ contains
         real(wp), intent(in) :: lhs(:, :)
 
         integer ndl
-        real(wp), allocatable :: lu_aux(:, :)
 
-        allocate (lu_aux, source=lhs)
-        ndl = size(lu_aux, 2)
-        call Thomas_FactorLU_InPlace(lu_aux(:, 1:ndl/2), &
-                                     lu_aux(:, ndl/2 + 1:ndl))
-        allocate (self%L, source=lu_aux(:, 1:ndl/2))
-        allocate (self%U, source=lu_aux(:, ndl/2 + 1:ndl))
-        deallocate (lu_aux)
+        ndl = size(lhs, 2)
+        allocate (self%L, source=lhs(:, 1:ndl/2))
+        allocate (self%U, source=lhs(:, ndl/2 + 1:ndl))
+        call Thomas_FactorLU_InPlace(self%L, self%U)
 
         select case (ndl)
         case (3)

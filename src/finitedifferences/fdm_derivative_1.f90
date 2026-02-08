@@ -2,7 +2,7 @@ module FDM_Derivative_1order
     use TLab_Constants, only: wp, wi
     use TLab_Constants, only: BCS_DD, BCS_ND, BCS_DN, BCS_NN
     use FDM_Derivative_Base
-    use Thomas
+    use Thomas, only: thomas_dt, Thomas_FactorLU_InPlace
     ! use MatMul
     ! use MatMul_Halo
     use MatMul_Thomas
@@ -32,8 +32,6 @@ module FDM_Derivative_1order
         ! private; I need public for vpartial
         ! procedure(matmul_ice), pointer, nopass :: matmul => null()
         procedure(matmul_thomas_ice), pointer, nopass :: matmul => null()
-        procedure(thomas_ice), pointer, nopass :: thomasU => null()
-        real(wp), allocatable :: lu(:, :)
         real(wp), pointer :: rhs(:, :) => null()
         type(thomas_dt) :: thomas
     end type
@@ -186,28 +184,23 @@ contains
         select case (self%type)
         case (FDM_COM4_JACOBIAN)
             call FDM_C1N4_Jacobian(size(x), self%lhs, self%rhs, periodic=.false.)
-            self%matmul => MatMul_3_antisym_ThomasL_3   ! MatMul_3_antisym together with self%thomasL => Thomas3_SolveL
-            self%thomasU => Thomas3_SolveU
+            self%matmul => MatMul_3_antisym_ThomasL_3   ! MatMul_3_antisym + Thomas3_SolveL
 
         case (FDM_COM6_JACOBIAN)
             call FDM_C1N6_Jacobian(size(x), self%lhs, self%rhs, periodic=.false.)
-            self%matmul => MatMul_5_antisym_ThomasL_3   ! MatMul_5_antisym together with self%thomasL => Thomas3_SolveL
-            self%thomasU => Thomas3_SolveU
+            self%matmul => MatMul_5_antisym_ThomasL_3   ! MatMul_5_antisym + Thomas3_SolveL
 
         case (FDM_COM6_JACOBIAN_PENTA)
             call FDM_C1N6_Jacobian_Penta(size(x), self%lhs, self%rhs, periodic=.false.)
-            self%matmul => MatMul_7_antisym_ThomasL_5   ! MatMul_7_antisym together with self%thomasL => Thomas5_SolveL
-            self%thomasU => Thomas5_SolveU
+            self%matmul => MatMul_7_antisym_ThomasL_5   ! MatMul_7_antisym + Thomas5_SolveL
 
         case (FDM_COM4_DIRECT)
             call FDM_C1N4_Direct(x, self%lhs, self%rhs)
-            self%matmul => MatMul_3_ThomasL_3           ! MatMul_3 together with self%thomasL => Thomas3_SolveL
-            self%thomasU => Thomas3_SolveU
+            self%matmul => MatMul_3_ThomasL_3           ! MatMul_3 together + Thomas3_SolveL
 
         case (FDM_COM6_DIRECT)
             call FDM_C1N6_Direct(x, self%lhs, self%rhs)
-            self%matmul => MatMul_5_ThomasL_3           ! MatMul_5 together with self%thomasL => Thomas3_SolveL
-            self%thomasU => Thomas3_SolveU
+            self%matmul => MatMul_5_ThomasL_3           ! MatMul_5 together + Thomas3_SolveL
 
         end select
 
@@ -236,7 +229,6 @@ contains
         call self%bcsNN%initialize(self)
 
         nullify (self%matmul)
-        nullify (self%thomasU)
 
         return
     end subroutine der1_biased_initialize
@@ -300,34 +292,31 @@ contains
         class(bcsND), intent(out) :: self
         class(der1_biased), intent(in), target :: ref
 
-        ! real(wp), allocatable :: r_lhs_aux(:, :)
+        real(wp), allocatable :: r_lhs_aux(:, :)
 
         ! ###################################################################
         self%matmul => ref%matmul
         self%rhs => ref%rhs
-        self%thomasU => ref%thomasU
 
+        call self%thomas%initialize(ref%lhs)
+
+        ! adapting for bcs
         nx = size(ref%lhs, 1)
         ndl = size(ref%lhs, 2)
         idl = ndl/2 + 1
         ndr = size(ref%rhs, 2)
         idr = ndr/2 + 1
 
-        allocate (self%lu, source=ref%lhs)
-        ! allocate (r_lhs_aux, source=ref%lhs)
-
+        allocate (r_lhs_aux, source=ref%lhs)
         allocate (self%rhs_b(max(idl, idr + 1), 1:ndr + 2), source=0.0_wp)
-
         call FDM_Der1_Neumann_Reduce(ref%lhs, ref%rhs, &
-                                     !  r_lhs_aux, r_rhs_b=self%rhs_b)
-                                     self%lu, r_rhs_b=self%rhs_b)
+                                     r_lhs_aux, r_rhs_b=self%rhs_b)
 
-        call Thomas_FactorLU_InPlace(self%lu(2:nx, 1:ndl/2), &
-                                     self%lu(2:nx, ndl/2 + 1:ndl))
+        self%thomas%L(:, :) = r_lhs_aux(:, 1:ndl/2)
+        self%thomas%U(:, :) = r_lhs_aux(:, ndl/2 + 1:ndl)
+        call Thomas_FactorLU_InPlace(self%thomas%L(2:, :), self%thomas%U(2:, :))
 
-        ! call self%thomas%initialize(r_lhs_aux(2, :))
-
-        ! deallocate (r_lhs_aux)
+        deallocate (r_lhs_aux)
 
         return
     end subroutine bcsND_initialize
@@ -335,16 +324,14 @@ contains
     subroutine bcsND_compute(self, nlines, u, result, bcs_b)
         class(bcsND), intent(in) :: self
         integer(wi), intent(in) :: nlines
-        real(wp), intent(in) :: u(nlines, size(self%lu, 1))
-        real(wp), intent(out) :: result(nlines, size(self%lu, 1))
+        real(wp), intent(in) :: u(nlines, size(self%rhs, 1))
+        real(wp), intent(out) :: result(nlines, size(self%rhs, 1))
         real(wp), intent(inout) :: bcs_b(nlines)        ! Normal derivative as input, function value as output
 
         integer ic
 
         ! ###################################################################
-        nx = size(self%lu, 1)
-        ndl = size(self%lu, 2)
-        idl = ndl/2 + 1
+        nx = size(self%rhs, 1)
         ndr = size(self%rhs, 2)
         idr = ndr/2 + 1
 
@@ -356,21 +343,17 @@ contains
                          rhs_t=self%rhs(nx - ndr/2 + 1:nx, 1:ndr), &
                          u=u, &
                          f=result, &
-                         L=self%lu(:, 1:ndl/2), &
-                         !  L=self%L, &
+                         L=self%thomas%L, &
                          bcs_b=bcs_b)
 
         ! Solve for u' in system of equations A u' = B u
-        ! call self%thomasL(self%lu(2:,1:ndl/2), result(:, 2:nx))
-        call self%thomasU(self%lu(2:nx, ndl/2 + 1:ndl), result(:, 2:nx))
-
-        ! ! call self%thomas%solveL(result(:, 2:nx))
-        ! call self%thomas%solveU(result(:, 2:nx))
+        ! call self%thomas%ptr_solveL(self%thomas%L(2:nx, :), result(:, 2:nx))
+        call self%thomas%ptr_solveU(self%thomas%U(2:nx, :), result(:, 2:nx))
 
         ! Calculate boundary value of u; u is not overwritten, this should be done outside if needed
+        idl = size(self%thomas%U, 2)
         do ic = 1, idl - 1
-            bcs_b(:) = bcs_b(:) + self%lu(1, idl + ic)*result(:, 1 + ic)
-            ! bcs_b(:) = bcs_b(:) + self%U(1, 1 + ic)*result(:, 1 + ic)
+            bcs_b(:) = bcs_b(:) + self%thomas%U(1, 1 + ic)*result(:, 1 + ic)
         end do
         bcs_b(:) = bcs_b(:)/self%rhs(1, idr)
 
@@ -383,26 +366,31 @@ contains
         class(bcsDN), intent(out) :: self
         class(der1_biased), intent(in), target :: ref
 
+        real(wp), allocatable :: r_lhs_aux(:, :)
+
         ! ###################################################################
         self%matmul => ref%matmul
-        self%thomasU => ref%thomasU
         self%rhs => ref%rhs
 
+        call self%thomas%initialize(ref%lhs)
+
+        ! adapting for bcs
         nx = size(ref%lhs, 1)
         ndl = size(ref%lhs, 2)
         idl = ndl/2 + 1
         ndr = size(ref%rhs, 2)
         idr = ndr/2 + 1
 
-        allocate (self%lu, source=ref%lhs)
-
+        allocate (r_lhs_aux, source=ref%lhs)
         allocate (self%rhs_t(max(idl, idr + 1), 1:ndr + 2), source=0.0_wp)
-
         call FDM_Der1_Neumann_Reduce(ref%lhs, ref%rhs, &
-                                     self%lu, r_rhs_t=self%rhs_t)
+                                     r_lhs_aux, r_rhs_t=self%rhs_t)
 
-        call Thomas_FactorLU_InPlace(self%lu(1:nx - 1, 1:ndl/2), &
-                                     self%lu(1:nx - 1, ndl/2 + 1:ndl))
+        self%thomas%L(:, :) = r_lhs_aux(:, 1:ndl/2)
+        self%thomas%U(:, :) = r_lhs_aux(:, ndl/2 + 1:ndl)
+        call Thomas_FactorLU_InPlace(self%thomas%L(:nx - 1, :), self%thomas%U(:nx - 1, :))
+
+        deallocate (r_lhs_aux)
 
         return
     end subroutine bcsDN_initialize
@@ -410,16 +398,14 @@ contains
     subroutine bcsDN_compute(self, nlines, u, result, bcs_t)
         class(bcsDN), intent(in) :: self
         integer(wi), intent(in) :: nlines
-        real(wp), intent(in) :: u(nlines, size(self%lu, 1))
-        real(wp), intent(out) :: result(nlines, size(self%lu, 1))
+        real(wp), intent(in) :: u(nlines, size(self%rhs, 1))
+        real(wp), intent(out) :: result(nlines, size(self%rhs, 1))
         real(wp), intent(inout) :: bcs_t(nlines)
 
         integer ic
 
         ! ###################################################################
-        nx = size(self%lu, 1)
-        ndl = size(self%lu, 2)
-        idl = ndl/2 + 1
+        nx = size(self%rhs, 1)
         ndr = size(self%rhs, 2)
         idr = ndr/2 + 1
 
@@ -431,16 +417,17 @@ contains
                          rhs_t=self%rhs_t, &
                          u=u, &
                          f=result, &
-                         L=self%lu(:, 1:ndl/2), &
+                         L=self%thomas%L, &
                          bcs_t=bcs_t)
 
         ! Solve for u' in system of equations A u' = B u
-        ! call self%thomasL(self%lu(:nx-1,1:ndl/2), result(:, 1:nx - 1))
-        call self%thomasU(self%lu(1:nx - 1, ndl/2 + 1:ndl), result(:, 1:nx - 1))
+        ! call self%thomas%ptr_solveL(self%thomas%L(:nx - 1, :), result(:, :nx - 1))
+        call self%thomas%ptr_solveU(self%thomas%U(:nx - 1, :), result(:, :nx - 1))
 
         ! Calculate boundary value of u; u is not overwritten, this should be done outside if needed
+        idl = size(self%thomas%U, 2)
         do ic = 1, idl - 1
-            bcs_t(:) = bcs_t(:) + self%lu(nx, idl - ic)*result(:, nx - ic)
+            bcs_t(:) = bcs_t(:) + self%thomas%L(nx, idl - ic)*result(:, nx - ic)
         end do
         bcs_t(:) = bcs_t(:)/self%rhs(nx, idr)
 
@@ -453,27 +440,32 @@ contains
         class(bcsNN), intent(out) :: self
         class(der1_biased), intent(in), target :: ref
 
+        real(wp), allocatable :: r_lhs_aux(:, :)
+
         ! ###################################################################
         self%matmul => ref%matmul
-        self%thomasU => ref%thomasU
         self%rhs => ref%rhs
 
+        call self%thomas%initialize(ref%lhs)
+
+        ! adapting for bcs
         nx = size(ref%lhs, 1)
         ndl = size(ref%lhs, 2)
         idl = ndl/2 + 1
         ndr = size(ref%rhs, 2)
         idr = ndr/2 + 1
 
-        allocate (self%lu, source=ref%lhs)
-
+        allocate (r_lhs_aux, source=ref%lhs)
         allocate (self%rhs_b(max(idl, idr + 1), 1:ndr + 2), source=0.0_wp)
         allocate (self%rhs_t(max(idl, idr + 1), 1:ndr + 2), source=0.0_wp)
-
         call FDM_Der1_Neumann_Reduce(ref%lhs, ref%rhs, &
-                                     self%lu, r_rhs_b=self%rhs_b, r_rhs_t=self%rhs_t)
+                                     r_lhs_aux, r_rhs_b=self%rhs_b, r_rhs_t=self%rhs_t)
 
-        call Thomas_FactorLU_InPlace(self%lu(2:nx - 1, 1:ndl/2), &
-                                     self%lu(2:nx - 1, ndl/2 + 1:ndl))
+        self%thomas%L(:, :) = r_lhs_aux(:, 1:ndl/2)
+        self%thomas%U(:, :) = r_lhs_aux(:, ndl/2 + 1:ndl)
+        call Thomas_FactorLU_InPlace(self%thomas%L(2:nx - 1, :), self%thomas%U(2:nx - 1, :))
+
+        deallocate (r_lhs_aux)
 
         return
     end subroutine bcsNN_initialize
@@ -481,16 +473,14 @@ contains
     subroutine bcsNN_compute(self, nlines, u, result, bcs_b, bcs_t)
         class(bcsNN), intent(in) :: self
         integer(wi), intent(in) :: nlines
-        real(wp), intent(in) :: u(nlines, size(self%lu, 1))
-        real(wp), intent(out) :: result(nlines, size(self%lu, 1))
+        real(wp), intent(in) :: u(nlines, size(self%rhs, 1))
+        real(wp), intent(out) :: result(nlines, size(self%rhs, 1))
         real(wp), intent(inout) :: bcs_b(nlines), bcs_t(nlines)
 
         integer ic
 
         ! ###################################################################
-        nx = size(self%lu, 1)
-        ndl = size(self%lu, 2)
-        idl = ndl/2 + 1
+        nx = size(self%rhs, 1)
         ndr = size(self%rhs, 2)
         idr = ndr/2 + 1
 
@@ -503,22 +493,23 @@ contains
                          rhs_t=self%rhs_t, &
                          u=u, &
                          f=result, &
-                         L=self%lu(:, 1:ndl/2), &
+                         L=self%thomas%L, &
                          bcs_b=bcs_b, &
                          bcs_t=bcs_t)
 
         ! Solve for u' in system of equations A u' = B u
-        ! call self%thomasL(self%lu(2:nx - 1,1:ndl/2), result)
-        call self%thomasU(self%lu(2:nx - 1, ndl/2 + 1:ndl), result(:, 2:nx - 1))
+        ! call self%thomas%ptr_solveL(self%thomas%L(2:nx - 1, :), result(:, 2:nx - 1))
+        call self%thomas%ptr_solveU(self%thomas%U(2:nx - 1, :), result(:, 2:nx - 1))
 
         ! Calculate boundary value of u; u is not overwritten, this should be done outside if needed
+        idl = size(self%thomas%U, 2)
         do ic = 1, idl - 1
-            bcs_b(:) = bcs_b(:) + self%lu(1, idl + ic)*result(:, 1 + ic)
+            bcs_b(:) = bcs_b(:) + self%thomas%U(1, 1 + ic)*result(:, 1 + ic)
         end do
         bcs_b(:) = bcs_b(:)/self%rhs(1, idr)
 
         do ic = 1, idl - 1
-            bcs_t(:) = bcs_t(:) + self%lu(nx, idl - ic)*result(:, nx - ic)
+            bcs_t(:) = bcs_t(:) + self%thomas%L(nx, idl - ic)*result(:, nx - ic)
         end do
         bcs_t(:) = bcs_t(:)/self%rhs(nx, idr)
 

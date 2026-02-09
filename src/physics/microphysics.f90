@@ -37,10 +37,12 @@ module Microphysics
     type(microphysics_dt), public, protected :: evaporationProps            ! Microphysics parameters
     integer, parameter :: TYPE_EVA_NONE = 0
     integer, parameter, public :: TYPE_EVA_EQUILIBRIUM = 1
-    integer, parameter, public :: TYPE_EVA_QSCONST = 2
-    integer, parameter, public :: TYPE_EVA_QSCALC = 3
-    integer, parameter, public :: TYPE_EVA_QSCALC_IMPL = 4
-    integer, parameter, public :: TYPE_EVA_QSCALC_SEMIIMPL = 5
+    integer, parameter, public :: TYPE_EVA_EXPONENTIAL = 2
+    integer, parameter, public :: TYPE_EVA_EXPONENTIAL_IMPL = 3
+    integer, parameter, public :: TYPE_EVA_QSCONST = 4
+    integer, parameter, public :: TYPE_EVA_QSCALC = 5
+    integer, parameter, public :: TYPE_EVA_QSCALC_IMPL = 6
+    integer, parameter, public :: TYPE_EVA_QSCALC_SEMIIMPL = 7
 
     real(wp) :: settling                         ! sedimentation effects
     real(wp) :: damkohler                        ! reaction
@@ -302,6 +304,26 @@ contains
         mod_exponent = locProps%auxiliar(1)
 
         select case (locProps%type)
+        case (TYPE_EVA_EXPONENTIAL)
+            if (is .eq. inb_scal_ql) then
+                ! -------------------------------------------------------------------
+                ! Calculate condensation rate as Da * q_l
+                ! -------------------------------------------------------------------
+                if (nse_eqns == DNS_EQNS_ANELASTIC) then
+                    call Thermo_Anelastic_Weight_OutPlace(nx, ny, nz, rbackground, s(:,:,inb_scal_ql), source)
+                    s_active => source
+                else
+                    s_active => s(:,:,inb_scal_ql)
+                end if
+                source = damkohler*locProps%parameters(1) * s_active
+
+            else
+                write(tstr,"(I2)") inb_scal_ql
+                write(istr,"(I2)") is
+                call TLab_Write_ASCII(wfile, 'WARNING: Unexpectedly Scalar'//trim(istr)//' (other than q_l=Scalar'//trim(tstr)//') set to active for NON-EQUILIBRIUM EVAPORATION')
+
+            end if
+
         case (TYPE_EVA_QSCONST,TYPE_EVA_QSCALC)
             if (is .eq. inb_scal_ql) then
                 
@@ -402,6 +424,45 @@ contains
         !eps=1.e-12_wp
 
         select case (locProps%type)
+        case (TYPE_EVA_EXPONENTIAL_IMPL)
+            if (is .eq. inb_scal_ql) then
+                s_RHS(:,:) = s(:,:,inb_scal_ql)
+                it=0
+                diff=1.0_wp
+                do while (diff>eps .and. it<=10)
+                    ! -------------------------------------------------------------------
+                    ! Calculate condensation rate as Da * q_l
+                    ! -------------------------------------------------------------------
+                    ! --- Derivative df(q_l)/dq_l for NRmethod --- 
+                    tmp1 = 1.0_wp - dte*damkohler*locProps%parameters(1)
+
+                    ! --- Source term delta f(q_l) for NRmethod ---
+                    tmp2 = s(:,:,inb_scal_ql) - s_RHS - dte*damkohler*locProps%parameters(1)*s(:,:,inb_scal_ql)
+
+                    ! -------------------------------------------------------------------
+                    ! Newton-Raphson iteration
+                    ! -------------------------------------------------------------------
+                    s(:,:,inb_scal_ql) = s(:,:,inb_scal_ql) - tmp2/tmp1
+
+                    diff = MAXVAL( ABS( tmp2/tmp1 / s(:,:,inb_scal_ql) ) )
+#ifdef USE_MPI
+                    call MPI_ALLREDUCE(diff, diff_glob, 1, MPI_REAL8, MPI_MAX, MPI_COMM_WORLD, ims_err)
+                    diff = diff_glob
+#endif
+
+                    
+                    it = it + 1
+                end do
+                NEWTONRAPHSON_ERROR = diff
+
+
+            else
+                write(tstr,"(I2)") inb_scal_ql
+                write(istr,"(I2)") is
+                call TLab_Write_ASCII(wfile, 'WARNING: Unexpectedly Scalar'//trim(istr)//' (other than q_l=Scalar'//trim(tstr)//') set to active for NON-EQUILIBRIUM EVAPORATION')
+
+            end if
+
         case (TYPE_EVA_QSCALC_IMPL,TYPE_EVA_QSCALC_SEMIIMPL)
             if (is .eq. inb_scal_ql) then
 

@@ -93,6 +93,7 @@ contains
                 call LIST_REAL(sRes, idummy, evaporationProps%parameters)
             end if
             call ScanFile_Real(bakfile, inifile, block, 'Exponent', '0.0', evaporationProps%auxiliar(1))
+            call ScanFile_Real(bakfile, inifile, block, 'MaxNR', '1.E-12', evaporationProps%auxiliar(2))
 
         end if
 
@@ -395,9 +396,10 @@ contains
         character(len=512) :: istr,tstr
 
 
-        
-        
         mod_exponent = locProps%auxiliar(1)
+
+        eps = locProps%auxiliar(2)
+        !eps=1.e-12_wp
 
         select case (locProps%type)
         case (TYPE_EVA_QSCALC_IMPL,TYPE_EVA_QSCALC_SEMIIMPL)
@@ -433,7 +435,6 @@ contains
                 diqsdql(:,:)=0.0_wp
                 s_RHS(:,:) = s(:,:,inb_scal_ql)
                 it=0
-                eps=1.e-12_wp
                 diff=1.0_wp
                 do while (diff>eps .and. it<=10)
                 !do while (it<=10)

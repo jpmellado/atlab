@@ -387,7 +387,7 @@ contains
 
 !########################################################################
 !########################################################################
-    subroutine Microphysics_Evaporation_Impl(locProps, nx, ny, nz, is, s, dte)
+    subroutine Microphysics_Evaporation_Impl(locProps, nx, ny, nz, is, s, dtrkm)
         use Thermo_AirWater, only: inb_scal_T, rd_ov_rv, Cd, Cdv, Cvl, Lv0
         use Thermo_Base, only: THERMO_PSAT, NPSAT
         use Thermo_Anelastic, only: pbackground, rbackground, ribackground, epbackground
@@ -400,7 +400,7 @@ contains
 #endif
         type(microphysics_dt), intent(in) :: locProps
         integer(wi), intent(in) :: nx, ny, nz, is
-        real(wp), intent(in)    :: dte
+        real(wp), intent(in)    :: dtrkm
         real(wp), intent(inout) :: s(nx*ny, nz, inb_scal_array)
         
 
@@ -434,10 +434,10 @@ contains
                     ! Calculate condensation rate as Da * q_l
                     ! -------------------------------------------------------------------
                     ! --- Derivative df(q_l)/dq_l for NRmethod --- 
-                    tmp1 = 1.0_wp - dte*damkohler*locProps%parameters(1)
+                    tmp1 = 1.0_wp - dtrkm*damkohler*locProps%parameters(1)
 
                     ! --- Source term delta f(q_l) for NRmethod ---
-                    tmp2 = s(:,:,inb_scal_ql) - s_RHS - dte*damkohler*locProps%parameters(1)*s(:,:,inb_scal_ql)
+                    tmp2 = s(:,:,inb_scal_ql) - s_RHS - dtrkm*damkohler*locProps%parameters(1)*s(:,:,inb_scal_ql)
 
                     ! -------------------------------------------------------------------
                     ! Newton-Raphson iteration
@@ -562,10 +562,10 @@ contains
                         call Thermo_Anelastic_Weight_InPlace(nx, ny, nz, ribackground, tmp1)
                     end if
                     if (mod_exponent /= 0.0_wp) then ! to avoid the calculation of a power, if not necessary
-                        !tmp1 = sign(1.0_wp,s_active)*(abs(s_active))**(-mod_exponent) - dte*tmp1
-                        tmp1 = s_active**(-mod_exponent) - dte*tmp1
+                        !tmp1 = sign(1.0_wp,s_active)*(abs(s_active))**(-mod_exponent) - dtrkm*tmp1
+                        tmp1 = s_active**(-mod_exponent) - dtrkm*tmp1
                     else
-                        tmp1 = 1.0_wp - dte*tmp1
+                        tmp1 = 1.0_wp - dtrkm*tmp1
                     end if
 
                     ! --- Source term delta f(q_l) for NRmethod ---
@@ -575,10 +575,10 @@ contains
                         call Thermo_Anelastic_Weight_InPlace(nx, ny, nz, ribackground, tmp2)
                     end if
                     if (mod_exponent /= 0.0_wp) then ! to avoid the calculation of a power, if not necessary
-                        !tmp2 = sign(1.0_wp,s_active)*(abs(s_active))**(-mod_exponent) * (s(:,:,inb_scal_ql) - s_RHS) - dte*tmp2
-                        tmp2 = s_active**(-mod_exponent) * (s(:,:,inb_scal_ql) - s_RHS) - dte*tmp2
+                        !tmp2 = sign(1.0_wp,s_active)*(abs(s_active))**(-mod_exponent) * (s(:,:,inb_scal_ql) - s_RHS) - dtrkm*tmp2
+                        tmp2 = s_active**(-mod_exponent) * (s(:,:,inb_scal_ql) - s_RHS) - dtrkm*tmp2
                     else
-                        tmp2 = s(:,:,inb_scal_ql) - s_RHS - dte*tmp2
+                        tmp2 = s(:,:,inb_scal_ql) - s_RHS - dtrkm*tmp2
                     end if
 
                     ! -------------------------------------------------------------------

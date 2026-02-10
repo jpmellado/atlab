@@ -44,7 +44,7 @@ program VPARTIAL
     character(len=32) str
     type(grid_dt) :: x
     class(der_dt), allocatable :: fdm_der1
-    class(der_extended_dt), allocatable :: fdm_der2
+    class(der2_extended_dt), allocatable :: fdm_der2
 
     real(wp), allocatable :: lhs_aux(:, :)
 

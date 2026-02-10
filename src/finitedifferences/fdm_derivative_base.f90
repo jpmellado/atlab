@@ -109,12 +109,6 @@ module FDM_Derivative_Base
             real(wp), intent(inout), optional :: bcs_b(:), bcs_t(:)
         end subroutine
 
-        ! subroutine thomas_ice(A, f)
-        !     use TLab_Constants, only: wp
-        !     real(wp), intent(in) :: A(:, :)
-        !     real(wp), intent(inout) :: f(:, :)          ! RHS and solution
-        ! end subroutine
-
     end interface
 
 contains

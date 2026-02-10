@@ -35,6 +35,7 @@ module TimeMarching
     public :: TMarch_Courant
 
     real(wp), public :: dtime                       ! time step
+    real(wp), public :: dtrkm                       ! time step of each substep
     real(wp), public :: dte                         ! explicit scheme coefficient at each RK substep; to be removed from public
     logical, public :: remove_divergence            ! Remove residual divergence every time step
     logical, public :: use_variable_timestep = .true.
@@ -61,7 +62,7 @@ module TimeMarching
 
     real(wp) :: cfla, cfld, cflr                ! CFL numbers
 
-    real(wp) kdt(5), kco(4), ktime(5)           ! explicit scheme coefficients
+    real(wp) kdt(5), kco(4), ktime(6)           ! explicit scheme coefficients
     real(wp) kex(3), kim(3)                     ! implicit scheme coefficients
     real(wp) :: etime                           ! time at each RK substep; rtime is time at each iteration, not at each RK substep
 
@@ -187,6 +188,7 @@ contains
             ktime(3) = 2526269341429.0_wp/6820363962896.0_wp
             ktime(4) = 2006345519317.0_wp/3224310063776.0_wp
             ktime(5) = 2802321613138.0_wp/2924317926251.0_wp
+            ktime(6) = 1.0_wp
 
             kco(1) = -567301805773.0_wp/1357537059087.0_wp
             kco(2) = -2404267990393.0_wp/2016746695238.0_wp
@@ -333,6 +335,7 @@ contains
             ! -------------------------------------------------------------------
             dte = dtime*kdt(rkm_substep)
             etime = rtime + dtime*ktime(rkm_substep)
+            dtrkm = dtime*(ktime(rkm_substep+1)-ktime(rkm_substep))
 
 #ifdef USE_PROFILE
             call system_clock(t_srt, PROC_CYCLES, MAX_CYCLES)
@@ -614,7 +617,7 @@ contains
 
         ! #######################################################################
         ! Iterate implicit non-evaporation
-        call Microphysics_Evaporation_Impl(evaporationProps, imax, jmax, kmax, inb_scal_ql, s, dte)
+        call Microphysics_Evaporation_Impl(evaporationProps, imax, jmax, kmax, inb_scal_ql, s, dtrkm)
 
         return
     end subroutine TMarch_Substep_Anelastic_PerVolume_Explicit

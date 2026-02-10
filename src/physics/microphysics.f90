@@ -37,10 +37,12 @@ module Microphysics
     type(microphysics_dt), public, protected :: evaporationProps            ! Microphysics parameters
     integer, parameter :: TYPE_EVA_NONE = 0
     integer, parameter, public :: TYPE_EVA_EQUILIBRIUM = 1
-    integer, parameter, public :: TYPE_EVA_QSCONST = 2
-    integer, parameter, public :: TYPE_EVA_QSCALC = 3
-    integer, parameter, public :: TYPE_EVA_QSCALC_IMPL = 4
-    integer, parameter, public :: TYPE_EVA_QSCALC_SEMIIMPL = 5
+    integer, parameter, public :: TYPE_EVA_EXPONENTIAL = 2
+    integer, parameter, public :: TYPE_EVA_EXPONENTIAL_IMPL = 3
+    integer, parameter, public :: TYPE_EVA_QSCONST = 4
+    integer, parameter, public :: TYPE_EVA_QSCALC = 5
+    integer, parameter, public :: TYPE_EVA_QSCALC_IMPL = 6
+    integer, parameter, public :: TYPE_EVA_QSCALC_SEMIIMPL = 7
 
     real(wp) :: settling                         ! sedimentation effects
     real(wp) :: damkohler                        ! reaction
@@ -93,6 +95,7 @@ contains
                 call LIST_REAL(sRes, idummy, evaporationProps%parameters)
             end if
             call ScanFile_Real(bakfile, inifile, block, 'Exponent', '0.0', evaporationProps%auxiliar(1))
+            call ScanFile_Real(bakfile, inifile, block, 'MaxNR', '1.E-12', evaporationProps%auxiliar(2))
 
         end if
 
@@ -301,6 +304,26 @@ contains
         mod_exponent = locProps%auxiliar(1)
 
         select case (locProps%type)
+        case (TYPE_EVA_EXPONENTIAL)
+            if (is .eq. inb_scal_ql) then
+                ! -------------------------------------------------------------------
+                ! Calculate condensation rate as Da * q_l
+                ! -------------------------------------------------------------------
+                if (nse_eqns == DNS_EQNS_ANELASTIC) then
+                    call Thermo_Anelastic_Weight_OutPlace(nx, ny, nz, rbackground, s(:,:,inb_scal_ql), source)
+                    s_active => source
+                else
+                    s_active => s(:,:,inb_scal_ql)
+                end if
+                source = damkohler*locProps%parameters(1) * s_active
+
+            else
+                write(tstr,"(I2)") inb_scal_ql
+                write(istr,"(I2)") is
+                call TLab_Write_ASCII(wfile, 'WARNING: Unexpectedly Scalar'//trim(istr)//' (other than q_l=Scalar'//trim(tstr)//') set to active for NON-EQUILIBRIUM EVAPORATION')
+
+            end if
+
         case (TYPE_EVA_QSCONST,TYPE_EVA_QSCALC)
             if (is .eq. inb_scal_ql) then
                 
@@ -334,7 +357,7 @@ contains
                 end select
 
                 ! -------------------------------------------------------------------
-                ! Calculate condensation rate as 1/Sq * ( (q_t-q_l)/q_s - 1 ) * q_l^(1+alpha)
+                ! Calculate condensation rate as Da * ( [ 1 - (1-q_t)/(1-q_l) ]/q_s - 1 ) * q_l^(1+alpha)
                 ! -------------------------------------------------------------------
                 if (nse_eqns == DNS_EQNS_ANELASTIC) then
                     call Thermo_Anelastic_Weight_OutPlace(nx, ny, nz, rbackground, s(:,:,inb_scal_ql), source)
@@ -344,9 +367,9 @@ contains
                 end if
                 if (mod_exponent /= 0.0_wp) then ! to avoid the calculation of a power, if not necessary
                     dummy = 1.0_wp + mod_exponent
-                    source = damkohler*locProps%parameters(1) * ( (s(:,:,inb_scal_qt)-s(:,:,inb_scal_ql))/qsat - 1.0_wp ) * sign(1.0_wp,s_active)*(abs(s_active))**dummy 
+                    source = damkohler*locProps%parameters(1) * ( ( 1.0_wp - (1.0_wp-s(:,:,inb_scal_qt))/(1.0_wp-s(:,:,inb_scal_ql)))/qsat - 1.0_wp ) * sign(1.0_wp,s_active)*(abs(s_active))**dummy 
                 else
-                    source = damkohler*locProps%parameters(1) * ( (s(:,:,inb_scal_qt)-s(:,:,inb_scal_ql))/qsat - 1.0_wp ) * s_active
+                    source = damkohler*locProps%parameters(1) * ( ( 1.0_wp - (1.0_wp-s(:,:,inb_scal_qt))/(1.0_wp-s(:,:,inb_scal_ql)))/qsat - 1.0_wp ) * s_active
                 end if
 
             else
@@ -364,7 +387,7 @@ contains
 
 !########################################################################
 !########################################################################
-    subroutine Microphysics_Evaporation_Impl(locProps, nx, ny, nz, is, s, dte)
+    subroutine Microphysics_Evaporation_Impl(locProps, nx, ny, nz, is, s, dtrkm)
         use Thermo_AirWater, only: inb_scal_T, rd_ov_rv, Cd, Cdv, Cvl, Lv0
         use Thermo_Base, only: THERMO_PSAT, NPSAT
         use Thermo_Anelastic, only: pbackground, rbackground, ribackground, epbackground
@@ -377,7 +400,7 @@ contains
 #endif
         type(microphysics_dt), intent(in) :: locProps
         integer(wi), intent(in) :: nx, ny, nz, is
-        real(wp), intent(in)    :: dte
+        real(wp), intent(in)    :: dtrkm
         real(wp), intent(inout) :: s(nx*ny, nz, inb_scal_array)
         
 
@@ -395,11 +418,51 @@ contains
         character(len=512) :: istr,tstr
 
 
-        
-        
         mod_exponent = locProps%auxiliar(1)
 
+        eps = locProps%auxiliar(2)
+        !eps=1.e-12_wp
+
         select case (locProps%type)
+        case (TYPE_EVA_EXPONENTIAL_IMPL)
+            if (is .eq. inb_scal_ql) then
+                s_RHS(:,:) = s(:,:,inb_scal_ql)
+                it=0
+                diff=1.0_wp
+                do while (diff>eps .and. it<=10)
+                    ! -------------------------------------------------------------------
+                    ! Calculate condensation rate as Da * q_l
+                    ! -------------------------------------------------------------------
+                    ! --- Derivative df(q_l)/dq_l for NRmethod --- 
+                    tmp1 = 1.0_wp - dtrkm*damkohler*locProps%parameters(1)
+
+                    ! --- Source term delta f(q_l) for NRmethod ---
+                    tmp2 = s(:,:,inb_scal_ql) - s_RHS - dtrkm*damkohler*locProps%parameters(1)*s(:,:,inb_scal_ql)
+
+                    ! -------------------------------------------------------------------
+                    ! Newton-Raphson iteration
+                    ! -------------------------------------------------------------------
+                    s(:,:,inb_scal_ql) = s(:,:,inb_scal_ql) - tmp2/tmp1
+
+                    diff = MAXVAL( ABS( tmp2/tmp1 / s(:,:,inb_scal_ql) ) )
+#ifdef USE_MPI
+                    call MPI_ALLREDUCE(diff, diff_glob, 1, MPI_REAL8, MPI_MAX, MPI_COMM_WORLD, ims_err)
+                    diff = diff_glob
+#endif
+
+                    
+                    it = it + 1
+                end do
+                NEWTONRAPHSON_ERROR = diff
+
+
+            else
+                write(tstr,"(I2)") inb_scal_ql
+                write(istr,"(I2)") is
+                call TLab_Write_ASCII(wfile, 'WARNING: Unexpectedly Scalar'//trim(istr)//' (other than q_l=Scalar'//trim(tstr)//') set to active for NON-EQUILIBRIUM EVAPORATION')
+
+            end if
+
         case (TYPE_EVA_QSCALC_IMPL,TYPE_EVA_QSCALC_SEMIIMPL)
             if (is .eq. inb_scal_ql) then
 
@@ -433,7 +496,6 @@ contains
                 diqsdql(:,:)=0.0_wp
                 s_RHS(:,:) = s(:,:,inb_scal_ql)
                 it=0
-                eps=1.e-12_wp
                 diff=1.0_wp
                 do while (diff>eps .and. it<=10)
                 !do while (it<=10)
@@ -475,7 +537,7 @@ contains
                     end if
 
                     ! -------------------------------------------------------------------
-                    ! Calculate condensation rate as 1/Sq * ( (q_t-q_l)/q_s - 1 ) * q_l^(1+alpha)
+                    ! Calculate condensation rate as Da * ( [ 1 - (1-q_t)/(1-q_l) ]/q_s - 1 ) * q_l^(1+alpha)
                     ! -------------------------------------------------------------------
                     if (nse_eqns == DNS_EQNS_ANELASTIC) then
                         !call Thermo_Anelastic_Weight_OutPlace(nx, ny, nz, rbackground, s(:,:,inb_scal_ql), tmp2)
@@ -490,33 +552,33 @@ contains
 
                     ! --- Derivative df(q_l)/dq_l for NRmethod --- 
                     ! ( rescaled by q_l^alpha to avoid division by zero )
-                    tmp1 = ( (s(:,:,inb_scal_qt)-s(:,:,inb_scal_ql))/qsat - 1.0_wp ) * (1.0_wp + mod_exponent)
+                    tmp1 = ( ( 1.0_wp - (1.0_wp-s(:,:,inb_scal_qt))/(1.0_wp-s(:,:,inb_scal_ql)))/qsat - 1.0_wp ) * (1.0_wp + mod_exponent)
                     if (nse_eqns == DNS_EQNS_ANELASTIC) then
                         call Thermo_Anelastic_Weight_InPlace(nx, ny, nz, rbackground, tmp1)
                     end if
-                    tmp1 = tmp1  + ( -1.0_wp/qsat + (s(:,:,inb_scal_qt)-s(:,:,inb_scal_ql))*diqsdql ) * s_active
+                    tmp1 = tmp1  + ( -(1.0_wp-s(:,:,inb_scal_qt))/(1.0_wp-s(:,:,inb_scal_ql))**2/qsat + ( 1.0_wp - (1.0_wp-s(:,:,inb_scal_qt))/(1.0_wp-s(:,:,inb_scal_ql)))*diqsdql ) * s_active
                     tmp1 = tmp1  * damkohler*locProps%parameters(1)
                     if (nse_eqns == DNS_EQNS_ANELASTIC) then
                         call Thermo_Anelastic_Weight_InPlace(nx, ny, nz, ribackground, tmp1)
                     end if
                     if (mod_exponent /= 0.0_wp) then ! to avoid the calculation of a power, if not necessary
-                        !tmp1 = sign(1.0_wp,s_active)*(abs(s_active))**(-mod_exponent) - dte*tmp1
-                        tmp1 = s_active**(-mod_exponent) - dte*tmp1
+                        !tmp1 = sign(1.0_wp,s_active)*(abs(s_active))**(-mod_exponent) - dtrkm*tmp1
+                        tmp1 = s_active**(-mod_exponent) - dtrkm*tmp1
                     else
-                        tmp1 = 1.0_wp - dte*tmp1
+                        tmp1 = 1.0_wp - dtrkm*tmp1
                     end if
 
                     ! --- Source term delta f(q_l) for NRmethod ---
                     ! ( rescaled by q_l^alpha to avoid division by zero )
-                    tmp2 = damkohler*locProps%parameters(1) * ( (s(:,:,inb_scal_qt)-s(:,:,inb_scal_ql))/qsat - 1.0_wp ) * s_active
+                    tmp2 = damkohler*locProps%parameters(1) * ( ( 1.0_wp - (1.0_wp-s(:,:,inb_scal_qt))/(1.0_wp-s(:,:,inb_scal_ql)))/qsat - 1.0_wp ) * s_active
                     if (nse_eqns == DNS_EQNS_ANELASTIC) then
                         call Thermo_Anelastic_Weight_InPlace(nx, ny, nz, ribackground, tmp2)
                     end if
                     if (mod_exponent /= 0.0_wp) then ! to avoid the calculation of a power, if not necessary
-                        !tmp2 = sign(1.0_wp,s_active)*(abs(s_active))**(-mod_exponent) * (s(:,:,inb_scal_ql) - s_RHS) - dte*tmp2
-                        tmp2 = s_active**(-mod_exponent) * (s(:,:,inb_scal_ql) - s_RHS) - dte*tmp2
+                        !tmp2 = sign(1.0_wp,s_active)*(abs(s_active))**(-mod_exponent) * (s(:,:,inb_scal_ql) - s_RHS) - dtrkm*tmp2
+                        tmp2 = s_active**(-mod_exponent) * (s(:,:,inb_scal_ql) - s_RHS) - dtrkm*tmp2
                     else
-                        tmp2 = s(:,:,inb_scal_ql) - s_RHS - dte*tmp2
+                        tmp2 = s(:,:,inb_scal_ql) - s_RHS - dtrkm*tmp2
                     end if
 
                     ! -------------------------------------------------------------------

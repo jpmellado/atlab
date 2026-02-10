@@ -219,7 +219,7 @@ program VPARTIAL
                 print *, new_line('a'), 'Bcs case ', bcs_cases(ib)
 
                 select type (fdm_der1)
-                type is (der1_biased)
+                type is (der1_biased_extended)
                     select case (bcs_cases(ib))
                     case (BCS_DD)
                         call fdm_der1%compute(nlines, u, du1_n)
@@ -283,7 +283,7 @@ program VPARTIAL
 
                 ! truncated version
                 select type (fdm_der1)
-                type is (der1_biased)
+                type is (der1_biased_extended)
                     call FDM_Der1_NeumannMin_Initialize(fdm_der1, c_b(:), wrk1d(1, 3), wrk1d(1, 4), nmax)
                     ! print *, nmax
                     call FDM_Der1_NeumannMax_Initialize(fdm_der1, c_t(:), wrk1d(1, 3), wrk1d(1, 4), nmax)
@@ -309,7 +309,7 @@ program VPARTIAL
 
                 ! ! full version
                 ! select type (fdm_der1)
-                ! type is (der1_biased)
+                ! type is (der1_biased_extended)
                 ! ! call FDM_Der1_Neumann_Initialize(bcs_cases(ib), g%der1, c_b(:), c_t(:), wrk1d(1, 3), wrk1d(1, 4))
                 ! call FDM_Der1_Neumann_Initialize(bcs_cases(ib), fdm_der1, c_b(:), c_t(:), wrk1d(1, 3), wrk1d(1, 4))
                 ! end select
@@ -383,7 +383,7 @@ program VPARTIAL
                 print *, new_line('a'), 'Bcs case ', ibc
 
                 select type (fdm_der1)
-                type is (der1_biased)
+                type is (der1_biased_extended)
                     select case (bcs_cases(ib))
                     case (BCS_MIN)
                         lhs_aux = fdm_der1%lhs

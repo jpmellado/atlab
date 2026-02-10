@@ -149,7 +149,7 @@ call TLab_Write_ASCII(bakfile, '#SchemeDerivative2=<CompactJacobian4/CompactJaco
         if (x%periodic) then
             allocate (der1_periodic :: locDer)
         else
-            allocate (der1_biased :: locDer)
+            allocate (der1_biased_extended :: locDer)
         end if
 
         call locDer%initialize(x%nodes, type)

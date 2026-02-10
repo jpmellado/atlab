@@ -604,7 +604,7 @@ contains
     subroutine OPR_Partial_Z_Bcs(nx, ny, nz, u, result, ibc)
         use TLab_Constants, only: BCS_DD, BCS_ND, BCS_DN, BCS_NN
         use TLab_Arrays, only: wrk2d
-        use FDM_Derivative_1order, only: der1_biased
+        use FDM_Derivative_1order, only: der1_biased_extended
         integer(wi), intent(in) :: nx, ny, nz
         real(wp), intent(in) :: u(nx*ny*nz)
         real(wp), intent(out) :: result(nx*ny*nz)
@@ -614,7 +614,7 @@ contains
 #define bcs_t(i) wrk2d(i,2)
 
         select type (fdm_der1_Z)
-        type is (der1_biased)
+        type is (der1_biased_extended)
             select case (ibc)
             case (BCS_DD)
                 call fdm_der1_Z%compute(nx*ny, u, result)

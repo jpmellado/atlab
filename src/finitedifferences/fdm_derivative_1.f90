@@ -11,9 +11,10 @@ module FDM_Derivative_1order
     implicit none
     private
 
-    public :: der_dt            ! Made public to make it accessible by loading FDM_Derivative_X and not necessarily FDM_Derivative_Base
+    public :: der_dt            ! Accessible by loading FDM_Derivative_* without FDM_Derivative_Base
     public :: der1_periodic
     public :: der1_biased
+    public :: der1_biased_extended
     public :: FDM_Der1_ModifyWavenumbers
 
     ! -----------------------------------------------------------------------
@@ -21,7 +22,13 @@ module FDM_Derivative_1order
     type, extends(der_periodic) :: der1_periodic
     contains
         procedure :: initialize => der1_periodic_initialize
-        procedure :: compute => der1_periodic_compute
+        ! procedure :: compute => der1_periodic_compute
+    end type
+
+    type, extends(der_biased) :: der1_biased
+    contains
+        procedure :: initialize => der1_biased_initialize
+        ! procedure :: compute => der1_biased_compute
     end type
 
     ! -----------------------------------------------------------------------
@@ -61,14 +68,11 @@ module FDM_Derivative_1order
         procedure, public :: compute => bcsNN_compute
     end type
 
-    type, extends(der_biased) :: der1_biased
+    type, extends(der1_biased) :: der1_biased_extended
         private
         type(bcsDN), public :: bcsDN
         type(bcsND), public :: bcsND
         type(bcsNN), public :: bcsNN
-    contains
-        procedure :: initialize => der1_biased_initialize
-        procedure :: compute => der1_biased_compute
     end type
 
     integer(wi) nx
@@ -122,40 +126,40 @@ contains
         return
     end subroutine der1_periodic_initialize
 
-    ! ###################################################################
-    ! ###################################################################
-    subroutine der1_periodic_compute(self, nlines, u, result)
-        class(der1_periodic), intent(in) :: self
-        integer(wi), intent(in) :: nlines
-        real(wp), intent(in) :: u(nlines, size(self%lhs, 1))
-        real(wp), intent(out) :: result(nlines, size(self%lhs, 1))
+    ! ! ###################################################################
+    ! ! ###################################################################
+    ! subroutine der1_periodic_compute(self, nlines, u, result)
+    !     class(der1_periodic), intent(in) :: self
+    !     integer(wi), intent(in) :: nlines
+    !     real(wp), intent(in) :: u(nlines, size(self%lhs, 1))
+    !     real(wp), intent(out) :: result(nlines, size(self%lhs, 1))
 
-        integer nx, ndr
+    !     integer nx, ndr
 
-        ! ###################################################################
-        nx = size(self%lhs, 1)
-        ndr = size(self%rhs, 2)
+    !     ! ###################################################################
+    !     nx = size(self%lhs, 1)
+    !     ndr = size(self%rhs, 2)
 
-        ! Calculate RHS in system of equations A u' = B u
-        ! call self%matmul(rhs=self%rhs(1, 1:ndr), &
-        !                    u=u, &
-        !                    u_halo_m=u(:, nx - ndr/2 + 1:nx), &
-        !                    u_halo_p=u(:, 1:ndr/2), &
-        !                    f=result)
-        call self%matmul(rhs=self%rhs(1, 1:ndr), &
-                         u=u, &
-                         u_halo_m=u(:, nx - ndr/2 + 1:nx), &
-                         u_halo_p=u(:, 1:ndr/2), &
-                         f=result, &
-                         L=self%thomas%L)
+    !     ! Calculate RHS in system of equations A u' = B u
+    !     ! call self%matmul(rhs=self%rhs(1, 1:ndr), &
+    !     !                    u=u, &
+    !     !                    u_halo_m=u(:, nx - ndr/2 + 1:nx), &
+    !     !                    u_halo_p=u(:, 1:ndr/2), &
+    !     !                    f=result)
+    !     call self%matmul(rhs=self%rhs(1, 1:ndr), &
+    !                      u=u, &
+    !                      u_halo_m=u(:, nx - ndr/2 + 1:nx), &
+    !                      u_halo_p=u(:, 1:ndr/2), &
+    !                      f=result, &
+    !                      L=self%thomas%L)
 
-        ! Solve for u' in system of equations A u' = B u
-        ! call self%thomas%solveL(result)
-        call self%thomas%solveU(result)
-        call self%thomas%reduce(result)
+    !     ! Solve for u' in system of equations A u' = B u
+    !     ! call self%thomas%solveL(result)
+    !     call self%thomas%solveU(result)
+    !     call self%thomas%reduce(result)
 
-        return
-    end subroutine der1_periodic_compute
+    !     return
+    ! end subroutine der1_periodic_compute
 
     ! ###################################################################
     ! ###################################################################
@@ -216,41 +220,44 @@ contains
         end select
 
         ! Construct LU decomposition for different types of bcs
-        call self%bcsND%initialize(self)
-        call self%bcsDN%initialize(self)
-        call self%bcsNN%initialize(self)
+        select type (self)
+        type is (der1_biased_extended)
+            call self%bcsND%initialize(self)
+            call self%bcsDN%initialize(self)
+            call self%bcsNN%initialize(self)
+        end select
 
         return
     end subroutine der1_biased_initialize
 
-    ! ###################################################################
-    ! ###################################################################
-    subroutine der1_biased_compute(self, nlines, u, result)
-        class(der1_biased), intent(in) :: self
-        integer(wi), intent(in) :: nlines
-        real(wp), intent(in) :: u(nlines, size(self%rhs, 1))
-        real(wp), intent(out) :: result(nlines, size(self%rhs, 1))
+    ! ! ###################################################################
+    ! ! ###################################################################
+    ! subroutine der1_biased_compute(self, nlines, u, result)
+    !     class(der1_biased), intent(in) :: self
+    !     integer(wi), intent(in) :: nlines
+    !     real(wp), intent(in) :: u(nlines, size(self%rhs, 1))
+    !     real(wp), intent(out) :: result(nlines, size(self%rhs, 1))
 
-        integer nx, ndr
+    !     integer nx, ndr
 
-        ! ###################################################################
-        nx = size(self%rhs, 1)
-        ndr = size(self%rhs, 2)
+    !     ! ###################################################################
+    !     nx = size(self%rhs, 1)
+    !     ndr = size(self%rhs, 2)
 
-        ! Calculate RHS in A u' = B u
-        call self%matmul(rhs=self%rhs, &
-                         rhs_b=self%rhs(1:ndr/2, 1:ndr), &
-                         rhs_t=self%rhs(nx - ndr/2 + 1:nx, 1:ndr), &
-                         u=u, &
-                         f=result, &
-                         L=self%thomas%L)
+    !     ! Calculate RHS in A u' = B u
+    !     call self%matmul(rhs=self%rhs, &
+    !                      rhs_b=self%rhs(1:ndr/2, 1:ndr), &
+    !                      rhs_t=self%rhs(nx - ndr/2 + 1:nx, 1:ndr), &
+    !                      u=u, &
+    !                      f=result, &
+    !                      L=self%thomas%L)
 
-        ! Solve for u' in system of equations A u' = B u
-        ! call self%thomas%solveL(result)
-        call self%thomas%solveU(result)
+    !     ! Solve for u' in system of equations A u' = B u
+    !     ! call self%thomas%solveL(result)
+    !     call self%thomas%solveU(result)
 
-        return
-    end subroutine der1_biased_compute
+    !     return
+    ! end subroutine der1_biased_compute
 
     ! ###################################################################
     ! ###################################################################

@@ -1,8 +1,9 @@
 module FDM_Derivative_2order
     use TLab_Constants, only: wp, wi
     use FDM_Derivative_Base, only: matmul_halo_thomas_ice, matmul_thomas_ice
-    use FDM_Derivative_Base, only: der_periodic, der_dt
-    use FDM_Derivative_Base, only: thomas_dt
+    use FDM_Derivative_Base, only: der_periodic, der_biased, der_dt
+    ! use FDM_Derivative_Base, only: thomas_dt
+    use Thomas, only: thomas_dt
     ! use MatMul
     ! use MatMul_Halo
     use MatMul_Thomas
@@ -11,9 +12,9 @@ module FDM_Derivative_2order
     implicit none
     private
 
-    ! public :: der_dt            ! Made public to make it accessible by loading FDM_Derivative_X and not necessarily FDM_Derivative_Base
+    ! public :: der_dt            ! Accessible by loading FDM_Derivative_* without FDM_Derivative_Base
     public :: der2_periodic
-    ! public :: der2_biased
+    public :: der2_biased
     public :: der_extended_dt
     public :: der2_extended_periodic
     public :: der2_extended_biased
@@ -24,19 +25,18 @@ module FDM_Derivative_2order
     type, extends(der_periodic) :: der2_periodic
     contains
         procedure :: initialize => der2_periodic_initialize
-        procedure :: compute => der2_periodic_compute
+        ! procedure :: compute => der2_periodic_compute
     end type
 
-    ! ! Types for biased boundary conditions
-    ! type, extends(der_biased) :: der2_biased
-    ! contains
-    !     procedure :: initialize => der2_biased_initialize
-    !     procedure :: compute => der2_biased_compute
-    ! end type
+    ! Types for biased boundary conditions
+    type, extends(der_biased) :: der2_biased
+    contains
+        procedure :: initialize => der2_biased_initialize
+        ! procedure :: compute => der2_biased_compute
+    end type
 
     ! -----------------------------------------------------------------------
-    ! The idea is to ude FDM_Base for both 1. and 2. order derivatives, but the current implementation
-    ! of some schemes requires u' in the calculation of u'', and we need to redefine most of it
+    ! Some schemes requires u' in the calculation of u''
     ! We define wrappers so that we can use most of the general fdm structure
 
     type, abstract :: der_extended_dt
@@ -61,9 +61,9 @@ module FDM_Derivative_2order
             import der_extended_dt, wp, wi
             class(der_extended_dt), intent(in) :: self
             integer(wi), intent(in) :: nlines
-            real(wp), intent(in) :: u(nlines, size(self%lhs, 1))
-            real(wp), intent(out) :: result(nlines, size(self%lhs, 1))
-            real(wp), intent(in), optional :: du(nlines, size(self%lhs, 1))
+            real(wp), intent(in) :: u(*)
+            real(wp), intent(out) :: result(*)
+            real(wp), intent(in), optional :: du(*)
         end subroutine
     end interface
 
@@ -81,24 +81,26 @@ module FDM_Derivative_2order
     ! Types for biased boundary conditions
 
     ! I need to consider a case with Jacobian, nonuniform
-    type :: bcs
-        private
-        real(wp), pointer :: rhs(:, :) => null()
-        type(thomas_dt) :: thomas
-    end type
+    ! type :: bcs
+    !     private
+    !     real(wp), pointer :: rhs(:, :) => null()
+    !     type(thomas_dt) :: thomas
+    ! end type
 
-    type, extends(bcs) :: bcsDD
-        ! procedure(matmul_ice), pointer, nopass :: matmul => null()
-        procedure(matmul_thomas_ice), pointer, nopass :: matmul => null()
-    contains
-        private
-        procedure :: initialize => bcsDD_initialize
-        procedure, public :: compute => bcsDD_compute
-    end type
+    ! type, extends(bcs) :: bcsDD
+    !     ! procedure(matmul_ice), pointer, nopass :: matmul => null()
+    !     procedure(matmul_thomas_ice), pointer, nopass :: matmul => null()
+    ! contains
+    !     private
+    !     procedure :: initialize => bcsDD_initialize
+    !     procedure, public :: compute => bcsDD_compute
+    ! end type
 
-    type, extends(bcs) :: bcsDD_jacobian
+    type :: bcsDD_jacobian
         ! procedure(matmul_add_ice), pointer, nopass :: matmul => null()
         procedure(matmul_add_thomas_ice), pointer, nopass :: matmul => null()
+        real(wp), pointer :: rhs(:, :) => null()
+        type(thomas_dt) :: thomas
         real(wp), allocatable :: rhs_d1(:, :)
     contains
         private
@@ -108,10 +110,11 @@ module FDM_Derivative_2order
 
     type, extends(der_extended_dt) :: der2_extended_biased
         private
-        ! procedure(matmul_ice), pointer, nopass :: matmul => null()
-        procedure(matmul_thomas_ice), pointer, nopass :: matmul => null()
+        type(der2_biased) :: der2
+        ! ! procedure(matmul_ice), pointer, nopass :: matmul => null()
+        ! procedure(matmul_thomas_ice), pointer, nopass :: matmul => null()
         logical :: need_1der = .false.  ! In nonuniform, Jacobian formulation, we need 1. order derivative for the 2. order one
-        type(bcsDD), public :: bcsDD
+        ! type(bcsDD), public :: bcsDD
         type(bcsDD_jacobian), public :: bcsDD_jacobian
     contains
         procedure :: initialize => der2_extended_biased_initialize
@@ -158,7 +161,7 @@ contains
 
         call self%der2%initialize(x, fdm_type)
         self%type = self%der2%type
-        
+
         ! I need it in elliptic operators
         allocate (self%lhs, source=self%der2%lhs)
         allocate (self%rhs, source=self%der2%rhs)
@@ -169,9 +172,12 @@ contains
     subroutine der2_extended_periodic_compute(self, nlines, u, result, du)
         class(der2_extended_periodic), intent(in) :: self
         integer(wi), intent(in) :: nlines
-        real(wp), intent(in) :: u(nlines, size(self%lhs, 1))
-        real(wp), intent(out) :: result(nlines, size(self%lhs, 1))
-        real(wp), intent(in), optional :: du(nlines, size(self%lhs, 1))
+        ! real(wp), intent(in) :: u(nlines, size(self%lhs, 1))
+        ! real(wp), intent(out) :: result(nlines, size(self%lhs, 1))
+        ! real(wp), intent(in), optional :: du(nlines, size(self%lhs, 1))
+        real(wp), intent(in) :: u(*)
+        real(wp), intent(out) :: result(*)
+        real(wp), intent(in), optional :: du(*)
 
         call self%der2%compute(nlines, u, result)
 
@@ -230,56 +236,51 @@ contains
         return
     end subroutine der2_periodic_initialize
 
+    ! ! ###################################################################
+    ! ! ###################################################################
+    ! subroutine der2_periodic_compute(self, nlines, u, result)
+    !     class(der2_periodic), intent(in) :: self
+    !     integer(wi), intent(in) :: nlines
+    !     real(wp), intent(in) :: u(nlines, size(self%lhs, 1))
+    !     real(wp), intent(out) :: result(nlines, size(self%lhs, 1))
+
+    !     integer nx, ndr
+
+    !     ! ###################################################################
+    !     nx = size(self%lhs, 1)
+    !     ndr = size(self%rhs, 2)
+
+    !     ! Calculate RHS in system of equations A u' = B u
+    !     ! call self%matmul(rhs=self%rhs(1, 1:ndr), &
+    !     !                    u=u, &
+    !     !                    u_halo_m=u(:, nx - ndr/2 + 1:nx), &
+    !     !                    u_halo_p=u(:, 1:ndr/2), &
+    !     !                    f=result)
+    !     call self%matmul(rhs=self%rhs(1, 1:ndr), &
+    !                      u=u, &
+    !                      u_halo_m=u(:, nx - ndr/2 + 1:nx), &
+    !                      u_halo_p=u(:, 1:ndr/2), &
+    !                      f=result, &
+    !                      L=self%thomas%L)
+
+    !     ! Solve for u' in system of equations A u' = B u
+    !     ! call self%thomas%solveL(result)
+    !     call self%thomas%solveU(result)
+    !     call self%thomas%reduce(result)
+
+    !     return
+    ! end subroutine der2_periodic_compute
+
     ! ###################################################################
     ! ###################################################################
-    subroutine der2_periodic_compute(self, nlines, u, result)
-        class(der2_periodic), intent(in) :: self
-        integer(wi), intent(in) :: nlines
-        real(wp), intent(in) :: u(nlines, size(self%lhs, 1))
-        real(wp), intent(out) :: result(nlines, size(self%lhs, 1))
-
-        integer nx, ndr
-
-        ! ###################################################################
-        nx = size(self%lhs, 1)
-        ndr = size(self%rhs, 2)
-
-        ! Calculate RHS in system of equations A u' = B u
-        ! call self%matmul(rhs=self%rhs(1, 1:ndr), &
-        !                    u=u, &
-        !                    u_halo_m=u(:, nx - ndr/2 + 1:nx), &
-        !                    u_halo_p=u(:, 1:ndr/2), &
-        !                    f=result)
-        call self%matmul(rhs=self%rhs(1, 1:ndr), &
-                         u=u, &
-                         u_halo_m=u(:, nx - ndr/2 + 1:nx), &
-                         u_halo_p=u(:, 1:ndr/2), &
-                         f=result, &
-                         L=self%thomas%L)
-
-        ! Solve for u' in system of equations A u' = B u
-        ! call self%thomas%solveL(result)
-        call self%thomas%solveU(result)
-        call self%thomas%reduce(result)
-
-        return
-    end subroutine der2_periodic_compute
-
-    ! ###################################################################
-    ! ###################################################################
-    subroutine der2_extended_biased_initialize(self, x, fdm_type, fdm_der1, uniform)
+    subroutine der2_biased_initialize(self, x, fdm_type)
         use FDM_Base, only: MultiplyByDiagonal
         use FDM_ComX_Direct
         use FDM_Com2_Jacobian
         use Preconditioning
-        class(der2_extended_biased), intent(out) :: self
+        class(der2_biased), intent(out) :: self
         real(wp), intent(in) :: x(:)
         integer, intent(in) :: fdm_type
-        class(der_dt), intent(in), optional :: fdm_der1
-        logical, intent(in), optional :: uniform
-
-        real(wp), allocatable :: x_aux(:, :), dx(:, :)
-        integer i
 
         ! ###################################################################
         self%type = fdm_type
@@ -319,7 +320,69 @@ contains
                                  switchAtBoundary=.true.)
 
         ! Construct LU decomposition
-        call self%bcsDD%initialize(self)
+        call self%thomas%initialize(self%lhs)
+
+        return
+    end subroutine der2_biased_initialize
+
+    ! ###################################################################
+    ! ###################################################################
+    subroutine der2_extended_biased_initialize(self, x, fdm_type, fdm_der1, uniform)
+        use FDM_Base, only: MultiplyByDiagonal
+        use FDM_ComX_Direct
+        use FDM_Com2_Jacobian
+        use Preconditioning
+        class(der2_extended_biased), intent(out) :: self
+        real(wp), intent(in) :: x(:)
+        integer, intent(in) :: fdm_type
+        class(der_dt), intent(in), optional :: fdm_der1
+        logical, intent(in), optional :: uniform
+
+        real(wp), allocatable :: x_aux(:, :), dx(:, :)
+        integer i
+
+        ! ###################################################################
+        call self%der2%initialize(x, fdm_type)
+        self%type = self%der2%type
+
+        ! self%type = fdm_type
+
+        ! select case (fdm_type)
+        ! case (FDM_COM6_DIRECT_HYPER)                    ! Not yet implemented; fall back to Jacobian version
+        !     self%type = FDM_COM6_JACOBIAN_HYPER
+        ! end select
+
+        ! select case (self%type)
+        ! case (FDM_COM4_JACOBIAN)
+        !     call FDM_C2N4_Jacobian(size(x), self%lhs, self%rhs, periodic=.false.)
+        !     self%matmul => MatMul_5_sym_ThomasL_3       ! MatMul_5_sym t + Thomas3_SolveL
+
+        ! case (FDM_COM6_JACOBIAN)
+        !     call FDM_C2N6_Jacobian(size(x), self%lhs, self%rhs, periodic=.false.)
+        !     self%matmul => MatMul_5_sym_ThomasL_3       ! MatMul_5_sym + Thomas3_SolveL
+
+        ! case (FDM_COM6_JACOBIAN_HYPER)
+        !     call FDM_C2N6_Hyper_Jacobian(size(x), self%lhs, self%rhs, periodic=.false.)
+        !     self%matmul => MatMul_7_sym_ThomasL_3       ! MatMul_7_sym + Thomas3_SolveL
+
+        ! case (FDM_COM4_DIRECT)
+        !     call FDM_C2N4_Direct(x, self%lhs, self%rhs)
+        !     self%matmul => MatMul_5_ThomasL_3           ! MatMul_5 together + Thomas3_SolveL
+
+        ! case (FDM_COM6_DIRECT)
+        !     call FDM_C2N6_Direct(x, self%lhs, self%rhs)
+        !     self%matmul => MatMul_5_ThomasL_3           ! MatMul_5 together + Thomas3_SolveL
+
+        ! end select
+
+        ! ! Preconditioning; Jacobian linear procedures assume 1 in the first upper diagonal.
+        ! call NormalizeByDiagonal(self%rhs, &
+        !                          1, &                   ! use 1. upper diagonal in rhs
+        !                          self%lhs, &
+        !                          switchAtBoundary=.true.)
+
+        ! ! Construct LU decomposition
+        ! call self%bcsDD%initialize(self)
 
         ! Jacobian, if needed
         select case (self%type)
@@ -334,10 +397,11 @@ contains
             call fdm_der1%compute(1, x_aux, dx)
             dx(1, :) = 1.0_wp/dx(1, :)
 
-            call MultiplyByDiagonal(self%lhs, dx(1, :))     ! multiply by the Jacobians
-            call MultiplyByDiagonal(self%lhs, dx(1, :))
+            call MultiplyByDiagonal(self%der2%lhs, dx(1, :))     ! multiply by the Jacobians
+            call MultiplyByDiagonal(self%der2%lhs, dx(1, :))
 
-            call self%bcsDD%initialize(self)                ! Reconstruct LU decomposition
+            ! call self%bcsDD%initialize(self)                ! Reconstruct LU decomposition
+            call self%der2%thomas%initialize(self%der2%lhs)                ! Reconstruct LU decomposition
 
             ! Contribution from 1. order derivative in nonuniform grids
             if (.not. uniform) then
@@ -347,71 +411,79 @@ contains
 
         end select
 
+        ! I need it in integral operators
+        allocate (self%lhs, source=self%der2%lhs)
+        allocate (self%rhs, source=self%der2%rhs)
+
         return
     end subroutine der2_extended_biased_initialize
 
     subroutine der2_extended_biased_compute(self, nlines, u, result, du)
         class(der2_extended_biased), intent(in) :: self
         integer(wi), intent(in) :: nlines
-        real(wp), intent(in) :: u(nlines, size(self%lhs, 1))
-        real(wp), intent(out) :: result(nlines, size(self%lhs, 1))
-        real(wp), intent(in), optional :: du(nlines, size(self%lhs, 1))
+        ! real(wp), intent(in) :: u(nlines, size(self%lhs, 1))
+        ! real(wp), intent(out) :: result(nlines, size(self%lhs, 1))
+        ! real(wp), intent(in), optional :: du(nlines, size(self%lhs, 1))
+        real(wp), intent(in) :: u(*)
+        real(wp), intent(out) :: result(*)
+        real(wp), intent(in), optional :: du(*)
 
         ! ###################################################################
         if (self%need_1der) then           ! add Jacobian correction A_2 dx2 du
             call self%bcsDD_jacobian%compute(nlines, u, result, du)
         else
-            call self%bcsDD%compute(nlines, u, result)
+            ! call self%bcsDD%compute(nlines, u, result)
+            call self%der2%compute(nlines, u, result)
         end if
 
         return
     end subroutine der2_extended_biased_compute
 
-    ! ###################################################################
-    ! ###################################################################
-    subroutine bcsDD_initialize(self, ref)
-        class(bcsDD), intent(out) :: self
-        class(der2_extended_biased), intent(in), target :: ref
+    ! ! ###################################################################
+    ! ! ###################################################################
+    ! subroutine bcsDD_initialize(self, ref)
+    !     class(bcsDD), intent(out) :: self
+    !     class(der2_extended_biased), intent(in), target :: ref
 
-        ! ###################################################################
-        self%matmul => ref%matmul
-        self%rhs => ref%rhs
+    !     ! ###################################################################
+    !     self%matmul => ref%matmul
+    !     self%rhs => ref%rhs
 
-        call self%thomas%initialize(ref%lhs)
+    !     call self%thomas%initialize(ref%lhs)
 
-        return
-    end subroutine bcsDD_initialize
+    !     return
+    ! end subroutine bcsDD_initialize
 
-    subroutine bcsDD_compute(self, nlines, u, result)
-        class(bcsDD), intent(in) :: self
-        integer(wi), intent(in) :: nlines
-        real(wp), intent(in) :: u(nlines, size(self%rhs, 1))
-        real(wp), intent(out) :: result(nlines, size(self%rhs, 1))
+    ! subroutine bcsDD_compute(self, nlines, u, result)
+    !     class(bcsDD), intent(in) :: self
+    !     integer(wi), intent(in) :: nlines
+    !     real(wp), intent(in) :: u(nlines, size(self%rhs, 1))
+    !     real(wp), intent(out) :: result(nlines, size(self%rhs, 1))
 
-        integer nx, ndr
+    !     integer nx, ndr
 
-        ! ###################################################################
-        nx = size(self%rhs, 1)
-        ndr = size(self%rhs, 2)
+    !     ! ###################################################################
+    !     nx = size(self%rhs, 1)
+    !     ndr = size(self%rhs, 2)
 
-        ! call self%matmul(rhs=self%rhs, &
-        !                    rhs_b=self%rhs(1:ndr/2, 1:ndr), &
-        !                    rhs_t=self%rhs(nx - ndr/2 + 1:nx, 1:ndr), &
-        !                    u=u, &
-        !                    f=result)
-        call self%matmul(rhs=self%rhs, &
-                         rhs_b=self%rhs(1:ndr/2, 1:ndr), &
-                         rhs_t=self%rhs(nx - ndr/2 + 1:nx, 1:ndr), &
-                         u=u, &
-                         f=result, &
-                         L=self%thomas%L)
+    !     ! call self%matmul(rhs=self%rhs, &
+    !     !                    rhs_b=self%rhs(1:ndr/2, 1:ndr), &
+    !     !                    rhs_t=self%rhs(nx - ndr/2 + 1:nx, 1:ndr), &
+    !     !                    u=u, &
+    !     !                    f=result)
+    !     call self%matmul(rhs=self%rhs, &
+    !                      rhs_b=self%rhs(1:ndr/2, 1:ndr), &
+    !                      rhs_t=self%rhs(nx - ndr/2 + 1:nx, 1:ndr), &
+    !                      u=u, &
+    !                      f=result, &
+    !                      L=self%thomas%L)
 
-        ! Solve for u' in system of equations A u' = B u
-        ! call self%thomas%solveL(result)
-        call self%thomas%solveU(result)
+    !     ! Solve for u' in system of equations A u' = B u
+    !     ! call self%thomas%solveL(result)
+    !     call self%thomas%solveU(result)
 
-        return
-    end subroutine bcsDD_compute
+    !     return
+    ! end subroutine bcsDD_compute
 
     ! ###################################################################
     ! ###################################################################
@@ -431,17 +503,21 @@ contains
         case (FDM_COM6_JACOBIAN_HYPER)
             self%matmul => MatMul_7_sym_add_3_ThomasL_3     ! MatMul_7_sym + Thomas3_SolveL
         end select
-        self%rhs => ref%rhs
-
-        self%thomas = ref%bcsDD%thomas
+        ! self%rhs => ref%rhs
+        self%rhs => ref%der2%rhs
+!
+        ! self%thomas = ref%bcsDD%thomas
+        self%thomas = ref%der2%thomas
 
         ! Contribution from 1. order derivative in nonuniform grids
-        allocate (self%rhs_d1, mold=ref%lhs)
-        self%rhs_d1 = -ref%lhs
+        ! allocate (self%rhs_d1, source=ref%lhs)
+        allocate (self%rhs_d1, source=ref%der2%lhs)
+        self%rhs_d1 = -self%rhs_d1
 
         if (allocated(dx)) deallocate (dx)                  ! Calculate dx2ds2
         allocate (dx(1, size(x)))
-        call ref%bcsDD%compute(1, x, dx)
+        ! call ref%bcsDD%compute(1, x, dx)
+        call ref%der2%compute(1, x, dx)
 
         call MultiplyByDiagonal(self%rhs_d1, dx(1, :))      ! multiply by the Jacobian
 

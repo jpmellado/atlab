@@ -1,7 +1,8 @@
 module FDM_Derivative_1order
     use TLab_Constants, only: wp, wi
     use TLab_Constants, only: BCS_DD, BCS_ND, BCS_DN, BCS_NN
-    use FDM_Derivative_Base
+    use FDM_Derivative_Base, only: matmul_halo_thomas_ice, matmul_thomas_ice
+    use FDM_Derivative_Base, only: der_periodic, der_biased, der_dt
     use Thomas, only: thomas_dt, Thomas_FactorLU_InPlace
     ! use MatMul
     ! use MatMul_Halo
@@ -11,17 +12,21 @@ module FDM_Derivative_1order
     implicit none
     private
 
-    public :: der_dt            ! Made public to make it accessible by loading FDM_Derivative_X and not necessarily FDM_Derivative_Base
+    public :: der_dt            ! Accessible by loading FDM_Derivative_* without FDM_Derivative_Base
     public :: der1_periodic
     public :: der1_biased
+    public :: der1_biased_extended
     public :: FDM_Der1_ModifyWavenumbers
 
     ! -----------------------------------------------------------------------
-    ! Types for periodic boundary conditions
     type, extends(der_periodic) :: der1_periodic
     contains
         procedure :: initialize => der1_periodic_initialize
-        procedure :: compute => der1_periodic_compute
+    end type
+
+    type, extends(der_biased) :: der1_biased
+    contains
+        procedure :: initialize => der1_biased_initialize
     end type
 
     ! -----------------------------------------------------------------------
@@ -61,14 +66,11 @@ module FDM_Derivative_1order
         procedure, public :: compute => bcsNN_compute
     end type
 
-    type, extends(der_biased) :: der1_biased
+    type, extends(der1_biased) :: der1_biased_extended
         private
         type(bcsDN), public :: bcsDN
         type(bcsND), public :: bcsND
         type(bcsNN), public :: bcsNN
-    contains
-        procedure :: initialize => der1_biased_initialize
-        procedure :: compute => der1_biased_compute
     end type
 
     integer(wi) nx
@@ -121,41 +123,6 @@ contains
 
         return
     end subroutine der1_periodic_initialize
-
-    ! ###################################################################
-    ! ###################################################################
-    subroutine der1_periodic_compute(self, nlines, u, result)
-        class(der1_periodic), intent(in) :: self
-        integer(wi), intent(in) :: nlines
-        real(wp), intent(in) :: u(nlines, size(self%lhs, 1))
-        real(wp), intent(out) :: result(nlines, size(self%lhs, 1))
-
-        integer nx, ndr
-
-        ! ###################################################################
-        nx = size(self%lhs, 1)
-        ndr = size(self%rhs, 2)
-
-        ! Calculate RHS in system of equations A u' = B u
-        ! call self%matmul(rhs=self%rhs(1, 1:ndr), &
-        !                    u=u, &
-        !                    u_halo_m=u(:, nx - ndr/2 + 1:nx), &
-        !                    u_halo_p=u(:, 1:ndr/2), &
-        !                    f=result)
-        call self%matmul(rhs=self%rhs(1, 1:ndr), &
-                         u=u, &
-                         u_halo_m=u(:, nx - ndr/2 + 1:nx), &
-                         u_halo_p=u(:, 1:ndr/2), &
-                         f=result, &
-                         L=self%thomas%L)
-
-        ! Solve for u' in system of equations A u' = B u
-        ! call self%thomas%solveL(result)
-        call self%thomas%solveU(result)
-        call self%thomas%reduce(result)
-
-        return
-    end subroutine der1_periodic_compute
 
     ! ###################################################################
     ! ###################################################################
@@ -216,41 +183,15 @@ contains
         end select
 
         ! Construct LU decomposition for different types of bcs
-        call self%bcsND%initialize(self)
-        call self%bcsDN%initialize(self)
-        call self%bcsNN%initialize(self)
+        select type (self)
+        type is (der1_biased_extended)
+            call self%bcsND%initialize(self)
+            call self%bcsDN%initialize(self)
+            call self%bcsNN%initialize(self)
+        end select
 
         return
     end subroutine der1_biased_initialize
-
-    ! ###################################################################
-    ! ###################################################################
-    subroutine der1_biased_compute(self, nlines, u, result)
-        class(der1_biased), intent(in) :: self
-        integer(wi), intent(in) :: nlines
-        real(wp), intent(in) :: u(nlines, size(self%rhs, 1))
-        real(wp), intent(out) :: result(nlines, size(self%rhs, 1))
-
-        integer nx, ndr
-
-        ! ###################################################################
-        nx = size(self%rhs, 1)
-        ndr = size(self%rhs, 2)
-
-        ! Calculate RHS in A u' = B u
-        call self%matmul(rhs=self%rhs, &
-                         rhs_b=self%rhs(1:ndr/2, 1:ndr), &
-                         rhs_t=self%rhs(nx - ndr/2 + 1:nx, 1:ndr), &
-                         u=u, &
-                         f=result, &
-                         L=self%thomas%L)
-
-        ! Solve for u' in system of equations A u' = B u
-        ! call self%thomas%solveL(result)
-        call self%thomas%solveU(result)
-
-        return
-    end subroutine der1_biased_compute
 
     ! ###################################################################
     ! ###################################################################
@@ -630,62 +571,3 @@ contains
     end subroutine FDM_Der1_ModifyWavenumbers
 
 end module FDM_Derivative_1order
-
-! ! ###################################################################
-! ! ###################################################################
-! program test1
-!     use TLab_Constants, only: wp, wi, pi_wp
-!     use TLab_Arrays, only: wrk2d
-!     use FDM_Derivative_1order
-!     use FDM_Derivative
-
-!     integer, parameter :: nx = 32
-!     real(wp) x(nx), dx(nx), u(1, nx), du(1, nx), du_a(1, nx)
-
-!     class(der_dt), allocatable :: derX
-
-!     integer :: cases1(5) = [FDM_COM4_JACOBIAN, &
-!                             FDM_COM6_JACOBIAN, &
-!                             FDM_COM6_JACOBIAN_PENTA, &
-!                             FDM_COM4_DIRECT, &
-!                             FDM_COM6_DIRECT]
-
-!     ! ###################################################################
-!     x = [(real(i, wp), i=1, nx)]
-!     dx = [(1.0_wp, i=1, nx)]
-!     allocate (wrk2d(nx, 2))
-
-!     ! u(1, :) = x(:)**2
-!     ! du_a(1, :) = 2.0_wp*x(:)
-!     u(1, :) = [(cos(2.0*pi_wp/(x(nx) - x(1))*(x(i) - x(1))), i=1, nx)]
-!     du_a(1, :) = -[(sin(2.0*pi_wp/(x(nx) - x(1))*(x(i) - x(1))), i=1, nx)]*2.0*pi_wp/(x(nx) - x(1))
-
-!     allocate (der1_biased :: derX)
-!     do ic = 1, size(cases1)
-!         call derX%initialize(x, dx, cases1(ic))
-!         call derX%compute(1, u, du)
-!         print *, maxval(abs(du - du_a))
-!         select type (derX)
-!         type is (der1_biased)
-!             ! call derX%bcsDD%compute(1, u, du)
-!             ! print *, maxval(abs(du - du_a))
-!             ! call derX%bcsND%compute(1, u, du)
-!             ! print *, maxval(abs(du - du_a))
-!             ! call derX%bcsDN%compute(1, u, du)
-!             ! print *, maxval(abs(du - du_a))
-!             ! call derX%bcsNN%compute(1, u, du)
-!             ! print *, maxval(abs(du - du_a))
-!         end select
-!     end do
-
-!     if (allocated(derX)) deallocate (derX)
-!     allocate (der1_periodic :: derX)
-!     do ic = 1, size(cases1)
-!         call derX%initialize(x(:nx - 1), dx(:nx - 1), cases1(ic))
-!         call derX%compute(1, u(:, :nx - 1), du(:, :nx - 1))
-!         print *, maxval(abs(du(:, :nx - 1) - du_a(:, :nx - 1)))
-
-!     end do
-
-!     stop
-! end program

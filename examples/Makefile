@@ -23,6 +23,7 @@ PRJS=\
      Case63 \
      Case64 \
      Case65 \
+     Case70 \
      Case71 \
      Case72 \
      Case73 

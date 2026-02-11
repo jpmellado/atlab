@@ -158,14 +158,14 @@ contains
             dummy(1) = 0.5_wp/envelope(4)**2.0_wp ! width in x-direction
             dummy(2) = 0.5_wp/envelope(5)**2.0_wp ! width y-direction
             dummy(3) = 0.5_wp/envelope(6)**2.0_wp ! width z-direction
-            
+
             do k = 1, kmax
                 do j = 1, jmax
                     do i = 1, imax
                         rx = x%nodes(idsp + i) - envelope(1)
                         ry = y%nodes(jdsp + j) - envelope(2)
                         rz = z%nodes(k) - envelope(3)
-                        tmp_envelope(i, j, k) = exp(- dummy(1)*rx*rx - dummy(2)*ry*ry - dummy(3)*rz*rz)
+                        tmp_envelope(i, j, k) = exp(-dummy(1)*rx*rx - dummy(2)*ry*ry - dummy(3)*rz*rz)
                         do iwave = 1, nwaves
                             tmp_phase(i, k, iwave) = rx*wavenumber(1, iwave) + rz*wavenumber(3, iwave)
                         end do
@@ -180,7 +180,7 @@ contains
 
 !########################################################################
 !########################################################################
-    subroutine SpecialForcing_Source(locProps, nx, ny, nz, iq, time, q, h, tmp)     
+    subroutine SpecialForcing_Source(locProps, nx, ny, nz, iq, time, q, h, tmp)
         type(term_dt), intent(in) :: locProps
         integer(wi), intent(in) :: nx, ny, nz, iq
         real(wp), intent(in) :: time
@@ -204,14 +204,15 @@ contains
             tmp = tmp*h
 
         case (TYPE_SINUSOIDAL)
+            tmp = locProps%parameters(1)*sin(locProps%parameters(2)*time)
 
         case (TYPE_SINUSOIDAL_NOSLIP)
 
         case (TYPE_WAVEMAKER)
             tmp = 0.0_wp
             do k = 1, nz
-                tmp(:,:,k) = Profiles_Calculate(qbg(iq), z%nodes(k))
-            end do 
+                tmp(:, :, k) = Profiles_Calculate(qbg(iq), z%nodes(k))
+            end do
             do k = 1, nz
                 do i = 1, nx
                     do iwave = 1, nwaves
@@ -225,14 +226,12 @@ contains
 
         return
     end subroutine SpecialForcing_Source
-    
-    
-    real(wp) function ft(t) 
+
+    real(wp) function ft(t)
         real(wp), intent(in) :: t
         ft = tanh(0.1_wp*t)
     end function ft
-    
-    
+
     !########################################################################
     ! Sinusoidal forcing; Taylor-Green vortex
     !########################################################################

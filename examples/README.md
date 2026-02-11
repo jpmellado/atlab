@@ -40,6 +40,7 @@ Workflow summary. Details of each tool and corresponding input data to be read i
 * Case09. Stably stratified shear layer, using direct formulation in elliptic operators.
 
 * Case11. Wave maker in incompressible case.
+* Case12. Forced oscillation in incompressible case.
 
 ### Wall-bounded flows: channel flows and Rayleigh-Benard convection
 

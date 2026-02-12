@@ -559,7 +559,7 @@ contains
         ! #######################################################################
         ! Accumulate RHS terms
         call TLab_Sources_Flow(q, s, etime, hq, txc(:, 1))
-        call TLab_Sources_Scal(s, hs, txc(:, 1), txc(:, 2), txc(:, 3), txc(:, 4))
+        call TLab_Sources_Scal(s, hs, etime, txc(:, 1), txc(:, 2), txc(:, 3), txc(:, 4))
 
         if (bufferType == BUFFER_TYPE_NUDGE) call Buffer_Nudge()
 
@@ -592,7 +592,7 @@ contains
         ! #######################################################################
         ! Accumulate RHS terms
         call TLab_Sources_Flow(q, s, etime, hq, txc(:, 1))
-        call TLab_Sources_Scal(s, hs, txc(:, 1), txc(:, 2), txc(:, 3), txc(:, 4))
+        call TLab_Sources_Scal(s, hs, etime, txc(:, 1), txc(:, 2), txc(:, 3), txc(:, 4))
 
         if (bufferType == BUFFER_TYPE_NUDGE) call Buffer_Nudge()
 

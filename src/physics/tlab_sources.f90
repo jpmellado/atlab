@@ -73,7 +73,8 @@ contains
 
     ! #######################################################################
     ! #######################################################################
-    subroutine TLab_Sources_Scal(s, hs, tmp1, tmp2, tmp3, tmp4)
+    subroutine TLab_Sources_Scal(s, hs, time, tmp1, tmp2, tmp3, tmp4)
+        real(wp), intent(in) :: time
         real(wp), intent(in) :: s(isize_field, *)
         real(wp), intent(out) :: hs(isize_field, *)
         real(wp), intent(inout) :: tmp1(isize_field), tmp2(isize_field), tmp3(isize_field), tmp4(isize_field)
@@ -103,6 +104,12 @@ contains
             ! Subsidence
             ! Implemented directly in burgers
 
+            ! In case of a gravity wave forcing, force the buoyancy to satisfy the polarization condition
+            ! If forcing is not of type WAVEMAKER, then the call does nothing
+            if (forcingProps%active(3)) then
+                call GravityWave_Polarization(forcingProps, imax, jmax, kmax, is, time, s(:, is), tmp1)
+                hs(:, is) = hs(:, is) + tmp1(:)
+            end if
         end do
 
         return

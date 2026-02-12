@@ -6,7 +6,8 @@ module SpecialForcing
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
     use TLab_Memory, only: TLab_Allocate_Real
     use TLab_Grid, only: x, y, z
-    use Tlab_Background, only: qbg
+    use Tlab_Background, only: qbg, sbg
+    ! use TLab_Arrays, only: wrk1d
     use Profiles, only: Profiles_Calculate
     implicit none
     private
@@ -25,6 +26,7 @@ module SpecialForcing
     public :: SpecialForcing_Initialize
     public :: SpecialForcing_Source
     public :: SpecialForcing_Sinusoidal, SpecialForcing_Sinusoidal_NoSlip   ! Taylor-Green vortex
+    public :: GravityWave_Polarization
 
     integer, parameter :: TYPE_NONE = 0
     integer, parameter :: TYPE_HOMOGENEOUS = 1
@@ -36,7 +38,7 @@ module SpecialForcing
 
     integer, parameter :: nwaves_max = 3                ! maximum number of waves in wavemaker
     integer :: nwaves                                   ! number of waves in wavemaker
-    real(wp) amplitude(3, nwaves_max)                   ! wave amplitudes in x, y, z
+    real(wp) amplitude(4, nwaves_max)                   ! wave amplitudes in x, y, z + buoyancy
     real(wp) wavenumber(3, nwaves_max)                  ! wavenumbers in x, y, z
     real(wp) frequency(nwaves_max)                      ! wave frequencies
     real(wp) envelope(6)                                ! (x,y,z) position, size
@@ -123,6 +125,7 @@ contains
                         amplitude(2, nwaves) = 0.0_wp
                         amplitude(3, nwaves) = -dummy(1)*cos(dummy(3))      ! in z equation
                         frequency(nwaves) = dummy(4)
+                        amplitude(4, nwaves) = (-sbg(1)%delta/sbg(1)%thick)**2/frequency(nwaves)*amplitude(3,nwaves) ! sbg not yet initialized
                     else
                         exit
                     end if
@@ -173,6 +176,9 @@ contains
                 end do
             end do
 
+            ! ! Get buoyancy freq. profile and store into wrk1d; Needed for b-amplitude
+            ! call fdm_der1_Z%compute(nx*ny, Profiles_Calculate(sbg(is), z%nodes(k)), wrk1d)
+            
         end select
 
         return
@@ -225,6 +231,44 @@ contains
 
         return
     end subroutine SpecialForcing_Source
+
+
+    ! Perhaps one could avoid this routine by giving tmp_phase an additional 
+    ! dimension?
+    ! tmp_phase(b) = tmp_phase(w) + pi/2
+    subroutine GravityWave_Polarization(locProps, nx, ny, nz, is, time, s, tmp)
+        ! Buoyancy part of a GW is phase shifted by pi/2 compared to the 
+        ! velocity components. We impose a wave with u=Usin(phase), w=Wsin(phase), 
+        ! where U=Asin(Theta) and W=-Acos(Theta) (incompressibility).
+        ! Linearized Boussinesq => Fourier space => B=-iN^2/freq*W
+        ! => b=-N^2/freq*W*cos(phase)
+        ! Amplitude is set by assuming a linear buoyancy profile (for N).
+
+        type(term_dt), intent(in) :: locProps
+        integer(wi), intent(in) :: nx, ny, nz, is
+        real(wp), intent(in) :: time
+        real(wp), intent(in) :: s(nx, ny, nz)
+        real(wp), intent(inout) :: tmp(nx, ny, nz)
+        integer(wi) iwave, i, k
+
+        select case (forcingProps%type)
+        case (TYPE_WAVEMAKER)
+            do k = 1, nz
+                do i = 1, nx
+                    do iwave = 1, nwaves
+                        ! tmp(i, 1:ny, k) = (-sbg(is)%delta/sbg(is)%thick)**2/frequency(iwave)*amplitude(3,iwave)      ! Amplitude
+                        tmp(i, 1:ny, k) = amplitude(3+is, iwave)
+                        tmp(i, 1:ny, k) = -tmp(i, 1:ny, k)*cos(tmp_phase(i, k, iwave) - frequency(iwave)*time)      ! Wave signal
+                    end do
+                end do
+                tmp(1:nx, 1:ny, k) = Profiles_Calculate(sbg(is), z%nodes(k)) + tmp(1:nx, 1:ny, k)                 ! Add Background
+            end do
+            tmp = (tmp - s)*tmp_envelope*locProps%parameters(1)
+            tmp = tmp*ft(time)
+        end select
+ 
+        return
+    end subroutine
     
     
     real(wp) function ft(t) 

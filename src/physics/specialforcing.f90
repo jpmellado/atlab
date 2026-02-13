@@ -35,6 +35,7 @@ module SpecialForcing
     integer, parameter :: TYPE_RAND_MULTIPLICATIVE = 4
     integer, parameter :: TYPE_RAND_ADDIVTIVE = 5
     integer, parameter :: TYPE_WAVEMAKER = 6
+    integer, parameter :: TYPE_WAVEMAKERTANH = 7
 
     integer, parameter :: nwaves_max = 3                ! maximum number of waves in wavemaker
     integer :: nwaves                                   ! number of waves in wavemaker
@@ -81,6 +82,7 @@ contains
         elseif (trim(adjustl(sRes)) == 'random') then; forcingProps%type = TYPE_RAND_MULTIPLICATIVE; 
         elseif (trim(adjustl(sRes)) == 'sinusoidal') then; forcingProps%type = TYPE_SINUSOIDAL; 
         elseif (trim(adjustl(sRes)) == 'wavemaker') then; forcingProps%type = TYPE_WAVEMAKER; 
+        elseif (trim(adjustl(sRes)) == 'wavemakertanh') then; forcingProps%type = TYPE_WAVEMAKERTANH; 
         else
             call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Error in SpecialForcing.Type.')
             call TLab_Stop(DNS_ERROR_OPTION)
@@ -104,7 +106,7 @@ contains
             select case (forcingProps%type)
             case (TYPE_HOMOGENEOUS)
 
-            case (TYPE_WAVEMAKER)
+            case (TYPE_WAVEMAKER, TYPE_WAVEMAKERTANH)
                 forcingProps%active(1:3) = .true.       ! default is active in x, y, z momentum equations
 
                 do nwaves = 1, nwaves_max
@@ -132,23 +134,31 @@ contains
                 end do
                 nwaves = nwaves - 1                                         ! correct for the increment in the loop
 
-                envelope(:) = 0.0_wp
-                call ScanFile_Char(bakfile, inifile, block, 'Envelope', '1.0, 1.0, 1.0, 1.0, 1.0, 1.0', sRes) ! position and size
-                idummy = MAX_PARS
-                call LIST_REAL(sRes, idummy, envelope)
-                envelope(4) = abs(envelope(4))                              ! make sure the size parameter is positive
-                envelope(5) = abs(envelope(5))                              ! make sure the size parameter is positive
-                envelope(6) = abs(envelope(6))                              ! make sure the size parameter is positive
+                ! envelope(:) = 0.0_wp
+                ! call ScanFile_Char(bakfile, inifile, block, 'Envelope', '1.0, 1.0, 1.0, 1.0, 1.0, 1.0', sRes) ! position and size
+                ! idummy = MAX_PARS
+                ! call LIST_REAL(sRes, idummy, envelope)
+                ! envelope(4) = abs(envelope(4))                              ! make sure the size parameter is positive
+                ! envelope(5) = abs(envelope(5))                              ! make sure the size parameter is positive
+                ! envelope(6) = abs(envelope(6))                              ! make sure the size parameter is positive
 
                 forcingProps%active(2) = .false.                            ! only active in x and z
-
             end select
 
         end if
 
         !########################################################################
+        ! Initialize the nevelope for the wave maker
         select case (forcingProps%type)
         case (TYPE_WAVEMAKER)
+            envelope(:) = 0.0_wp
+            call ScanFile_Char(bakfile, inifile, block, 'Envelope', '1.0, 1.0, 1.0, 1.0, 1.0, 1.0', sRes) ! position and size
+            idummy = MAX_PARS
+            call LIST_REAL(sRes, idummy, envelope)
+            envelope(4) = abs(envelope(4))                              ! make sure the size parameter is positive
+            envelope(5) = abs(envelope(5))                              ! make sure the size parameter is positive
+            envelope(6) = abs(envelope(6))                              ! make sure the size parameter is positive
+
             call TLab_Allocate_Real(__FILE__, tmp_envelope, [imax, jmax, kmax], 'tmp-wave-envelope')
             call TLab_Allocate_Real(__FILE__, tmp_phase, [imax, kmax, nwaves], 'tmp-wave-phase')
 
@@ -178,6 +188,39 @@ contains
 
             ! ! Get buoyancy freq. profile and store into wrk1d; Needed for b-amplitude
             ! call fdm_der1_Z%compute(nx*ny, Profiles_Calculate(sbg(is), z%nodes(k)), wrk1d)
+
+        case (TYPE_WAVEMAKERTANH)
+            ! Tanh profile for wave maker envelope only a function of z
+            ! enveleope has only two parameters: inflection point position and width
+            ! Tanh profile thus only for simulating a horizontally plane wave
+            envelope(:) = 0.0_wp
+            call ScanFile_Char(bakfile, inifile, block, 'EnvelopeTanh', '1.0, 1.0, 0.0, 0.0, 0.0, 0.0', sRes)
+            idummy = MAX_PARS
+            call LIST_REAL(sRes, idummy, envelope)
+            envelope(1) = envelope(1)                              ! position of inflection point
+            envelope(2) = envelope(2)                              ! profile width
+
+            call TLab_Allocate_Real(__FILE__, tmp_envelope, [imax, jmax, kmax], 'tmp-wave-envelope')
+            call TLab_Allocate_Real(__FILE__, tmp_phase, [imax, kmax, nwaves], 'tmp-wave-phase')
+
+#ifdef USE_MPI
+            idsp = ims_offset_i; jdsp = ims_offset_j
+#else
+            idsp = 0; jdsp = 0
+#endif
+            do k = 1, kmax
+                do j = 1, jmax
+                    do i = 1, imax
+                        rx = x%nodes(idsp + i) - envelope(1)
+                        ry = y%nodes(jdsp + j) - envelope(2)
+                        rz = z%nodes(k) - envelope(3)
+                        tmp_envelope(i, j, k) = 0.5*(1.0 + tanh((z%nodes(k) - envelope(1))/(2.0*envelope(2))))
+                        do iwave = 1, nwaves
+                            tmp_phase(i, k, iwave) = rx*wavenumber(1, iwave) + rz*wavenumber(3, iwave)
+                        end do
+                    end do
+                end do
+            end do
             
         end select
 
@@ -196,6 +239,7 @@ contains
 
         ! -----------------------------------------------------------------------
         integer(wi) iwave, i, k
+        ! real(wp) shift
 
         !########################################################################
         select case (locProps%type)
@@ -213,17 +257,21 @@ contains
 
         case (TYPE_SINUSOIDAL_NOSLIP)
 
-        case (TYPE_WAVEMAKER)
-            tmp = 0.0_wp
-            do k = 1, nz
-                tmp(:,:,k) = Profiles_Calculate(qbg(iq), z%nodes(k))
-            end do 
+        case (TYPE_WAVEMAKER, TYPE_WAVEMAKERTANH) 
+            ! if (iq .eq. 4) then
+            !     shift = -pi_wp/2.0_wp
+            ! else
+            !     shift = 0.0_wp
+            ! end if
             do k = 1, nz
                 do i = 1, nx
                     do iwave = 1, nwaves
-                        tmp(i, 1:ny, k) = tmp(i, 1:ny, k) + sin(tmp_phase(i, k, iwave) - frequency(iwave)*time)*amplitude(iq, iwave)
+                        tmp(i, 1:ny, k) = amplitude(iq, iwave)
+                        tmp(i, 1:ny, k) = tmp(i, 1:ny, k)*sin(tmp_phase(i, k, iwave) - frequency(iwave)*time)
+                        ! tmp(i, 1:ny, k) = tmp(i, 1:ny, k)*sin(tmp_phase(i, k, iwave) - frequency(iwave)*time + shift)
                     end do
                 end do
+                tmp(1:nx, 1:ny, k) = Profiles_Calculate(qbg(iq), z%nodes(k)) + tmp(1:nx, 1:ny, k)
             end do
             tmp = (tmp - q)*tmp_envelope*locProps%parameters(1)
             tmp = tmp*ft(time)
@@ -233,8 +281,7 @@ contains
     end subroutine SpecialForcing_Source
 
 
-    ! Perhaps one could avoid this routine by giving tmp_phase an additional 
-    ! dimension?
+    ! Perhaps one could avoid this routine by giving tmp_phase a shift in source above?
     ! tmp_phase(b) = tmp_phase(w) + pi/2
     subroutine GravityWave_Polarization(locProps, nx, ny, nz, is, time, s, tmp)
         ! Buoyancy part of a GW is phase shifted by pi/2 compared to the 
@@ -242,7 +289,7 @@ contains
         ! where U=Asin(Theta) and W=-Acos(Theta) (incompressibility).
         ! Linearized Boussinesq => Fourier space => B=-iN^2/freq*W
         ! => b=-N^2/freq*W*cos(phase)
-        ! Amplitude is set by assuming a linear buoyancy profile (for N).
+        ! Amplitude is set by assuming a linear buoyancy profile (N(z)=N=const).
 
         type(term_dt), intent(in) :: locProps
         integer(wi), intent(in) :: nx, ny, nz, is
@@ -252,11 +299,10 @@ contains
         integer(wi) iwave, i, k
 
         select case (forcingProps%type)
-        case (TYPE_WAVEMAKER)
+        case (TYPE_WAVEMAKER, TYPE_WAVEMAKERTANH)
             do k = 1, nz
                 do i = 1, nx
                     do iwave = 1, nwaves
-                        ! tmp(i, 1:ny, k) = (-sbg(is)%delta/sbg(is)%thick)**2/frequency(iwave)*amplitude(3,iwave)      ! Amplitude
                         tmp(i, 1:ny, k) = amplitude(3+is, iwave)
                         tmp(i, 1:ny, k) = -tmp(i, 1:ny, k)*cos(tmp_phase(i, k, iwave) - frequency(iwave)*time)      ! Wave signal
                     end do

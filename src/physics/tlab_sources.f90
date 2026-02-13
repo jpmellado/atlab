@@ -108,6 +108,7 @@ contains
             ! If forcing is not of type WAVEMAKER, then the call does nothing
             if (forcingProps%active(3)) then
                 call GravityWave_Polarization(forcingProps, imax, jmax, kmax, is, time, s(:, is), tmp1)
+                ! call SpecialForcing_Source(locProps, imax, jmax, kmax, 3+is, time, s(:,is), hs, tmp)
                 hs(:, is) = hs(:, is) + tmp1(:)
             end if
         end do

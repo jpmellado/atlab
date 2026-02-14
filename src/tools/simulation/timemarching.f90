@@ -288,11 +288,9 @@ contains
     ! ###################################################################
     subroutine TMarch_RungeKutta()
         use TLab_Arrays, only: q, s, txc
-        use TLab_Sources, only: TLab_Sources_Flow, TLab_Sources_Scal
+        use TLab_Sources, only: TLab_Sources_Flow, TLab_Sources_Scal, TLab_Sources_Scal_Implicit
         use DNS_Arrays, only: hq, hs
         use DNS_Control, only: DNS_Limit_Bounds
-        use Microphysics, only: Microphysics_Evaporation_Impl, evaporationProps
-        use Thermo_AirWater, only: inb_scal_ql
         use Buffer
 
         ! -------------------------------------------------------------------
@@ -340,7 +338,7 @@ contains
 
             ! -------------------------------------------------------------------
             ! Implicit part
-            call Microphysics_Evaporation_Impl(evaporationProps, imax, jmax, kmax, inb_scal_ql, s, dtrkm)
+            call TLab_Sources_Scal_Implicit(time_step=dtrkm, s=s)
             ! Update of boundary condition still missing
 
             ! -------------------------------------------------------------------

@@ -10,7 +10,7 @@
 !# Includes the scalar to benefit from the same reduction
 !#
 !########################################################################
-subroutine NSE_Anelastic()
+subroutine NSE_Anelastic_PerVolume()
     use TLab_Constants, only: wp, wi, BCS_NN
     use TLab_Memory, only: imax, jmax, kmax, inb_flow, inb_scal
     use TLab_Arrays, only: s
@@ -133,4 +133,4 @@ subroutine NSE_Anelastic()
     end do
 
     return
-end subroutine NSE_Anelastic
+end subroutine NSE_Anelastic_PerVolume

@@ -50,7 +50,6 @@ contains
     ! ###################################################################
     ! ###################################################################
     subroutine der_burgers_periodic_compute(self, nlines, u, du1, du2)
-        ! use TLab_Arrays, only: wrk2d
         use Thomas_Circulant
         class(der_burgers), intent(in) :: self
         integer(wi), intent(in) :: nlines
@@ -58,15 +57,11 @@ contains
         real(wp), intent(out) :: du1(nlines, size(self%der1%rhs, 1))
         real(wp), intent(out) :: du2(nlines, size(self%der1%rhs, 1))
 
-        ! integer nx, ndl1, ndr1, ndl2, ndr2
         integer nx, ndr1, ndr2
 
         ! ###################################################################
-        ! nx = size(self%der1%lu, 1)
         nx = size(self%der1%rhs, 1)
-        ! ndl1 = size(self%der1%lu, 2)
         ndr1 = size(self%der1%rhs, 2)
-        ! ndl2 = size(self%der2%lu, 2)
         ndr2 = size(self%der2%rhs, 2)
 
         ! Calculate RHS in system of equations A u' = B u
@@ -76,10 +71,8 @@ contains
                          u_halo_m=u(:, nx - ndr2/2 + 1:nx), &
                          u_halo_p=u(:, 1:ndr2/2), &
                          f=du1, &
-                        !  L1=self%der1%lu(:, 1:ndl1/2), &
                          L1=self%der1%thomas%L, &
                          g=du2, &
-                        !  L2=self%der2%lu(:, 1:ndl2/2))
                          L2=self%der2%thomas%L)
 
         ! call self%der1%matmul(rhs=self%der1%rhs(1, :), &
@@ -97,21 +90,10 @@ contains
         !                       L=self%der2%lu(:, 1:ndl2/2))
 
         ! Solve for u' in system of equations A u' = B u1
-        ! call self%der1%thomasU(self%der1%lu(:, ndl1/2 + 1:ndl1), du1)
-        ! call self%der2%thomasU(self%der2%lu(:, ndl2/2 + 1:ndl2), du2)
-        ! call ThomasCirculant_3_Reduce(self%der1%lu(:, 1:ndl1/2), &
-        !                               self%der1%lu(:, ndl1/2 + 1:ndl1), &
-        !                               self%der1%z(1, :), &
-        !                               du1, wrk2d(:, 1))
-        ! call ThomasCirculant_3_Reduce(self%der2%lu(:, 1:ndl2/2), &
-        !                               self%der2%lu(:, ndl2/2 + 1:ndl2), &
-        !                               self%der2%z(1, :), &
-        !                               du2, wrk2d(:, 1))
-
         call self%der1%thomas%solveU(du1)
         call self%der1%thomas%reduce(du1)
         call self%der2%thomas%solveU(du2)
-        call self%der2%thomas%reduce(du2)
+        call self%der2%thomas%reduce(du2)     
 
         return
     end subroutine der_burgers_periodic_compute

@@ -15,7 +15,6 @@ module TLab_Grid
         real(wp) scale
         real(wp), allocatable :: nodes(:)
     end type
-    ! type(grid_dt), public, target :: x, y, z
 
     type(grid_dt), public, target :: grid(3)
     type(grid_dt), public, pointer :: x => grid(1), y => grid(2), z => grid(3)

@@ -12,7 +12,7 @@
 !########################################################################
 subroutine NSE_Anelastic_PerVolume()
     use TLab_Constants, only: wp, wi, BCS_NN
-    use TLab_Memory, only: imax, jmax, kmax, inb_flow, inb_scal
+    use TLab_Memory, only: imax, jmax, kmax, inb_scal
     use TLab_Arrays, only: s
     use TLab_Pointers, only: u, v, w, tmp1, tmp2, tmp3, tmp4
     use TLab_Pointers_3D, only: p_q, pxy_tmp2 => tmp2, pxy_tmp3 => tmp3, pxy_tmp4 => tmp4
@@ -27,16 +27,8 @@ subroutine NSE_Anelastic_PerVolume()
     implicit none
 
     ! -----------------------------------------------------------------------
-    integer(wi) iq, is, k
-    integer ibc
+    integer(wi) is, k
     real(wp) dummy
-
-    ! #######################################################################
-    ! Preliminaries for Scalar BC
-    ! (flow BCs initialized below as they are used for pressure in between)
-    ! #######################################################################
-    BcsScalKmin%ref = 0.0_wp ! default is no-slip (dirichlet)
-    BcsScalKmax%ref = 0.0_wp
 
     ! #######################################################################
     ! Diffusion and advection terms
@@ -98,11 +90,19 @@ subroutine NSE_Anelastic_PerVolume()
     call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, tmp1, tmp2)
     hq(:, 3) = hq(:, 3) - tmp2(:)
 
-    ! #######################################################################
-    ! Boundary conditions
-    ! #######################################################################
+    return
+end subroutine NSE_Anelastic_PerVolume
+
+subroutine NSE_Anelastic_PerVolume_BscFlow()
+    use TLab_Memory, only: imax, jmax, kmax, inb_flow
+    use DNS_Arrays
+    use BoundaryConditions
+    use Thermo_Anelastic, only: rbackground
+
+    integer iq, ibc
+
     BcsFlowKmin%ref = 0.0_wp ! default is no-slip (dirichlet)
-    BcsFlowKmax%ref = 0.0_wp ! Scalar BCs initialized at start of routine
+    BcsFlowKmax%ref = 0.0_wp
 
     do iq = 1, inb_flow
         ibc = 0
@@ -117,6 +117,20 @@ subroutine NSE_Anelastic_PerVolume()
         p_hq(:, :, kmax, iq) = BcsFlowKmax%ref(:, :, iq)*rbackground(kmax)
 
     end do
+
+    return
+end subroutine
+
+subroutine NSE_Anelastic_PerVolume_BscScal()
+    use TLab_Memory, only: imax, jmax, kmax, inb_scal
+    use DNS_Arrays
+    use BoundaryConditions
+    use Thermo_Anelastic, only: rbackground
+
+    integer is, ibc
+
+    BcsScalKmin%ref = 0.0_wp ! default is dirichlet
+    BcsScalKmax%ref = 0.0_wp
 
     do is = 1, inb_scal
         ibc = 0
@@ -133,4 +147,4 @@ subroutine NSE_Anelastic_PerVolume()
     end do
 
     return
-end subroutine NSE_Anelastic_PerVolume
+end subroutine

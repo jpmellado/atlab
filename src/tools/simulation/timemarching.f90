@@ -326,10 +326,14 @@ contains
             select case (nse_eqns)
             case (DNS_EQNS_BOUSSINESQ)
                 call NSE_Boussinesq()
+                call NSE_Boussinesq_BscFlow()
+                call NSE_Boussinesq_BscScal()
                 call TMarch_Substep_Boussinesq_Explicit()
 
             case (DNS_EQNS_ANELASTIC)
                 call NSE_Anelastic_PerVolume()
+                call NSE_Anelastic_PerVolume_BscFlow()
+                call NSE_Anelastic_PerVolume_BscScal()
                 call TMarch_Substep_Anelastic_Explicit()
 
             case (DNS_EQNS_COMPRESSIBLE)

@@ -44,7 +44,9 @@ program VPARTIAL
     character(len=32) str
     type(grid_dt) :: x
     class(der_dt), allocatable :: fdm_der1
-    class(der_extended_dt), allocatable :: fdm_der2
+    class(der2_extended_dt), allocatable :: fdm_der2
+
+    real(wp), allocatable :: lhs_aux(:, :)
 
     ! ###################################################################
     ! Initialize
@@ -217,10 +219,10 @@ program VPARTIAL
                 print *, new_line('a'), 'Bcs case ', bcs_cases(ib)
 
                 select type (fdm_der1)
-                type is (der1_biased)
+                type is (der1_biased_extended)
                     select case (bcs_cases(ib))
                     case (BCS_DD)
-                        call fdm_der1%bcsDD%compute(nlines, u, du1_n)
+                        call fdm_der1%compute(nlines, u, du1_n)
 
                     case (BCS_ND)
                         bcs_hb(1:nlines) = du1_a(1:nlines, 1)
@@ -281,7 +283,7 @@ program VPARTIAL
 
                 ! truncated version
                 select type (fdm_der1)
-                type is (der1_biased)
+                type is (der1_biased_extended)
                     call FDM_Der1_NeumannMin_Initialize(fdm_der1, c_b(:), wrk1d(1, 3), wrk1d(1, 4), nmax)
                     ! print *, nmax
                     call FDM_Der1_NeumannMax_Initialize(fdm_der1, c_t(:), wrk1d(1, 3), wrk1d(1, 4), nmax)
@@ -307,7 +309,7 @@ program VPARTIAL
 
                 ! ! full version
                 ! select type (fdm_der1)
-                ! type is (der1_biased)
+                ! type is (der1_biased_extended)
                 ! ! call FDM_Der1_Neumann_Initialize(bcs_cases(ib), g%der1, c_b(:), c_t(:), wrk1d(1, 3), wrk1d(1, 4))
                 ! call FDM_Der1_Neumann_Initialize(bcs_cases(ib), fdm_der1, c_b(:), c_t(:), wrk1d(1, 3), wrk1d(1, 4))
                 ! end select
@@ -373,16 +375,19 @@ program VPARTIAL
             ndr = size(fdm_der1%rhs, 2)
             idr = ndr/2 + 1
 
+            if (allocated(lhs_aux)) deallocate (lhs_aux)
+            allocate (lhs_aux, source=fdm_der1%lhs)
+
             do ib = 1, 3
                 ibc = bcs_cases(ib)
                 print *, new_line('a'), 'Bcs case ', ibc
 
                 select type (fdm_der1)
-                type is (der1_biased)
+                type is (der1_biased_extended)
                     select case (bcs_cases(ib))
                     case (BCS_MIN)
-                        fdm_der1%bcsND%lu = fdm_der1%lhs
-                        call FDM_Bcs_Reduce(ibc, fdm_der1%bcsND%lu, fdm_der1%bcsND%rhs, &
+                        lhs_aux = fdm_der1%lhs
+                        call FDM_Bcs_Reduce(ibc, lhs_aux, fdm_der1%bcsND%rhs, &
                                             rhs_b=fdm_der1%bcsND%rhs_b)
 
                         ! moving extended stencil in first element of old array to natural position
@@ -390,16 +395,18 @@ program VPARTIAL
                         fdm_der1%bcsND%rhs_b(i, ndr + 2) = fdm_der1%bcsND%rhs_b(i, 2)
                         fdm_der1%bcsND%rhs_b(i, 2) = 0.0_wp
 
-                        call Thomas_FactorLU_InPlace(fdm_der1%bcsND%lu(2:nx, 1:ndl/2), &
-                                                     fdm_der1%bcsND%lu(2:nx, ndl/2 + 1:ndl))
+                        fdm_der1%bcsND%thomas%L(2:nx, :) = lhs_aux(2:nx, 1:ndl/2)
+                        fdm_der1%bcsND%thomas%U(2:nx, :) = lhs_aux(2:nx, ndl/2 + 1:ndl)
+                        call Thomas_FactorLU_InPlace(fdm_der1%bcsND%thomas%L(2:, :), &
+                                                     fdm_der1%bcsND%thomas%U(2:, :))
 
                         bcs_hb(1:nlines) = u(1:nlines, 1)
                         call fdm_der1%bcsND%compute(nlines, u, du1_n, bcs_hb(:))
                         du1_n(:, 1) = du1_a(:, 1)
 
                     case (BCS_MAX)
-                        fdm_der1%bcsDN%lu = fdm_der1%lhs
-                        call FDM_Bcs_Reduce(ibc, fdm_der1%bcsDN%lu, fdm_der1%bcsDN%rhs, &
+                        lhs_aux = fdm_der1%lhs
+                        call FDM_Bcs_Reduce(ibc, lhs_aux, fdm_der1%bcsDN%rhs, &
                                             rhs_t=fdm_der1%bcsDN%rhs_t)
 
                         ! moving extended stencil in first element of old array to natural position
@@ -407,16 +414,18 @@ program VPARTIAL
                         fdm_der1%bcsDN%rhs_t(i, 1) = fdm_der1%bcsDN%rhs_t(i, ndr + 1)
                         fdm_der1%bcsDN%rhs_t(i, ndr + 1) = 0.0_wp
 
-                        call Thomas_FactorLU_InPlace(fdm_der1%bcsDN%lu(1:nx - 1, 1:ndl/2), &
-                                                     fdm_der1%bcsDN%lu(1:nx - 1, ndl/2 + 1:ndl))
+                        fdm_der1%bcsDN%thomas%L(:nx - 1, :) = lhs_aux(:nx - 1, 1:ndl/2)
+                        fdm_der1%bcsDN%thomas%U(:nx - 1, :) = lhs_aux(:nx - 1, ndl/2 + 1:ndl)
+                        call Thomas_FactorLU_InPlace(fdm_der1%bcsDN%thomas%L(1:nx - 1, :), &
+                                                     fdm_der1%bcsDN%thomas%U(1:nx - 1, :))
 
                         bcs_ht(1:nlines) = u(1:nlines, kmax)
                         call fdm_der1%bcsDN%compute(nlines, u, du1_n, bcs_ht(:))
                         du1_n(:, kmax) = du1_a(:, kmax)
 
                     case (BCS_BOTH)
-                        fdm_der1%bcsNN%lu = fdm_der1%lhs
-                        call FDM_Bcs_Reduce(ibc, fdm_der1%bcsNN%lu, fdm_der1%bcsNN%rhs, &
+                        lhs_aux = fdm_der1%lhs
+                        call FDM_Bcs_Reduce(ibc, lhs_aux, fdm_der1%bcsNN%rhs, &
                                             rhs_b=fdm_der1%bcsNN%rhs_b, &
                                             rhs_t=fdm_der1%bcsNN%rhs_t)
 
@@ -429,9 +438,10 @@ program VPARTIAL
                         fdm_der1%bcsNN%rhs_t(i, 1) = fdm_der1%bcsNN%rhs_t(i, ndr + 1)
                         fdm_der1%bcsNN%rhs_t(i, ndr + 1) = 0.0_wp
 
-                        call Thomas_FactorLU_InPlace(fdm_der1%bcsNN%lu(2:nx - 1, 1:ndl/2), &
-                                                     fdm_der1%bcsNN%lu(2:nx - 1, ndl/2 + 1:ndl))
-
+                        fdm_der1%bcsNN%thomas%L(2:nx - 1, :) = lhs_aux(2:nx - 1, 1:ndl/2)
+                        fdm_der1%bcsNN%thomas%U(2:nx - 1, :) = lhs_aux(2:nx - 1, ndl/2 + 1:ndl)
+                        call Thomas_FactorLU_InPlace(fdm_der1%bcsNN%thomas%L(2:nx - 1, :), &
+                                                     fdm_der1%bcsNN%thomas%U(2:nx - 1, :))
                         bcs_hb(1:nlines) = u(1:nlines, 1)
                         bcs_ht(1:nlines) = u(1:nlines, kmax)
                         call fdm_der1%bcsNN%compute(nlines, u, du1_n, bcs_hb(:), bcs_ht(:))

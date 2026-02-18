@@ -2,7 +2,7 @@
 module FDM_derivative_Neumann
     use TLab_Constants, only: wp, wi, roundoff_wp
     use TLab_Constants, only: BCS_ND, BCS_DN, BCS_NN
-    use FDM_Derivative_1order, only: der1_biased
+    use FDM_Derivative_1order, only: der1_biased_extended
     implicit none
     private
 
@@ -15,7 +15,7 @@ contains
     ! ###################################################################
     subroutine FDM_Der1_Neumann_Initialize(ibc, der, c_b, c_t, u, z)
         integer, intent(in) :: ibc                          ! Boundary condition [BCS_ND, BCS_DN, BCS_NN]
-        type(der1_biased), intent(in) :: der
+        type(der1_biased_extended), intent(in) :: der
         real(wp), intent(out) :: c_b(size(der%lhs, 1))      ! coefficients for bottom value and top value
         real(wp), intent(out) :: c_t(size(der%lhs, 1))
         real(wp), intent(inout) :: u(1, size(der%lhs, 1))   ! Working arrays
@@ -60,7 +60,7 @@ contains
     ! ###################################################################
     ! Truncated version for BCS_ND
     subroutine FDM_Der1_NeumannMin_Initialize(der, c_b, u, z, n_bcs)
-        type(der1_biased), intent(in) :: der
+        type(der1_biased_extended), intent(in) :: der
         real(wp), intent(out) :: c_b(size(der%lhs, 1))      ! coefficients for bottom value and top value
         real(wp), intent(inout) :: u(1, size(der%lhs, 1))   ! Working arrays
         real(wp), intent(inout) :: z(1, size(der%lhs, 1))
@@ -94,7 +94,7 @@ contains
     ! ###################################################################
     ! Truncated version for BCS_DN
     subroutine FDM_Der1_NeumannMax_Initialize(der, c_t, u, z, n_bcs)
-        type(der1_biased), intent(in) :: der
+        type(der1_biased_extended), intent(in) :: der
         real(wp), intent(out) :: c_t(size(der%lhs, 1))      ! coefficients for bottom value and top value
         real(wp), intent(inout) :: u(1, size(der%lhs, 1))   ! Working arrays
         real(wp), intent(inout) :: z(1, size(der%lhs, 1))

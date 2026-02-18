@@ -134,6 +134,8 @@ contains
         if (trim(adjustl(sRes)) == 'none') then; flag_mixture = 0
         else if (trim(adjustl(sRes)) == 'equilibrium') then; flag_mixture = 1
         else if (trim(adjustl(sRes)) == 'loadfields') then; flag_mixture = 2
+        else if (trim(adjustl(sRes)) == 'offsetp') then; flag_mixture = 3
+        else if (trim(adjustl(sRes)) == 'offsetn') then; flag_mixture = 4
         end if
 
         ! ###################################################################

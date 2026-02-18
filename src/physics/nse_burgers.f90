@@ -1,24 +1,23 @@
 ! Calculate the non-linear operator N(u)(s) = dyn_visc* d^2/dx^2 s - rho u d/dx s
 
 module NSE_Burgers
-    use TLab_Constants, only: wp, wi, efile, lfile, BCS_NONE, MAX_VARS
+    use TLab_Constants, only: wp, wi
+    use TLab_Constants, only: MAX_VARS
+    use TLab_Constants, only: efile, lfile
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
-    use TLab_Arrays, only: wrk2d, wrk3d
+    use TLab_Arrays, only: wrk3d
     use TLab_Transpose
 #ifdef USE_MPI
     use TLabMPI_VARS, only: ims_npro_i, ims_npro_j
     use TLabMPI_Transpose
     use FDM_Derivative_MPISplit
 #endif
-    use TLab_Grid, only: x, y, z, grid
+    use TLab_Grid, only: x, y, z
     use FDM, only: fdm_der1_X, fdm_der1_Y, fdm_der1_Z
     use FDM, only: fdm_der2_X, fdm_der2_Y, fdm_der2_Z
-    use FDM_Derivative_Burgers
     use FDM_Derivative_1order, only: der1_periodic
     use FDM_Derivative_2order, only: der2_extended_periodic
-    use NavierStokes, only: nse_eqns, DNS_EQNS_ANELASTIC
-    use Thermo_Anelastic, only: ribackground, rbackground
-    use NavierStokes, only: visc, schmidt
+    use FDM_Derivative_Burgers
 #ifdef USE_MPI
     use OPR_Partial
 #endif
@@ -45,59 +44,139 @@ module NSE_Burgers
             real(wp), intent(in), optional :: rhou_in(nx*ny*nz) ! transposed field u times density
         end subroutine
     end interface
-    procedure(NSE_AddBurgers_PerVolume_dt), pointer :: NSE_AddBurgers_PerVolume_X, NSE_AddBurgers_PerVolume_Y
+    procedure(NSE_AddBurgers_PerVolume_dt), pointer :: NSE_AddBurgers_PerVolume_X
+    procedure(NSE_AddBurgers_PerVolume_dt), pointer :: NSE_AddBurgers_PerVolume_Y
 
-    real(wp), allocatable :: rho_yz(:), rho_xz(:)   ! rho in anelastic formulation, x and y directions
-    real(wp) :: diffusivity(0:MAX_VARS)
-
-    real(wp), allocatable :: rho_wbackground(:)     ! subsidence velocity (times density)
-
+    ! -----------------------------------------------------------------------
 #ifdef USE_MPI
     type(der_burgers_mpisplit) :: fdm_burgersX_split, fdm_burgersY_split
 #endif
     type(der_burgers) :: fdm_burgersX, fdm_burgersY
 
+    ! -----------------------------------------------------------------------
+    real(wp) :: diffusivity(0:MAX_VARS)
+
+    real(wp), allocatable :: rho_wbackground(:)     ! subsidence velocity (times density)
+
+    type, abstract :: burgers1d
+        real(wp) :: diffusivity
+    contains
+        procedure :: initialize => burgers1d_initialize
+        procedure :: compute => burgers1d_compute
+        procedure :: compute_setrhou => burgers1d_compute_setrhou
+    end type
+
+    type, extends(burgers1d) :: burgers1d_boussinesq
+    contains
+    end type
+
+    type, extends(burgers1d) :: burgers1d_anelastic
+        real(wp), allocatable :: rho(:)
+    contains
+    end type
+
+    class(burgers1d), allocatable :: burgers1d_X(:), burgers1d_Y(:)
+
 contains
     !########################################################################
     !########################################################################
-    subroutine NSE_Burgers_Initialize(inifile)
+    subroutine burgers1d_initialize(self, diffusivity, axis)
+        class(burgers1d), intent(out) :: self
+        real(wp), intent(in) :: diffusivity
+        character(len=*), intent(in) :: axis
+
+        self%diffusivity = diffusivity
+
+        select type (self)
+        type is (burgers1d_anelastic)
+            call anelastic_initialize_rho(self%rho, axis)
+        end select
+
+        return
+
+    end subroutine burgers1d_initialize
+
+    !########################################################################
+    !########################################################################
+    subroutine burgers1d_compute(self, nlines, nsize, der1, der2, rhou)
+        class(burgers1d) self
+        integer(wi), intent(in) :: nlines, nsize
+        real(wp), intent(in) :: der1(nlines, nsize)
+        real(wp), intent(inout) :: der2(nlines, nsize)
+        real(wp), intent(in) :: rhou(nlines, nsize)
+
+#define result(i,j) der2(i,j)
+
+        result(:, :) = der2(:, :)*self%diffusivity - rhou(:, :)*der1(:, :)
+
+#undef result
+
+        return
+    end subroutine burgers1d_compute
+
+    !########################################################################
+    !########################################################################
+    subroutine burgers1d_compute_setrhou(self, nlines, nsize, der1, der2, rhou)
+        class(burgers1d) self
+        integer(wi), intent(in) :: nlines, nsize
+        real(wp), intent(in) :: der1(nlines, nsize)
+        real(wp), intent(inout) :: der2(nlines, nsize)
+        real(wp), intent(inout) :: rhou(nlines, nsize)
+
+        select type (self)
+        type is (burgers1d_anelastic)
+            call anelastic_compute_setrho(self, nlines, nsize, der1, der2, rhou)
+
+        type is (burgers1d_boussinesq)
+            call self%compute(nlines, nsize, der1, der2, rhou)
+
+        end select
+
+        return
+    end subroutine burgers1d_compute_setrhou
+
+    !########################################################################
+    !########################################################################
+    subroutine anelastic_compute_setrho(self, nlines, nsize, der1, der2, rhou)
+        class(burgers1d_anelastic) self
+        integer(wi), intent(in) :: nlines, nsize
+        real(wp), intent(in) :: der1(nlines, nsize)
+        real(wp), intent(inout) :: der2(nlines, nsize)
+        real(wp), intent(inout) :: rhou(nlines, nsize)
+
+        integer ij
+
+#define result(i,j) der2(i,j)
+
+        do ij = 1, nsize
+            rhou(:, ij) = rhou(:, ij)*self%rho(:)
+            result(:, ij) = der2(:, ij)*self%diffusivity - rhou(:, ij)*der1(:, ij)
+        end do
+
+#undef result
+
+        return
+    end subroutine anelastic_compute_setrho
+
+    !########################################################################
+    !########################################################################
+    subroutine anelastic_initialize_rho(rho, axis)
         use TLab_Memory, only: imax, jmax, kmax
-        use TLab_Memory, only: TLab_Allocate_Real
-        use TLab_Memory, only: inb_scal
 #ifdef USE_MPI
         use TLabMPI_VARS, only: ims_pro_i, ims_npro_i, ims_pro_j, ims_npro_j
 #endif
+        use Thermo_Anelastic, only: rbackground
+        real(wp), allocatable, intent(out) :: rho(:)
+        character(len=*), intent(in) :: axis
 
-        character(len=*), intent(in) :: inifile
-
-        ! -----------------------------------------------------------------------
-        character(len=32) bakfile
-
-        integer(wi) is, ip, j
+        integer(wi) ip, j
         integer(wi) nlines, offset
 
-        ! ###################################################################
-        ! Read input data
-        bakfile = trim(adjustl(inifile))//'.bak'
-
-        ! ###################################################################
-        ! Initialize diffusivity
-        do is = 0, inb_scal
-            if (is == 0) then
-                diffusivity(is) = visc
-            else
-                diffusivity(is) = visc/schmidt(is)
-            end if
-
-        end do
-
-        ! ###################################################################
-        ! Initialize anelastic density correction
-        if (nse_eqns == DNS_EQNS_ANELASTIC) then
-            call TLab_Write_ASCII(lfile, 'Initialize anelastic density correction in burgers operator.')
-
+        !########################################################################
+        select case (trim(adjustl(axis)))
             ! -----------------------------------------------------------------------
             ! Density correction term in the burgers operator along X
+        case ('x')
 #ifdef USE_MPI
             if (ims_npro_i > 1 .and. der_mode_i == TYPE_TRANSPOSE) then
                 nlines = tmpi_plan_dx%nlines
@@ -109,14 +188,15 @@ contains
 #ifdef USE_MPI
             end if
 #endif
-            allocate (rho_yz(nlines))
+            allocate (rho(nlines))
             do j = 1, nlines
                 ip = (offset + j - 1)/jmax + 1
-                rho_yz(j) = rbackground(ip)
+                rho(j) = rbackground(ip)
             end do
 
             ! -----------------------------------------------------------------------
             ! Density correction term in the burgers operator along Y
+        case ('y')
 #ifdef USE_MPI
             if (ims_npro_j > 1 .and. der_mode_j == TYPE_TRANSPOSE) then
                 nlines = tmpi_plan_dy%nlines
@@ -128,13 +208,61 @@ contains
 #ifdef USE_MPI
             end if
 #endif
-            allocate (rho_xz(nlines))
+            allocate (rho(nlines))
             do j = 1, nlines
                 ip = mod(offset + j - 1, z%size) + 1
-                rho_xz(j) = rbackground(ip)
+                rho(j) = rbackground(ip)
             end do
 
-        end if
+        end select
+
+        return
+    end subroutine anelastic_initialize_rho
+
+    !########################################################################
+    !########################################################################
+    subroutine NSE_Burgers_Initialize(inifile)
+        use TLab_Memory, only: TLab_Allocate_Real
+        use TLab_Memory, only: inb_scal
+        use NavierStokes, only: nse_eqns, DNS_EQNS_ANELASTIC, DNS_EQNS_BOUSSINESQ
+        use NavierStokes, only: visc, schmidt
+        use Thermo_Anelastic, only: rbackground
+
+        character(len=*), intent(in) :: inifile
+
+        ! -----------------------------------------------------------------------
+        character(len=32) bakfile
+
+        integer(wi) is
+
+        ! ###################################################################
+        ! Read input data
+        bakfile = trim(adjustl(inifile))//'.bak'
+
+        ! ###################################################################
+        select case (nse_eqns)
+        case (DNS_EQNS_ANELASTIC)
+            allocate (burgers1d_anelastic :: burgers1d_X(0:inb_scal))
+            allocate (burgers1d_anelastic :: burgers1d_Y(0:inb_scal))
+
+        case (DNS_EQNS_BOUSSINESQ)
+            allocate (burgers1d_boussinesq :: burgers1d_X(0:inb_scal))
+            allocate (burgers1d_boussinesq :: burgers1d_Y(0:inb_scal))
+
+        end select
+
+        do is = 0, inb_scal
+            if (is == 0) then
+                diffusivity(is) = visc
+                call burgers1d_X(is)%initialize(visc, 'x')
+                call burgers1d_Y(is)%initialize(visc, 'y')
+            else
+                diffusivity(is) = visc/schmidt(is)
+                call burgers1d_X(is)%initialize(visc/schmidt(is), 'x')
+                call burgers1d_Y(is)%initialize(visc/schmidt(is), 'y')
+            end if
+
+        end do
 
         ! ###################################################################
         ! Initialize subsidence velocity (times density) to handle both Boussinesq and anelastic
@@ -154,7 +282,7 @@ contains
                 NSE_AddBurgers_PerVolume_X => NSE_AddBurgers_PerVolume_X_MPITranspose
             case (TYPE_SPLIT)
                 NSE_AddBurgers_PerVolume_X => NSE_AddBurgers_PerVolume_X_MPISplit
-                call fdm_burgersX_split%initialize(fdm_der1_X, fdm_der2_X, 'x')
+                call fdm_burgersX_split%initialize(fdm_der1_X_split, fdm_der2_X_split)
             end select
         else
 #endif
@@ -178,7 +306,7 @@ contains
                 NSE_AddBurgers_PerVolume_Y => NSE_AddBurgers_PerVolume_Y_MPITranspose
             case (TYPE_SPLIT)
                 NSE_AddBurgers_PerVolume_Y => NSE_AddBurgers_PerVolume_Y_MPISplit
-                call fdm_burgersY_split%initialize(fdm_der1_Y, fdm_der2_Y, 'y')
+                call fdm_burgersY_split%initialize(fdm_der1_Y_split, fdm_der2_Y_split)
             end select
         else
 #endif
@@ -231,18 +359,9 @@ contains
         ! call fdm_burgersX%compute(nlines, tmp1, result, wrk3d)
 
         if (present(rhou_in)) then      ! transposed velocity (times density) is passed as argument
-            wrk3d(1:nx*ny*nz) = wrk3d(1:nx*ny*nz)*diffusivity(is) - rhou_in(:)*result(:)
+            call burgers1d_X(is)%compute(nlines, nx, der1=result, der2=wrk3d, rhou=rhou_in)
         else
-            if (nse_eqns == DNS_EQNS_ANELASTIC) then
-                call NSE_Burgers_1D(nlines, nx, &
-                                    der1=result, &
-                                    der2=wrk3d, &
-                                    rhou=tmp1, &
-                                    rho_xy=rho_yz(:), &
-                                    diff=diffusivity(is))
-            else
-                wrk3d(1:nx*ny*nz) = wrk3d(1:nx*ny*nz)*diffusivity(is) - tmp1(:)*result(:)
-            end if
+            call burgers1d_X(is)%compute_setrhou(nlines, nx, der1=result, der2=wrk3d, rhou=tmp1)
         end if
 
         ! Put arrays back in the order in which they came in
@@ -291,18 +410,9 @@ contains
         call fdm_der2_X%compute(nlines, tmp1, result, wrk3d)
 
         if (present(rhou_in)) then      ! transposed velocity (times density) is passed as argument
-            result(:) = result(:)*diffusivity(is) - rhou_in(:)*wrk3d(1:nx*ny*nz)
+            call burgers1d_X(is)%compute(nlines, nx*ims_npro_i, der1=wrk3d, der2=result, rhou=rhou_in)
         else
-            if (nse_eqns == DNS_EQNS_ANELASTIC) then
-                call NSE_Burgers_1D(nlines, nx*ims_npro_i, &
-                                    der1=wrk3d, &
-                                    der2=result, &
-                                    rhou=tmp1, &
-                                    rho_xy=rho_yz(:), &
-                                    diff=diffusivity(is))
-            else
-                result(:) = result(:)*diffusivity(is) - tmp1(:)*wrk3d(1:nx*ny*nz)
-            end if
+            call burgers1d_X(is)%compute_setrhou(nlines, nx*ims_npro_i, der1=wrk3d, der2=result, rhou=tmp1)
         end if
 
         ! Put arrays back in the order in which they came in
@@ -359,18 +469,9 @@ contains
         ! call fdm_burgersX_split%compute(nlines, tmp1, pyz_halo_m(:, 1:np), pyz_halo_p(:, 1:np), result, wrk3d)
 
         if (present(rhou_in)) then      ! transposed velocity (times density) is passed as argument
-            wrk3d(1:nx*ny*nz) = wrk3d(1:nx*ny*nz)*diffusivity(is) - rhou_in(:)*result(:)
+            call burgers1d_X(is)%compute(nlines, nx, der1=result, der2=wrk3d, rhou=rhou_in)
         else
-            if (nse_eqns == DNS_EQNS_ANELASTIC) then
-                call NSE_Burgers_1D(nlines, nx, &
-                                    der1=result, &
-                                    der2=wrk3d, &
-                                    rhou=tmp1, &
-                                    rho_xy=rho_yz(:), &
-                                    diff=diffusivity(is))
-            else
-                wrk3d(1:nx*ny*nz) = wrk3d(1:nx*ny*nz)*diffusivity(is) - tmp1(:)*result(:)
-            end if
+            call burgers1d_X(is)%compute_setrhou(nlines, nx, der1=result, der2=wrk3d, rhou=tmp1)
         end if
 
         ! Put arrays back in the order in which they came in
@@ -420,19 +521,9 @@ contains
         ! call fdm_burgersY%compute(nlines, tmp1, result, wrk3d)
 
         if (present(rhou_in)) then      ! transposed velocity (times density) is passed as argument
-            wrk3d(1:nx*ny*nz) = wrk3d(1:nx*ny*nz)*diffusivity(is) - rhou_in(:)*result(:)
+            call burgers1d_Y(is)%compute(nlines, ny, der1=result, der2=wrk3d, rhou=rhou_in)
         else
-            if (nse_eqns == DNS_EQNS_ANELASTIC) then
-                call NSE_Burgers_1D(nlines, ny, &
-                                    der1=result, &
-                                    der2=wrk3d, &
-                                    rhou=tmp1, &
-                                    rho_xy=rho_xz(:), &
-                                    diff=diffusivity(is))
-            else
-                wrk3d(1:nx*ny*nz) = wrk3d(1:nx*ny*nz)*diffusivity(is) - tmp1(:)*result(:)
-            end if
-
+            call burgers1d_Y(is)%compute_setrhou(nlines, ny, der1=result, der2=wrk3d, rhou=tmp1)
         end if
 
         ! Put arrays back in the order in which they came in
@@ -480,19 +571,9 @@ contains
         call fdm_der2_Y%compute(nlines, tmp1, result, wrk3d)
 
         if (present(rhou_in)) then      ! transposed velocity (times density) is passed as argument
-            result(:) = result(:)*diffusivity(is) - rhou_in(:)*wrk3d(1:nx*ny*nz)
+            call burgers1d_Y(is)%compute(nlines, ny*ims_npro_j, der1=wrk3d, der2=result, rhou=rhou_in)
         else
-            if (nse_eqns == DNS_EQNS_ANELASTIC) then
-                call NSE_Burgers_1D(nlines, ny*ims_npro_j, &
-                                    der1=wrk3d, &
-                                    der2=result, &
-                                    rhou=tmp1, &
-                                    rho_xy=rho_xz(:), &
-                                    diff=diffusivity(is))
-            else
-                result(:) = result(:)*diffusivity(is) - tmp1(:)*wrk3d(1:nx*ny*nz)
-            end if
-
+            call burgers1d_Y(is)%compute_setrhou(nlines, ny*ims_npro_j, der1=wrk3d, der2=result, rhou=tmp1)
         end if
 
         ! Put arrays back in the order in which they came in
@@ -549,19 +630,9 @@ contains
         ! call fdm_burgersY_split%compute(nlines, tmp1, pxz_halo_m(:, 1:np), pxz_halo_p(:, 1:np), result, wrk3d)
 
         if (present(rhou_in)) then      ! transposed velocity (times density) is passed as argument
-            wrk3d(1:nx*ny*nz) = wrk3d(1:nx*ny*nz)*diffusivity(is) - rhou_in(:)*result(:)
+            call burgers1d_Y(is)%compute(nlines, ny, der1=result, der2=wrk3d, rhou=rhou_in)
         else
-            if (nse_eqns == DNS_EQNS_ANELASTIC) then
-                call NSE_Burgers_1D(nlines, ny, &
-                                    der1=result, &
-                                    der2=wrk3d, &
-                                    rhou=tmp1, &
-                                    rho_xy=rho_xz(:), &
-                                    diff=diffusivity(is))
-            else
-                wrk3d(1:nx*ny*nz) = wrk3d(1:nx*ny*nz)*diffusivity(is) - tmp1(:)*result(:)
-            end if
-
+            call burgers1d_Y(is)%compute_setrhou(nlines, ny, der1=result, der2=wrk3d, rhou=tmp1)
         end if
 
         ! Put arrays back in the order in which they came in
@@ -581,6 +652,7 @@ contains
     !########################################################################
     subroutine NSE_AddBurgers_PerVolume_Z(is, nx, ny, nz, s, result, tmp1, rhou_in, rhou_out)
         use TLab_Pointers_2D, only: pxy_wrk3d
+        use Thermo_Anelastic, only: rbackground
         integer, intent(in) :: is                       ! scalar index; if 0, then velocity
         integer(wi), intent(in) :: nx, ny, nz
         real(wp), intent(in) :: s(nx*ny, nz)
@@ -601,27 +673,26 @@ contains
 
         call fdm_der1_Z%compute(nlines, s, wrk3d)
         call fdm_der2_Z%compute(nlines, s, tmp1, wrk3d)
-        tmp1 = tmp1*diffusivity(is)
 
         if (present(rhou_in)) then      ! transposed velocity (times density) is passed as argument
             if (subsidenceProps%type == TYPE_SUB_CONSTANT) then
                 do k = 1, nz
-                    result(:, k) = result(:, k) + tmp1(:, k) + (rho_wbackground(k) - rhou_in(:, k))*pxy_wrk3d(:, k)
+                    result(:, k) = result(:, k) + tmp1(:, k)*diffusivity(is) + (rho_wbackground(k) - rhou_in(:, k))*pxy_wrk3d(:, k)
                 end do
             else
-                result(:, :) = result(:, :) + tmp1(:, :) - rhou_in(:, :)*pxy_wrk3d(:, :)
+                result(:, :) = result(:, :) + tmp1(:, :)*diffusivity(is) - rhou_in(:, :)*pxy_wrk3d(:, :)
             end if
 
         else                            ! Only used in anelastic formulation
             if (subsidenceProps%type == TYPE_SUB_CONSTANT) then
                 do k = 1, nz
                     rhou_out(:, k) = s(:, k)*rbackground(k)
-                    result(:, k) = result(:, k) + tmp1(:, k) + (rho_wbackground(k) - rhou_out(:, k))*pxy_wrk3d(:, k)
+                    result(:, k) = result(:, k) + tmp1(:, k)*diffusivity(is) + (rho_wbackground(k) - rhou_out(:, k))*pxy_wrk3d(:, k)
                 end do
             else
                 do k = 1, nz
                     rhou_out(:, k) = s(:, k)*rbackground(k)
-                    result(:, k) = result(:, k) + tmp1(:, k) - rhou_out(:, k)*pxy_wrk3d(:, k)
+                    result(:, k) = result(:, k) + tmp1(:, k)*diffusivity(is) - rhou_out(:, k)*pxy_wrk3d(:, k)
                 end do
             end if
 
@@ -629,44 +700,5 @@ contains
 
         return
     end subroutine NSE_AddBurgers_PerVolume_Z
-
-    ! !########################################################################
-    ! !########################################################################
-    ! subroutine NSE_Burgers_1D_Old(nlines, nsize, der1, der2, rhou, rho_xy)
-    !     integer(wi), intent(in) :: nlines, nsize
-    !     real(wp), intent(in) :: der1(nlines, nsize)
-    !     real(wp), intent(inout) :: der2(nlines, nsize)
-    !     real(wp), intent(inout) :: rhou(nlines, nsize)
-    !     real(wp), intent(in) :: rho_xy(nlines)
-
-    !     integer(wi) ij
-
-    !     do ij = 1, nsize
-    !         rhou(:, ij) = rhou(:, ij)*rho_xy(:)
-    !         der2(:, ij) = der2(:, ij) - rhou(:, ij)*der1(:, ij)
-    !     end do
-
-    !     return
-    ! end subroutine NSE_Burgers_1D_Old
-
-    !########################################################################
-    !########################################################################
-    subroutine NSE_Burgers_1D(nlines, nsize, der1, der2, rhou, rho_xy, diff)
-        integer(wi), intent(in) :: nlines, nsize
-        real(wp), intent(in) :: der1(nlines, nsize)
-        real(wp), intent(inout) :: der2(nlines, nsize)
-        real(wp), intent(inout) :: rhou(nlines, nsize)
-        real(wp), intent(in) :: rho_xy(nlines)
-        real(wp), intent(in) :: diff
-
-        integer(wi) ij
-
-        do ij = 1, nsize
-            rhou(:, ij) = rhou(:, ij)*rho_xy(:)
-            der2(:, ij) = der2(:, ij)*diff - rhou(:, ij)*der1(:, ij)
-        end do
-
-        return
-    end subroutine NSE_Burgers_1D
 
 end module NSE_Burgers

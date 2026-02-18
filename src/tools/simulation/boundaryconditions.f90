@@ -49,7 +49,7 @@ contains
         use TLab_Memory, only: imax, jmax, kmax, inb_flow_array, inb_scal_array, inb_scal
         use TLab_Arrays, only: wrk1d
         use FDM_derivative_Neumann
-        use FDM_Derivative_1order, only: der1_biased
+        use FDM_Derivative_1order, only: der1_biased_extended
         use FDM, only: fdm_der1_Z
         use NavierStokes
 
@@ -169,7 +169,7 @@ contains
             allocate (c_b(kmax), c_t(kmax))
 
             select type (fdm_der1_Z)
-            type is (der1_biased)
+            type is (der1_biased_extended)
 
                 call FDM_Der1_NeumannMin_Initialize(fdm_der1_Z, c_b(:), wrk1d(1, 1), wrk1d(1, 2), k_bcs_b)
                 write (str, *) k_bcs_b

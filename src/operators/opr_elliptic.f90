@@ -62,7 +62,7 @@ module OPR_Elliptic
     integer(wi) i_sing(2), j_sing(2)                                ! singular modes
     integer(wi) i, j, i_max, isize_line
 
-    class(der_extended_dt), allocatable :: fdm_der2
+    class(der2_extended_dt), allocatable :: fdm_der2
 
     type(fdm_integral_dt), allocatable :: fdm_int1(:, :, :)         ! factorized method
     real(wp), allocatable, target :: rhs_b(:, :), rhs_t(:, :)       ! rhs to free memory space

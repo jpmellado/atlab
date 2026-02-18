@@ -2,13 +2,15 @@
 
 ! Split algorithm assumes periodic case over uniform grid
 module FDM_Derivative_MPISplit
-    use TLab_Constants, only: wp, wi, efile
+    use TLab_Constants, only: wp, wi
+    use TLab_Constants, only: efile
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
-    use TLabMPI_VARS
-    use FDM_Derivative_Base, only: der_dt, der_periodic
+    use TLabMPI_VARS, only: ims_comm_x, ims_npro_i, ims_pro_i
+    use TLabMPI_VARS, only: ims_comm_y, ims_npro_j, ims_pro_j
+    use FDM_Derivative_Base, only: der_periodic
     use FDM_Derivative_Base, only: matmul_halo_thomas_ice, matmul_halo_thomas_combined_ice
     use FDM_Derivative_1order, only: der1_periodic
-    use FDM_Derivative_2order, only: der_extended_dt, der2_extended_periodic
+    use FDM_Derivative_2order, only: der2_periodic
     use Thomas
     use Thomas_Split
     implicit none
@@ -19,14 +21,15 @@ module FDM_Derivative_MPISplit
 
     ! -----------------------------------------------------------------------
     type :: der_mpisplit
-        ! procedure(matmul_halo_ice), pointer, nopass :: matmul
-        procedure(matmul_halo_thomas_ice), pointer, nopass :: matmul
+        integer type                                ! finite-difference method
         real(wp), pointer :: rhs(:, :) => null()
-        type(thomas3_split_dt) thomas3
     contains
     end type
 
     type, extends(der_mpisplit) :: der_periodic_mpisplit
+        ! procedure(matmul_halo_ice), pointer, nopass :: matmul => null()
+        procedure(matmul_halo_thomas_ice), pointer, nopass :: matmul => null()
+        type(thomas3_split_dt) thomas3
     contains
         procedure :: initialize => der_periodic_initialize
         procedure :: compute => der_periodic_compute
@@ -34,8 +37,8 @@ module FDM_Derivative_MPISplit
 
     type :: der_burgers_mpisplit
         procedure(matmul_halo_thomas_combined_ice), pointer, nopass :: matmul => null()
-        type(der_periodic_mpisplit) der1
-        type(der_periodic_mpisplit) der2
+        type(der_periodic_mpisplit), pointer :: der1 => null()
+        type(der_periodic_mpisplit), pointer :: der2 => null()
     contains
         procedure :: initialize => der_burgers_periodic_initialize
         procedure :: compute => der_burgers_periodic_compute
@@ -57,6 +60,8 @@ contains
             call TLab_Write_ASCII(efile, __FILE__//'. Matrix splitting only for tridiagonal.')
             call TLab_Stop(DNS_ERROR_UNDEVELOP)
         end if
+
+        self%type = ref%type
 
         self%matmul => ref%matmul
         self%rhs => ref%rhs
@@ -117,25 +122,19 @@ contains
 
     ! ###################################################################
     ! ###################################################################
-    subroutine der_burgers_periodic_initialize(self, ref1, ref2, axis)
+    subroutine der_burgers_periodic_initialize(self, fdm_der1, fdm_der2)
         use FDM_Base, only: FDM_COM6_JACOBIAN, FDM_COM6_JACOBIAN_HYPER
         use Matmul_Halo_Thomas, only: MatMul_Halo_5_antisym_7_sym_ThomasL_3
         class(der_burgers_mpisplit), intent(out) :: self
-        class(der_dt), intent(in) :: ref1
-        class(der_extended_dt), intent(in) :: ref2
-        character(len=*), intent(in) :: axis
+        class(der_periodic_mpisplit), intent(in), target :: fdm_der1
+        class(der_periodic_mpisplit), intent(in), target :: fdm_der2
 
-        select type (ref1)
-        type is (der1_periodic)
-            call der_periodic_initialize(self%der1, ref1, axis)
-        end select
+        ! ###################################################################
+        self%der1 => fdm_der1
+        self%der2 => fdm_der2
 
-        select type (ref2)
-        type is (der2_extended_periodic)
-            call der_periodic_initialize(self%der2, ref2%der2, axis)
-        end select
-
-        if (ref1%type == FDM_COM6_JACOBIAN .and. ref2%type == FDM_COM6_JACOBIAN_HYPER) then
+        if (fdm_der1%type == FDM_COM6_JACOBIAN .and. &
+            fdm_der2%type == FDM_COM6_JACOBIAN_HYPER) then
             self%matmul => MatMul_Halo_5_antisym_7_sym_ThomasL_3
         else
             call TLab_Write_ASCII(efile, __FILE__//'. Burgers splitting only for tridiagonal.')
@@ -189,8 +188,10 @@ contains
 
         call Thomas3_SolveU(self%der1%thomas3%lhs(:, 2:3), du1)
         call Thomas3_SolveU(self%der2%thomas3%lhs(:, 2:3), du2)
-        call ThomasSplit_3_Reduce_MPI(self%der1%thomas3, du1, wrk2d(:, 1), wrk2d(:, 2))
-        call ThomasSplit_3_Reduce_MPI(self%der2%thomas3, du2, wrk2d(:, 1), wrk2d(:, 2))
+        call ThomasSplit_3_Reduce_MPI(self%der1%thomas3, &
+                                      du1, wrk2d(:, 1), wrk2d(:, 2))
+        call ThomasSplit_3_Reduce_MPI(self%der2%thomas3, &
+                                      du2, wrk2d(:, 1), wrk2d(:, 2))
 
         return
     end subroutine

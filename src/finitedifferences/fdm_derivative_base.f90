@@ -1,7 +1,19 @@
 module FDM_Derivative_Base
     use TLab_Constants, only: wp, wi
+    use Thomas, only: thomas_dt
+    use Thomas_Circulant, only: thomas_circulant_dt
     implicit none
-    ! everything is public, so no private statement
+    private
+
+    public :: der_dt
+    public :: der_periodic
+    public :: der_biased
+
+    ! public :: matmul_halo_ice
+    public :: matmul_halo_thomas_ice
+    public :: matmul_halo_thomas_combined_ice
+    ! public :: matmul_ice
+    public :: matmul_thomas_ice
 
     ! -----------------------------------------------------------------------
     type, abstract :: der_dt
@@ -31,17 +43,17 @@ module FDM_Derivative_Base
     type, extends(der_dt), abstract :: der_periodic
         ! procedure(matmul_halo_ice), pointer, nopass :: matmul => null()
         procedure(matmul_halo_thomas_ice), pointer, nopass :: matmul => null()
-        procedure(thomas_ice), pointer, nopass :: thomasU => null()
-        real(wp), allocatable :: lu(:, :)               ! LU decomposition
-        real(wp), allocatable :: z(:, :)                ! boundary corrections
+        type(thomas_circulant_dt) :: thomas
     contains
+        procedure :: compute => der_periodic_compute
     end type
 
     type, extends(der_dt), abstract :: der_biased
         ! procedure(matmul_ice), pointer, nopass :: matmul => null()
         procedure(matmul_thomas_ice), pointer, nopass :: matmul => null()
-        procedure(thomas_ice), pointer, nopass :: thomasU => null()
+        type(thomas_dt) :: thomas
     contains
+        procedure :: compute => der_biased_compute
     end type
 
     ! -----------------------------------------------------------------------
@@ -97,12 +109,71 @@ module FDM_Derivative_Base
             real(wp), intent(inout), optional :: bcs_b(:), bcs_t(:)
         end subroutine
 
-        subroutine thomas_ice(A, f)
-            use TLab_Constants, only: wp
-            real(wp), intent(in) :: A(:, :)
-            real(wp), intent(inout) :: f(:, :)          ! RHS and solution
-        end subroutine
-
     end interface
+
+contains
+    ! ###################################################################
+    ! ###################################################################
+    subroutine der_periodic_compute(self, nlines, u, result)
+        class(der_periodic), intent(in) :: self
+        integer(wi), intent(in) :: nlines
+        real(wp), intent(in) :: u(nlines, size(self%lhs, 1))
+        real(wp), intent(out) :: result(nlines, size(self%lhs, 1))
+
+        integer nx, ndr
+
+        ! ###################################################################
+        nx = size(self%lhs, 1)
+        ndr = size(self%rhs, 2)
+
+        ! Calculate RHS in system of equations A u' = B u
+        ! call self%matmul(rhs=self%rhs(1, 1:ndr), &
+        !                    u=u, &
+        !                    u_halo_m=u(:, nx - ndr/2 + 1:nx), &
+        !                    u_halo_p=u(:, 1:ndr/2), &
+        !                    f=result)
+        call self%matmul(rhs=self%rhs(1, 1:ndr), &
+                         u=u, &
+                         u_halo_m=u(:, nx - ndr/2 + 1:nx), &
+                         u_halo_p=u(:, 1:ndr/2), &
+                         f=result, &
+                         L=self%thomas%L)
+
+        ! Solve for u' in system of equations A u' = B u
+        ! call self%thomas%solveL(result)
+        call self%thomas%solveU(result)
+        call self%thomas%reduce(result)
+
+        return
+    end subroutine der_periodic_compute
+
+    ! ###################################################################
+    ! ###################################################################
+    subroutine der_biased_compute(self, nlines, u, result)
+        class(der_biased), intent(in) :: self
+        integer(wi), intent(in) :: nlines
+        real(wp), intent(in) :: u(nlines, size(self%rhs, 1))
+        real(wp), intent(out) :: result(nlines, size(self%rhs, 1))
+
+        integer nx, ndr
+
+        ! ###################################################################
+        nx = size(self%rhs, 1)
+        ndr = size(self%rhs, 2)
+
+        ! Calculate RHS in A u' = B u
+        call self%matmul(rhs=self%rhs, &
+                         rhs_b=self%rhs(1:ndr/2, 1:ndr), &
+                         rhs_t=self%rhs(nx - ndr/2 + 1:nx, 1:ndr), &
+                         u=u, &
+                         f=result, &
+                         L=self%thomas%L)
+
+        ! Solve for u' in system of equations A u' = B u
+        ! call self%thomas%solveL(result)
+        call self%thomas%solveU(result)
+
+        return
+    end subroutine der_biased_compute
 
 end module FDM_Derivative_Base

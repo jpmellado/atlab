@@ -7,7 +7,6 @@ module SpecialForcing
     use TLab_Memory, only: TLab_Allocate_Real
     use TLab_Grid, only: x, y, z
     use Tlab_Background, only: qbg, sbg
-    ! use TLab_Arrays, only: wrk1d
     use Profiles, only: Profiles_Calculate
     implicit none
     private
@@ -134,15 +133,7 @@ contains
                 end do
                 nwaves = nwaves - 1                                         ! correct for the increment in the loop
 
-                ! envelope(:) = 0.0_wp
-                ! call ScanFile_Char(bakfile, inifile, block, 'Envelope', '1.0, 1.0, 1.0, 1.0, 1.0, 1.0', sRes) ! position and size
-                ! idummy = MAX_PARS
-                ! call LIST_REAL(sRes, idummy, envelope)
-                ! envelope(4) = abs(envelope(4))                              ! make sure the size parameter is positive
-                ! envelope(5) = abs(envelope(5))                              ! make sure the size parameter is positive
-                ! envelope(6) = abs(envelope(6))                              ! make sure the size parameter is positive
-
-                forcingProps%active(2) = .false.                            ! only active in x and z
+                ! forcingProps%active(2) = .false.                            ! only active in x and z
             end select
 
         end if
@@ -171,7 +162,7 @@ contains
             dummy(1) = 0.5_wp/envelope(4)**2.0_wp ! width in x-direction
             dummy(2) = 0.5_wp/envelope(5)**2.0_wp ! width y-direction
             dummy(3) = 0.5_wp/envelope(6)**2.0_wp ! width z-direction
-            
+
             do k = 1, kmax
                 do j = 1, jmax
                     do i = 1, imax
@@ -229,7 +220,7 @@ contains
 
 !########################################################################
 !########################################################################
-    subroutine SpecialForcing_Source(locProps, nx, ny, nz, iq, time, q, h, tmp)     
+    subroutine SpecialForcing_Source(locProps, nx, ny, nz, iq, time, q, h, tmp)
         type(term_dt), intent(in) :: locProps
         integer(wi), intent(in) :: nx, ny, nz, iq
         real(wp), intent(in) :: time
@@ -254,21 +245,16 @@ contains
             tmp = tmp*h
 
         case (TYPE_SINUSOIDAL)
+            tmp = locProps%parameters(1)*sin(locProps%parameters(2)*time)
 
         case (TYPE_SINUSOIDAL_NOSLIP)
 
-        case (TYPE_WAVEMAKER, TYPE_WAVEMAKERTANH) 
-            ! if (iq .eq. 4) then
-            !     shift = -pi_wp/2.0_wp
-            ! else
-            !     shift = 0.0_wp
-            ! end if
+        case (TYPE_WAVEMAKER, TYPE_WAVEMAKERTANH)
             do k = 1, nz
                 do i = 1, nx
                     do iwave = 1, nwaves
                         tmp(i, 1:ny, k) = amplitude(iq, iwave)
                         tmp(i, 1:ny, k) = tmp(i, 1:ny, k)*sin(tmp_phase(i, k, iwave) - frequency(iwave)*time)
-                        ! tmp(i, 1:ny, k) = tmp(i, 1:ny, k)*sin(tmp_phase(i, k, iwave) - frequency(iwave)*time + shift)
                     end do
                 end do
                 tmp(1:nx, 1:ny, k) = Profiles_Calculate(qbg(iq), z%nodes(k)) + tmp(1:nx, 1:ny, k)
@@ -321,8 +307,7 @@ contains
         real(wp), intent(in) :: t
         ft = tanh(0.1_wp*t)
     end function ft
-    
-    
+
     !########################################################################
     ! Sinusoidal forcing; Taylor-Green vortex
     !########################################################################

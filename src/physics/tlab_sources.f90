@@ -10,7 +10,7 @@ module TLab_Sources
     use Gravity, only: gravityProps, Gravity_AddSource
     use Rotation, only: coriolisProps, Rotation_AddCoriolis, Rotation_AddCoriolis_PerVolume
     use Microphysics, only: sedimentationProps, Microphysics_Sedimentation_Z
-    use Microphysics, only: evaporationProps, Microphysics_Evaporation
+    use Microphysics, only: evaporationProps, Microphysics_Evaporation, Microphysics_Evaporation_Impl
     use Radiation, only: infraredProps, Radiation_Infrared_Z
     use SpecialForcing
     ! use LargeScaleForcing
@@ -19,6 +19,7 @@ module TLab_Sources
 
     public :: TLab_Sources_Flow
     public :: TLab_Sources_Scal
+    public :: TLab_Sources_Scal_Implicit
 
 contains
 ! #######################################################################
@@ -108,12 +109,32 @@ contains
             ! If forcing is not of type WAVEMAKER, then the call does nothing
             if (forcingProps%active(3)) then
                 call GravityWave_Polarization(forcingProps, imax, jmax, kmax, is, time, s(:, is), tmp1)
-                ! call SpecialForcing_Source(locProps, imax, jmax, kmax, 3+is, time, s(:,is), hs, tmp)
                 hs(:, is) = hs(:, is) + tmp1(:)
             end if
         end do
 
         return
     end subroutine TLab_Sources_Scal
+
+    ! #######################################################################
+    ! #######################################################################
+    subroutine TLab_Sources_Scal_Implicit(time_step, s)
+        real(wp), intent(in) :: time_step
+        real(wp), intent(inout) :: s(:, :)
+
+        ! -----------------------------------------------------------------------
+        integer is
+
+        ! #######################################################################
+        do is = 1, inb_scal
+
+            if (evaporationProps%active(is)) then
+                call Microphysics_Evaporation_Impl(evaporationProps, imax, jmax, kmax, is, s, time_step)
+            end if
+
+        end do
+
+        return
+    end subroutine TLab_Sources_Scal_Implicit
 
 end module TLab_Sources

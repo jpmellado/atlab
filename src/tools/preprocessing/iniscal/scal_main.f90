@@ -87,6 +87,12 @@ program IniScal
     ! Reset to equilibrium
     if (flag_mixture == 1) then
         call Thermo_Anelastic_EquilibriumPH(imax, jmax, kmax, s(:, 2), s(:, 1))
+    else if (flag_mixture == 3) then
+        call Thermo_Anelastic_EquilibriumPH(imax, jmax, kmax, s(:, 2), s(:, 1))
+        s(:,3) = s(:,3) + 0.01*s(:,2)
+    else if (flag_mixture == 4) then
+        call Thermo_Anelastic_EquilibriumPH(imax, jmax, kmax, s(:, 2), s(:, 1))
+        s(:,3) = s(:,3) - 0.01*s(:,2)
     end if
     !call Thermo_Anelastic_T(nx, ny, nz, s, s(:, inb_scal_T)) !! Needed???
 

@@ -1,15 +1,8 @@
 #include "tlab_error.h"
 
-!########################################################################
-!#
-!# Runge-Kutta explicit 3th order from Williamson 1980
-!# Runge-Kutta explicit 4th order 5 stages from Carpenter & Kennedy 1994
-!# Runge-Kutta semi-implicit 3th order from Spalart, Moser & Rogers (1991)
-!#
-!########################################################################
 module TimeMarching
-
-    use TLab_Constants, only: efile, wfile, wp, wi, big_wp
+    use TLab_Constants, only: wp, wi, big_wp
+    use TLab_Constants, only: efile, wfile
     use TLab_WorkFlow, only: flow_on, scal_on
     use TLab_Memory, only: imax, jmax, kmax, isize_field
     use TLab_Time, only: rtime
@@ -21,11 +14,8 @@ module TimeMarching
     use TLabMPI_VARS
 #endif
     use NavierStokes, only: nse_eqns, DNS_EQNS_COMPRESSIBLE, DNS_EQNS_BOUSSINESQ, DNS_EQNS_ANELASTIC
-    use NavierStokes, only: nse_advection, EQNS_CONVECTIVE, EQNS_DIVERGENCE, EQNS_SKEWSYMMETRIC
     use NavierStokes, only: visc, schmidt, prandtl
     use DNS_Arrays
-    use BoundaryConditions
-    use Buffer
 
     implicit none
     private
@@ -35,6 +25,7 @@ module TimeMarching
     public :: TMarch_Courant
 
     real(wp), public :: dtime                       ! time step
+    real(wp), public :: dtrkm                       ! time step of each substep
     real(wp), public :: dte                         ! explicit scheme coefficient at each RK substep; to be removed from public
     logical, public :: remove_divergence            ! Remove residual divergence every time step
     logical, public :: use_variable_timestep = .true.
@@ -52,21 +43,19 @@ module TimeMarching
     integer(wi) :: rkm_mode                     ! Type of Runge-Kutta scheme
     integer, parameter :: RKM_EXP3 = 3
     integer, parameter :: RKM_EXP4 = 4
-    integer, parameter :: RKM_IMP3_DIFFUSION = 5
-    integer, parameter :: RKM_IMP3_SOURCE = 6
-    integer, parameter :: RKM_IMP3_DIFFSOURCE = 7
+    ! integer, parameter :: RKM_IMP3_DIFFUSION = 5
 
     integer(wi) :: rkm_endstep                  ! number of substeps
     integer(wi) :: rkm_substep                  ! substep counter
 
     real(wp) :: cfla, cfld, cflr                ! CFL numbers
 
-    real(wp) kdt(5), kco(4), ktime(5)           ! explicit scheme coefficients
-    real(wp) kex(3), kim(3)                     ! implicit scheme coefficients
+    real(wp) kdt(5), kco(4), ktime(6)           ! explicit scheme coefficients
+    ! real(wp) kex(3), kim(3)                     ! implicit scheme coefficients
     real(wp) :: etime                           ! time at each RK substep; rtime is time at each iteration, not at each RK substep
 
     real(wp) schmidtfactor, dx2i
-    integer(wi) i, j, k, kdsp, jdsp, idsp, is
+    integer(wi) i, j, k, kdsp, jdsp, idsp!, is
     real(wp) dummy
 
     type :: ds_dt
@@ -84,8 +73,6 @@ contains
         use TLab_Arrays, only: wrk1d
         use TLab_Grid, only: grid, x, y, z
         use FDM, only: fdm_der1_X, fdm_der1_Y, fdm_der1_Z
-        ! use FDM, only: g
-        ! use FDM_Derivative, only: FDM_Der1_Solve
 
         character*(*) inifile
 
@@ -113,8 +100,8 @@ contains
         call ScanFile_Char(bakfile, inifile, block, 'Scheme', 'dummy', sRes)
         if (trim(adjustl(sRes)) == 'rungekuttaexplicit3') then; rkm_mode = RKM_EXP3; lstr = '0.6'; 
         elseif (trim(adjustl(sRes)) == 'rungekuttaexplicit4') then; rkm_mode = RKM_EXP4; lstr = '1.2'; 
-        elseif (trim(adjustl(sRes)) == 'rungekuttadiffusion3') then; rkm_mode = RKM_IMP3_DIFFUSION; lstr = '0.6'; 
-            !  ELSEIF ( TRIM(ADJUSTL(sRes)) .EQ. 'rungekuttasource3'    ) THEN; rkm_mode = RKM_IMP3_SOURCE;
+            ! elseif (trim(adjustl(sRes)) == 'rungekuttadiffusion3') then; rkm_mode = RKM_IMP3_DIFFUSION; lstr = '0.6';
+            ! elseif (trim(adjustl(sRes)) == 'rungekuttasource3') then; rkm_mode = RKM_IMP3_SOURCE;
         else
             call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Wrong Scheme option.')
             call TLab_Stop(DNS_ERROR_RKORDER)
@@ -148,20 +135,20 @@ contains
             call TLab_Stop(DNS_ERROR_OPTION)
         end if
 
-        ! -------------------------------------------------------------------
-        ! Consistency check
-        if (rkm_mode == RKM_IMP3_DIFFUSION) then
-            do is = 1, inb_scal
-                if (BcsScalKmin%type(is) == DNS_BCS_Neumann .or. &
-                    BcsScalKmax%type(is) == DNS_BCS_Neumann) then
-                    write (sRes, *) is; sRes = trim(adjustl(eStr))//'Scalar'//trim(adjustl(sRes))//'. Finite flux BC not implemented for SEMI-IMPLICITE DIFFUSION'
-                    call TLab_Write_ASCII(wfile, trim(adjustl(sRes)))
-                    write (sRes, *) is; sRes = trim(adjustl(eStr))//'Scalar'//trim(adjustl(sRes))//'. Setting fluxes at boundary to zero'
-                    call TLab_Write_ASCII(wfile, trim(adjustl(sRes)))
-                end if
-            end do
+        ! ! -------------------------------------------------------------------
+        ! ! Consistency check
+        ! if (rkm_mode == RKM_IMP3_DIFFUSION) then
+        !     do is = 1, inb_scal
+        !         if (BcsScalKmin%type(is) == DNS_BCS_Neumann .or. &
+        !             BcsScalKmax%type(is) == DNS_BCS_Neumann) then
+        !             write (sRes, *) is; sRes = trim(adjustl(eStr))//'Scalar'//trim(adjustl(sRes))//'. Finite flux BC not implemented for SEMI-IMPLICITE DIFFUSION'
+        !             call TLab_Write_ASCII(wfile, trim(adjustl(sRes)))
+        !             write (sRes, *) is; sRes = trim(adjustl(eStr))//'Scalar'//trim(adjustl(sRes))//'. Setting fluxes at boundary to zero'
+        !             call TLab_Write_ASCII(wfile, trim(adjustl(sRes)))
+        !         end if
+        !     end do
 
-        end if
+        ! end if
 
         ! ###################################################################
         ! RK coefficients
@@ -187,32 +174,33 @@ contains
             ktime(3) = 2526269341429.0_wp/6820363962896.0_wp
             ktime(4) = 2006345519317.0_wp/3224310063776.0_wp
             ktime(5) = 2802321613138.0_wp/2924317926251.0_wp
+            ktime(6) = 1.0_wp
 
             kco(1) = -567301805773.0_wp/1357537059087.0_wp
             kco(2) = -2404267990393.0_wp/2016746695238.0_wp
             kco(3) = -3550918686646.0_wp/2091501179385.0_wp
             kco(4) = -1275806237668.0_wp/842570457699.0_wp
 
-        case (RKM_IMP3_DIFFUSION)   ! Runge-Kutta semi-implicit 3th order from Spalart, Moser & Rogers (1991)
-            rkm_endstep = 3
+            ! case (RKM_IMP3_DIFFUSION)   ! Runge-Kutta semi-implicit 3th order from Spalart, Moser & Rogers (1991)
+            !     rkm_endstep = 3
 
-            kdt(1:3) = [8.0_wp/15.0_wp, 5.0_wp/12.0_wp, 3.0_wp/4.0_wp]
+            !     kdt(1:3) = [8.0_wp/15.0_wp, 5.0_wp/12.0_wp, 3.0_wp/4.0_wp]
 
-            kim(1:3) = [111.0_wp/256.0_wp, 1.0_wp/2.0_wp, 2.0_wp/9.0_wp]
-            kex(1:3) = [145.0_wp/256.0_wp, -9.0_wp/50.0_wp, 2.0_wp/9.0_wp]
-            kco(1:3) = [0.0_wp, -17.0_wp/25.0_wp, -5.0_wp/9.0_wp]
-            ! TO DO - calculate ktime from coefficients  ktime
-            ktime(1:3) = [0.0_wp, 0.0_wp, 0.0_wp]
+            !     kim(1:3) = [111.0_wp/256.0_wp, 1.0_wp/2.0_wp, 2.0_wp/9.0_wp]
+            !     kex(1:3) = [145.0_wp/256.0_wp, -9.0_wp/50.0_wp, 2.0_wp/9.0_wp]
+            !     kco(1:3) = [0.0_wp, -17.0_wp/25.0_wp, -5.0_wp/9.0_wp]
+            !     ! TO DO - calculate ktime from coefficients  ktime
+            !     ktime(1:3) = [0.0_wp, 0.0_wp, 0.0_wp]
 
-            ! Coefficients from Spalart, Moser, Rogers (1991)
-            ! kim = beta/gamma
-            ! kex = alpha/gamma
-            ! kco = zeta/gamma
-            !
-            ! alpha = [ 29./96.,   -3./40,    1./6. ]
-            ! beta  = [ 37./160.,   5./24.,   1./6. ]
-            ! gamma = [  8./15.,    5./12.,   3./4. ]
-            ! zeta  = [  0.,      -17./60.,  -5./12.]
+            !     ! Coefficients from Spalart, Moser, Rogers (1991)
+            !     ! kim = beta/gamma
+            !     ! kex = alpha/gamma
+            !     ! kco = zeta/gamma
+            !     !
+            !     ! alpha = [ 29./96.,   -3./40,    1./6. ]
+            !     ! beta  = [ 37./160.,   5./24.,   1./6. ]
+            !     ! gamma = [  8./15.,    5./12.,   3./4. ]
+            !     ! zeta  = [  0.,      -17./60.,  -5./12.]
 
         end select
 
@@ -246,9 +234,7 @@ contains
                     ds(ig)%one_ov_ds1(:) = 1.0_wp   ! 2d case
                 end if
             else
-                ! ds(ig)%one_ov_ds1(:) = 1.0_wp/g(ig)%jac(:, 1)
                 wrk1d(1:grid(ig)%size, 1) = [(real(i - 1, wp), i=1, grid(ig)%size)]
-                ! call FDM_Der1_Solve(1, g(ig)%der1, g(ig)%der1%lu, wrk1d(:, 1), ds(ig)%one_ov_ds1(:), wrk1d(:, 3))
                 select case (ig)
                 case (1)
                     call fdm_der1_X%compute(1, wrk1d(:, 1), ds(ig)%one_ov_ds1(:))
@@ -301,99 +287,76 @@ contains
     ! ###################################################################
     ! ###################################################################
     subroutine TMarch_RungeKutta()
-        use TLab_Arrays, only: s
-        use DNS_LOCAL
-        use DNS_Control
-        use DNS_Arrays
+        use TLab_Arrays, only: q, s, txc
+        use TLab_Sources, only: TLab_Sources_Flow, TLab_Sources_Scal, TLab_Sources_Scal_Implicit
+        use DNS_Arrays, only: hq, hs
+        use DNS_Control, only: DNS_Limit_Bounds
+        use Buffer
 
         ! -------------------------------------------------------------------
-        real(wp) alpha
-
 #ifdef USE_PROFILE
         integer(wi) t_srt, t_end, t_dif, idummy, PROC_CYCLES, MAX_CYCLES
         character*256 time_string
 #endif
 
         !########################################################################
-        ! -------------------------------------------------------------------
-        ! Initialize arrays to zero for the explcit low-storage algorithm
-        ! -------------------------------------------------------------------
-        if (rkm_mode == RKM_EXP3 .or. rkm_mode == RKM_EXP4) then
-            if (flow_on) hq = 0.0_wp
-            if (scal_on) hs = 0.0_wp
-            ! if (part%type /= PART_TYPE_NONE) l_hq = 0.0_wp
-        end if
+        ! Initialize arrays to zero for the explicit low-storage algorithm
+        if (flow_on) hq = 0.0_wp
+        if (scal_on) hs = 0.0_wp
+
         !########################################################################
         ! Loop over the sub-stages
         !########################################################################
         do rkm_substep = 1, rkm_endstep
-
-            ! -------------------------------------------------------------------
-            ! Update transported (or prognostic) variables q and s
-            ! -------------------------------------------------------------------
-            dte = dtime*kdt(rkm_substep)
-            etime = rtime + dtime*ktime(rkm_substep)
-
 #ifdef USE_PROFILE
             call system_clock(t_srt, PROC_CYCLES, MAX_CYCLES)
 #endif
-            ! I could define procedure pointers to handle this...
+
+            dte = dtime*kdt(rkm_substep)
+            etime = rtime + dtime*ktime(rkm_substep)
+            dtrkm = dtime*(ktime(rkm_substep + 1) - ktime(rkm_substep))
+
+            ! -------------------------------------------------------------------
+            ! Explicit part
+            call TLab_Sources_Flow(q, s, etime, hq, txc(:, 1))
+            call TLab_Sources_Scal(s, hs, etime, txc(:, 1), txc(:, 2), txc(:, 3), txc(:, 4))
+
+            if (bufferType == BUFFER_TYPE_NUDGE) call Buffer_Nudge()
+
             select case (nse_eqns)
             case (DNS_EQNS_BOUSSINESQ)
-                if (rkm_mode == RKM_EXP3 .or. rkm_mode == RKM_EXP4) then
-                    call TMarch_Substep_Boussinesq_Explicit()
-                else if (rkm_mode == RKM_IMP3_DIFFUSION) then
-                    call TMarch_Substep_Boussinesq_Implicit()
-                end if
+                call NSE_Boussinesq()
+                call NSE_Boussinesq_BscFlow()
+                call NSE_Boussinesq_BscScal()
+                call TMarch_Substep_Boussinesq_Explicit()
 
             case (DNS_EQNS_ANELASTIC)
-                if (rkm_mode == RKM_EXP3 .or. rkm_mode == RKM_EXP4) then
-                    call TMarch_Substep_Anelastic_PerVolume_Explicit()
-                end if
+                call NSE_Anelastic_PerVolume()
+                call NSE_Anelastic_PerVolume_BscFlow()
+                call NSE_Anelastic_PerVolume_BscScal()
+                call TMarch_Substep_Anelastic_Explicit()
 
             case (DNS_EQNS_COMPRESSIBLE)
 
             end select
 
+            ! -------------------------------------------------------------------
+            ! Implicit part
+            call TLab_Sources_Scal_Implicit(time_step=dtrkm, s=s)
+            ! Update of boundary condition still missing
+
+            ! -------------------------------------------------------------------
+            ! Limiters
             call DNS_Limit_Bounds()
+
+            ! -------------------------------------------------------------------
+            ! Diagnostic part
             if (nse_eqns == DNS_EQNS_ANELASTIC) then
                 call TLab_Diagnostic(imax, jmax, kmax, s)
-            end if
-            if (int(logs_data(1)) /= 0) return ! Error detected
-
-            ! -------------------------------------------------------------------
-            ! Update RHS hq and hs in the explicit low-storage algorithm
-            ! -------------------------------------------------------------------
-            if ((rkm_mode == RKM_EXP3 .or. rkm_mode == RKM_EXP4) .and. &
-                rkm_substep < rkm_endstep) then
-
-                alpha = kco(rkm_substep)
-
-                if (flow_on) then
-                    do is = 1, inb_flow
-#ifdef USE_BLAS
-                        call DSCAL(isize_field, alpha, hq(:, is), 1)
-#else
-                        hq(:, is) = alpha*hq(:, is)
-#endif
-                    end do
-                end if
-
-                if (scal_on) then
-                    do is = 1, inb_scal
-#ifdef USE_BLAS
-                        call DSCAL(isize_field, alpha, hs(:, is), 1)
-#else
-                        hs(:, is) = alpha*hs(:, is)
-#endif
-                    end do
-                end if
-
             end if
 
             ! -------------------------------------------------------------------
             ! Profiling data
-            ! -------------------------------------------------------------------
 #ifdef USE_PROFILE
             call system_clock(t_end, PROC_CYCLES, MAX_CYCLES)
             idummy = t_end - t_srt
@@ -417,6 +380,96 @@ contains
 
         return
     end subroutine TMarch_RungeKutta
+
+    !########################################################################
+    !########################################################################
+    ! Perform the time stepping
+    ! Memory intensive, cache-optimized
+    ! create size of memory blocks during initialization
+    subroutine TMarch_Substep_Boussinesq_Explicit()
+        use TLab_Pointers_2D, only: pxy_q, pxy_s
+
+        real(wp) alpha
+        integer iq, is
+
+        ! #######################################################################
+        if (rkm_substep < rkm_endstep) then
+            alpha = kco(rkm_substep)
+
+            do iq = 1, inb_flow
+                do k = 1, kmax
+                    pxy_q(:, k, iq) = pxy_q(:, k, iq) + dte*pxy_hq(:, k, iq)
+                    pxy_hq(:, k, iq) = pxy_hq(:, k, iq)*alpha
+                end do
+            end do
+
+            do iq = 1, inb_scal
+                do k = 1, kmax
+                    pxy_s(:, k, iq) = pxy_s(:, k, iq) + dte*pxy_hs(:, k, iq)
+                    pxy_hs(:, k, iq) = pxy_hs(:, k, iq)*alpha
+                end do
+            end do
+
+        else
+            do is = 1, inb_flow
+                do k = 1, kmax
+                    pxy_q(:, k, is) = pxy_q(:, k, is) + dte*pxy_hq(:, k, is)
+                end do
+            end do
+
+            do is = 1, inb_scal
+                do k = 1, kmax
+                    pxy_s(:, k, is) = pxy_s(:, k, is) + dte*pxy_hs(:, k, is)
+                end do
+            end do
+        end if
+
+        return
+    end subroutine TMarch_Substep_Boussinesq_Explicit
+
+    !########################################################################
+    !########################################################################
+    subroutine TMarch_Substep_Anelastic_Explicit()
+        use TLab_Pointers_2D, only: pxy_q, pxy_s
+        use Thermo_Anelastic, only: ribackground
+
+        real(wp) alpha
+        integer iq, is
+
+        ! #######################################################################
+        if (rkm_substep < rkm_endstep) then
+            alpha = kco(rkm_substep)
+
+            do iq = 1, inb_flow
+                do k = 1, kmax
+                    pxy_q(:, k, iq) = pxy_q(:, k, iq) + dte*pxy_hq(:, k, iq)*ribackground(k)
+                    pxy_hq(:, k, iq) = pxy_hq(:, k, iq)*alpha
+                end do
+            end do
+
+            do iq = 1, inb_scal
+                do k = 1, kmax
+                    pxy_s(:, k, iq) = pxy_s(:, k, iq) + dte*pxy_hs(:, k, iq)*ribackground(k)
+                    pxy_hs(:, k, iq) = pxy_hs(:, k, iq)*alpha
+                end do
+            end do
+
+        else
+            do is = 1, inb_flow
+                do k = 1, kmax
+                    pxy_q(:, k, is) = pxy_q(:, k, is) + dte*pxy_hq(:, k, is)*ribackground(k)
+                end do
+            end do
+
+            do is = 1, inb_scal
+                do k = 1, kmax
+                    pxy_s(:, k, is) = pxy_s(:, k, is) + dte*pxy_hs(:, k, is)*ribackground(k)
+                end do
+            end do
+        end if
+
+        return
+    end subroutine TMarch_Substep_Anelastic_Explicit
 
     !########################################################################
     !#
@@ -548,90 +601,5 @@ contains
         return
 
     end subroutine TMarch_Courant
-
-    !########################################################################
-    !########################################################################
-    subroutine TMarch_Substep_Boussinesq_Explicit()
-        use TLab_Arrays, only: q, s, txc
-        use DNS_Arrays, only: hq, hs
-        use TLab_Sources
-
-        ! #######################################################################
-        ! Accumulate RHS terms
-        call TLab_Sources_Flow(q, s, etime, hq, txc(:, 1))
-        call TLab_Sources_Scal(s, hs, etime, txc(:, 1), txc(:, 2), txc(:, 3), txc(:, 4))
-
-        if (bufferType == BUFFER_TYPE_NUDGE) call Buffer_Nudge()
-
-        call NSE_Boussinesq()
-
-        ! #######################################################################
-        ! Perform the time stepping
-        do is = 1, inb_flow
-            q(:, is) = q(:, is) + dte*hq(:, is)
-        end do
-
-        do is = 1, inb_scal
-            s(:, is) = s(:, is) + dte*hs(:, is)
-        end do
-
-        return
-    end subroutine TMarch_Substep_Boussinesq_Explicit
-
-    !########################################################################
-    !########################################################################
-    subroutine TMarch_Substep_Anelastic_PerVolume_Explicit()
-        use TLab_Arrays, only: q, s, txc
-        use TLab_Pointers_2D, only: pxy_q, pxy_s
-        use DNS_Arrays, only: hq, hs
-        use TLab_Sources
-        use Microphysics, only: Microphysics_Evaporation_Impl, evaporationProps
-        use Thermo_AirWater, only: inb_scal_ql
-        use Thermo_Anelastic, only: ribackground
-
-        ! #######################################################################
-        ! Accumulate RHS terms
-        call TLab_Sources_Flow(q, s, etime, hq, txc(:, 1))
-        call TLab_Sources_Scal(s, hs, etime, txc(:, 1), txc(:, 2), txc(:, 3), txc(:, 4))
-
-        if (bufferType == BUFFER_TYPE_NUDGE) call Buffer_Nudge()
-
-        call NSE_Anelastic()
-
-        ! #######################################################################
-        ! Perform the time stepping
-        do is = 1, inb_flow
-            do k = 1, kmax
-                pxy_q(:, k, is) = pxy_q(:, k, is) + dte*pxy_hq(:, k, is)*ribackground(k)
-            end do
-        end do
-
-        do is = 1, inb_scal
-            do k = 1, kmax
-                pxy_s(:, k, is) = pxy_s(:, k, is) + dte*pxy_hs(:, k, is)*ribackground(k)
-            end do
-        end do
-
-        ! #######################################################################
-        ! Iterate implicit non-evaporation
-        call Microphysics_Evaporation_Impl(evaporationProps, imax, jmax, kmax, inb_scal_ql, s, dte)
-
-        return
-    end subroutine TMarch_Substep_Anelastic_PerVolume_Explicit
-
-    !########################################################################
-    !########################################################################
-    subroutine TMarch_Substep_Boussinesq_Implicit()
-
-        ! call RHS_GLOBAL_INCOMPRESSIBLE_IMPLICIT_2(kex(rkm_substep), kim(rkm_substep), kco(rkm_substep))
-
-        ! ! ! pressure-correction algorithm; to be checked
-        ! ! CALL RHS_GLOBAL_INCOMPRESSIBLE_IMPLICIT_3(&
-        ! !      kex,kim,kco,  &
-        ! !      q, hq, q(:,1),q(:,2),q(:,3), hq(1,1),hq(1,2),hq(1,3), s,hs, &
-        ! !      txc(1,1),txc(1,2),txc(1,3),txc(1,4),txc(1,5),txc(1,6),txc(1,7), txc(1,8))
-
-        return
-    end subroutine TMarch_Substep_Boussinesq_Implicit
 
 end module TimeMarching

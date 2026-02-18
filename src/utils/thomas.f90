@@ -17,7 +17,75 @@ module Thomas
     public :: Thomas7_FactorLU_InPlace
     public :: Thomas7_SolveL, Thomas7_SolveU  ! Particularized for heptadiagonal systems
 
+    public :: thomas_dt
+
+    ! -----------------------------------------------------------------------
+    type :: thomas_dt
+        real(wp), allocatable :: L(:, :)
+        real(wp), allocatable :: U(:, :)
+        procedure(thomas_ice), pointer, nopass :: ptr_solveL
+        procedure(thomas_ice), pointer, nopass :: ptr_solveU
+    contains
+        procedure :: initialize => thomas_initialize_dt
+        procedure :: solveL => thomas_solveL_dt
+        procedure :: solveU => thomas_solveU_dt
+    end type
+
+    abstract interface
+        subroutine thomas_ice(A, f)
+            import wp
+            real(wp), intent(in) :: A(:, :)
+            real(wp), intent(inout) :: f(:, :)          ! RHS and solution
+        end subroutine thomas_ice
+    end interface
+
 contains
+    ! #######################################################################
+    ! #######################################################################
+    subroutine thomas_initialize_dt(self, lhs)
+        class(thomas_dt), intent(out) :: self
+        real(wp), intent(in) :: lhs(:, :)
+
+        integer ndl
+
+        ndl = size(lhs, 2)
+        allocate (self%L, source=lhs(:, 1:ndl/2))
+        allocate (self%U, source=lhs(:, ndl/2 + 1:ndl))
+        call Thomas_FactorLU_InPlace(self%L, self%U)
+
+        select case (ndl)
+        case (3)
+            self%ptr_solveL => Thomas3_SolveL
+            self%ptr_solveU => Thomas3_SolveU
+        case (5)
+            self%ptr_solveL => Thomas5_SolveL
+            self%ptr_solveU => Thomas5_SolveU
+        case (7)
+            self%ptr_solveL => Thomas7_SolveL
+            self%ptr_solveU => Thomas7_SolveU
+        end select
+
+        return
+    end subroutine
+
+    subroutine thomas_solveL_dt(self, f)
+        class(thomas_dt), intent(in) :: self
+        real(wp), intent(inout) :: f(:, :)
+
+        call self%ptr_solveL(self%L, f)
+
+        return
+    end subroutine
+
+    subroutine thomas_solveU_dt(self, f)
+        class(thomas_dt), intent(in) :: self
+        real(wp), intent(inout) :: f(:, :)
+
+        call self%ptr_solveU(self%U, f)
+
+        return
+    end subroutine
+
     ! #######################################################################
     ! #######################################################################
     ! LU factorization stage; L has diagonal 1
@@ -430,7 +498,7 @@ contains
 
         ! #######################################################################
         if (size(f, 1) <= 0) return
-        
+
         nmax = size(U, 1)
 
         n = nmax

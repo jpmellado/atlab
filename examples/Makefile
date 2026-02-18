@@ -9,6 +9,7 @@ PRJS=\
      Case08 \
      Case09 \
      Case11 \
+     Case12 \
      Case21 \
      Case25 \
      Case26 \
@@ -23,6 +24,7 @@ PRJS=\
      Case63 \
      Case64 \
      Case65 \
+     Case70 \
      Case71 \
      Case72 \
      Case73 

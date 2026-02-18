@@ -13,7 +13,7 @@ module FDM
     private
 
     class(der_dt), allocatable, public, protected :: fdm_der1_X, fdm_der1_Y, fdm_der1_Z
-    class(der_extended_dt), allocatable, public, protected :: fdm_der2_X, fdm_der2_Y, fdm_der2_Z
+    class(der2_extended_dt), allocatable, public, protected :: fdm_der2_X, fdm_der2_Y, fdm_der2_Z
 
     type(fdm_integral_dt), public, protected :: fdm_Int0(2)    ! fdm integral plans along Oz (ode for lambda = 0)
 
@@ -149,7 +149,7 @@ call TLab_Write_ASCII(bakfile, '#SchemeDerivative2=<CompactJacobian4/CompactJaco
         if (x%periodic) then
             allocate (der1_periodic :: locDer)
         else
-            allocate (der1_biased :: locDer)
+            allocate (der1_biased_extended :: locDer)
         end if
 
         call locDer%initialize(x%nodes, type)
@@ -161,7 +161,7 @@ call TLab_Write_ASCII(bakfile, '#SchemeDerivative2=<CompactJacobian4/CompactJaco
     ! ###################################################################
     subroutine FDM_CreatePlan_Der2(x, locDer, type, fdm_der1)
         type(grid_dt), intent(in) :: x
-        class(der_extended_dt), allocatable, intent(out) :: locDer
+        class(der2_extended_dt), allocatable, intent(out) :: locDer
         integer, intent(in) :: type
         class(der_dt), intent(in) :: fdm_der1
 

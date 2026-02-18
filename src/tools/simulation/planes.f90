@@ -55,6 +55,7 @@ contains
     ! ###################################################################
     ! ###################################################################
     subroutine planesX_initialize_dt(self, inifile)
+        use TLab_Constants, only: sizeofint, sizeofreal
         use TLab_Grid, only: x
         use IO_Fields, only: IO_TYPE_SINGLE
 #ifdef USE_MPI
@@ -74,7 +75,7 @@ contains
         self%data(1:jmax, 1:self%size, 1:kmax) => txc(1:jmax*self%size*kmax, 1)
         self%io = [size(self%data), 1, size(self%data), 1, 1]
 
-        self%io_subarray%offset = 0
+        self%io_subarray%offset = sizeofint + sizeofint*size(self%nodes) + sizeofreal
         self%io_subarray%precision = IO_TYPE_SINGLE
 #ifdef USE_MPI
         self%io_subarray%active = .false.  ! defaults
@@ -91,6 +92,7 @@ contains
     ! ###################################################################
     ! ###################################################################
     subroutine planesY_initialize_dt(self, inifile)
+        use TLab_Constants, only: sizeofint, sizeofreal
         use TLab_Grid, only: y
         use IO_Fields, only: IO_TYPE_SINGLE
 #ifdef USE_MPI
@@ -110,7 +112,7 @@ contains
         self%data(1:imax, 1:self%size, 1:kmax) => txc(1:imax*self%size*kmax, 1)
         self%io = [size(self%data), 1, size(self%data), 1, 1]
 
-        self%io_subarray%offset = 0
+        self%io_subarray%offset = sizeofint + sizeofint*size(self%nodes) + sizeofreal
         self%io_subarray%precision = IO_TYPE_SINGLE
 #ifdef USE_MPI
         self%io_subarray%active = .false.  ! defaults
@@ -127,6 +129,7 @@ contains
     ! ###################################################################
     ! ###################################################################
     subroutine planesZ_initialize_dt(self, inifile)
+        use TLab_Constants, only: sizeofint, sizeofreal
         use TLab_Grid, only: z
         use IO_Fields, only: IO_TYPE_SINGLE
 #ifdef USE_MPI
@@ -145,7 +148,7 @@ contains
         self%data(1:imax, 1:jmax, 1:self%size) => txc(1:imax*jmax*self%size, 1)
         self%io = [size(self%data), 1, size(self%data), 1, 1]
 
-        self%io_subarray%offset = 0
+        self%io_subarray%offset = sizeofint + sizeofint*size(self%nodes) + sizeofreal
         self%io_subarray%precision = IO_TYPE_SINGLE
 #ifdef USE_MPI
         self%io_subarray%active = .true.
@@ -231,26 +234,18 @@ contains
     ! ###################################################################
     subroutine Planes_Save()
         use TLab_Constants, only: small_wp
-        use TLab_Constants, only: fmt_r
         use TLab_Arrays, only: q, s, txc
         use NSE_Pressure
-        use TLab_Time
         use FI_VORTICITY_EQN
         use FI_GRADIENT_EQN
 
         ! -------------------------------------------------------------------
-        character*32 str
-        character*250 line1
-
         integer, parameter :: NMAX_VARS = 16
         integer iv, nvars
         type(pointers3d_dt) :: vars(NMAX_VARS)
 
         ! ###################################################################
         if (all([planesX%type, planesY%type, planesZ%type] == TYPE_NONE)) return
-
-        write (line1, fmt_r) rtime
-        write (str, *) itime; line1 = 'at It'//trim(adjustl(str))//' and time '//trim(adjustl(line1))//'.'
 
         ! ###################################################################
         ! define pointers to data
@@ -265,7 +260,7 @@ contains
             nvars = nvars + 1; vars(nvars)%field(1:imax, 1:jmax, 1:kmax) => s(1:imax*jmax*kmax, iv)
         end do
 
-        call NSE_Pressure_Incompressible(q, s, txc(:, 2), txc(:, 3), txc(:, 4), txc(:, 5))
+        call NSE_Pressure_Incompressible(q, s, txc(:, 2), txc(:, 3), txc(:, 6), txc(:, 1))
         nvars = nvars + 1; vars(nvars)%field(1:imax, 1:jmax, 1:kmax) => txc(1:imax*jmax*kmax, 2)
 
         if (any([planesX%type, planesY%type, planesZ%type] == TYPE_DERIVATIVES)) then
@@ -282,27 +277,18 @@ contains
         end if
 
         ! ###################################################################
-        write (str, *) itime
-
-        call TLab_Write_ASCII(lfile, 'Writing I-planes '//trim(adjustl(line1)))
-        call planesX%save(vars(1:nvars), fname='planesI.'//trim(adjustl(str)))
-
-        call TLab_Write_ASCII(lfile, 'Writing J-planes '//trim(adjustl(line1)))
-        call planesY%save(vars(1:nvars), fname='planesJ.'//trim(adjustl(str)))
-
-        call TLab_Write_ASCII(lfile, 'Writing K-planes '//trim(adjustl(line1)))
-        call planesZ%save(vars(1:nvars), fname='planesK.'//trim(adjustl(str)))
+        call planesX%save(vars(1:nvars))
+        call planesY%save(vars(1:nvars))
+        call planesZ%save(vars(1:nvars))
 
         return
     end subroutine
 
     ! ###################################################################
     ! ###################################################################
-    subroutine planesX_save_dt(self, vars, fname)
-        use IO_Fields, only: IO_Write_Subarray
+    subroutine planesX_save_dt(self, vars)
         class(planesX_dt) self
         type(pointers3d_dt), intent(in) :: vars(:)
-        character(len=*), intent(in) :: fname
 
         integer offset, iv
         integer j, k
@@ -320,18 +306,17 @@ contains
             offset = offset + size(self%nodes)
         end do
 
-        call IO_Write_Subarray(self%io_subarray, fname, [' '], self%data, self%io)
+        call planes_write(self, name_tag='planesI.')
 
         return
     end subroutine planesX_save_dt
 
     ! ###################################################################
     ! ###################################################################
-    subroutine planesY_save_dt(self, vars, fname)
+    subroutine planesY_save_dt(self, vars)
         use IO_Fields, only: IO_Write_Subarray
         class(planesY_dt) self
         type(pointers3d_dt), intent(in) :: vars(:)
-        character(len=*), intent(in) :: fname
 
         integer offset, iv
 
@@ -344,18 +329,17 @@ contains
             offset = offset + size(self%nodes)
         end do
 
-        call IO_Write_Subarray(self%io_subarray, fname, [' '], self%data, self%io)
+        call planes_write(self, name_tag='planesJ.')
 
         return
     end subroutine planesY_save_dt
 
     ! ###################################################################
     ! ###################################################################
-    subroutine planesZ_save_dt(self, vars, fname)
+    subroutine planesZ_save_dt(self, vars)
         use IO_Fields, only: IO_Write_Subarray
         class(planesZ_dt) self
         type(pointers3d_dt), intent(in) :: vars(:)
-        character(len=*), intent(in) :: fname
 
         integer offset, iv
 
@@ -368,9 +352,45 @@ contains
             offset = offset + size(self%nodes)
         end do
 
-        call IO_Write_Subarray(self%io_subarray, fname, [' '], self%data, self%io)
+        call planes_write(self, name_tag='planesK.')
 
         return
     end subroutine planesZ_save_dt
+
+    !########################################################################
+    !########################################################################
+#define LOC_UNIT_ID 55
+#define LOC_STATUS 'unknown'
+#define USE_ACCESS_STREAM
+
+    subroutine planes_write(self, name_tag)
+#ifdef USE_MPI
+        use mpi_f08, only: MPI_COMM_WORLD
+        use TLabMPI_VARS, only: ims_pro, ims_err
+#endif
+        use TLab_Time
+        use IO_Fields, only: IO_Write_Subarray
+        class(planes_dt) self
+        character(len=*), intent(in) :: name_tag
+
+        character*32 str, name
+
+        write (str, *) itime
+        name = trim(adjustl(name_tag))//trim(adjustl(str))
+
+#ifdef USE_MPI
+        if (ims_pro == 0) then
+#endif
+#include "tlab_open_file.h"
+            write (LOC_UNIT_ID) int(self%io_subarray%offset, wi), int(self%nodes(:), wi), rtime
+            close (LOC_UNIT_ID)
+#ifdef USE_MPI
+        end if
+        call MPI_BARRIER(MPI_COMM_WORLD, ims_err)
+#endif
+        call IO_Write_Subarray(self%io_subarray, name, [' '], self%data, self%io)
+
+        return
+    end subroutine
 
 end module Planes

@@ -34,10 +34,10 @@ program DNS
     use DNS_Control, only: DNS_Control_Initialize, DNS_Control_Bounds
     use DNS_Control, only: logs_data, DNS_Logs_Write
     use TimeMarching
-    ! use PLANES
-    use BoundaryConditions
+    use BoundaryConditions, only: BCS_Initialize
     use Buffer, only: Buffer_Initialize
     use Statistics, only: Statistics_Initialize, Statistics_Compute
+    use Planes
     implicit none
 
     ! -------------------------------------------------------------------
@@ -87,7 +87,9 @@ program DNS
 
     call Statistics_Initialize(ifile)
 
-    ! call PLANES_INITIALIZE()
+    call planesX%initialize(ifile)
+    call planesY%initialize(ifile)
+    call planesZ%initialize(ifile)
 
     ! ###################################################################
     ! Initialize fields
@@ -221,9 +223,9 @@ program DNS
 
         end if
 
-        ! if (mod(itime - nitera_first, nitera_pln) == 0) then
-        !     call PLANES_SAVE()
-        ! end if
+        if (mod(itime - nitera_first, nitera_pln) == 0) then
+            call Planes_Save()
+        end if
 
         if (wall_time > nruntime_sec) then
             write (str, *) wall_time

@@ -72,10 +72,10 @@ contains
 
         if (self%type == TYPE_NONE) return
 
-        self%data(1:jmax, 1:self%size, 1:kmax) => txc(1:jmax*self%size*kmax, 1)
+        self%data(1:jmax, 1:kmax, 1:self%size) => txc(1:jmax*self%size*kmax, 1)
         self%io = [size(self%data), 1, size(self%data), 1, 1]
 
-        self%io_subarray%offset = sizeofint + sizeofint*size(self%nodes) + sizeofreal
+        self%io_subarray%offset = sizeofint + sizeofint + sizeofreal + sizeofint*size(self%nodes)
         self%io_subarray%precision = IO_TYPE_SINGLE
 #ifdef USE_MPI
         self%io_subarray%active = .false.  ! defaults
@@ -109,10 +109,10 @@ contains
 
         if (self%type == TYPE_NONE) return
 
-        self%data(1:imax, 1:self%size, 1:kmax) => txc(1:imax*self%size*kmax, 1)
+        self%data(1:imax, 1:kmax, 1:self%size) => txc(1:imax*self%size*kmax, 1)
         self%io = [size(self%data), 1, size(self%data), 1, 1]
 
-        self%io_subarray%offset = sizeofint + sizeofint*size(self%nodes) + sizeofreal
+        self%io_subarray%offset = sizeofint + sizeofint + sizeofreal + sizeofint*size(self%nodes)
         self%io_subarray%precision = IO_TYPE_SINGLE
 #ifdef USE_MPI
         self%io_subarray%active = .false.  ! defaults
@@ -148,7 +148,7 @@ contains
         self%data(1:imax, 1:jmax, 1:self%size) => txc(1:imax*jmax*self%size, 1)
         self%io = [size(self%data), 1, size(self%data), 1, 1]
 
-        self%io_subarray%offset = sizeofint + sizeofint*size(self%nodes) + sizeofreal
+        self%io_subarray%offset = sizeofint + sizeofint + sizeofreal + sizeofint*size(self%nodes)
         self%io_subarray%precision = IO_TYPE_SINGLE
 #ifdef USE_MPI
         self%io_subarray%active = .true.
@@ -300,7 +300,7 @@ contains
         do iv = 1, size(vars)
             do k = 1, kmax
                 do j = 1, jmax
-                    self%data(j, 1 + offset:size(self%nodes) + offset, k) = vars(iv)%field(self%nodes(:), j, k)
+                    self%data(j, k, 1 + offset:size(self%nodes) + offset) = vars(iv)%field(self%nodes(:), j, k)
                 end do
             end do
             offset = offset + size(self%nodes)
@@ -320,12 +320,18 @@ contains
 
         integer offset, iv
 
+        integer k, i
+
         ! ###################################################################
         if (self%type == TYPE_NONE) return
 
         offset = 0
         do iv = 1, size(vars)
-            self%data(:, 1 + offset:size(self%nodes) + offset, :) = vars(iv)%field(:, self%nodes(:), :)
+            do k = 1, kmax
+                do i = 1, imax
+                    self%data(i, k, 1 + offset:size(self%nodes) + offset) = vars(iv)%field(i, self%nodes(:), k)
+                end do
+            end do
             offset = offset + size(self%nodes)
         end do
 
@@ -364,6 +370,7 @@ contains
 #define USE_ACCESS_STREAM
 
     subroutine planes_write(self, name_tag)
+        use TLab_Constants, only: i4, dp
 #ifdef USE_MPI
         use mpi_f08, only: MPI_COMM_WORLD
         use TLabMPI_VARS, only: ims_pro, ims_err
@@ -382,7 +389,7 @@ contains
         if (ims_pro == 0) then
 #endif
 #include "tlab_open_file.h"
-            write (LOC_UNIT_ID) int(self%io_subarray%offset, wi), int(self%nodes(:), wi), rtime
+            write (LOC_UNIT_ID) int(self%io_subarray%offset, wi), itime, rtime, int(self%nodes(:), wi)
             close (LOC_UNIT_ID)
 #ifdef USE_MPI
         end if

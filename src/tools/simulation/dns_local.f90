@@ -75,7 +75,7 @@ contains
         call ScanFile_Int(bakfile, inifile, block, 'End', '0', nitera_last)
         call ScanFile_Int(bakfile, inifile, block, 'Restart', '50', nitera_save)
         call ScanFile_Int(bakfile, inifile, block, 'Statistics', '50', nitera_stats)
-        call ScanFile_Int(bakfile, inifile, block, 'Saveplanes', '-1', nitera_pln)
+        call ScanFile_Int(bakfile, inifile, block, 'Planes', '-1', nitera_pln)
         call ScanFile_Int(bakfile, inifile, block, 'Logs', '10', nitera_log)
         call ScanFile_Real(bakfile, inifile, block, 'Runtime', '10000000', nruntime_sec)
 

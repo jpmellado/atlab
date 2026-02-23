@@ -94,7 +94,7 @@ program AVERAGES
 
     call Gravity_Initialize(ifile)
     call Rotation_Initialize(ifile)
-    call SpecialForcing_Initialize(ifile)
+    ! call SpecialForcing_Initialize(ifile)
     call Microphysics_Initialize(ifile)
     call Radiation_Initialize(ifile)
     call LargeScaleForcing_Initialize(ifile)
@@ -114,6 +114,7 @@ program AVERAGES
     call OPR_Check()
 
     call TLab_Initialize_Background(ifile)  ! Initialize thermodynamic quantities
+    call SpecialForcing_Initialize(ifile)
     call NSE_Burgers_Initialize(ifile)
 
     ! do ig = 1, 3

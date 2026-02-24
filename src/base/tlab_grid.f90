@@ -1,20 +1,23 @@
 #include "tlab_error.h"
 
 module TLab_Grid
-    use TLab_Constants, only: efile, wp, wi
+    use TLab_Constants, only: wp, wi
+    use TLab_Constants, only: efile
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
     implicit none
     private
 
+    public :: TLab_Grid_Initialize
     public :: TLab_Grid_Read
     public :: TLab_Grid_Write
 
-    public :: grid_dt
-    public :: grid, x, y, z
-    public :: subGrid, subX, subY, subZ
+    public :: axis_dt
+    public :: globalGrid, x, y, z
+    public :: subaxis_dt
+    public :: xSubgrid, ySubgrid, zSubgrid
 
     ! -----------------------------------------------------------------------
-    type :: grid_dt
+    type :: axis_dt
         ! sequence
         character*8 name
         integer(wi) size
@@ -24,30 +27,141 @@ module TLab_Grid
         real(wp), allocatable :: nodes(:)
     end type
 
-    type(grid_dt), target :: grid(3)
-    type(grid_dt), pointer :: x => grid(1), y => grid(2), z => grid(3)
+    type :: grid_dt
+        type(axis_dt) axes(3)
+    end type
 
-    type :: subgrid_dt
-        type(grid_dt), pointer :: parent
+    type(grid_dt), target :: globalGrid
+    type(axis_dt), pointer :: x => globalGrid%axes(1)
+    type(axis_dt), pointer :: y => globalGrid%axes(2)
+    type(axis_dt), pointer :: z => globalGrid%axes(3)
+
+    type :: subaxis_dt
+        type(axis_dt), pointer :: parent
         integer :: offset
         integer :: size
     contains
-        procedure :: initialize => sub_grid_initialize
+        procedure :: initialize => subaxis_initialize
     end type
 
-    type(subgrid_dt), target :: subGrid(3)
-    type(subgrid_dt), pointer :: subX => subGrid(1), subY => subGrid(2), subZ => subGrid(3)
+    type :: subgrid_dt
+        type(subaxis_dt) axes(3)
+    end type
+
+    type(subgrid_dt), target :: subgrid
+    type(subaxis_dt), pointer :: xSubgrid => subgrid%axes(1)
+    type(subaxis_dt), pointer :: ySubgrid => subgrid%axes(2)
+    type(subaxis_dt), pointer :: zSubgrid => subgrid%axes(3)
 
 contains
     !########################################################################
     !########################################################################
-    subroutine sub_grid_initialize(self, grid)
-        class(subgrid_dt), intent(inout) :: self
-        type(grid_dt), intent(in), target :: grid
+    subroutine subaxis_initialize(self, referenceAxis)
+        class(subaxis_dt), intent(inout) :: self
+        type(axis_dt), intent(in), target :: referenceAxis
 
-        self%parent => grid
+        self%parent => referenceAxis
         self%offset = 0
-        self%size = grid%size
+        self%size = referenceAxis%size
+
+        return
+    end subroutine
+
+    !########################################################################
+    !########################################################################
+    subroutine TLab_Grid_Initialize(locInifile)
+        use TLab_Constants, only: ifile, gfile
+        use TLab_Memory, only: imax, jmax, kmax
+        character(len=*), optional, intent(in) :: locInifile
+
+        ! -------------------------------------------------------------------
+        character(len=32) inifile
+        character(len=32) bakfile, block
+        character(len=128) eStr
+        character(len=512) sRes
+
+        integer ig
+
+        ! ###################################################################
+        if (present(locInifile)) then
+            inifile = locInifile
+        else
+            inifile = ifile
+        end if
+
+        bakfile = trim(adjustl(inifile))//'.bak'
+        block = 'Grid'
+        eStr = __FILE__//'. '//trim(adjustl(block))//'. '
+
+        call TLab_Write_ASCII(bakfile, '#')
+        call TLab_Write_ASCII(bakfile, '#['//trim(adjustl(block))//']')
+        call TLab_Write_ASCII(bakfile, '#Imax=<value>')
+        call TLab_Write_ASCII(bakfile, '#XUniform=<yes/no>')
+        call TLab_Write_ASCII(bakfile, '#XPeriodic=<yes/no>')
+        ! and same fo Y and Z
+
+        call ScanFile_Int(bakfile, inifile, block, 'Imax', '0', imax)
+        call ScanFile_Int(bakfile, inifile, block, 'Jmax', '0', jmax)
+        call ScanFile_Int(bakfile, inifile, block, 'Kmax', '0', kmax)
+
+        globalGrid%axes(1)%name = 'x'
+        globalGrid%axes(2)%name = 'y'
+        globalGrid%axes(3)%name = 'z'
+
+        do ig = 1, 3
+            call ScanFile_Char(bakfile, inifile, block, globalGrid%axes(ig)%name(1:1)//'Uniform', 'void', sRes)
+            if (trim(adjustl(sRes)) == 'yes') then
+                globalGrid%axes(ig)%uniform = .true.
+            else if (trim(adjustl(sRes)) == 'no') then
+                globalGrid%axes(ig)%uniform = .false.
+            else
+                call TLab_Write_ASCII(efile, __FILE__//'. Error in Uniform '//globalGrid%axes(ig)%name(1:1)//' grid')
+                call TLab_Stop(DNS_ERROR_UNIFORMX)
+            end if
+
+            call ScanFile_Char(bakfile, inifile, block, globalGrid%axes(ig)%name(1:1)//'Periodic', 'void', sRes)
+            if (trim(adjustl(sRes)) == 'yes') then
+                globalGrid%axes(ig)%periodic = .true.
+            else if (trim(adjustl(sRes)) == 'no') then
+                globalGrid%axes(ig)%periodic = .false.
+            else
+                call TLab_Write_ASCII(efile, __FILE__//'. Error in Periodic '//globalGrid%axes(ig)%name(1:1)//' grid')
+                call TLab_Stop(DNS_ERROR_IBC)
+            end if
+
+            ! consistency check
+            if (globalGrid%axes(ig)%periodic .and. (.not. globalGrid%axes(ig)%uniform)) then
+                call TLab_Write_ASCII(efile, __FILE__//'. Grid must be uniform in periodic direction.')
+                call TLab_Stop(DNS_ERROR_OPTION)
+            end if
+
+        end do
+
+        ! ###################################################################
+        call TLab_Grid_Read(gfile, x, y, z, [imax, jmax, kmax])
+
+        ! ###################################################################
+        ! Default local subgrid is equal to global grid
+        do ig = 1, 3
+            call subgrid%axes(ig)%initialize(globalGrid%axes(ig))
+        end do
+
+#ifdef USE_MPI
+        ! MPI domain decomposition in X and Y directions
+        call TLab_Write_ASCII(bakfile, '#Imax(*)=<value>')
+        call TLab_Write_ASCII(bakfile, '#Jmax(*)=<value>')
+
+        write (sRes, *) x%size
+        call ScanFile_Int(bakfile, inifile, block, 'Imax(*)', trim(adjustl(sRes)), subgrid%axes(1)%size)
+        write (sRes, *) y%size
+        call ScanFile_Int(bakfile, inifile, block, 'Jmax(*)', trim(adjustl(sRes)), subgrid%axes(2)%size)
+
+#endif
+        ! ###################################################################
+        ! For readability in the code
+        imax = xSubgrid%size
+        jmax = ySubgrid%size
+        kmax = zSubgrid%size
 
         return
     end subroutine
@@ -56,7 +170,7 @@ contains
     !########################################################################
     subroutine TLab_Grid_Read(name, x, y, z, sizes)
         character*(*) name
-        type(grid_dt), intent(inout) :: x, y, z
+        type(axis_dt), intent(inout) :: x, y, z
         integer(wi), intent(in), optional :: sizes(3)
 
         ! -----------------------------------------------------------------------
@@ -102,7 +216,7 @@ contains
 !########################################################################
     subroutine TLab_Grid_Write(name, x, y, z)
         character*(*) name
-        type(grid_dt), intent(in) :: x, y, z
+        type(axis_dt), intent(in) :: x, y, z
 
         !########################################################################
         open (unit=51, file=name, form='unformatted', status='unknown')

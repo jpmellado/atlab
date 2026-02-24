@@ -12,7 +12,7 @@ module OPR_Elliptic
     use TLab_Arrays, only: wrk1d, wrk2d, wrk3d
     use TLab_Grid, only: x, y, z
 #ifdef USE_MPI
-    use TLabMPI_VARS, only: ims_offset_i, ims_offset_j, ims_pro_i
+    use TLabMPI_VARS, only: ims_pro_i
 #endif
     use FDM, only: fdm_der1_Z, FDM_CreatePlan_Der2
     use FDM_Derivative_2order
@@ -81,6 +81,7 @@ contains
     ! #######################################################################
     ! #######################################################################
     subroutine OPR_Elliptic_Initialize(inifile)
+        use TLab_Grid, only: ySubgrid
         use FDM_Base, only: FDM_COM4_DIRECT, FDM_COM6_DIRECT
         use FDM, only: fdm_der1_X, fdm_der1_Y, fdm_der1_Z
         use FDM, only: fdm_der2_X, fdm_der2_Y
@@ -180,12 +181,11 @@ contains
 
 #ifdef USE_MPI
         fft_offset_i = ims_pro_i*isize_line
-        fft_offset_j = ims_offset_j
 
 #else
         fft_offset_i = 0
-        fft_offset_j = 0
 #endif
+        fft_offset_j = ySubgrid%offset
 
         i_sing = i_sing - [fft_offset_i, fft_offset_i]          ! Singular modes in task-local variables
         j_sing = j_sing - [fft_offset_j, fft_offset_j]

@@ -8,11 +8,8 @@ module SCAL_LOCAL
     use TLab_Arrays, only: wrk1d
     use TLab_Pointers_3D, only: p_wrk2d, p_wrk3d
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
-#ifdef USE_MPI
-    use TLabMPI_VARS, only: ims_offset_i, ims_offset_j
-#endif
     use IO_Fields
-    use TLab_Grid, only: x, y, z
+    use TLab_Grid, only: x, y, z, xSubgrid, ySubgrid
     use Tlab_Background, only: sbg
     use Discrete, only: discrete_dt, Discrete_ReadBlock
     use Averages, only: AVG1V2D
@@ -203,12 +200,8 @@ contains
         real(wp) dummy, params(0)
 
         ! ###################################################################
-#ifdef USE_MPI
-        idsp = ims_offset_i; jdsp = ims_offset_j
-#else
-        idsp = 0; jdsp = 0
-#endif
-
+        idsp = xSubgrid%offset
+        jdsp = ySubgrid%offset
 #define xn(i) x%nodes(i)
 #define yn(j) y%nodes(j)
 
@@ -263,13 +256,8 @@ contains
         real(wp) xcenter, ycenter, rcenter, amplify, params(0)
 
         ! ###################################################################
-#ifdef USE_MPI
-        idsp = ims_offset_i; jdsp = ims_offset_j
-#else
-        idsp = 0; jdsp = 0
-#endif
-
-        ! ###################################################################
+        idsp = xSubgrid%offset
+        jdsp = ySubgrid%offset
 #define xn(i) x%nodes(i)
 #define yn(j) z%nodes(k)
 #define disp(i,k) p_wrk2d(i,k,1)

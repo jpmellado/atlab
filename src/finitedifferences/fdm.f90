@@ -1,10 +1,10 @@
 #include "tlab_error.h"
 
 module FDM
-    use TLab_Constants, only: wp, wi, roundoff_wp, efile, wfile
+    use TLab_Constants, only: wp, wi, roundoff_wp
+    use TLab_Constants, only: efile, wfile
     use TLab_Constants, only: BCS_DD, BCS_ND, BCS_DN, BCS_NN, BCS_MIN, BCS_MAX, BCS_NONE
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, stagger_on
-    use TLab_Grid, only: grid_dt
     use FDM_Base
     use FDM_Derivative_1order
     use FDM_Derivative_2order
@@ -25,27 +25,27 @@ contains
     ! ###################################################################
     ! ###################################################################
     subroutine FDM_Initialize(inifile)
-        use TLab_Grid, only: x, y, z, grid
+        use TLab_Grid, only: x, y, z
         character(len=*), optional, intent(in) :: inifile
 
         ! -------------------------------------------------------------------
         character(len=32) bakfile, block
         character(len=128) eStr
         character(len=512) sRes
-        integer ig, der1_type, der2_type
+        integer der1_type, der2_type
 
         !########################################################################
         ! Reading
         bakfile = trim(adjustl(inifile))//'.bak'
-
-        ! -------------------------------------------------------------------
         block = 'Space'
         eStr = __FILE__//'. '//trim(adjustl(block))//'. '
 
         call TLab_Write_ASCII(bakfile, '#')
         call TLab_Write_ASCII(bakfile, '#['//trim(adjustl(block))//']')
-        call TLab_Write_ASCII(bakfile, '#SchemeDerivative1=<CompactJacobian4/CompactJacobian6/CompactJacobian6Penta/CompactDirect4/CompactDirect6>')
-call TLab_Write_ASCII(bakfile, '#SchemeDerivative2=<CompactJacobian4/CompactJacobian6/CompactJacobian6Hyper/CompactDirect4/CompactDirect6/CompactDirect6Hyper>')
+        call TLab_Write_ASCII(bakfile, '#SchemeDerivative1=<CompactJacobian4/CompactJacobian6/CompactJacobian6Penta/'// &
+                              'CompactDirect4/CompactDirect6>')
+        call TLab_Write_ASCII(bakfile, '#SchemeDerivative2=<CompactJacobian4/CompactJacobian6/CompactJacobian6Hyper/'// &
+                              'CompactDirect4/CompactDirect6/CompactDirect6Hyper>')
 
         call ScanFile_Char(bakfile, inifile, block, 'SchemeDerivative1', 'compactjacobian6', sRes)
         if (trim(adjustl(sRes)) == 'compactjacobian4') then; der1_type = FDM_COM4_JACOBIAN; 
@@ -71,50 +71,8 @@ call TLab_Write_ASCII(bakfile, '#SchemeDerivative2=<CompactJacobian4/CompactJaco
         end if
 
         if (der1_type == FDM_COM6_JACOBIAN_PENTA) then     ! CFL_max depends on max[g(ig)%der1%mwn(:)]
-           call TLab_Write_ASCII(wfile, trim(adjustl(eStr))//'CompactJacobian6Penta requires adjusted CFL-number depending on alpha and beta values.')
+            call TLab_Write_ASCII(wfile, trim(adjustl(eStr))//'CompactJacobian6Penta requires adjusted CFL-number depending on alpha and beta values.')
         end if
-
-        ! -------------------------------------------------------------------
-        block = 'Grid'
-        eStr = __FILE__//'. '//trim(adjustl(block))//'. '
-
-        call TLab_Write_ASCII(bakfile, '#')
-        call TLab_Write_ASCII(bakfile, '#['//trim(adjustl(block))//']')
-        call TLab_Write_ASCII(bakfile, '#XUniform=<yes/no>')
-        call TLab_Write_ASCII(bakfile, '#YUniform=<yes/no>')
-        call TLab_Write_ASCII(bakfile, '#ZUniform=<yes/no>')
-        call TLab_Write_ASCII(bakfile, '#XPeriodic=<yes/no>')
-        call TLab_Write_ASCII(bakfile, '#YPeriodic=<yes/no>')
-        call TLab_Write_ASCII(bakfile, '#ZPeriodic=<yes/no>')
-
-        grid(1)%name = 'x'
-        grid(2)%name = 'y'
-        grid(3)%name = 'z'
-
-        do ig = 1, 3
-            call ScanFile_Char(bakfile, inifile, block, grid(ig)%name(1:1)//'Uniform', 'void', sRes)
-            if (trim(adjustl(sRes)) == 'yes') then; grid(ig)%uniform = .true.
-            else if (trim(adjustl(sRes)) == 'no') then; grid(ig)%uniform = .false.
-            else
-                call TLab_Write_ASCII(efile, __FILE__//'. Error in Uniform '//grid(ig)%name(1:1)//' grid')
-                call TLab_Stop(DNS_ERROR_UNIFORMX)
-            end if
-
-            call ScanFile_Char(bakfile, inifile, block, grid(ig)%name(1:1)//'Periodic', 'void', sRes)
-            if (trim(adjustl(sRes)) == 'yes') then; grid(ig)%periodic = .true.
-            else if (trim(adjustl(sRes)) == 'no') then; grid(ig)%periodic = .false.
-            else
-                call TLab_Write_ASCII(efile, __FILE__//'. Error in Periodic '//grid(ig)%name(1:1)//' grid')
-                call TLab_Stop(DNS_ERROR_IBC)
-            end if
-
-            ! consistency check
-            if (grid(ig)%periodic .and. (.not. grid(ig)%uniform)) then
-                call TLab_Write_ASCII(efile, __FILE__//'. Grid must be uniform in periodic direction.')
-                call TLab_Stop(DNS_ERROR_OPTION)
-            end if
-
-        end do
 
         !########################################################################
         ! Initializing fdm plan for derivatives
@@ -139,7 +97,8 @@ call TLab_Write_ASCII(bakfile, '#SchemeDerivative2=<CompactJacobian4/CompactJaco
     ! to be removed a call directly locDer%initialize(x%nodes, type)
     ! from parent procedure
     subroutine FDM_CreatePlan_Der1(x, locDer, type)
-        type(grid_dt), intent(in) :: x
+        use TLab_Grid, only: axis_dt
+        type(axis_dt), intent(in) :: x
         class(der_dt), allocatable, intent(out) :: locDer
         integer, intent(in) :: type
 
@@ -160,7 +119,8 @@ call TLab_Write_ASCII(bakfile, '#SchemeDerivative2=<CompactJacobian4/CompactJaco
     ! ###################################################################
     ! ###################################################################
     subroutine FDM_CreatePlan_Der2(x, locDer, type, fdm_der1)
-        type(grid_dt), intent(in) :: x
+        use TLab_Grid, only: axis_dt
+        type(axis_dt), intent(in) :: x
         class(der2_extended_dt), allocatable, intent(out) :: locDer
         integer, intent(in) :: type
         class(der_dt), intent(in) :: fdm_der1

@@ -12,7 +12,6 @@ module TLabMPI_VARS
     integer :: ims_pro_i, ims_pro_j, ims_pro_k                  ! Local PE number in directional communicators
     integer :: ims_npro                                         ! Total number of PE
     integer :: ims_npro_i, ims_npro_j, ims_npro_k               ! Number of PEs in directional communicators
-    integer :: ims_offset_i, ims_offset_j, ims_offset_k         ! Grid offsets
 
     integer :: ims_err, ims_tag
 
@@ -21,7 +20,7 @@ module TLabMPI_VARS
 
     type(MPI_Datatype) :: TLAB_MPI_REAL_TYPE                    ! MPI Type control
 
-    type :: mpi_grid_dt
+    type :: mpi_axis_dt
         type(MPI_Comm) :: comm
         integer :: num_processors
         integer :: rank

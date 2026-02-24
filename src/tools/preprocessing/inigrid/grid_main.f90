@@ -7,7 +7,7 @@ program INIGRID
     use TLab_Constants, only: wp, gfile, ifile, lfile, efile
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Start
     use TLab_Arrays, only: wrk1d, wrk2d
-    use TLab_Grid, only: grid_dt, TLab_Grid_Write
+    use TLab_Grid, only: axis_dt, TLab_Grid_Write
     use GRID_LOCAL
 #ifdef USE_MPI
     use TLabMPI_VARS, only: ims_pro
@@ -15,7 +15,7 @@ program INIGRID
     implicit none
 
     character*32 sfile, bakfile
-    type(grid_dt) :: g(3)
+    type(axis_dt) :: g(3)
     integer(wi) idir, iseg, isize_wrk1d, n, nmax, iloc
     real(wp) scale_old, scale_new, ds
     character(len=16), parameter :: block(3) = ['IniGridOx', 'IniGridOy', 'IniGridOz']

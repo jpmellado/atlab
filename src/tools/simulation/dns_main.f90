@@ -1,7 +1,7 @@
 #include "tlab_error.h"
 
 program DNS
-    use TLab_Constants, only: ifile, efile, wfile, lfile, gfile, tag_flow, tag_scal
+    use TLab_Constants, only: ifile, efile, wfile, lfile, tag_flow, tag_scal
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Start
     use TLab_WorkFlow, only: scal_on, flow_on
     use TLab_Time, only: itime, rtime
@@ -49,12 +49,13 @@ program DNS
     call TLab_Start()
 
     call TLab_Initialize_Parameters(ifile)
+
+    call TLab_Grid_Initialize()
+
 #ifdef USE_MPI
     call TLabMPI_Initialize(ifile)
     call TLabMPI_Trp_Initialize(ifile)
 #endif
-
-    call TLab_Grid_Read(gfile, x, y, z)
 
     call NavierStokes_Initialize_Parameters(ifile)
     call Thermo_Initialize(ifile)

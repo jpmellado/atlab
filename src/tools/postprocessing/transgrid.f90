@@ -1,9 +1,9 @@
 program TRANSGRID
     use TLab_Constants, only: wp, wi
-    use TLab_Grid, only: grid_dt, TLab_Grid_Read, TLab_Grid_Write
+    use TLab_Grid, only: axis_dt, TLab_Grid_Read, TLab_Grid_Write
     implicit none
 
-    type(grid_dt), dimension(3) :: g, g_ref
+    type(axis_dt), dimension(3) :: g, g_ref
 
     integer(wi) option, id, n, isize_wrk1d
     character*32 ifile, ffile, sfile, file_ref
@@ -349,7 +349,7 @@ contains
     ! ###################################################################
     ! ###################################################################
     subroutine TRANS_DATA(name, grid, work1, work2)
-        type(grid_dt) grid
+        type(axis_dt) grid
 
         character*(*) name
         real(wp) work1(*), work2(*)

@@ -79,7 +79,7 @@ contains
     !########################################################################
     subroutine BLD_EXP(idir, iseg, x, nmax, w)
         use TLab_Constants, only: BCS_MIN
-        use TLab_Grid, only: grid_dt
+        use TLab_Grid, only: axis_dt
         ! use FDM, only: fdm_dt, FDM_CreatePlan, FDM_CreatePlan_Der1
         use FDM, only: FDM_CreatePlan_Der1
         use FDM_Derivative_1order, only: der_dt, der1_biased
@@ -89,7 +89,7 @@ contains
         real(wp), intent(INOUT) :: x(nmax), w(nmax, 8)
 
         ! -----------------------------------------------------------------------
-        type(grid_dt) x_loc
+        type(axis_dt) x_loc
         ! type(fdm_dt) fdm_loc
         class(der_dt), allocatable :: fdm_der1
         type(fdm_integral_dt) fdmi

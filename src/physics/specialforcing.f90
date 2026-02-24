@@ -50,10 +50,8 @@ contains
     !########################################################################
     !########################################################################
     subroutine SpecialForcing_Initialize(inifile)
+        use TLab_Grid, only: xSubgrid, ySubgrid
         use TLab_Memory, only: imax, jmax, kmax
-#ifdef USE_MPI
-        use TLabMPI_VARS, only: ims_offset_i, ims_offset_j
-#endif
         character(len=*), intent(in) :: inifile
 
         ! -------------------------------------------------------------------
@@ -153,11 +151,8 @@ contains
             call TLab_Allocate_Real(__FILE__, tmp_envelope, [imax, jmax, kmax], 'tmp-wave-envelope')
             call TLab_Allocate_Real(__FILE__, tmp_phase, [imax, kmax, nwaves], 'tmp-wave-phase')
 
-#ifdef USE_MPI
-            idsp = ims_offset_i; jdsp = ims_offset_j
-#else
-            idsp = 0; jdsp = 0
-#endif
+            idsp = xSubgrid%offset
+            jdsp = ySubgrid%offset
 
             dummy(1) = 0.5_wp/envelope(4)**2.0_wp ! width in x-direction
             dummy(2) = 0.5_wp/envelope(5)**2.0_wp ! width y-direction
@@ -194,11 +189,8 @@ contains
             call TLab_Allocate_Real(__FILE__, tmp_envelope, [imax, jmax, kmax], 'tmp-wave-envelope')
             call TLab_Allocate_Real(__FILE__, tmp_phase, [imax, kmax, nwaves], 'tmp-wave-phase')
 
-#ifdef USE_MPI
-            idsp = ims_offset_i; jdsp = ims_offset_j
-#else
-            idsp = 0; jdsp = 0
-#endif
+            idsp = xSubgrid%offset
+            jdsp = ySubgrid%offset
             do k = 1, kmax
                 do j = 1, jmax
                     do i = 1, imax

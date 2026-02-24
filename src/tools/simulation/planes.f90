@@ -57,11 +57,11 @@ contains
     ! ###################################################################
     subroutine planesX_initialize_dt(self, inifile)
         use TLab_Constants, only: sizeofint, sizeofreal
-        use TLab_Grid, only: x
+        use TLab_Grid, only: xSubgrid
         use IO_Fields, only: IO_TYPE_SINGLE
 #ifdef USE_MPI
         use mpi_f08, only: MPI_REAL4
-        use TLabMPI_VARS, only: ims_comm_y, ims_pro_j, ims_pro_i, ims_npro_i, ims_offset_i
+        use TLabMPI_VARS, only: ims_comm_y, ims_pro_j, ims_pro_i, ims_npro_i
         use IO_Fields, only: IO_Create_Subarray_YOZ, IO_TYPE_SINGLE
 #endif
         class(planesX_dt), intent(out) :: self
@@ -69,7 +69,7 @@ contains
         character(len=*), intent(in) :: inifile
 
         ! ###################################################################
-        call planes_initialize(self, inifile, x)
+        call planes_initialize(self, inifile, xSubgrid)
 
         if (self%type == TYPE_NONE) return
 
@@ -85,7 +85,7 @@ contains
                 self%io_subarray%active = .true.
                 self%io_subarray%communicator = ims_comm_y
                 self%io_subarray%subarray = IO_Create_Subarray_YOZ(jmax, self%size*kmax, MPI_REAL4)
-                self%nodes(:) = self%nodes(:) - ims_offset_i        ! go to plane positions in local processor
+                self%nodes(:) = self%nodes(:) - xSubgrid%offset        ! go to plane positions in local processor
                 if (ims_pro_j /= 0) self%writeheader = .false.
             end if
         end if
@@ -98,11 +98,11 @@ contains
     ! ###################################################################
     subroutine planesY_initialize_dt(self, inifile)
         use TLab_Constants, only: sizeofint, sizeofreal
-        use TLab_Grid, only: y
+        use TLab_Grid, only: ySubgrid
         use IO_Fields, only: IO_TYPE_SINGLE
 #ifdef USE_MPI
         use mpi_f08, only: MPI_REAL4
-        use TLabMPI_VARS, only: ims_comm_x, ims_pro_i, ims_pro_j, ims_npro_j, ims_offset_j
+        use TLabMPI_VARS, only: ims_comm_x, ims_pro_i, ims_pro_j, ims_npro_j
         use IO_Fields, only: IO_Create_Subarray_XOZ, IO_TYPE_SINGLE
 #endif
         class(planesY_dt), intent(out) :: self
@@ -110,7 +110,7 @@ contains
         character(len=*), intent(in) :: inifile
 
         ! ###################################################################
-        call planes_initialize(self, inifile, y)
+        call planes_initialize(self, inifile, ySubgrid)
 
         if (self%type == TYPE_NONE) return
 
@@ -126,7 +126,7 @@ contains
                 self%io_subarray%active = .true.
                 self%io_subarray%communicator = ims_comm_x
                 self%io_subarray%subarray = IO_Create_Subarray_XOZ(imax, kmax*self%size, MPI_REAL4)
-                self%nodes(:) = self%nodes(:) - ims_offset_j        ! go to plane positions in local processor
+                self%nodes(:) = self%nodes(:) - ySubgrid%offset        ! go to plane positions in local processor
                 if (ims_pro_i /= 0) self%writeheader = .false.
             end if
         end if
@@ -139,7 +139,7 @@ contains
     ! ###################################################################
     subroutine planesZ_initialize_dt(self, inifile)
         use TLab_Constants, only: sizeofint, sizeofreal
-        use TLab_Grid, only: z
+        use TLab_Grid, only: zSubgrid
         use IO_Fields, only: IO_TYPE_SINGLE
 #ifdef USE_MPI
         use mpi_f08, only: MPI_REAL4, MPI_COMM_WORLD
@@ -150,7 +150,7 @@ contains
         character(len=*), intent(in) :: inifile
 
         ! ###################################################################
-        call planes_initialize(self, inifile, z)
+        call planes_initialize(self, inifile, zSubgrid)
 
         if (self%type == TYPE_NONE) return
 
@@ -170,14 +170,14 @@ contains
 
     ! ###################################################################
     ! ###################################################################
-    subroutine planes_initialize(self, inifile, axis)
+    subroutine planes_initialize(self, inifile, subaxis)
 #ifdef USE_MPI
-        use TLabMPI_VARS, only: ims_offset_i, ims_offset_j, ims_npro_i, ims_npro_j
+        use TLabMPI_VARS, only: ims_npro_i, ims_npro_j
         use TLabMPI_VARS, only: ims_pro_i, ims_pro_j
 #endif
-        use TLab_Grid, only: grid_dt
+        use TLab_Grid, only: subaxis_dt
         class(planes_dt), intent(out) :: self
-        type(grid_dt), intent(in) :: axis
+        type(subaxis_dt), intent(in) :: subaxis
 
         character(len=*), intent(in) :: inifile
 
@@ -188,9 +188,7 @@ contains
 
         integer, parameter :: nodes_size_max = 16
         integer :: nodes(nodes_size_max), nodes_size
-#ifdef USE_MPI
         integer :: nodes_size_global, ip
-#endif
 
         ! ###################################################################
         ! Read
@@ -198,7 +196,7 @@ contains
         block = 'Planes'
         eStr = __FILE__//'. '//trim(adjustl(block))//'. '
 
-        select case (trim(adjustl(axis%name)))
+        select case (trim(adjustl(subaxis%parent%name)))
         case ('x')
             tag = 'PlanesI'
         case ('y')
@@ -222,33 +220,15 @@ contains
 
         end if
 
-#ifdef USE_MPI
-        ! Limit planes to those inside the local processor
-        select case (trim(adjustl(axis%name)))
-        case ('x')
-            if (ims_npro_i > 1) then
-                nodes_size_global = nodes_size
-                nodes_size = 0
-                do ip = 1, nodes_size_global
-                    if (1 <= (nodes(ip) - ims_offset_i) .and. (nodes(ip) - ims_offset_i) <= imax) then
-                        nodes_size = nodes_size + 1
-                        nodes(nodes_size) = nodes(ip)
-                    end if
-                end do
+        ! Limit planes to those inside the local grid
+        nodes_size_global = nodes_size
+        nodes_size = 0
+        do ip = 1, nodes_size_global
+            if (1 <= (nodes(ip) - subaxis%offset) .and. (nodes(ip) - subaxis%offset) <= subaxis%size) then
+                nodes_size = nodes_size + 1
+                nodes(nodes_size) = nodes(ip)
             end if
-        case ('y')
-            if (ims_npro_j > 1) then
-                nodes_size_global = nodes_size
-                nodes_size = 0
-                do ip = 1, nodes_size_global
-                    if (1 <= (nodes(ip) - ims_offset_j) .and. (nodes(ip) - ims_offset_j) <= jmax) then
-                        nodes_size = nodes_size + 1
-                        nodes(nodes_size) = nodes(ip)
-                    end if
-                end do
-            end if
-        end select
-#endif
+        end do
 
         if (nodes_size == 0) self%type = TYPE_NONE
         if (self%type == TYPE_NONE) return
@@ -257,8 +237,8 @@ contains
         ! Initialize data
         allocate (self%nodes, source=nodes(1:nodes_size))
 
-        if (any(self%nodes(:) < 1) .or. any(self%nodes(:) > axis%size)) then
-            call TLab_Write_ASCII(efile, __FILE__//'. Plane nodes out of bounds '//trim(adjustl(axis%name)))
+        if (any(self%nodes(:) < 1) .or. any(self%nodes(:) - subaxis%offset > subaxis%size)) then
+            call TLab_Write_ASCII(efile, __FILE__//'. Plane nodes out of bounds '//trim(adjustl(subaxis%parent%name)))
             call TLab_Stop(DNS_ERROR_OPTION)
         end if
 
@@ -267,7 +247,7 @@ contains
             self%size = self%size + (inb_scal_array + 1)*size(self%nodes)
         end if
 
-        if (self%size > axis%size) then
+        if (self%size > subaxis%size) then
             call TLab_Write_ASCII(efile, __FILE__//'. Array size is insufficient.')
             call TLab_Stop(DNS_ERROR_UNDEVELOP)
         end if
@@ -332,9 +312,7 @@ contains
     ! ###################################################################
     ! ###################################################################
     subroutine planesX_save_dt(self, vars)
-#ifdef USE_MPI
-        use TLabMPI_VARS, only: ims_offset_i
-#endif
+        use TLab_Grid, only: xSubgrid
         class(planesX_dt) self
         type(pointers3d_dt), intent(in) :: vars(:)
 
@@ -354,13 +332,9 @@ contains
             offset = offset + size(self%nodes)
         end do
 
-#ifdef USE_MPI
-        self%nodes(:) = self%nodes(:) + ims_offset_i     ! go global to write plane information
-#endif
+        self%nodes(:) = self%nodes(:) + xSubgrid%offset     ! go global to write plane information
         call planes_write(self, name_tag='planesI.')
-#ifdef USE_MPI
-        self%nodes(:) = self%nodes(:) - ims_offset_i     ! go back to local
-#endif
+        self%nodes(:) = self%nodes(:) - xSubgrid%offset     ! go back to local
 
         return
     end subroutine planesX_save_dt
@@ -368,10 +342,7 @@ contains
     ! ###################################################################
     ! ###################################################################
     subroutine planesY_save_dt(self, vars)
-#ifdef USE_MPI
-        use TLabMPI_VARS, only: ims_offset_j
-#endif
-        use IO_Fields, only: IO_Write_Subarray
+        use TLab_Grid, only: ySubgrid
         class(planesY_dt) self
         type(pointers3d_dt), intent(in) :: vars(:)
 
@@ -392,13 +363,9 @@ contains
             offset = offset + size(self%nodes)
         end do
 
-#ifdef USE_MPI
-        self%nodes(:) = self%nodes(:) + ims_offset_j     ! go global to write plane information
-#endif
+        self%nodes(:) = self%nodes(:) + ySubgrid%offset     ! go global to write plane information
         call planes_write(self, name_tag='planesJ.')
-#ifdef USE_MPI
-        self%nodes(:) = self%nodes(:) - ims_offset_j     ! go back to local
-#endif
+        self%nodes(:) = self%nodes(:) - ySubgrid%offset     ! go back to local
 
         return
     end subroutine planesY_save_dt
@@ -406,7 +373,6 @@ contains
     ! ###################################################################
     ! ###################################################################
     subroutine planesZ_save_dt(self, vars)
-        use IO_Fields, only: IO_Write_Subarray
         class(planesZ_dt) self
         type(pointers3d_dt), intent(in) :: vars(:)
 

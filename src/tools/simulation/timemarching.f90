@@ -55,7 +55,6 @@ module TimeMarching
     real(wp) :: etime                           ! time at each RK substep; rtime is time at each iteration, not at each RK substep
 
     real(wp) schmidtfactor, dx2i
-    integer(wi) i, j, k, kdsp, jdsp, idsp!, is
     real(wp) dummy
 
     type :: ds_dt
@@ -71,7 +70,7 @@ contains
     subroutine TMarch_Initialize(inifile)
         use TLab_Memory, only: TLab_Allocate_Real
         use TLab_Arrays, only: wrk1d
-        use TLab_Grid, only: grid, x, y, z
+        use TLab_Grid, only: globalGrid, x, y, z, xSubgrid, ySubgrid, zSubgrid
         use FDM, only: fdm_der1_X, fdm_der1_Y, fdm_der1_Z
 
         character*(*) inifile
@@ -80,7 +79,8 @@ contains
         character(len=32) bakfile, block, lstr
         character(len=128) eStr
         character(len=512) sRes
-        integer ig, i
+        integer ig
+        integer(wi) i, j, k
 
         ! ###################################################################
         bakfile = trim(adjustl(inifile))//'.bak'
@@ -226,15 +226,15 @@ contains
         ! ###################################################################
         ! Calculate inverse of Jacobian (inverse of grid spacing)
         do ig = 1, 3
-            allocate (ds(ig)%one_ov_ds1(grid(ig)%size))
-            if (grid(ig)%uniform) then
-                if (grid(ig)%size > 1) then
-                    ds(ig)%one_ov_ds1(:) = 1.0_wp/(grid(ig)%nodes(2) - grid(ig)%nodes(1))
+            allocate (ds(ig)%one_ov_ds1(globalGrid%axes(ig)%size))
+            if (globalGrid%axes(ig)%uniform) then
+                if (globalGrid%axes(ig)%size > 1) then
+                    ds(ig)%one_ov_ds1(:) = 1.0_wp/(globalGrid%axes(ig)%nodes(2) - globalGrid%axes(ig)%nodes(1))
                 else
                     ds(ig)%one_ov_ds1(:) = 1.0_wp   ! 2d case
                 end if
             else
-                wrk1d(1:grid(ig)%size, 1) = [(real(i - 1, wp), i=1, grid(ig)%size)]
+                wrk1d(1:globalGrid%axes(ig)%size, 1) = [(real(i - 1, wp), i=1, globalGrid%axes(ig)%size)]
                 select case (ig)
                 case (1)
                     call fdm_der1_X%compute(1, wrk1d(:, 1), ds(ig)%one_ov_ds1(:))
@@ -245,30 +245,20 @@ contains
                 end select
             end if
 
-            allocate (ds(ig)%one_ov_ds2(grid(ig)%size))
+            allocate (ds(ig)%one_ov_ds2(globalGrid%axes(ig)%size))
             ds(ig)%one_ov_ds2(:) = ds(ig)%one_ov_ds1(:)*ds(ig)%one_ov_ds1(:)
 
         end do
 
         ! Maximum of (1/dx^2 + 1/dy^2 + 1/dz^2) for TMarch_Courant
-#ifdef USE_MPI
-        idsp = ims_offset_i
-        jdsp = ims_offset_j
-        kdsp = ims_offset_k
-#else
-        idsp = 0
-        jdsp = 0
-        kdsp = 0
-#endif
-
         dx2i = 0.0_wp
         do k = 1, kmax
             do j = 1, jmax
                 do i = 1, imax
                     dummy = 0.0_wp
-                    if (x%size > 1) dummy = dummy + ds(1)%one_ov_ds2(i + idsp)
-                    if (y%size > 1) dummy = dummy + ds(2)%one_ov_ds2(j + jdsp)
-                    if (z%size > 1) dummy = dummy + ds(3)%one_ov_ds2(k + kdsp)
+                    if (x%size > 1) dummy = dummy + ds(1)%one_ov_ds2(i + xSubgrid%offset)
+                    if (y%size > 1) dummy = dummy + ds(2)%one_ov_ds2(j + ySubgrid%offset)
+                    if (z%size > 1) dummy = dummy + ds(3)%one_ov_ds2(k + zSubgrid%offset)
                     dx2i = max(dx2i, dummy)
                 end do
             end do
@@ -390,7 +380,7 @@ contains
         use TLab_Pointers_2D, only: pxy_q, pxy_s
 
         real(wp) alpha
-        integer iq, is
+        integer iq, is, k
 
         ! #######################################################################
         if (rkm_substep < rkm_endstep) then
@@ -434,7 +424,7 @@ contains
         use Thermo_Anelastic, only: ribackground
 
         real(wp) alpha
-        integer iq, is
+        integer iq, is, k
 
         ! #######################################################################
         if (rkm_substep < rkm_endstep) then
@@ -497,11 +487,12 @@ contains
     !#
     !########################################################################
     subroutine TMarch_Courant()
-        use TLab_Grid, only: y
+        use TLab_Grid, only: y, xSubgrid, ySubgrid, zSubgrid
         use DNS_Control, only: logs_data, logs_dtime
         use TLab_Pointers_3D, only: u, v, w, p_wrk3d
 
         ! -------------------------------------------------------------------
+        integer(wi) i, j, k
         integer(wi) ipmax, j_glo
         real(wp) pmax(3), dtc, dtd
 #ifdef USE_MPI
@@ -509,14 +500,6 @@ contains
 #endif
 
         ! ###################################################################
-#ifdef USE_MPI
-        idsp = ims_offset_i
-        jdsp = ims_offset_j
-#else
-        idsp = 0
-        jdsp = 0
-#endif
-
         dtc = big_wp    ! So that the minimum non-zero determines dt at the end
         dtd = big_wp
 
@@ -535,9 +518,9 @@ contains
             if (y%size > 1) then
                 do k = 1, kmax
                     do j = 1, jmax
-                        j_glo = j + jdsp
+                        j_glo = j + ySubgrid%offset
                         do i = 1, imax
-                            p_wrk3d(i, j, k) = abs(u(i, j, k))*ds(1)%one_ov_ds1(i + idsp) &
+                            p_wrk3d(i, j, k) = abs(u(i, j, k))*ds(1)%one_ov_ds1(i + xSubgrid%offset) &
                                                + abs(v(i, j, k))*ds(2)%one_ov_ds1(j_glo) &
                                                + abs(w(i, j, k))*ds(3)%one_ov_ds1(k)
                         end do
@@ -547,7 +530,7 @@ contains
                 do k = 1, kmax
                     do j = 1, jmax
                         do i = 1, imax
-                            p_wrk3d(i, j, k) = abs(u(i, j, k))*ds(1)%one_ov_ds1(i + idsp) &
+                            p_wrk3d(i, j, k) = abs(u(i, j, k))*ds(1)%one_ov_ds1(i + xSubgrid%offset) &
                                                + abs(w(i, j, k))*ds(3)%one_ov_ds1(k)
                         end do
                     end do

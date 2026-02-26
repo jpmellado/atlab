@@ -15,7 +15,6 @@ module OPR_Fourier
     use, intrinsic :: iso_c_binding
 #ifdef USE_MPI
     use TLabMPI_VARS, only: ims_npro_i, ims_npro_j
-    use TLabMPI_VARS, only: ims_offset_i, ims_offset_j !, ims_offset_k
     use TLabMPI_Transpose
 #endif
     implicit none
@@ -469,11 +468,7 @@ contains
             end if
 
             do j = 1, ny
-#ifdef USE_MPI
-                jglobal = j + ims_offset_j
-#else
-                jglobal = j
-#endif
+                jglobal = j + ySubgrid%offset
                 if (jglobal <= size_fft_y/2 + 1) then
                     fj = real(jglobal - 1, wp)/y%scale
                 else
@@ -481,11 +476,7 @@ contains
                 end if
 
                 do i = 1, nx/2 + 1
-#ifdef USE_MPI
-                    iglobal = i + ims_offset_i/2
-#else
-                    iglobal = i
-#endif
+                    iglobal = i + xSubgrid%offset/2
                     fi = real(iglobal - 1, wp)/x%scale
 
                     f = sqrt(fi**2 + fj**2 + fk**2)

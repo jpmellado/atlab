@@ -82,7 +82,7 @@ for file in setoffiles:
 
         raw = fin.read(int(sizeofheader-4-4-8))
         setofplanes = struct.unpack(etype+'{}i'.format(int((sizeofheader-4-4-8)/4)), raw)
-        # print('Planes {}.'.format(setofplanes))
+        print('Planes {}.'.format(setofplanes))
         
         fin.seek(0, 2)                      # move the cursor to the end of the file
         sizeoffile = fin.tell()

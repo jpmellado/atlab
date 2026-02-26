@@ -9,7 +9,7 @@ program VELLIPTIC
     use TLab_Arrays
 #ifdef USE_MPI
     use mpi_f08
-    use TLabMPI_VARS, only: ims_err, ims_pro, ims_offset_i, ims_offset_j
+    use TLabMPI_VARS, only: ims_err, ims_pro
     use TLabMPI_PROCS, only: TLabMPI_Initialize
     use TLabMPI_Transpose, only: TLabMPI_Trp_Initialize
 #endif
@@ -29,7 +29,7 @@ program VELLIPTIC
     real(wp), dimension(:, :, :), pointer :: a, b, c, d, e, f
 
     integer(wi) type_of_operator, type_of_problem
-    integer(wi) i, idsp, jdsp
+    integer(wi) i
     integer ibc, ib
 
     integer :: bcs_cases(1:4) = [BCS_DD, BCS_DN, BCS_ND, BCS_NN]
@@ -48,12 +48,14 @@ program VELLIPTIC
     call TLab_Start()
 
     call TLab_Initialize_Parameters(ifile)
+
+    call TLab_Grid_Initialize()
+
 #ifdef USE_MPI
     call TLabMPI_Initialize(ifile)
     call TLabMPI_Trp_Initialize(ifile)
 #endif
 
-    call TLab_Grid_Read(gfile, x, y, z)
     call FDM_Initialize(ifile)
 
     call NavierStokes_Initialize_Parameters(ifile)
@@ -100,20 +102,14 @@ program VELLIPTIC
     x_0 = 0.75_wp
     wk = 1.0_wp
 
-#ifdef USE_MPI
-    idsp = ims_offset_i; jdsp = ims_offset_j
-#else
-    idsp = 0; jdsp = 0
-#endif
-
     do i = 1, imax
         ! single-mode
-        a(i, :, :) = 1.0_wp !+ sin(2.0_wp*pi_wp/x%scale*wk*x%nodes(i + idsp)) ! + pi_wp/4.0_wp)
+        a(i, :, :) = 1.0_wp !+ sin(2.0_wp*pi_wp/x%scale*wk*x%nodes(i + xSubgrid%offset)) ! + pi_wp/4.0_wp)
     end do
 
     do i = 1, jmax
         ! single-mode
-        a(:, i, :) = a(:, i, :)*cos(2.0_wp*pi_wp/y%scale*wk*y%nodes(i + jdsp)) ! + pi_wp/4.0_wp)
+        a(:, i, :) = a(:, i, :)*cos(2.0_wp*pi_wp/y%scale*wk*y%nodes(i + ySubgrid%offset)) ! + pi_wp/4.0_wp)
     end do
 
     do i = 1, kmax

@@ -8,9 +8,6 @@ module FLOW_LOCAL
     use TLab_Time, only: itime
     use TLab_Pointers_3D, only: p_wrk1d, p_wrk2d
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
-#ifdef USE_MPI
-    use TLabMPI_VARS, only: ims_offset_i, ims_offset_j
-#endif
     use IO_Fields
     use TLab_Grid, only: x, y, z
     use Discrete, only: discrete_dt, Discrete_ReadBlock
@@ -157,6 +154,7 @@ contains
     ! ###################################################################
     ! ###################################################################
     subroutine Iniflow_U_Discrete(u, v, w)
+        use TLab_Grid, only: xSubgrid, ySubgrid
         use NavierStokes, only: nse_eqns, DNS_EQNS_ANELASTIC
         use Thermo_Anelastic, only: ribackground, Thermo_Anelastic_Weight_InPlace
         real(wp), dimension(imax, jmax, kmax), intent(out) :: u, v, w
@@ -166,12 +164,8 @@ contains
         integer(wi) j, k
 
         ! ###################################################################
-#ifdef USE_MPI
-        idsp = ims_offset_i; jdsp = ims_offset_j
-#else
-        idsp = 0; jdsp = 0
-#endif
-
+        idsp = xSubgrid%offset
+        jdsp = ySubgrid%offset
 #define xn(i) x%nodes(i)
 #define yn(j) y%nodes(j)
 

@@ -204,6 +204,7 @@ contains
     !########################################################################
     subroutine DNS_Control_Bounds()
         use TLab_Constants, only: efile, lfile, fmt_r
+        use TLab_Grid, only: xSubgrid, ySubgrid
         use NavierStokes, only: nse_eqns, DNS_EQNS_COMPRESSIBLE, DNS_EQNS_ANELASTIC, DNS_EQNS_BOUSSINESQ
         use TLab_Memory, only: imax, jmax, kmax
         use TLab_Pointers_3D, only: u, v, w, tmp1, tmp2, tmp3
@@ -211,7 +212,6 @@ contains
         use Thermo_Anelastic, only: rbackground, Thermo_Anelastic_Weight_OutPlace
 #ifdef USE_MPI
         use mpi_f08
-        use TLabMPI_VARS, only: ims_offset_i, ims_offset_k
         use TLabMPI_VARS, only: ims_time_min, ims_err
 #endif
         use OPR_Partial
@@ -289,10 +289,8 @@ contains
                 if (abs(dummy) > bound_d%max) then
                     idummy = maxloc(tmp1)
                     write (str, fmt_r) dummy; line = 'Maximum dilatation '//trim(adjustl(str))
-#ifdef USE_MPI
-                    idummy(1) = idummy(1) + ims_offset_i
-                    idummy(3) = idummy(3) + ims_offset_k
-#endif
+                    idummy(1) = idummy(1) + xSubgrid%offset
+                    idummy(2) = idummy(2) + ySubgrid%offset
                     write (str, *) idummy(1); line = trim(adjustl(line))//' at grid node '//trim(adjustl(str))
                     write (str, *) idummy(2); line = trim(adjustl(line))//':'//trim(adjustl(str))
                     write (str, *) idummy(3); line = trim(adjustl(line))//':'//trim(adjustl(str))//'.'
@@ -303,10 +301,8 @@ contains
                 if (abs(dummy) > bound_d%max) then
                     idummy = minloc(tmp1)
                     write (str, fmt_r) dummy; line = 'Minimum dilatation '//trim(adjustl(str))
-#ifdef USE_MPI
-                    idummy(1) = idummy(1) + ims_offset_i
-                    idummy(3) = idummy(3) + ims_offset_k
-#endif
+                    idummy(1) = idummy(1) + xSubgrid%offset
+                    idummy(2) = idummy(2) + ySubgrid%offset
                     write (str, *) idummy(1); line = trim(adjustl(line))//' at grid node '//trim(adjustl(str))
                     write (str, *) idummy(2); line = trim(adjustl(line))//':'//trim(adjustl(str))
                     write (str, *) idummy(3); line = trim(adjustl(line))//':'//trim(adjustl(str))//'.'

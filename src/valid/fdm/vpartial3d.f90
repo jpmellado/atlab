@@ -25,7 +25,7 @@ program VPARTIAL3D
     real(wp), dimension(:, :, :), pointer :: a, b, c, d, e, f
     real(wp), dimension(:, :, :), pointer :: u, du1_a, du2_a, du1_n, du2_n
 
-    integer(wi) i, idsp, jdsp
+    integer(wi) i
     integer(wi) type_of_problem
     real(wp) wk, x_0!, params(0)
 
@@ -33,12 +33,14 @@ program VPARTIAL3D
     call TLab_Start()
 
     call TLab_Initialize_Parameters(ifile)
+
+    call FDM_Initialize(ifile)
+
 #ifdef USE_MPI
     call TLabMPI_Initialize(ifile)
     call TLabMPI_Trp_Initialize(ifile)
 #endif
 
-    call TLab_Grid_Read(gfile, x, y, z)
     call FDM_Initialize(ifile)
 
     inb_txc = 8
@@ -70,7 +72,6 @@ program VPARTIAL3D
     wk = 1.0_wp
 
 #ifdef USE_MPI
-    idsp = ims_offset_i; jdsp = ims_offset_j
     ! testing
     ! if (ims_pro_i == 7) then
     !     do i = 1, imax
@@ -80,26 +81,24 @@ program VPARTIAL3D
     ! end if
     ! call MPI_BARRIER(MPI_COMM_WORLD, ims_err)
     !
-#else
-    idsp = 0; jdsp = 0
 #endif
 
     do i = 1, imax
         ! single-mode
-        u(i, :, :) = 1.0_wp + sin(2.0_wp*pi_wp/x%scale*wk*x%nodes(i + idsp)) ! + pi_wp/4.0_wp)
+        u(i, :, :) = 1.0_wp + sin(2.0_wp*pi_wp/x%scale*wk*x%nodes(i + xSubgrid%offset)) ! + pi_wp/4.0_wp)
         du1_a(i, :, :) = (2.0_wp*pi_wp/x%scale*wk) &
-                         *cos(2.0_wp*pi_wp/x%scale*wk*x%nodes(i + idsp))! + pi_wp/4.0_wp)
+                         *cos(2.0_wp*pi_wp/x%scale*wk*x%nodes(i + xSubgrid%offset))! + pi_wp/4.0_wp)
         du2_a(i, :, :) = -(2.0_wp*pi_wp/x%scale*wk)**2 &
-                         *sin(2.0_wp*pi_wp/x%scale*wk*x%nodes(i + idsp))! + pi_wp/4.0_wp)
+                         *sin(2.0_wp*pi_wp/x%scale*wk*x%nodes(i + xSubgrid%offset))! + pi_wp/4.0_wp)
     end do
 
     ! do i = 1, jmax
     !     ! single-mode
-    !     u(:, i, :) = 1.0_wp + sin(2.0_wp*pi_wp/y%scale*wk*y%nodes(i + jdsp)) ! + pi_wp/4.0_wp)
+    !     u(:, i, :) = 1.0_wp + sin(2.0_wp*pi_wp/y%scale*wk*y%nodes(i + ySubgrid%offset)) ! + pi_wp/4.0_wp)
     !     du1_a(:, i, :) = (2.0_wp*pi_wp/y%scale*wk) &
-    !                      *cos(2.0_wp*pi_wp/y%scale*wk*y%nodes(i + jdsp))! + pi_wp/4.0_wp)
+    !                      *cos(2.0_wp*pi_wp/y%scale*wk*y%nodes(i + ySubgrid%offset))! + pi_wp/4.0_wp)
     !     du2_a(:, i, :) = -(2.0_wp*pi_wp/y%scale*wk)**2 &
-    !                      *sin(2.0_wp*pi_wp/y%scale*wk*y%nodes(i + jdsp))! + pi_wp/4.0_wp)
+    !                      *sin(2.0_wp*pi_wp/y%scale*wk*y%nodes(i + ySubgrid%offset))! + pi_wp/4.0_wp)
     ! end do
 
     ! do i = 1, kmax

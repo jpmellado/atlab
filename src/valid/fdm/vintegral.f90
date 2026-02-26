@@ -5,7 +5,7 @@ program VINTEGRAL
     use TLab_WorkFlow, only: TLab_Write_ASCII
     use TLab_Memory, only: TLab_Initialize_Memory, TLab_Allocate_Real
     use TLab_Arrays, only: wrk1d, wrk2d, txc
-    use TLab_Grid, only: grid_dt
+    use TLab_Grid, only: axis_dt
     use FDM, only: FDM_CreatePlan_Der1, FDM_CreatePlan_Der2
     use FDM_Base
     use FDM_Derivative_1order
@@ -41,7 +41,7 @@ program VINTEGRAL
     real(wp), allocatable :: bcs(:, :), si(:, :)
 
     character(len=32) str
-    type(grid_dt) :: x
+    type(axis_dt) :: x
     ! type(fdm_dt) :: g
     type(fdm_integral_dt) :: fdmi(2), fdmi_test(2), fdmi_test_lambda(2)
     class(der_dt), allocatable :: fdm_der1

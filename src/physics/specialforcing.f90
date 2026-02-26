@@ -50,12 +50,11 @@ contains
     !########################################################################
     !########################################################################
     subroutine SpecialForcing_Initialize(inifile)
-        use TLab_Memory, only: imax, jmax, kmax, inb_scal
+        use TLab_Grid, only: xSubgrid, ySubgrid
+        use TLab_Memory, only: imax, jmax, kmax
         use IO_Fields, only: IO_Read_Fields
         use TLab_Time, only: itime
-#ifdef USE_MPI
-        use TLabMPI_VARS, only: ims_offset_i, ims_offset_j
-#endif
+
         character(len=*), intent(in) :: inifile
 
         ! -------------------------------------------------------------------
@@ -144,11 +143,8 @@ contains
         !########################################################################
         !               Initialize the envelope for the wave maker
         !########################################################################
-#ifdef USE_MPI
-        idsp = ims_offset_i; jdsp = ims_offset_j
-#else
-        idsp = 0; jdsp = 0
-#endif
+        idsp = xSubgrid%offset
+        jdsp = ySubgrid%offset
 
         select case (forcingProps%type)
         case (TYPE_WAVEMAKER, TYPE_WAVEMAKERTANH)
@@ -206,7 +202,7 @@ contains
             
             ! envelope(1) is position of inflection point
             ! envelope(2) is profile width
-
+            
             do k = 1, kmax
                 do j = 1, jmax
                     do i = 1, imax

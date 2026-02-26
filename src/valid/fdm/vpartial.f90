@@ -5,7 +5,7 @@ program VPARTIAL
     use TLab_WorkFlow, only: TLab_Write_ASCII
     use TLab_Memory, only: TLab_Initialize_Memory, TLab_Allocate_Real
     use TLab_Arrays, only: wrk1d, wrk2d, txc
-    use TLab_Grid, only: grid_dt
+    use TLab_Grid, only: axis_dt
     use Thomas
     use FDM, only: FDM_CreatePlan_Der1, FDM_CreatePlan_Der2
     use FDM_derivative_Neumann
@@ -42,7 +42,7 @@ program VPARTIAL
                                          'Direct 4', &
                                          'Direct 6']
     character(len=32) str
-    type(grid_dt) :: x
+    type(axis_dt) :: x
     class(der_dt), allocatable :: fdm_der1
     class(der2_extended_dt), allocatable :: fdm_der2
 

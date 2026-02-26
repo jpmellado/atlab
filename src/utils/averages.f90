@@ -327,34 +327,27 @@ contains
 !########################################################################
 ! !# Calculate the average of the plane j in array a over nonuniform grids.
 ! !########################################################################
-!     function AVG_XZ(nx, ny, nz, j, a, dx, dz) result(avg)
+!     function AVG_XZ(nx, ny, nz, j, a, dx, dy) result(avg)
 !         integer(wi), intent(in) :: nx, ny, nz, j
-!         real(wp),    intent(in) :: dx(*), dz(*), area
+!         real(wp),    intent(in) :: dx(*), dy(*), area
 !         real(wp),    intent(in) :: a(nx, ny, nz)
 !         real(wp) avg
 
 !         ! -------------------------------------------------------------------
-!         integer(wi) i, k, idsp, kdsp
+!         integer(wi) i, j
 !         real(wp) sum
 
 !         ! ###################################################################
-! #ifdef USE_MPI
-!         idsp = ims_offset_i
-!         kdsp = ims_offset_k
-! #else
-!         idsp = 0
-!         kdsp = 0
-! #endif
 
 !         ! number of + ops: nx*nz*1 + nz*1
 !         ! number of * ops: nx*nz*1 + nz*1
 !         avg = 0.0_wp
-!         do k = 1, nz
+!         do j = 1, ny
 !             sum = 0.0_wp
 !             do i = 1, nx
-!                 sum = sum + a(i, j, k)*dx(idsp + i)
+!                 sum = sum + a(i, j, k)*dx(xSubgrid%offset + i)
 !             end do
-!             avg = avg + sum*dz(kdsp + k)
+!             avg = avg + sum*dy(ySubgrid%offset + j)
 !         end do
 
 !         avg = avg/area
@@ -370,34 +363,26 @@ contains
 ! !########################################################################
 ! !########################################################################
 ! ! Vector form
-!     subroutine AVG_XZ_V(nx, ny, nz, jm, a, dx, dz, avg, wrk)
-!         integer(wi), intent(in)    :: nx, ny, nz, jm
-!         real(wp),    intent(in)    :: dx(*), dz(*), area
+!     subroutine AVG_XZ_V(nx, ny, nz, km, a, dx, dy, avg, wrk)
+!         integer(wi), intent(in)    :: nx, ny, nz, km
+!         real(wp),    intent(in)    :: dx(*), dy(*), area
 !         real(wp),    intent(in)    :: a(nx, ny, nz)
-!         real(wp),    intent(out)   :: avg(jm)
-!         real(wp),    intent(inout) :: wrk(jm)
+!         real(wp),    intent(out)   :: avg(km)
+!         real(wp),    intent(inout) :: wrk(km)
 
 !         ! -------------------------------------------------------------------
-!         integer(wi) i, j, idsp, kdsp
+!         integer(wi) i, j
 !         real(wp) sum
 
 !         ! ###################################################################
-! #ifdef USE_MPI
-!         idsp = ims_offset_i
-!         kdsp = ims_offset_k
-! #else
-!         idsp = 0
-!         kdsp = 0
-! #endif
-
 !         avg = 0.0_wp
-!         do k = 1, nz
-!             do j = 1, jm
+!         do k = 1, km
+!             do j = 1, ny
 !                 sum = 0.0_wp
 !                 do i = 1, nx
-!                     sum = sum + a(i, j, k)*dx(idsp + i)
+!                     sum = sum + a(i, j, k)*dx(xSubgrid%offset + i)
 !                 end do
-!                 avg(j) = avg(j) + sum*dz(k + kdsp)
+!                 avg(j) = avg(j) + sum*dy(j + ySubgrid%offset)
 !             end do
 !         end do
 

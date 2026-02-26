@@ -36,12 +36,14 @@ program VBURGERS
     call TLab_Start()
 
     call TLab_Initialize_Parameters(ifile)
+
+    call TLab_Grid_Initialize()
+
 #ifdef USE_MPI
     call TLabMPI_Initialize(ifile)
     call TLabMPI_Trp_Initialize(ifile)
 #endif
 
-    call TLab_Grid_Read(gfile, x, y, z)
     call FDM_Initialize(ifile)
 
     call NavierStokes_Initialize_Parameters(ifile)

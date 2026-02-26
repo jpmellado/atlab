@@ -176,7 +176,7 @@ end subroutine TLab_Read_ASCII
 !     use TLab_Constants, only: wp, wi
 
 ! #ifdef USE_MPI
-!     use TLabMPI_VARS, only: ims_pro, ims_offset_i, ims_offset_k
+!     use TLabMPI_VARS, only: ims_pro
 ! #endif
 
 !     implicit none
@@ -186,16 +186,14 @@ end subroutine TLab_Read_ASCII
 !     real(wp), dimension(imax, jmax, kmax), intent(IN) :: u
 
 ! ! -----------------------------------------------------------------------
-!     integer(wi) idsp, kdsp, i, j, k
+!     integer(wi) i, j, k
 !     character*32 name_loc
 
 ! ! #######################################################################
 ! #ifdef USE_MPI
 !     write (name_loc, *) ims_pro; name_loc = trim(adjustl(fname))//'-'//trim(adjustl(name_loc))
-!     idsp = ims_offset_i; kdsp = ims_offset_k
 ! #else
 !     name_loc = trim(adjustl(fname))
-!     idsp = 0; kdsp = 0
 ! #endif
 
 !     open (unit=31, file=name_loc, status='unknown')
@@ -203,7 +201,7 @@ end subroutine TLab_Read_ASCII
 !     do k = 1, kmax
 !         do j = 1, jmax
 !             do i = 1, imax
-!                 write (31, *) i + idsp, j, k + kdsp, u(i, j, k)
+!                 write (31, *) i + xSubgrid%offset, j +ySubgrid%offset, k, u(i, j, k)
 !             end do
 !         end do
 !     end do

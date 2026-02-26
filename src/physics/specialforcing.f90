@@ -159,10 +159,7 @@ contains
             ! Add a random perturbation to the envelope in order to support turbulence onset
             ! forcingProps%parameters(2) = perturbation amplitude
             if (forcingProps%parameters(2) < 1.0_wp .AND. forcingProps%parameters(2) > 0.0_wp) then
-                call IO_Read_Fields(trim(adjustl(tag_scal))//'rand', imax, jmax, kmax, itime, inb_scal, 1, tmp_envelope, params)
-                ! Normalize random field
-                tmp_envelope = tmp_envelope/max(abs(maxval(tmp_envelope)), abs(minval(tmp_envelope)))
-                tmp_envelope = tmp_envelope*forcingProps%parameters(2)
+                call IO_Read_Fields(trim(adjustl(tag_scal))//'rand', imax, jmax, kmax, itime, 1, 1, tmp_envelope, params)
             end if
         end select
 
@@ -202,7 +199,7 @@ contains
             
             ! envelope(1) is position of inflection point
             ! envelope(2) is profile width
-            
+
             do k = 1, kmax
                 do j = 1, jmax
                     do i = 1, imax

@@ -205,6 +205,8 @@ contains
             tag = 'PlanesK'
         end select
 
+        self%type = TYPE_NONE
+        nodes_size = 0
         call ScanFile_Char(bakfile, inifile, block, tag, 'void', sRes)
         if (trim(adjustl(sRes)) /= 'void') then
             nodes_size = nodes_size_max; call LIST_INTEGER(sRes, nodes_size, nodes)

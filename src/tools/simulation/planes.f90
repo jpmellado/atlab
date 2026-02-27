@@ -80,14 +80,12 @@ contains
         self%io_subarray%precision = IO_TYPE_SINGLE
 #ifdef USE_MPI
         self%io_subarray%active = .false.  ! defaults
-        if (ims_npro_i > 1) then
-            if (ims_pro_i == (self%nodes(1)/imax)) then
-                self%io_subarray%active = .true.
-                self%io_subarray%communicator = ims_comm_y
-                self%io_subarray%subarray = IO_Create_Subarray_YOZ(jmax, self%size*kmax, MPI_REAL4)
-                self%nodes(:) = self%nodes(:) - xSubgrid%offset        ! go to plane positions in local processor
-                if (ims_pro_j /= 0) self%writeheader = .false.
-            end if
+        if (ims_pro_i == ((self%nodes(1) - 1)/imax)) then
+            self%io_subarray%active = .true.
+            self%io_subarray%communicator = ims_comm_y
+            self%io_subarray%subarray = IO_Create_Subarray_YOZ(jmax, self%size*kmax, MPI_REAL4)
+            self%nodes(:) = self%nodes(:) - xSubgrid%offset        ! go to plane positions in local processor
+            if (ims_pro_j /= 0) self%writeheader = .false.
         end if
 #endif
 
@@ -121,14 +119,12 @@ contains
         self%io_subarray%precision = IO_TYPE_SINGLE
 #ifdef USE_MPI
         self%io_subarray%active = .false.          ! defaults
-        if (ims_npro_j > 1) then
-            if (ims_pro_j == (self%nodes(1)/jmax)) then
-                self%io_subarray%active = .true.
-                self%io_subarray%communicator = ims_comm_x
-                self%io_subarray%subarray = IO_Create_Subarray_XOZ(imax, kmax*self%size, MPI_REAL4)
-                self%nodes(:) = self%nodes(:) - ySubgrid%offset        ! go to plane positions in local processor
-                if (ims_pro_i /= 0) self%writeheader = .false.
-            end if
+        if (ims_pro_j == ((self%nodes(1) - 1)/jmax)) then
+            self%io_subarray%active = .true.
+            self%io_subarray%communicator = ims_comm_x
+            self%io_subarray%subarray = IO_Create_Subarray_XOZ(imax, kmax*self%size, MPI_REAL4)
+            self%nodes(:) = self%nodes(:) - ySubgrid%offset        ! go to plane positions in local processor
+            if (ims_pro_i /= 0) self%writeheader = .false.
         end if
 #endif
 
@@ -222,13 +218,15 @@ contains
 
         end if
 
-        ! Limit planes to those inside the local grid
+        ! Limit planes to those inside the local grid of the first planes
         nodes_size_global = nodes_size
         nodes_size = 0
         do ip = 1, nodes_size_global
             if (1 <= (nodes(ip) - subaxis%offset) .and. (nodes(ip) - subaxis%offset) <= subaxis%size) then
                 nodes_size = nodes_size + 1
                 nodes(nodes_size) = nodes(ip)
+            else
+                exit
             end if
         end do
 
@@ -413,18 +411,26 @@ contains
 
         character*32 str, name
 
-        write (str, *) itime
-        name = trim(adjustl(name_tag))//trim(adjustl(str))
-
-        if (self%writeheader) then
-#include "tlab_open_file.h"
-            write (LOC_UNIT_ID) int(self%io_subarray%offset, wi), itime, rtime, int(self%nodes(:), wi)
-            close (LOC_UNIT_ID)
-        end if
 #ifdef USE_MPI
-        call MPI_BARRIER(self%io_subarray%communicator, ims_err)
+        if (self%io_subarray%active) then
 #endif
-        call IO_Write_Subarray(self%io_subarray, name, [' '], self%data, self%io)
+
+            write (str, *) itime
+            name = trim(adjustl(name_tag))//trim(adjustl(str))
+
+            if (self%writeheader) then
+#include "tlab_open_file.h"
+                write (LOC_UNIT_ID) int(self%io_subarray%offset, wi), itime, rtime, int(self%nodes(:), wi)
+                close (LOC_UNIT_ID)
+            end if
+#ifdef USE_MPI
+            call MPI_BARRIER(self%io_subarray%communicator, ims_err)
+#endif
+            call IO_Write_Subarray(self%io_subarray, name, [' '], self%data, self%io)
+
+#ifdef USE_MPI
+        end if
+#endif
 
         return
     end subroutine

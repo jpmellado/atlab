@@ -221,11 +221,11 @@ contains
 
         ! ###################################################################
         if (io_datatype == IO_TYPE_SINGLE) then
-            call Write_Log('Reading single precision field '//trim(adjustl(name)), nx, ny, nz)
+            call Write_Log('Reading single precision field '//trim(adjustl(fname)), nx, ny, nz)
             ! Pass memory address from double precision array to single precision array
             call c_f_pointer(c_loc(wrk3d), s_wrk, shape=[nx*ny*nz])
         else
-            call Write_Log('Reading double precision field '//trim(adjustl(name)), nx, ny, nz)
+            call Write_Log('Reading double precision field '//trim(adjustl(fname)), nx, ny, nz)
         end if
 
         ! ###################################################################
@@ -385,11 +385,11 @@ contains
 
         ! ###################################################################
         if (io_datatype == IO_TYPE_SINGLE) then
-            call Write_Log('Writing single precision field '//trim(adjustl(name)), nx, ny, nz)
+            call Write_Log('Writing single precision field '//trim(adjustl(fname)), nx, ny, nz)
             ! Pass memory address from double precision array to single precision array
             call c_f_pointer(c_loc(wrk3d), s_wrk, shape=[nx*ny*nz])
         else
-            call Write_Log('Writing double precision field '//trim(adjustl(name)), nx, ny, nz)
+            call Write_Log('Writing double precision field '//trim(adjustl(fname)), nx, ny, nz)
         end if
 
         ! ###################################################################

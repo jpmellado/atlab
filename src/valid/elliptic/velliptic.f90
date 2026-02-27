@@ -48,6 +48,7 @@ program VELLIPTIC
     call TLab_Start()
 
     call TLab_Initialize_Parameters(ifile)
+    call IO_Initialize()
 
     call TLab_Grid_Initialize()
 
@@ -144,9 +145,6 @@ program VELLIPTIC
     ! mean = AVG_IK(imax, jmax, kmax, 1, a)
     mean = AVG_IK(imax, jmax, kmax, kmax, a)
     a = a - mean
-
-    ! Just single precision, no header to visualize easily
-    io_datatype = IO_TYPE_SINGLE
 
     ! ###################################################################
     select case (type_of_problem)

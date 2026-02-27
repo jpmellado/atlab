@@ -487,7 +487,7 @@ contains
     !#
     !########################################################################
     subroutine TMarch_Courant()
-        use TLab_Grid, only: y, xSubgrid, ySubgrid, zSubgrid
+        use TLab_Grid, only: y, xSubgrid, ySubgrid
         use DNS_Control, only: logs_data, logs_dtime
         use TLab_Pointers_3D, only: u, v, w, p_wrk3d
 

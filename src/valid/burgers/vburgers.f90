@@ -36,6 +36,7 @@ program VBURGERS
     call TLab_Start()
 
     call TLab_Initialize_Parameters(ifile)
+    call IO_Initialize()
 
     call TLab_Grid_Initialize()
 

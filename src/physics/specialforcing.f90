@@ -76,6 +76,7 @@ contains
         call TLab_Write_ASCII(bakfile, '#Parameters=<values>')
         call TLab_Write_ASCII(bakfile, '#Wave#=<amplitude,wavenumber,angle,frequency>')
         call TLab_Write_ASCII(bakfile, '#Envelope=<x,y,z,size>')
+        call TLab_Write_ASCII(bakfile, '#EnvelopePerturbation=<value>')
 
         call ScanFile_Char(bakfile, inifile, block, 'Type', 'None', sRes)
         if (trim(adjustl(sRes)) == 'none') then; forcingProps%type = TYPE_NONE
@@ -128,7 +129,6 @@ contains
                         amplitude(2, nwaves) = 0.0_wp
                         amplitude(3, nwaves) = -dummy(1)*cos(dummy(3))      ! in z equation
                         frequency(nwaves) = dummy(4)
-                        amplitude(4, nwaves) = (-sbg(1)%delta/sbg(1)%thick)**2/frequency(nwaves)*amplitude(3,nwaves) ! sbg not yet initialized
                     else
                         exit
                     end if
@@ -157,16 +157,15 @@ contains
             call TLab_Allocate_Real(__FILE__, tmp_phase, [imax, kmax, nwaves], 'tmp-wave-phase')
 
             ! Add a random perturbation to the envelope in order to support turbulence onset
-            ! forcingProps%parameters(2) = perturbation amplitude
-            if (forcingProps%parameters(2) < 1.0_wp .AND. forcingProps%parameters(2) > 0.0_wp) then
+            call ScanFile_Char(bakfile, inifile, block, 'EnvelopePerturbation', 'yes', sRes)
+            if (trim(adjustl(sRes)) == 'yes') then
+                call TLab_Write_ASCII(lfile, 'Applying envelope perturbation.')
                 call IO_Read_Fields(trim(adjustl(tag_scal))//'rand', imax, jmax, kmax, itime, 1, 1, tmp_envelope, params)
             end if
         end select
 
         select case (forcingProps%type)
         case (TYPE_WAVEMAKER)
-            ! envelope(1:3) are postions in x, y, and z
-
             envelope(4) = abs(envelope(4)) ! make sure the size parameter is positive
             envelope(5) = abs(envelope(5)) ! make sure the size parameter is positive
             envelope(6) = abs(envelope(6)) ! make sure the size parameter is positive
@@ -183,35 +182,49 @@ contains
                         rz = z%nodes(k) - envelope(3)
                         tmp_envelope(i, j, k) = (tmp_envelope(i, j, k) + 1.0_wp)*exp(- dummy(1)*rx*rx - dummy(2)*ry*ry - dummy(3)*rz*rz)
                         do iwave = 1, nwaves
-                            tmp_phase(i, k, iwave) = rx*wavenumber(1, iwave) + rz*wavenumber(3, iwave)
+                            tmp_phase(i, k, iwave) = rx*wavenumber(1, iwave) + ry*wavenumber(2, iwave) + rz*wavenumber(3, iwave)
                         end do
                     end do
                 end do
             end do
 
-            ! ! Get buoyancy freq. profile and store into wrk1d; Needed for b-amplitude
-            ! call fdm_der1_Z%compute(nx*ny, Profiles_Calculate(sbg(is), z%nodes(k)), wrk1d)
+            ! Set buoyancy amplitude (assuming a constant horiz. background flow where wave maker is active)
+            do iwave = 1, nwaves
+                amplitude(4, iwave) = frequency(iwave)
+                do i = 1, 3
+                    amplitude(4, iwave) = amplitude(4, iwave) - wavenumber(i,iwave)*Profiles_Calculate(qbg(i), envelope(3)) ! intrinsic frequency
+                end do
+                amplitude(4, iwave) = (-sbg(1)%delta/sbg(1)%thick)**2/amplitude(4, iwave)*amplitude(3, iwave) ! final amplitude
+            end do
 
         case (TYPE_WAVEMAKERTANH)
             ! Tanh profile for wave maker envelope only a function of z
             ! envelope has only two parameters: inflection point position and width
             ! Tanh profile thus only for simulating a horizontally plane wave
-            
             ! envelope(1) is position of inflection point
             ! envelope(2) is profile width
 
             do k = 1, kmax
                 do j = 1, jmax
                     do i = 1, imax
-                        rx = x%nodes(idsp + i) - envelope(1)
-                        ry = y%nodes(jdsp + j) - envelope(2)
-                        rz = z%nodes(k) - envelope(3)
-                        tmp_envelope(i, j, k) = (tmp_envelope(i, j, k) + 1.0_wp)*0.5*(1.0 + tanh((z%nodes(k) - envelope(1))/(2.0*envelope(2))))
+                        rx = x%nodes(idsp + i)! - envelope(1)
+                        ry = y%nodes(jdsp + j)! - envelope(2)
+                        rz = z%nodes(k)! - envelope(3)
+                        tmp_envelope(i, j, k) = (tmp_envelope(i, j, k) + 1.0_wp)*0.5*(1.0 + tanh((rz - envelope(1))/(2.0*envelope(2))))
                         do iwave = 1, nwaves
-                            tmp_phase(i, k, iwave) = rx*wavenumber(1, iwave) + rz*wavenumber(3, iwave)
+                            tmp_phase(i, k, iwave) = rx*wavenumber(1, iwave) + ry*wavenumber(2, iwave) + rz*wavenumber(3, iwave)
                         end do
                     end do
                 end do
+            end do
+
+            ! Set buoyancy amplitude (assuming a constant horiz. background flow where wave maker is active)
+            do iwave = 1, nwaves
+                amplitude(4, iwave) = frequency(iwave)
+                do i = 1, 3
+                    amplitude(4, iwave) = amplitude(4, iwave) - wavenumber(i,iwave)*Profiles_Calculate(qbg(i), envelope(1)) ! intrinsic frequency
+                end do
+                amplitude(4, iwave) = (-sbg(1)%delta/sbg(1)%thick)**2/amplitude(4, iwave)*amplitude(3,iwave) ! final amplitude
             end do
             
         end select
@@ -231,7 +244,6 @@ contains
 
         ! -----------------------------------------------------------------------
         integer(wi) iwave, i, k
-        ! real(wp) shift
 
         !########################################################################
         select case (locProps%type)
@@ -250,11 +262,25 @@ contains
 
         case (TYPE_SINUSOIDAL_NOSLIP)
 
-        case (TYPE_WAVEMAKER, TYPE_WAVEMAKERTANH)
+        case (TYPE_WAVEMAKER)
             do k = 1, nz
                 do i = 1, nx
                     do iwave = 1, nwaves
                         tmp(i, 1:ny, k) = amplitude(iq, iwave)
+                        tmp(i, 1:ny, k) = tmp(i, 1:ny, k)*sin(tmp_phase(i, k, iwave) - frequency(iwave)*time)
+                    end do
+                end do
+                tmp(1:nx, 1:ny, k) = Profiles_Calculate(qbg(iq), z%nodes(k)) + tmp(1:nx, 1:ny, k)
+            end do
+            tmp = (tmp - q)*tmp_envelope*locProps%parameters(1)
+            tmp = tmp*ft(time)
+
+        case (TYPE_WAVEMAKERTANH)
+            do k = 1, nz
+                do i = 1, nx
+                    do iwave = 1, nwaves
+                        tmp(i, 1:ny, k) = fz(z%nodes(k), envelope(3), envelope(4)) ! Relaxing signal to the background near the boundary
+                        tmp(i, 1:ny, k) = tmp(i, 1:ny, k)*amplitude(iq, iwave)
                         tmp(i, 1:ny, k) = tmp(i, 1:ny, k)*sin(tmp_phase(i, k, iwave) - frequency(iwave)*time)
                     end do
                 end do
@@ -275,8 +301,8 @@ contains
         ! velocity components. We impose a wave with u=Usin(phase), w=Wsin(phase), 
         ! where U=Asin(Theta) and W=-Acos(Theta) (incompressibility).
         ! Linearized Boussinesq => Fourier space => B=-iN^2/freq*W
-        ! => b=-N^2/freq*W*cos(phase)
-        ! Amplitude is set by assuming a linear buoyancy profile (N(z)=N=const).
+        ! => b=-N^2/freq*W*cos(phase) (freq is intrinsic frequency)
+        ! Amplitude is set by assuming a linear bg. buoyancy profile (N(z)=N=const).
 
         type(term_dt), intent(in) :: locProps
         integer(wi), intent(in) :: nx, ny, nz, is
@@ -286,7 +312,7 @@ contains
         integer(wi) iwave, i, k
 
         select case (forcingProps%type)
-        case (TYPE_WAVEMAKER, TYPE_WAVEMAKERTANH)
+        case (TYPE_WAVEMAKER)
             do k = 1, nz
                 do i = 1, nx
                     do iwave = 1, nwaves
@@ -298,6 +324,21 @@ contains
             end do
             tmp = (tmp - s)*tmp_envelope*locProps%parameters(1)
             tmp = tmp*ft(time)
+
+        case (TYPE_WAVEMAKERTANH)
+            do k = 1, nz
+                do i = 1, nx
+                    do iwave = 1, nwaves
+                        tmp(i, 1:ny, k) = fz(z%nodes(k), envelope(3), envelope(4))  ! Relaxing signal to the background near the boundary
+                        tmp(i, 1:ny, k) = tmp(i, 1:ny, k)*amplitude(3+is, iwave)
+                        tmp(i, 1:ny, k) = -tmp(i, 1:ny, k)*cos(tmp_phase(i, k, iwave) - frequency(iwave)*time)      ! Wave signal
+                    end do
+                end do
+                tmp(1:nx, 1:ny, k) = Profiles_Calculate(sbg(is), z%nodes(k)) + tmp(1:nx, 1:ny, k)                 ! Add Background
+            end do
+            tmp = (tmp - s)*tmp_envelope*locProps%parameters(1)
+            tmp = tmp*ft(time)
+            
         end select
  
         return
@@ -308,6 +349,14 @@ contains
         real(wp), intent(in) :: t
         ft = tanh(0.1_wp*t)
     end function ft
+
+
+    ! Invoke a sponge-like behaviour of the wave signal near the lower boundary
+    real(wp) function fz(zpoint, inflectionpoint, width)
+        real(wp), intent(in) :: zpoint, inflectionpoint, width
+        fz = 0.5_wp*(1.0_wp + tanh((zpoint - inflectionpoint)/(2.0_wp*width)))
+    end function fz
+
 
     !########################################################################
     ! Sinusoidal forcing; Taylor-Green vortex

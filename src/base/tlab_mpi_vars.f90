@@ -9,7 +9,13 @@ module TLabMPI_VARS
         integer :: rank
     end type
 
-    type, extends(mpi_axis_dt) :: mpi_grid_dt
+    ! type, extends(mpi_axis_dt) :: mpi_grid_dt     ! Error in levante; grid components being overwritten by axes components
+    !     type(mpi_axis_dt) axes(3)
+    ! end type
+    type :: mpi_grid_dt
+        type(MPI_Comm) :: comm
+        integer :: num_processors       ! we could name it size, in analogy to spatial grid, but this might be clearer
+        integer :: rank
         type(mpi_axis_dt) axes(3)
     end type
 

@@ -8,7 +8,7 @@ module Planes
     use TLab_Memory, only: inb_flow_array, inb_scal_array
     use TLab_Arrays, only: txc
     use TLab_Pointers_3D, only: pointers3d_dt
-    use IO_Fields, only: io_subarray_dt
+    use IO_Fields, only: io_subarray_dt, IO_Open_File
     implicit none
     private
 
@@ -415,7 +415,7 @@ contains
             name = trim(adjustl(name_tag))//trim(adjustl(str))
 
             if (self%writeheader) then
-#include "tlab_open_file.h"
+                call IO_Open_File(name, LOC_STATUS, LOC_UNIT_ID)
                 write (LOC_UNIT_ID) int(self%io_subarray%offset, wi), itime, rtime, int(self%nodes(:), wi)
                 close (LOC_UNIT_ID)
             end if

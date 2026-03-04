@@ -28,12 +28,13 @@ module IO_Fields
     public :: IO_Initialize
     public :: IO_Read_Fields, IO_Write_Fields
     public :: IO_Read_Field_INT1, IO_Write_Field_INT1
+    public :: IO_Read_Subarray, IO_Write_Subarray
+    public :: IO_Open_File
 
     public :: IO_TYPE_DOUBLE, IO_TYPE_SINGLE
     public :: io_header_q, io_header_s
 
     public :: io_subarray_dt
-    public :: IO_Read_Subarray, IO_Write_Subarray
 #ifdef USE_MPI
     public :: IO_Create_Subarray_XOY, IO_Create_Subarray_XOZ, IO_Create_Subarray_YOZ
 #endif
@@ -580,7 +581,7 @@ contains
         call MPI_File_close(mpio_fh, ims_err)
         ! if (ims_err /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ims_err)
 #else
-#include "tlab_open_file.h"
+        call IO_Open_File(name, LOC_STATUS, LOC_UNIT_ID)
         read (LOC_UNIT_ID, POS=self%offset + 1) field(:)
         close (LOC_UNIT_ID)
 #endif
@@ -607,7 +608,7 @@ contains
         call MPI_File_close(mpio_fh, ims_err)
         ! if (ims_err /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ims_err)
 #else
-#include "tlab_open_file.h"
+        call IO_Open_File(name, LOC_STATUS, LOC_UNIT_ID)
         read (LOC_UNIT_ID, POS=self%offset + 1) field(:)
         close (LOC_UNIT_ID)
 #endif
@@ -634,7 +635,7 @@ contains
         call MPI_File_close(mpio_fh, ims_err)
         ! if (ims_err /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ims_err)
 #else
-#include "tlab_open_file.h"
+        call IO_Open_File(name, LOC_STATUS, LOC_UNIT_ID)
         read (LOC_UNIT_ID, POS=self%offset + 1) field(:)
         close (LOC_UNIT_ID)
 #endif
@@ -664,7 +665,7 @@ contains
             ny_total = ny
             nz_total = nz
 #endif
-#include "tlab_open_file.h"
+            call IO_Open_File(name, LOC_STATUS, LOC_UNIT_ID)
             rewind (LOC_UNIT_ID)
 
             read (LOC_UNIT_ID) offset, nx_loc, ny_loc, nz_loc, nt_loc
@@ -725,7 +726,7 @@ contains
         call MPI_File_close(mpio_fh, ims_err)
         ! if (ims_err /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ims_err)
 #else
-#include "tlab_open_file.h"
+        call IO_Open_File(name, LOC_STATUS, LOC_UNIT_ID)
         write (LOC_UNIT_ID, POS=self%offset + 1) field(:)
         close (LOC_UNIT_ID)
 #endif
@@ -752,7 +753,7 @@ contains
         call MPI_File_close(mpio_fh, ims_err)
         ! if (ims_err /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ims_err)
 #else
-#include "tlab_open_file.h"
+        call IO_Open_File(name, LOC_STATUS, LOC_UNIT_ID)
         write (LOC_UNIT_ID, POS=self%offset + 1) field(:)
         close (LOC_UNIT_ID)
 #endif
@@ -779,7 +780,7 @@ contains
         call MPI_File_close(mpio_fh, ims_err)
         ! if (ims_err /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ims_err)
 #else
-#include "tlab_open_file.h"
+        call IO_Open_File(name, LOC_STATUS, LOC_UNIT_ID)
         write (LOC_UNIT_ID, POS=self%offset + 1) field(:)
         close (LOC_UNIT_ID)
 #endif
@@ -808,7 +809,7 @@ contains
             ny_total = ny
             nz_total = nz
 #endif
-#include "tlab_open_file.h"
+            call IO_Open_File(name, LOC_STATUS, LOC_UNIT_ID)
 
             offset = 5*SIZEOFINT
             if (present(params)) then
@@ -831,5 +832,33 @@ contains
 
 #undef LOC_UNIT_ID
 #undef LOC_STATUS
+
+    !########################################################################
+    !########################################################################
+    subroutine IO_Open_File(name, status, unit)
+        character(len=*), intent(in) :: name
+        character(len=*), intent(in) :: status
+        integer, intent(in) :: unit
+
+#ifdef USE_BLOCK
+        open (unit, file=trim(adjustl(name)), status=trim(adjustl(status)), form='unformatted', block=0)
+#else
+#ifdef USE_ACCESS_STREAM
+        open (unit, file=trim(adjustl(name)), status=trim(adjustl(status)), form='unformatted', access='stream')
+#else
+#ifdef USE_BUFLESS
+        open (unit, file=trim(adjustl(name)), status=trim(adjustl(status)), form='unformatted', type='bufless')
+#else
+#ifdef USE_BINARY
+        open (unit, file=trim(adjustl(name)), status=trim(adjustl(status)), form='binary')
+#else
+        open (unit, file=trim(adjustl(name)), status=trim(adjustl(status)), form='unformatted')
+#endif
+#endif
+#endif
+#endif
+
+        return
+    end subroutine
 
 end module IO_Fields

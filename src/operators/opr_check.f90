@@ -8,7 +8,7 @@ subroutine OPR_Check()
     use TLab_Time, only: itime
     use mpi_f08
     use TLabMPI_VARS, only: ims_err
-    use TLabMPI_VARS, only: ims_npro_i, ims_npro_j
+    use TLabMPI_VARS, only: xMpi, yMpi
     use TLabMPI_Transpose
 #endif
     use TLab_Grid, only: x, y, z
@@ -39,7 +39,7 @@ subroutine OPR_Check()
     ! ###################################################################
     ! MPI transposition
 #ifdef USE_MPI
-    if (ims_npro_i > 1) then            ! MPI transposition along OX
+    if (xMpi%num_processors > 1) then            ! MPI transposition along OX
         call system_clock(t_srt, PROC_CYCLES, MAX_CYCLES)
         call TLabMPI_Trp_ExecI_Forward(q(:, 1), wrk3d, tmpi_plan_dx)
         call TLabMPI_Trp_ExecI_Backward(wrk3d, q(:, 2), tmpi_plan_dx)
@@ -59,7 +59,7 @@ subroutine OPR_Check()
 
     end if
 
-    if (ims_npro_j > 1) then            ! MPI transposition along Oy
+    if (yMpi%num_processors > 1) then            ! MPI transposition along Oy
         call system_clock(t_srt, PROC_CYCLES, MAX_CYCLES)
         idummy = itime; itime = -1      ! set itime to -1 for this call to trigger interruption
         call TLabMPI_Trp_ExecJ_Forward(q(:, 1), wrk3d, tmpi_plan_dy)

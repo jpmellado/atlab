@@ -159,12 +159,12 @@ contains
         error = sum(dif**2)/real(size(a1), wp)
         dummy = sum(a1**2)/real(size(a1), wp)
 #ifdef USE_MPI
-        sum_mpi = error/real(ims_npro, wp)
+        sum_mpi = error/real(mpiGrid%num_processors, wp)
         call MPI_ALLREDUCE(sum_mpi, error, 1, MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ims_err)
-        sum_mpi = dummy/real(ims_npro, wp)
+        sum_mpi = dummy/real(mpiGrid%num_processors, wp)
         call MPI_ALLREDUCE(sum_mpi, dummy, 1, MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ims_err)
 
-        if (ims_pro == 0) then
+        if (mpiGrid%rank == 0) then
 #endif
             write (*, *) 'Solution L2-norm ...........:', sqrt(dummy)
             write (*, *) 'Relative error .............: ', sqrt(error)/sqrt(dummy)

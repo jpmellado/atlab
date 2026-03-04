@@ -7,7 +7,7 @@ module TLab_WorkFlow
 #endif
 #ifdef USE_MPI
     use mpi_f08
-    use TLabMPI_VARS, only: mpiGrid, ims_pro, ims_npro
+    use TLabMPI_VARS, only: mpiGrid
     use TLabMPI_VARS, only: ims_time_max, ims_time_min, ims_time_trans
     use TLabMPI_VARS, only: ims_err
 #endif
@@ -42,9 +42,6 @@ contains
         mpiGrid%comm = MPI_COMM_WORLD
         call MPI_COMM_SIZE(mpiGrid%comm, mpiGrid%num_processors, ims_err)
         call MPI_COMM_RANK(mpiGrid%comm, mpiGrid%rank, ims_err)
-        ! to be removed
-        ims_npro = mpiGrid%num_processors
-        ims_pro = mpiGrid%rank
 
         write (line, *) mpiGrid%num_processors
         line = 'Number of MPI tasks '//trim(adjustl(line))
@@ -135,7 +132,7 @@ contains
 
         ! #######################################################################
 #ifdef USE_MPI
-        if (ims_pro == 0 .or. present(flag_all)) then
+        if (mpiGrid%rank == 0 .or. present(flag_all)) then
 #endif
 
             if (imode_verbosity > 0) then

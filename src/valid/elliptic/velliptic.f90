@@ -9,7 +9,7 @@ program VELLIPTIC
     use TLab_Arrays
 #ifdef USE_MPI
     use mpi_f08
-    use TLabMPI_VARS, only: ims_err, ims_pro
+    use TLabMPI_VARS, only: ims_err, mpiGrid
     use TLabMPI_PROCS, only: TLabMPI_Initialize
     use TLabMPI_Transpose, only: TLabMPI_Trp_Initialize
 #endif
@@ -285,7 +285,7 @@ contains
         sum_mpi = dummy
         call MPI_ALLREDUCE(sum_mpi, dummy, 1, MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ims_err)
 
-        if (ims_pro == 0) then
+        if (mpiGrid%rank == 0) then
 #endif
             write (*, *) 'Relative error .............: ', sqrt(error)/sqrt(dummy)
 #ifdef USE_MPI

@@ -61,7 +61,7 @@ contains
         use IO_Fields, only: IO_TYPE_SINGLE
 #ifdef USE_MPI
         use mpi_f08, only: MPI_REAL4
-        use TLabMPI_VARS, only: ims_comm_y, ims_pro_j, ims_pro_i, ims_npro_i
+        use TLabMPI_VARS, only: xMpi, yMpi
         use IO_Fields, only: IO_Create_Subarray_YOZ, IO_TYPE_SINGLE
 #endif
         class(planesX_dt), intent(out) :: self
@@ -80,12 +80,12 @@ contains
         self%io_subarray%precision = IO_TYPE_SINGLE
 #ifdef USE_MPI
         self%io_subarray%active = .false.  ! defaults
-        if (ims_pro_i == ((self%nodes(1) - 1)/imax)) then
+        if (xMpi%rank == ((self%nodes(1) - 1)/imax)) then
             self%io_subarray%active = .true.
-            self%io_subarray%communicator = ims_comm_y
+            self%io_subarray%communicator = yMpi%comm
             self%io_subarray%subarray = IO_Create_Subarray_YOZ(jmax, self%size*kmax, MPI_REAL4)
             self%nodes(:) = self%nodes(:) - xSubgrid%offset        ! go to plane positions in local processor
-            if (ims_pro_j /= 0) self%writeheader = .false.
+            if (yMpi%rank /= 0) self%writeheader = .false.
         end if
 #endif
 
@@ -100,7 +100,7 @@ contains
         use IO_Fields, only: IO_TYPE_SINGLE
 #ifdef USE_MPI
         use mpi_f08, only: MPI_REAL4
-        use TLabMPI_VARS, only: ims_comm_x, ims_pro_i, ims_pro_j, ims_npro_j
+        use TLabMPI_VARS, only: xMpi, yMpi
         use IO_Fields, only: IO_Create_Subarray_XOZ, IO_TYPE_SINGLE
 #endif
         class(planesY_dt), intent(out) :: self
@@ -119,12 +119,12 @@ contains
         self%io_subarray%precision = IO_TYPE_SINGLE
 #ifdef USE_MPI
         self%io_subarray%active = .false.          ! defaults
-        if (ims_pro_j == ((self%nodes(1) - 1)/jmax)) then
+        if (yMpi%rank == ((self%nodes(1) - 1)/jmax)) then
             self%io_subarray%active = .true.
-            self%io_subarray%communicator = ims_comm_x
+            self%io_subarray%communicator = xMpi%comm
             self%io_subarray%subarray = IO_Create_Subarray_XOZ(imax, kmax*self%size, MPI_REAL4)
             self%nodes(:) = self%nodes(:) - ySubgrid%offset        ! go to plane positions in local processor
-            if (ims_pro_i /= 0) self%writeheader = .false.
+            if (xMpi%rank /= 0) self%writeheader = .false.
         end if
 #endif
 
@@ -167,10 +167,6 @@ contains
     ! ###################################################################
     ! ###################################################################
     subroutine planes_initialize(self, inifile, subaxis)
-#ifdef USE_MPI
-        use TLabMPI_VARS, only: ims_npro_i, ims_npro_j
-        use TLabMPI_VARS, only: ims_pro_i, ims_pro_j
-#endif
         use TLab_Grid, only: subaxis_dt
         class(planes_dt), intent(out) :: self
         type(subaxis_dt), intent(in) :: subaxis
@@ -402,7 +398,7 @@ contains
         use TLab_Constants, only: i4, dp
 #ifdef USE_MPI
         use mpi_f08, only: MPI_COMM_WORLD
-        use TLabMPI_VARS, only: ims_pro, ims_err
+        use TLabMPI_VARS, only: mpiGrid, ims_err
 #endif
         use TLab_Time
         use IO_Fields, only: IO_Write_Subarray

@@ -2,7 +2,7 @@ module Averages
     use TLab_Constants, only: wp, wi
 #ifdef USE_MPI
     use mpi_f08
-    use TLabMPI_VARS, only: ims_npro_i, ims_npro_j
+    use TLabMPI_VARS, only: xMpi, yMpi
     use TLabMPI_VARS, only: ims_err
 #endif
     implicit none
@@ -49,8 +49,8 @@ contains
 
 !         avg = avg/real(nz, wp)
 ! #ifdef USE_MPI
-!         sum_mpi = avg/real(ims_npro_k, wp)
-!         call MPI_ALLREDUCE(sum_mpi, avg, 1, MPI_REAL8, MPI_SUM, ims_comm_y, ims_err)
+!         sum_mpi = avg/real(zMpi%num_processors, wp)
+!         call MPI_ALLREDUCE(sum_mpi, avg, 1, MPI_REAL8, MPI_SUM, yMpi%comm, ims_err)
 ! #endif
 
 !         return
@@ -101,8 +101,8 @@ contains
 
 !         avg = avg/real(nz, wp)
 ! #ifdef USE_MPI
-!         sum_mpi = avg/real(ims_npro_k, wp)
-!         call MPI_ALLREDUCE(sum_mpi, avg, 1, MPI_REAL8, MPI_SUM, ims_comm_y, ims_err)
+!         sum_mpi = avg/real(zMpi%num_processors, wp)
+!         call MPI_ALLREDUCE(sum_mpi, avg, 1, MPI_REAL8, MPI_SUM, yMpi%comm, ims_err)
 ! #endif
 
 !         return
@@ -129,7 +129,7 @@ contains
 
         avg = avg/real(nx*ny, wp)
 #ifdef USE_MPI
-        sum_mpi = avg/real(ims_npro_i*ims_npro_j, wp)
+        sum_mpi = avg/real(xMpi%num_processors*yMpi%num_processors, wp)
         call MPI_ALLREDUCE(sum_mpi, avg, 1, MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ims_err)
 #endif
 
@@ -160,7 +160,7 @@ contains
 
         avg = avg/real(nx*ny, wp)
 #ifdef USE_MPI
-        wrk = avg/real(ims_npro_i*ims_npro_j, wp)
+        wrk = avg/real(xMpi%num_processors*yMpi%num_processors, wp)
         call MPI_ALLREDUCE(wrk, avg, ny, MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ims_err)
 #endif
 
@@ -231,7 +231,7 @@ contains
 
         avg = avg/real(nx*ny, wp)
 #ifdef USE_MPI
-        sum_mpi = avg/real(ims_npro_i*ims_npro_j, wp)
+        sum_mpi = avg/real(xMpi%num_processors*yMpi%num_processors, wp)
         call MPI_ALLREDUCE(sum_mpi, avg, 1, MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ims_err)
 #endif
 
@@ -259,7 +259,7 @@ contains
 
         avg = avg/real(nx*ny, wp)
 #ifdef USE_MPI
-        sum_mpi = avg/real(ims_npro_i*ims_npro_j, wp)
+        sum_mpi = avg/real(xMpi%num_processors*yMpi%num_processors, wp)
         call MPI_ALLREDUCE(sum_mpi, avg, 1, MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ims_err)
 #endif
 
@@ -286,7 +286,7 @@ contains
         avg = avg/real(nx*ny, wp)
 #ifdef USE_MPI
         call MPI_ALLREDUCE(avg, sum_mpi, 1, MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ims_err)
-        avg = sum_mpi/real(ims_npro_i*ims_npro_j, wp)
+        avg = sum_mpi/real(xMpi%num_processors*yMpi%num_processors, wp)
 #endif
 
         return
@@ -317,7 +317,7 @@ contains
         avg = avg/real(nx*ny, wp)
 #ifdef USE_MPI
         call MPI_ALLREDUCE(avg, wrk, nz, MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ims_err)
-        avg = wrk/real(ims_npro_i*ims_npro_j, wp)
+        avg = wrk/real(xMpi%num_processors*yMpi%num_processors, wp)
 #endif
 
         return

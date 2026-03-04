@@ -353,14 +353,14 @@ contains
 
 #ifdef USE_MPI
             call MPI_REDUCE(idummy, t_dif, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD)
-            if (ims_pro == 0) then
-                write (time_string, 999) ims_npro, ims_npro_i, ims_npro_k, rkm_substep, t_dif/1.0_wp/PROC_CYCLES/ims_npro
-999             format(I5.5, ' (ims_npro_i X ims_npro_k:', I4.4, 'x', I4.4, 1x, ') RK-Substep', I1, ':', E13.5, 's')
+            if (mpiGrid%rank == 0) then
+                write (time_string, 999) mpiGrid%num_processors, xMpi%num_processors, zMpi%num_processors, rkm_substep, t_dif/1.0_wp/PROC_CYCLES/mpiGrid%num_processors
+999             format(I5.5, ' (xMpi%num_processors X zMpi%num_processors:', I4.4, 'x', I4.4, 1x, ') RK-Substep', I1, ':', E13.5, 's')
                 call TLab_Write_ASCII(lfile, time_string)
             end if
 #else
             t_dif = idummy
-            write (time_string, 999) rkm_substep, t_dif/1.0_wp/PROC_CYCLES/ims_npro
+            write (time_string, 999) rkm_substep, t_dif/1.0_wp/PROC_CYCLES/mpiGrid%num_processors
 999         format('RK-Substep', I1, ':', E13.5, 's')
             call TLab_Write_ASCII(lfile, time_string)
 #endif

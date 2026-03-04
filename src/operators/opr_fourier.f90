@@ -14,7 +14,7 @@ module OPR_Fourier
     use TLab_Grid
     use, intrinsic :: iso_c_binding
 #ifdef USE_MPI
-    use TLabMPI_VARS, only: ims_npro_i, ims_npro_j
+    use TLabMPI_VARS, only: xMpi, yMpi
     use TLabMPI_Transpose
 #endif
     implicit none
@@ -127,14 +127,14 @@ contains
             offset = size_fft_x/2 + 1
 
 #ifdef USE_MPI
-            if (ims_npro_i > 1) then
+            if (xMpi%num_processors > 1) then
                 ! Extended with the Nyquist frequency
                 tmpi_plan_fftx = TLabMPI_Trp_PlanI(imax/2 + 1, nlines, &
                                                    locType=MPI_DOUBLE_COMPLEX, &
                                                    message='extended Ox FFTW in Poisson solver.')
 
                 nlines = tmpi_plan_dx%nlines
-                offset = (imax/2 + 1)*ims_npro_i
+                offset = (imax/2 + 1)*xMpi%num_processors
 
             end if
 #endif
@@ -167,7 +167,7 @@ contains
             nlines = (imax/2 + 1)*kmax
 
 #ifdef USE_MPI
-            if (ims_npro_j > 1) then
+            if (yMpi%num_processors > 1) then
                 tmpi_plan_ffty = TLabMPI_Trp_PlanJ(jmax, nlines, &
                                                    locType=MPI_DOUBLE_COMPLEX, &
                                                    message='Oy FFTW in Poisson solver.')
@@ -220,7 +220,7 @@ contains
 
         ! #######################################################################
 #ifdef USE_MPI
-        if (ims_npro_i > 1) then
+        if (xMpi%num_processors > 1) then
             call c_f_pointer(c_loc(out), r_out, shape=[isize_txc_field])
 
             call TLabMPI_Trp_ExecI_Forward(in, r_out, tmpi_plan_dx)
@@ -248,7 +248,7 @@ contains
 
         ! #######################################################################
 #ifdef USE_MPI
-        if (ims_npro_i > 1) then
+        if (xMpi%num_processors > 1) then
             ! out is not big enough
             ! call c_f_pointer(c_loc(out), c_out, shape=[isize_txc_field/2])
 
@@ -286,7 +286,7 @@ contains
 
         ! #######################################################################
 #ifdef USE_MPI
-        if (ims_npro_j > 1) then
+        if (yMpi%num_processors > 1) then
             call TLabMPI_Trp_ExecJ_Forward(in, out, tmpi_plan_ffty)
             call dfftw_execute_dft(fft_plan_fy, out, c_wrk3d)
             call TLabMPI_Trp_ExecJ_Backward(c_wrk3d, out, tmpi_plan_ffty)
@@ -311,7 +311,7 @@ contains
 
         ! #######################################################################
 #ifdef USE_MPI
-        if (ims_npro_j > 1) then
+        if (yMpi%num_processors > 1) then
             call TLabMPI_Trp_ExecJ_Forward(in, out, tmpi_plan_ffty)
             ! call dfftw_execute_dft(fft_plan_by, out, c_wrk3d)
             ! call TLabMPI_Trp_ExecJ_Backward(c_wrk3d, out, tmpi_plan_ffty)

@@ -5,7 +5,7 @@ program vThomas3_Split
     use Thomas_Split
 #ifdef USE_MPI
     use mpi_f08
-    use TLabMPI_VARS, only: ims_pro, ims_npro
+    use TLabMPI_VARS, only: mpiGrid
 #endif
     implicit none
 
@@ -40,8 +40,8 @@ program vThomas3_Split
     ! -------------------------------------------------------------------
 #ifdef USE_MPI
     call MPI_INIT(ims_err)
-    call MPI_COMM_SIZE(MPI_COMM_WORLD, ims_npro, ims_err)
-    call MPI_COMM_RANK(MPI_COMM_WORLD, ims_pro, ims_err)
+    call MPI_COMM_SIZE(MPI_COMM_WORLD, mpiGrid%num_processors, ims_err)
+    call MPI_COMM_RANK(MPI_COMM_WORLD, mpiGrid%rank, ims_err)
 #endif
 
 ! -------------------------------------------------------------------
@@ -74,10 +74,10 @@ program vThomas3_Split
 
     ! -------------------------------------------------------------------
 #ifdef USE_MPI
-    if (ims_pro == 0) then
+    if (mpiGrid%rank == 0) then
         print *, new_line('a'), 'Running in parallel. Processor 0 doing the serial version.'
 
-        if (nblocks /= ims_npro) then
+        if (nblocks /= mpiGrid%num_processors) then
             print *, 'Number of blocks must equal number of processors.'
             call MPI_FINALIZE(ims_err)
             stop
@@ -134,16 +134,16 @@ program vThomas3_Split
     end if
     call MPI_BARRIER(MPI_COMM_WORLD, ims_err)
 
-    if (ims_pro == 0) then
+    if (mpiGrid%rank == 0) then
         print *, new_line('a'), 'Parallel version.'
         print *, new_line('a'), 'Splitting Thomas algorithm'
     end if
 
     split_mpi%circulant = periodic
-    split_mpi%block_id = ims_pro + 1
+    split_mpi%block_id = mpiGrid%rank + 1
     split_mpi%communicator = MPI_COMM_WORLD
-    split_mpi%rank = ims_pro
-    split_mpi%n_ranks = ims_npro
+    split_mpi%rank = mpiGrid%rank
+    split_mpi%n_ranks = mpiGrid%num_processors
 
     lhs_loc = lhs
     call Thomas_Split_3_Initialize(lhs_loc(:, 1:1), lhs_loc(:, 2:3), &

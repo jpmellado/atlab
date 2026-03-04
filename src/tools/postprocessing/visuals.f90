@@ -9,8 +9,6 @@ program VISUALS
     use TLab_WorkFlow
     use TLab_Memory, only: TLab_Initialize_Memory
 #ifdef USE_MPI
-    use mpi_f08, only: MPI_COMM_WORLD, MPI_REAL4
-    use TLabMPI_VARS, only: ims_pro_i, ims_pro_j, ims_comm_x, ims_comm_y
     use TLabMPI_PROCS, only: TLabMPI_Initialize
     use TLabMPI_Transpose, only: TLabMPI_Trp_Initialize
 #endif
@@ -625,7 +623,10 @@ contains
     ! ###################################################################
     ! ###################################################################
     subroutine Visuals_Initialize()
-
+#ifdef USE_MPI
+        use mpi_f08, only: MPI_COMM_WORLD, MPI_REAL4
+        use TLabMPI_VARS
+#endif
         character(len=32) bakfile, block
         character(len=128) eStr
         character(len=512) sRes
@@ -840,13 +841,13 @@ contains
 
         ! ###################################################################
         ! Saving full vertical xOz planes; using subdomain(3) to define the plane
-        if (ims_pro_j == ((subdomain(3) - 1)/jmax)) io_subarrays(IO_SUBARRAY_VISUALS_XOZ)%active = .true.
-        io_subarrays(IO_SUBARRAY_VISUALS_XOZ)%communicator = ims_comm_x
+        if (yMpi%rank == ((subdomain(3) - 1)/jmax)) io_subarrays(IO_SUBARRAY_VISUALS_XOZ)%active = .true.
+        io_subarrays(IO_SUBARRAY_VISUALS_XOZ)%communicator = xMpi%comm
         io_subarrays(IO_SUBARRAY_VISUALS_XOZ)%subarray = IO_Create_Subarray_XOZ(imax, nz, MPI_REAL4)
 
         ! Saving full vertical yOz planes; using subiddomain(1) to define the plane
-        if (ims_pro_i == ((subdomain(1) - 1)/imax)) io_subarrays(IO_SUBARRAY_VISUALS_YOZ)%active = .true.
-        io_subarrays(IO_SUBARRAY_VISUALS_YOZ)%communicator = ims_comm_y
+        if (xMpi%rank == ((subdomain(1) - 1)/imax)) io_subarrays(IO_SUBARRAY_VISUALS_YOZ)%active = .true.
+        io_subarrays(IO_SUBARRAY_VISUALS_YOZ)%communicator = yMpi%comm
         io_subarrays(IO_SUBARRAY_VISUALS_YOZ)%subarray = IO_Create_Subarray_YOZ(jmax, nz, MPI_REAL4)
 
         ! Saving full blocks xOy planes

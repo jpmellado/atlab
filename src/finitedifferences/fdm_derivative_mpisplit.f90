@@ -5,8 +5,7 @@ module FDM_Derivative_MPISplit
     use TLab_Constants, only: wp, wi
     use TLab_Constants, only: efile
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
-    use TLabMPI_VARS, only: ims_comm_x, ims_npro_i, ims_pro_i
-    use TLabMPI_VARS, only: ims_comm_y, ims_npro_j, ims_pro_j
+    use TLabMPI_VARS, only: xMpi, yMpi
     use FDM_Derivative_Base, only: der_periodic
     use FDM_Derivative_Base, only: matmul_halo_thomas_ice, matmul_halo_thomas_combined_ice
     use FDM_Derivative_1order, only: der1_periodic
@@ -68,14 +67,14 @@ contains
 
         select case (trim(adjustl(axis)))
         case ('x')
-            self%thomas3%communicator = ims_comm_x
-            self%thomas3%rank = ims_pro_i
-            self%thomas3%n_ranks = ims_npro_i
+            self%thomas3%communicator = xMpi%comm
+            self%thomas3%rank = xMpi%rank
+            self%thomas3%n_ranks = xMpi%num_processors
 
         case ('y')
-            self%thomas3%communicator = ims_comm_y
-            self%thomas3%rank = ims_pro_j
-            self%thomas3%n_ranks = ims_npro_j
+            self%thomas3%communicator = yMpi%comm
+            self%thomas3%rank = yMpi%rank
+            self%thomas3%n_ranks = yMpi%num_processors
 
         end select
 

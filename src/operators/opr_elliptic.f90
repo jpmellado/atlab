@@ -12,7 +12,7 @@ module OPR_Elliptic
     use TLab_Arrays, only: wrk1d, wrk2d, wrk3d
     use TLab_Grid, only: x, y, z
 #ifdef USE_MPI
-    use TLabMPI_VARS, only: ims_pro_i
+    use TLabMPI_VARS, only: xMpi
 #endif
     use FDM, only: fdm_der1_Z, FDM_CreatePlan_Der2
     use FDM_Derivative_2order
@@ -180,7 +180,7 @@ contains
         end select
 
 #ifdef USE_MPI
-        fft_offset_i = ims_pro_i*isize_line
+        fft_offset_i = xMpi%rank*isize_line
 
 #else
         fft_offset_i = 0

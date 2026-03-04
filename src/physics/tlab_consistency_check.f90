@@ -7,7 +7,7 @@ subroutine TLab_Consistency_Check()
     use TLab_Memory, only: inb_flow, inb_scal
     use TLab_Memory, only: imax, jmax, kmax
 #ifdef USE_MPI
-    use TLabMPI_VARS, only: ims_npro_i, ims_npro_j, ims_npro_k
+    use TLabMPI_VARS, only: xMpi, yMpi, zMpi
 #endif
     use IO_Fields
     use TLab_Time, only: rtime
@@ -27,7 +27,7 @@ subroutine TLab_Consistency_Check()
 
     ! ###################################################################
 #ifdef USE_MPI
-    grid_sizes = [imax*ims_npro_i, jmax*ims_npro_j, kmax*ims_npro_k]
+    grid_sizes = [imax*xMpi%num_processors, jmax*yMpi%num_processors, kmax*zMpi%num_processors]
 #else
     grid_sizes = [imax, jmax, kmax]
 #endif

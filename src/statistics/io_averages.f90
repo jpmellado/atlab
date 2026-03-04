@@ -37,15 +37,15 @@ subroutine IO_WRITE_AVERAGES(fname, itime, rtime, nz, nv, ng, z, varnames, group
 #endif
 
 #ifdef USE_MPI
-    integer ims_pro, ims_err
-    call MPI_COMM_RANK(MPI_COMM_WORLD, ims_pro, ims_err)
+    integer locRank, ims_err
+    call MPI_COMM_RANK(MPI_COMM_WORLD, locRank, ims_err)
 #endif
 
     ! ###################################################################
     call TLab_Write_ASCII(lfile, 'Writing '//trim(adjustl(fname))//'...')
 
 #ifdef USE_MPI
-    if (ims_pro == 0) then
+    if (locRank == 0) then
 #endif
 
         ! -----------------------------------------------------------------------

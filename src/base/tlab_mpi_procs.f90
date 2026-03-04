@@ -2,8 +2,8 @@
 
 module TLabMPI_PROCS
     use mpi_f08
-    use TLab_Constants, only: wp, dp, sp, wi, lfile, efile
-    use TLab_Memory, only: imax, jmax, kmax
+    use TLab_Constants, only: wp, dp, sp, wi
+    use TLab_Constants, only: lfile, efile
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
     use TLabMPI_VARS
     implicit none
@@ -23,7 +23,7 @@ contains
         ! -----------------------------------------------------------------------
         integer(wi) dims(2), coord(2)
         logical period(2), remain_dims(2), reorder
-        type(MPI_Comm) :: ims_comm_xy                               ! Plane communicators
+        type(MPI_Comm) :: mpi_comm_xy                             ! Plane communicators
 
         character(len=512) line
         character*64 lstr
@@ -34,7 +34,7 @@ contains
         zMpi%num_processors = zSubgrid%parent%size/zSubgrid%size
 
         ! consistency check
-        if (xMpi%num_processors*yMpi%num_processors == ims_npro) then
+        if (xMpi%num_processors*yMpi%num_processors == mpiGrid%num_processors) then
             line = 'Initializing MPI domain partition'
             write (lstr, *) xMpi%num_processors
             line = trim(adjustl(line))//' '//trim(adjustl(lstr))
@@ -54,27 +54,17 @@ contains
         dims(1) = yMpi%num_processors
         dims(2) = xMpi%num_processors
         period = .true.; reorder = .false.
-        call MPI_CART_CREATE(MPI_COMM_WORLD, 2, dims, period, reorder, ims_comm_xy, ims_err)
+        call MPI_CART_CREATE(MPI_COMM_WORLD, 2, dims, period, reorder, mpi_comm_xy, ims_err)
 
         remain_dims(1) = .false.; remain_dims(2) = .true.
-        call MPI_CART_SUB(ims_comm_xy, remain_dims, xMpi%comm, ims_err)
+        call MPI_CART_SUB(mpi_comm_xy, remain_dims, xMpi%comm, ims_err)
 
         remain_dims(1) = .true.; remain_dims(2) = .false.
-        call MPI_CART_SUB(ims_comm_xy, remain_dims, yMpi%comm, ims_err)
+        call MPI_CART_SUB(mpi_comm_xy, remain_dims, yMpi%comm, ims_err)
 
-        call MPI_CART_COORDS(ims_comm_xy, ims_pro, 2, coord, ims_err)
+        call MPI_CART_COORDS(mpi_comm_xy, mpiGrid%rank, 2, coord, ims_err)
         xMpi%rank = coord(2)
         yMpi%rank = coord(1)
-
-        ! to be removed
-        ims_npro_i = xMpi%num_processors !xSubgrid%parent%size/xSubgrid%size
-        ims_npro_j = yMpi%num_processors !ySubgrid%parent%size/ySubgrid%size
-        ims_npro_k = zMpi%num_processors !1
-        !
-        ims_comm_x = xMpi%comm
-        ims_comm_y = yMpi%comm
-        ims_pro_i = xMpi%rank
-        ims_pro_j = yMpi%rank
 
         ! #######################################################################
         ! local offset in grid points##############
@@ -128,20 +118,20 @@ contains
         counts = size_plane*n_halo_planes
 
         ! pass to previous processor
-        dest = mod(ims_pro_i - 1 + ims_npro_i, ims_npro_i)
-        source = mod(ims_pro_i + 1, ims_npro_i)
+        dest = mod(xMpi%rank - 1 + xMpi%num_processors, xMpi%num_processors)
+        source = mod(xMpi%rank + 1, xMpi%num_processors)
         disp = 1
         call MPI_Sendrecv(a(disp), counts, MPI_REAL8, dest, 0, &
                           halo_p, counts, MPI_REAL8, source, 0, &
-                          ims_comm_x, MPI_STATUS_IGNORE, ims_err)
+                          xMpi%comm, MPI_STATUS_IGNORE, ims_err)
 
         ! pass to following processor
-        dest = mod(ims_pro_i + 1, ims_npro_i)
-        source = mod(ims_pro_i - 1 + ims_npro_i, ims_npro_i)
+        dest = mod(xMpi%rank + 1, xMpi%num_processors)
+        source = mod(xMpi%rank - 1 + xMpi%num_processors, xMpi%num_processors)
         disp = size(a) - counts + 1
         call MPI_Sendrecv(a(disp), counts, MPI_REAL8, dest, 1, &
                           halo_m, counts, MPI_REAL8, source, 1, &
-                          ims_comm_x, MPI_STATUS_IGNORE, ims_err)
+                          xMpi%comm, MPI_STATUS_IGNORE, ims_err)
 
         return
     end subroutine TLabMPI_Halos_X
@@ -162,20 +152,20 @@ contains
         counts = size_plane*n_halo_planes
 
         ! pass to previous processor
-        dest = mod(ims_pro_j - 1 + ims_npro_j, ims_npro_j)
-        source = mod(ims_pro_j + 1, ims_npro_j)
+        dest = mod(yMpi%rank - 1 + yMpi%num_processors, yMpi%num_processors)
+        source = mod(yMpi%rank + 1, yMpi%num_processors)
         disp = 1
         call MPI_Sendrecv(a(disp), counts, MPI_REAL8, dest, 0, &
                           halo_p, counts, MPI_REAL8, source, 0, &
-                          ims_comm_y, MPI_STATUS_IGNORE, ims_err)
+                          yMpi%comm, MPI_STATUS_IGNORE, ims_err)
 
         ! pass to following processor
-        dest = mod(ims_pro_j + 1, ims_npro_j)
-        source = mod(ims_pro_j - 1 + ims_npro_j, ims_npro_j)
+        dest = mod(yMpi%rank + 1, yMpi%num_processors)
+        source = mod(yMpi%rank - 1 + yMpi%num_processors, yMpi%num_processors)
         disp = size(a) - counts + 1
         call MPI_Sendrecv(a(disp), counts, MPI_REAL8, dest, 1, &
                           halo_m, counts, MPI_REAL8, source, 1, &
-                          ims_comm_y, MPI_STATUS_IGNORE, ims_err)
+                          yMpi%comm, MPI_STATUS_IGNORE, ims_err)
 
         return
     end subroutine TLabMPI_Halos_Y

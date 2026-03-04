@@ -136,46 +136,46 @@ contains
         ! trp_sizBlock_j=1e5   -- would essentially switch off the blocking
 #endif
 
-        if (ims_npro_i > trp_sizBlock_i) then
+        if (xMpi%num_processors > trp_sizBlock_i) then
             write (line, *) trp_sizBlock_i
             line = 'Using blocking of '//trim(adjustl(line))//' in TLabMPI_TRP<F,B>_I'
             call TLab_Write_ASCII(lfile, line)
         end if
 
-        if (ims_npro_j > trp_sizBlock_j) then
+        if (yMpi%num_processors > trp_sizBlock_j) then
             write (line, *) trp_sizBlock_j
             line = 'Using blocking of '//trim(adjustl(line))//' in TLabMPI_TRP<F,B>_K'
             call TLab_Write_ASCII(lfile, line)
         end if
 
-        allocate (status(2*max(trp_sizBlock_i, trp_sizBlock_j, ims_npro_i, ims_npro_j)))
-        allocate (request(2*max(trp_sizBlock_i, trp_sizBlock_j, ims_npro_i, ims_npro_j)))
+        allocate (status(2*max(trp_sizBlock_i, trp_sizBlock_j, xMpi%num_processors, yMpi%num_processors)))
+        allocate (request(2*max(trp_sizBlock_i, trp_sizBlock_j, xMpi%num_processors, yMpi%num_processors)))
 
         ! -----------------------------------------------------------------------
         ! local PE mappings for explicit send/recv
-        allocate (maps_send_i(ims_npro_i))
-        allocate (maps_recv_i(ims_npro_i))
-        do ip = 0, ims_npro_i - 1
+        allocate (maps_send_i(xMpi%num_processors))
+        allocate (maps_recv_i(xMpi%num_processors))
+        do ip = 0, xMpi%num_processors - 1
             maps_send_i(ip + 1) = ip
-            maps_recv_i(ip + 1) = mod(ims_npro_i - ip, ims_npro_i)
+            maps_recv_i(ip + 1) = mod(xMpi%num_processors - ip, xMpi%num_processors)
         end do
-        maps_send_i = cshift(maps_send_i, ims_pro_i)
-        maps_recv_i = cshift(maps_recv_i, -ims_pro_i)
+        maps_send_i = cshift(maps_send_i, xMpi%rank)
+        maps_recv_i = cshift(maps_recv_i, -xMpi%rank)
 
-        allocate (maps_send_j(ims_npro_j))
-        allocate (maps_recv_j(ims_npro_j))
-        do ip = 0, ims_npro_j - 1
+        allocate (maps_send_j(yMpi%num_processors))
+        allocate (maps_recv_j(yMpi%num_processors))
+        do ip = 0, yMpi%num_processors - 1
             maps_send_j(ip + 1) = ip
-            maps_recv_j(ip + 1) = mod(ims_npro_j - ip, ims_npro_j)
+            maps_recv_j(ip + 1) = mod(yMpi%num_processors - ip, yMpi%num_processors)
         end do
-        maps_send_j = cshift(maps_send_j, ims_pro_j)
-        maps_recv_j = cshift(maps_recv_j, -ims_pro_j)
+        maps_send_j = cshift(maps_send_j, yMpi%rank)
+        maps_recv_j = cshift(maps_recv_j, -yMpi%rank)
 
         ! -----------------------------------------------------------------------
         ! to use alltoallw
-        allocate (counts(max(ims_npro_i, ims_npro_j, ims_npro_k)))
-        allocate (types_send(max(ims_npro_i, ims_npro_j, ims_npro_k)))
-        allocate (types_recv(max(ims_npro_i, ims_npro_j, ims_npro_k)))
+        allocate (counts(max(xMpi%num_processors, yMpi%num_processors, zMpi%num_processors)))
+        allocate (types_send(max(xMpi%num_processors, yMpi%num_processors, zMpi%num_processors)))
+        allocate (types_recv(max(xMpi%num_processors, yMpi%num_processors, zMpi%num_processors)))
         counts(:) = 1
 
         ! -----------------------------------------------------------------------
@@ -184,11 +184,11 @@ contains
 
         ! -----------------------------------------------------------------------
         ! Create basic transposition plans used for partial X and partial Z; could be in another module...
-        if (ims_npro_i > 1) then
+        if (xMpi%num_processors > 1) then
             tmpi_plan_dx = TLabMPI_Trp_PlanI(imax, jmax*kmax, message='Ox derivatives.')
         end if
 
-        if (ims_npro_j > 1) then
+        if (yMpi%num_processors > 1) then
             tmpi_plan_dy = TLabMPI_Trp_PlanJ(jmax, imax*kmax, message='Oy derivatives.')
         end if
 
@@ -216,9 +216,9 @@ contains
         if (present(message)) &
             call TLab_Write_ASCII(lfile, 'Creating derived MPI types for '//trim(adjustl(message)))
 
-        if (mod(npage, ims_npro_i) == 0) then
-            trp_plan%nlines = npage/ims_npro_i
-            allocate (trp_plan%disp_s(ims_npro_i), trp_plan%disp_r(ims_npro_i))
+        if (mod(npage, xMpi%num_processors) == 0) then
+            trp_plan%nlines = npage/xMpi%num_processors
+            allocate (trp_plan%disp_s(xMpi%num_processors), trp_plan%disp_r(xMpi%num_processors))
             trp_plan%size3d = npage*nmax
         else
             call TLab_Write_ASCII(efile, __FILE__//'. Ratio npage/npro not an integer.')
@@ -231,7 +231,7 @@ contains
         ! Calculate array displacements in Forward Send/Receive
         trp_plan%disp_s(1) = 0
         trp_plan%disp_r(1) = 0
-        do i = 2, ims_npro_i
+        do i = 2, xMpi%num_processors
             trp_plan%disp_s(i) = trp_plan%disp_s(i - 1) + block_length*block_count
             trp_plan%disp_r(i) = trp_plan%disp_r(i - 1) + block_length
         end do
@@ -247,7 +247,7 @@ contains
         call MPI_TYPE_VECTOR(block_count, block_length, stride, datatype, trp_plan%type_s, ims_err)
         call MPI_TYPE_COMMIT(trp_plan%type_s, ims_err)
 
-        stride = nmax*ims_npro_i    ! stride is a multiple of nmax_total=nmax*ims_npro_i
+        stride = nmax*xMpi%num_processors    ! stride is a multiple of nmax_total=nmax*xMpi%num_processors
         call MPI_TYPE_VECTOR(block_count, block_length, stride, datatype, trp_plan%type_r, ims_err)
         call MPI_TYPE_COMMIT(trp_plan%type_r, ims_err)
 
@@ -286,9 +286,9 @@ contains
         if (present(message)) &
             call TLab_Write_ASCII(lfile, 'Creating derived MPI types for '//trim(adjustl(message)))
 
-        if (mod(npage, ims_npro_j) == 0) then
-            trp_plan%nlines = npage/ims_npro_j
-            allocate (trp_plan%disp_s(ims_npro_j), trp_plan%disp_r(ims_npro_j))
+        if (mod(npage, yMpi%num_processors) == 0) then
+            trp_plan%nlines = npage/yMpi%num_processors
+            allocate (trp_plan%disp_s(yMpi%num_processors), trp_plan%disp_r(yMpi%num_processors))
             trp_plan%size3d = npage*nmax
         else
             call TLab_Write_ASCII(efile, __FILE__//'. Ratio npage/npro not an integer.')
@@ -301,7 +301,7 @@ contains
         ! Calculate array displacements in Forward Send/Receive
         trp_plan%disp_s(1) = 0
         trp_plan%disp_r(1) = 0
-        do i = 2, ims_npro_j
+        do i = 2, yMpi%num_processors
             trp_plan%disp_s(i) = trp_plan%disp_s(i - 1) + block_length
             trp_plan%disp_r(i) = trp_plan%disp_r(i - 1) + block_length*block_count
         end do
@@ -363,13 +363,13 @@ contains
             a_wrk(1:size) = real(a(1:size), sp)
             call Transpose_Kernel_Single(a_wrk, maps_send_j(:), trp_plan%disp_s(:), trp_plan%type_s, &
                                          b_wrk, maps_recv_j(:), trp_plan%disp_r(:), trp_plan%type_r, &
-                                         ims_comm_y, trp_sizBlock_j, trp_mode_j)
+                                         yMpi%comm, trp_sizBlock_j, trp_mode_j)
             b(1:size) = real(b_wrk(1:size), dp)
             nullify (a_wrk, b_wrk)
         else
             call Transpose_Kernel_Double(a, maps_send_j(:), trp_plan%disp_s(:), trp_plan%type_s, &
                                          b, maps_recv_j(:), trp_plan%disp_r(:), trp_plan%type_r, &
-                                         ims_comm_y, trp_sizBlock_j, trp_mode_j)
+                                         yMpi%comm, trp_sizBlock_j, trp_mode_j)
         end if
 
 #ifdef PROFILE_ON
@@ -390,7 +390,7 @@ contains
         ! #######################################################################
         call Transpose_Kernel_Complex(a, maps_send_j(:), trp_plan%disp_s(:), trp_plan%type_s, &
                                       b, maps_recv_j(:), trp_plan%disp_r(:), trp_plan%type_r, &
-                                      ims_comm_y, trp_sizBlock_j, trp_mode_j)
+                                      yMpi%comm, trp_sizBlock_j, trp_mode_j)
 
         return
     end subroutine TLabMPI_Trp_ExecJ_Forward_Complex
@@ -422,13 +422,13 @@ contains
             b_wrk(1:size) = real(b(1:size), sp)
             call Transpose_Kernel_Single(b_wrk, maps_recv_j(:), trp_plan%disp_r(:), trp_plan%type_r, &
                                          a_wrk, maps_send_j(:), trp_plan%disp_s(:), trp_plan%type_s, &
-                                         ims_comm_y, trp_sizBlock_j, trp_mode_j)
+                                         yMpi%comm, trp_sizBlock_j, trp_mode_j)
             a(1:size) = real(a_wrk(1:size), dp)
             nullify (a_wrk, b_wrk)
         else
             call Transpose_Kernel_Double(b, maps_recv_j(:), trp_plan%disp_r(:), trp_plan%type_r, &
                                          a, maps_send_j(:), trp_plan%disp_s(:), trp_plan%type_s, &
-                                         ims_comm_y, trp_sizBlock_j, trp_mode_j)
+                                         yMpi%comm, trp_sizBlock_j, trp_mode_j)
         end if
 
 #ifdef PROFILE_ON
@@ -449,7 +449,7 @@ contains
         ! #######################################################################
         call Transpose_Kernel_Complex(b, maps_recv_j(:), trp_plan%disp_r(:), trp_plan%type_r, &
                                       a, maps_send_j(:), trp_plan%disp_s(:), trp_plan%type_s, &
-                                      ims_comm_y, trp_sizBlock_j, trp_mode_j)
+                                      yMpi%comm, trp_sizBlock_j, trp_mode_j)
 
         return
     end subroutine TLabMPI_Trp_ExecJ_Backward_Complex
@@ -474,13 +474,13 @@ contains
             a_wrk(1:size) = real(a(1:size), sp)
             call Transpose_Kernel_Single(a_wrk, maps_send_i(:), trp_plan%disp_s(:), trp_plan%type_s, &
                                          b_wrk, maps_recv_i(:), trp_plan%disp_r(:), trp_plan%type_r, &
-                                         ims_comm_x, trp_sizBlock_i, trp_mode_i)
+                                         xMpi%comm, trp_sizBlock_i, trp_mode_i)
             b(1:size) = real(b_wrk(1:size), dp)
             nullify (a_wrk, b_wrk)
         else
             call Transpose_Kernel_Double(a, maps_send_i(:), trp_plan%disp_s(:), trp_plan%type_s, &
                                          b, maps_recv_i(:), trp_plan%disp_r(:), trp_plan%type_r, &
-                                         ims_comm_x, trp_sizBlock_i, trp_mode_i)
+                                         xMpi%comm, trp_sizBlock_i, trp_mode_i)
         end if
 
         return
@@ -496,7 +496,7 @@ contains
         ! #######################################################################
         call Transpose_Kernel_Complex(a, maps_send_i(:), trp_plan%disp_s(:), trp_plan%type_s, &
                                       b, maps_recv_i(:), trp_plan%disp_r(:), trp_plan%type_r, &
-                                      ims_comm_x, trp_sizBlock_i, trp_mode_i)
+                                      xMpi%comm, trp_sizBlock_i, trp_mode_i)
 
         return
     end subroutine TLabMPI_Trp_ExecI_Forward_Complex
@@ -522,13 +522,13 @@ contains
             b_wrk(1:size) = real(b(1:size), sp)
             call Transpose_Kernel_Single(b_wrk, maps_recv_i(:), trp_plan%disp_r(:), trp_plan%type_r, &
                                          a_wrk, maps_send_i(:), trp_plan%disp_s(:), trp_plan%type_s, &
-                                         ims_comm_x, trp_sizBlock_i, trp_mode_i)
+                                         xMpi%comm, trp_sizBlock_i, trp_mode_i)
             a(1:size) = real(a_wrk(1:size), dp)
             nullify (a_wrk, b_wrk)
         else
             call Transpose_Kernel_Double(b, maps_recv_i(:), trp_plan%disp_r(:), trp_plan%type_r, &
                                          a, maps_send_i(:), trp_plan%disp_s(:), trp_plan%type_s, &
-                                         ims_comm_x, trp_sizBlock_i, trp_mode_i)
+                                         xMpi%comm, trp_sizBlock_i, trp_mode_i)
         end if
 
         return
@@ -544,7 +544,7 @@ contains
         ! #######################################################################
         call Transpose_Kernel_Complex(b, maps_recv_i(:), trp_plan%disp_r(:), trp_plan%type_r, &
                                       a, maps_send_i(:), trp_plan%disp_s(:), trp_plan%type_s, &
-                                      ims_comm_x, trp_sizBlock_i, trp_mode_i)
+                                      xMpi%comm, trp_sizBlock_i, trp_mode_i)
 
         return
     end subroutine TLabMPI_Trp_ExecI_Backward_Complex

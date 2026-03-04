@@ -157,9 +157,9 @@ contains
         integer, parameter :: ndims = 2
         integer(wi) :: sizes(ndims), locsize(ndims), offset(ndims)
 
-        sizes = [nx*ims_npro_i, nz]
+        sizes = [nx*xMpi%num_processors, nz]
         locsize = [nx, nz]
-        offset = [nx*ims_pro_i, 0]
+        offset = [nx*xMpi%rank, 0]
 
         call MPI_Type_create_subarray(ndims, sizes, locsize, offset, MPI_ORDER_FORTRAN, locType, locSubarray, ims_err)
         call MPI_Type_commit(locSubarray, ims_err)
@@ -176,9 +176,9 @@ contains
         integer, parameter :: ndims = 3
         integer(wi) :: sizes(ndims), locsize(ndims), offset(ndims)
 
-        sizes = [nx*ims_npro_i, ny*ims_npro_j, nz]
+        sizes = [nx*xMpi%num_processors, ny*yMpi%num_processors, nz]
         locsize = [nx, ny, nz]
-        offset = [nx*ims_pro_i, ny*ims_pro_j, 0]
+        offset = [nx*xMpi%rank, ny*yMpi%rank, 0]
 
         call MPI_Type_create_subarray(ndims, sizes, locsize, offset, MPI_ORDER_FORTRAN, locType, locSubarray, ims_err)
         call MPI_Type_commit(locSubarray, ims_err)
@@ -195,9 +195,9 @@ contains
         integer, parameter :: ndims = 2
         integer(wi) :: sizes(ndims), locsize(ndims), offset(ndims)
 
-        sizes = [ny*ims_npro_j, nz]
+        sizes = [ny*yMpi%num_processors, nz]
         locsize = [ny, nz]
-        offset = [ny*ims_pro_j, 0]
+        offset = [ny*yMpi%rank, 0]
 
         call MPI_Type_create_subarray(ndims, sizes, locsize, offset, MPI_ORDER_FORTRAN, locType, locSubarray, ims_err)
         call MPI_Type_commit(locSubarray, ims_err)
@@ -207,7 +207,7 @@ contains
 
     !########################################################################
     !########################################################################
-    !# Read/write files of size (nx*ims_npro_i)x(ny*ims_npro_y)x(nz*ims_npro_z)
+    !# Read/write files of size (nx*xMpi%num_processors)x(ny*mpiGrid%num_processors_y)x(nz*mpiGrid%num_processors_z)
     subroutine IO_Read_Fields(fname, nx, ny, nz, nt, nfield, iread, a, params)
         character(LEN=*) fname
         integer, intent(in) :: nfield, iread   ! iread=0 reads all nfields, otherwise iread field
@@ -540,8 +540,8 @@ contains
         integer nx_total, ny_total, nz_total
 
 #ifdef USE_MPI
-        nx_total = nx*ims_npro_i
-        ny_total = ny*ims_npro_j
+        nx_total = nx*xMpi%num_processors
+        ny_total = ny*yMpi%num_processors
         nz_total = nz
 #else
         nx_total = nx
@@ -655,9 +655,9 @@ contains
 
         !########################################################################
 #ifdef USE_MPI
-        if (ims_pro == 0) then
-            nx_total = nx*ims_npro_i
-            ny_total = ny*ims_npro_j
+        if (mpiGrid%rank == 0) then
+            nx_total = nx*xMpi%num_processors
+            ny_total = ny*yMpi%num_processors
             nz_total = nz
 #else
             nx_total = nx
@@ -799,9 +799,9 @@ contains
 
         !########################################################################
 #ifdef USE_MPI
-        if (ims_pro == 0) then
-            nx_total = nx*ims_npro_i
-            ny_total = ny*ims_npro_j
+        if (mpiGrid%rank == 0) then
+            nx_total = nx*xMpi%num_processors
+            ny_total = ny*yMpi%num_processors
             nz_total = nz
 #else
             nx_total = nx

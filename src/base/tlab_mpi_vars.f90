@@ -3,10 +3,10 @@ module TLabMPI_VARS
     use mpi_f08, only: MPI_Comm, MPI_Datatype
     implicit none
 
-    type(MPI_Comm) :: ims_comm_xy                               ! Plane communicators
+    ! type(MPI_Comm) :: ims_comm_xy                               ! Plane communicators
     type(MPI_Comm) :: ims_comm_x, ims_comm_y                    ! Directional communicators
-    type(MPI_Comm) :: ims_comm_xy_aux
-    type(MPI_Comm) :: ims_comm_x_aux, ims_comm_y_aux
+    ! type(MPI_Comm) :: ims_comm_xy_aux
+    ! type(MPI_Comm) :: ims_comm_x_aux, ims_comm_y_aux
 
     integer :: ims_pro                                          ! Local PE number in global communicator
     integer :: ims_pro_i, ims_pro_j, ims_pro_k                  ! Local PE number in directional communicators
@@ -22,8 +22,17 @@ module TLabMPI_VARS
 
     type :: mpi_axis_dt
         type(MPI_Comm) :: comm
-        integer :: num_processors
+        integer :: num_processors       ! we could name it size, in analogy to spatial grid, but this might be clearer
         integer :: rank
     end type
 
+    type, extends(mpi_axis_dt) :: mpi_grid_dt
+        type(mpi_axis_dt) axes(3)
+    end type
+
+    type(mpi_grid_dt), target :: mpiGrid
+    type(mpi_axis_dt), pointer :: xMpi => mpiGrid%axes(1)
+    type(mpi_axis_dt), pointer :: yMpi => mpiGrid%axes(2)
+    type(mpi_axis_dt), pointer :: zMpi => mpiGrid%axes(3)
+    
 end module TLabMPI_VARS

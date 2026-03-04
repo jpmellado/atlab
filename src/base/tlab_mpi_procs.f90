@@ -23,20 +23,24 @@ contains
         ! -----------------------------------------------------------------------
         integer(wi) dims(2), coord(2)
         logical period(2), remain_dims(2), reorder
+        type(MPI_Comm) :: ims_comm_xy                               ! Plane communicators
 
         character(len=512) line
         character*64 lstr
 
         ! #######################################################################
-        ims_npro_i = xSubgrid%parent%size/xSubgrid%size
-        ims_npro_j = ySubgrid%parent%size/ySubgrid%size
-        ims_npro_k = 1
+        xMpi%num_processors = xSubgrid%parent%size/xSubgrid%size
+        yMpi%num_processors = ySubgrid%parent%size/ySubgrid%size
+        zMpi%num_processors = zSubgrid%parent%size/zSubgrid%size
 
         ! consistency check
-        if (ims_npro_i*ims_npro_j == ims_npro) then
-            write (lstr, *) ims_npro_i; write (line, *) ims_npro_j
-            lstr = trim(adjustl(lstr))//'x'//trim(adjustl(line))
-            call TLab_Write_ASCII(lfile, 'Initializing domain partition '//trim(adjustl(lstr)))
+        if (xMpi%num_processors*yMpi%num_processors == ims_npro) then
+            line = 'Initializing MPI domain partition'
+            write (lstr, *) xMpi%num_processors
+            line = trim(adjustl(line))//' '//trim(adjustl(lstr))
+            write (lstr, *) yMpi%num_processors
+            line = trim(adjustl(line))//'x'//trim(adjustl(lstr))
+            call TLab_Write_ASCII(lfile, trim(adjustl(line)))
         else
             call TLab_Write_ASCII(efile, __FILE__//'. Inconsistency in total number of PEs')
             call TLab_Stop(DNS_ERROR_DIMGRID)
@@ -46,27 +50,37 @@ contains
         call TLab_Write_ASCII(lfile, 'Creating MPI communicators.')
 
         ! the first index in the grid corresponds to j, the second to i
-        dims(1) = ims_npro_j; dims(2) = ims_npro_i; period = .true.; reorder = .false.
-        ! dims(1) = ims_npro_i; dims(2) = ims_npro_j; period = .true.; reorder = .false.
+        ! we tried transposing the mpi axes, but similar time
+        dims(1) = yMpi%num_processors
+        dims(2) = xMpi%num_processors
+        period = .true.; reorder = .false.
         call MPI_CART_CREATE(MPI_COMM_WORLD, 2, dims, period, reorder, ims_comm_xy, ims_err)
 
-        call MPI_CART_COORDS(ims_comm_xy, ims_pro, 2, coord, ims_err)
-        ims_pro_j = coord(1); ims_pro_i = coord(2)      ! starting at 0
-        ! ims_pro_j = coord(2); ims_pro_i = coord(1)
-
         remain_dims(1) = .false.; remain_dims(2) = .true.
-        call MPI_CART_SUB(ims_comm_xy, remain_dims, ims_comm_x, ims_err)
-        ! call MPI_CART_SUB(ims_comm_xy, remain_dims, ims_comm_y, ims_err)
+        call MPI_CART_SUB(ims_comm_xy, remain_dims, xMpi%comm, ims_err)
 
         remain_dims(1) = .true.; remain_dims(2) = .false.
-        call MPI_CART_SUB(ims_comm_xy, remain_dims, ims_comm_y, ims_err)
-        ! call MPI_CART_SUB(ims_comm_xy, remain_dims, ims_comm_x, ims_err)
+        call MPI_CART_SUB(ims_comm_xy, remain_dims, yMpi%comm, ims_err)
+
+        call MPI_CART_COORDS(ims_comm_xy, ims_pro, 2, coord, ims_err)
+        xMpi%rank = coord(2)
+        yMpi%rank = coord(1)
+
+        ! to be removed
+        ims_npro_i = xMpi%num_processors !xSubgrid%parent%size/xSubgrid%size
+        ims_npro_j = yMpi%num_processors !ySubgrid%parent%size/ySubgrid%size
+        ims_npro_k = zMpi%num_processors !1
+        !
+        ims_comm_x = xMpi%comm
+        ims_comm_y = yMpi%comm
+        ims_pro_i = xMpi%rank
+        ims_pro_j = yMpi%rank
 
         ! #######################################################################
         ! local offset in grid points##############
-        xSubgrid%offset = xSubgrid%size*ims_pro_i
-        ySubgrid%offset = ySubgrid%size*ims_pro_j
-        
+        xSubgrid%offset = xSubgrid%size*xMpi%rank
+        ySubgrid%offset = ySubgrid%size*yMpi%rank
+
         ! #######################################################################
         ! Control of MPI type
         select case (wp)

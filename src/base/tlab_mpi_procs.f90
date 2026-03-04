@@ -17,7 +17,7 @@ contains
     ! ######################################################################
     ! ######################################################################
     subroutine TLabMPI_Initialize(inifile)
-        use TLab_Grid, only: xSubgrid, ySubgrid, zSubgrid
+        use TLab_Grid, only: xSubgrid, ySubgrid, zSubgrid, subgrid
         character(len=*), intent(in) :: inifile
 
         ! -----------------------------------------------------------------------
@@ -27,11 +27,16 @@ contains
 
         character(len=512) line
         character*64 lstr
+        integer ig
 
         ! #######################################################################
-        xMpi%num_processors = xSubgrid%parent%size/xSubgrid%size
-        yMpi%num_processors = ySubgrid%parent%size/ySubgrid%size
-        zMpi%num_processors = zSubgrid%parent%size/zSubgrid%size
+        do ig = 1, 3
+            mpiGrid%axes(ig)%num_processors = subgrid%axes(ig)%parent%size/subgrid%axes(ig)%size
+        end do
+
+        xMpi => mpiGrid%axes(1)     ! for readability
+        yMpi => mpiGrid%axes(2)
+        zMpi => mpiGrid%axes(3)
 
         ! consistency check
         if (xMpi%num_processors*yMpi%num_processors == mpiGrid%num_processors) then
@@ -67,7 +72,7 @@ contains
         yMpi%rank = coord(1)
 
         ! #######################################################################
-        ! local offset in grid points##############
+        ! local offset in grid points
         xSubgrid%offset = xSubgrid%size*xMpi%rank
         ySubgrid%offset = ySubgrid%size*yMpi%rank
 

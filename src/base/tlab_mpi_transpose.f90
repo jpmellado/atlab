@@ -62,6 +62,8 @@ module TLabMPI_Transpose
         module procedure TLabMPI_Trp_ExecI_Backward_Real, TLabMPI_Trp_ExecI_Backward_Complex
     end interface TLabMPI_Trp_ExecI_Backward
 
+    integer ims_tag
+    
 contains
 
     ! ######################################################################

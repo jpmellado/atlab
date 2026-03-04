@@ -14,7 +14,7 @@ module TLab_Grid
     public :: axis_dt
     public :: globalGrid, x, y, z
     public :: subaxis_dt
-    public :: xSubgrid, ySubgrid, zSubgrid
+    public :: subgrid, xSubgrid, ySubgrid, zSubgrid
 
     ! -----------------------------------------------------------------------
     type :: axis_dt

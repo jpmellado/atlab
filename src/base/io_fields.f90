@@ -19,7 +19,7 @@ module IO_Fields
     use, intrinsic :: iso_c_binding, only: c_f_pointer, c_loc
 #ifdef USE_MPI
     use mpi_f08
-    use TLabMPI_VARS
+    use TLabMPI_VARS, only: ims_err
     use TLabMPI_PROCS, only: TLabMPI_Panic
 #endif
     implicit none
@@ -151,6 +151,7 @@ contains
     !########################################################################
     !########################################################################
     function IO_Create_Subarray_XOZ(nx, nz, locType) result(locSubarray)
+        use TLabMPI_Vars, only: xMpi
         integer(wi), intent(in) :: nx, nz
         type(MPI_Datatype), intent(in) :: locType
 
@@ -170,6 +171,7 @@ contains
     !########################################################################
     !########################################################################
     function IO_Create_Subarray_XOY(nx, ny, nz, locType) result(locSubarray)
+        use TLabMPI_Vars, only: xMpi, yMpi
         integer(wi), intent(in) :: nx, ny, nz
         type(MPI_Datatype), intent(in) :: locType
 
@@ -189,6 +191,7 @@ contains
     !########################################################################
     !########################################################################
     function IO_Create_Subarray_YOZ(ny, nz, locType) result(locSubarray)
+        use TLabMPI_Vars, only: yMpi
         integer(wi), intent(in) :: ny, nz
         type(MPI_Datatype), intent(in) :: locType
 
@@ -532,6 +535,9 @@ contains
     !########################################################################
     !########################################################################
     subroutine Write_Log(tag, nx, ny, nz)
+#ifdef USE_MPI
+        use TLabMPI_Vars, only: xMpi, yMPi
+#endif
         character(len=*), intent(in) :: tag
         integer, intent(in) :: nx, ny, nz
 
@@ -645,6 +651,9 @@ contains
     !########################################################################
     !########################################################################
     subroutine Read_Header(offset, nx, ny, nz, nt, params)
+#ifdef USE_MPI
+        use TLabMPI_Vars, only: mpiGrid
+#endif
         integer(wi), intent(out) :: offset
         integer(wi), intent(in) :: nx, ny, nz, nt
         real(wp), intent(inout) :: params(:)
@@ -657,9 +666,9 @@ contains
         !########################################################################
 #ifdef USE_MPI
         if (mpiGrid%rank == 0) then
-            nx_total = nx*xMpi%num_processors
-            ny_total = ny*yMpi%num_processors
-            nz_total = nz
+            nx_total = nx*mpiGrid%axes(1)%num_processors
+            ny_total = ny*mpiGrid%axes(2)%num_processors
+            nz_total = nz*mpiGrid%axes(3)%num_processors
 #else
             nx_total = nx
             ny_total = ny
@@ -791,6 +800,9 @@ contains
     !########################################################################
     !########################################################################
     subroutine Write_Header(nx, ny, nz, nt, params)
+#ifdef USE_MPI
+        use TLabMPI_Vars, only: mpiGrid
+#endif
         integer(wi), intent(in) :: nx, ny, nz, nt
         real(wp), intent(in), optional :: params(:)
 
@@ -801,9 +813,9 @@ contains
         !########################################################################
 #ifdef USE_MPI
         if (mpiGrid%rank == 0) then
-            nx_total = nx*xMpi%num_processors
-            ny_total = ny*yMpi%num_processors
-            nz_total = nz
+            nx_total = nx*mpiGrid%axes(1)%num_processors
+            ny_total = ny*mpiGrid%axes(2)%num_processors
+            nz_total = nz*mpiGrid%axes(3)%num_processors
 #else
             nx_total = nx
             ny_total = ny

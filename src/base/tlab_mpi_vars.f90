@@ -5,29 +5,22 @@ module TLabMPI_VARS
 
     type :: mpi_axis_dt
         type(MPI_Comm) :: comm
-        integer :: num_processors       ! we could name it size, in analogy to spatial grid, but this might be clearer
+        integer :: num_processors                   ! we could name it size, in analogy to spatial grid, but this might be clearer
         integer :: rank
     end type
 
-    ! type, extends(mpi_axis_dt) :: mpi_grid_dt     ! Error in levante; grid components being overwritten by axes components
-    !     type(mpi_axis_dt) axes(3)
-    ! end type
-    type :: mpi_grid_dt
-        type(MPI_Comm) :: comm
-        integer :: num_processors       ! we could name it size, in analogy to spatial grid, but this might be clearer
-        integer :: rank
+    type, extends(mpi_axis_dt) :: mpi_grid_dt
         type(mpi_axis_dt) axes(3)
     end type
 
     type(mpi_grid_dt), target :: mpiGrid
-    type(mpi_axis_dt), pointer :: xMpi => mpiGrid%axes(1)
-    type(mpi_axis_dt), pointer :: yMpi => mpiGrid%axes(2)
-    type(mpi_axis_dt), pointer :: zMpi => mpiGrid%axes(3)
+    type(mpi_axis_dt), pointer :: xMpi => null()    ! For readability in the code
+    type(mpi_axis_dt), pointer :: yMpi => null()
+    type(mpi_axis_dt), pointer :: zMpi => null()
 
-    integer :: ims_err, ims_tag
+    integer :: ims_err
 
     real(wp) :: ims_time_min, ims_time_max, ims_time_trans      ! Profiling
-    integer(wi) :: ims_bcs_imax, ims_bcs_jmax
 
     type(MPI_Datatype) :: TLAB_MPI_REAL_TYPE                    ! MPI Type control
 

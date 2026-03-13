@@ -90,7 +90,7 @@ subroutine NSE_Boussinesq(dte, remove_divergence)
     return
 end subroutine NSE_Boussinesq
 
-subroutine NSE_Boussinesq_BscFlow()
+subroutine NSE_Boussinesq_BcsFlow()
     use TLab_Memory, only: imax, jmax, kmax, inb_flow
     use DNS_Arrays
     use BoundaryConditions
@@ -117,7 +117,7 @@ subroutine NSE_Boussinesq_BscFlow()
     return
 end subroutine
 
-subroutine NSE_Boussinesq_BscScal()
+subroutine NSE_Boussinesq_BcsScal()
     use TLab_Memory, only: imax, jmax, kmax, inb_scal
     use DNS_Arrays
     use BoundaryConditions

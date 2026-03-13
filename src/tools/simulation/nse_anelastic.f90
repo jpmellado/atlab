@@ -95,7 +95,7 @@ subroutine NSE_Anelastic_PerVolume(dte, remove_divergence)
     return
 end subroutine NSE_Anelastic_PerVolume
 
-subroutine NSE_Anelastic_PerVolume_BscFlow()
+subroutine NSE_Anelastic_PerVolume_BcsFlow()
     use TLab_Memory, only: imax, jmax, kmax, inb_flow
     use DNS_Arrays
     use BoundaryConditions
@@ -123,7 +123,7 @@ subroutine NSE_Anelastic_PerVolume_BscFlow()
     return
 end subroutine
 
-subroutine NSE_Anelastic_PerVolume_BscScal()
+subroutine NSE_Anelastic_PerVolume_BcsScal()
     use TLab_Memory, only: imax, jmax, kmax, inb_scal
     use DNS_Arrays
     use BoundaryConditions

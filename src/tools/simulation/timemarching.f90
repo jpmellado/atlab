@@ -8,7 +8,6 @@ module TimeMarching
     use TLab_Time, only: rtime
     use TLab_Memory, only: inb_flow, inb_scal
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
-    ! use PARTICLE_VARS
 #ifdef USE_MPI
     use mpi_f08
     use TLabMPI_VARS
@@ -22,32 +21,18 @@ module TimeMarching
     private
 
     public :: TMarch_Initialize
-    public :: TMarch_RungeKutta
-    public :: TMarch_Courant
+    public :: TMarch_Advance_Step
+    public :: TMarch_Compute_Step
 
-    class(rungekutta_lowstorage_dt), allocatable, protected :: TMarch
+    ! -----------------------------------------------------------------------
+    class(rungekutta_lowstorage_dt), allocatable, protected :: TMarchScheme
 
     real(wp), public :: dtime                       ! time step
     logical, public :: use_variable_timestep = .true.
 
-    ! real(wp) :: dtrkm                       ! time step of each substep
-    ! real(wp) :: dte                         ! explicit scheme coefficient at each RK substep; to be removed from public
-    logical :: remove_divergence            ! Remove residual divergence every time step
+    logical :: remove_divergence = .true.           ! Remove residual divergence every time step
 
-    ! ! -------------------------------------------------------------------
-    ! integer(wi) :: rkm_mode                     ! Type of Runge-Kutta scheme
-    ! integer, parameter :: RKM_EXP3 = 3
-    ! integer, parameter :: RKM_EXP4 = 4
-    ! integer, parameter :: RKM_IMP3_DIFFUSION = 5
-
-    ! integer(wi) :: rkm_endstep                  ! number of substeps
-    ! integer(wi) :: rkm_substep                  ! substep counter
-
-    real(wp) :: cfla, cfld, cflr                ! CFL numbers
-
-    ! real(wp) kdt(5), kco(4), ktime(6)           ! explicit scheme coefficients
-    ! real(wp) kex(3), kim(3)                     ! implicit scheme coefficients
-    ! real(wp) :: etime                           ! time at each RK substep; rtime is time at each iteration, not at each RK substep
+    real(wp) :: cfla, cfld, cflr                    ! CFL numbers
 
     real(wp) schmidtfactor, dx2i
     real(wp) dummy
@@ -96,12 +81,10 @@ contains
         call ScanFile_Char(bakfile, inifile, block, 'Scheme', 'dummy', sRes)
         select case (trim(adjustl(sRes)))
         case ('rungekuttaexplicit3')
-            allocate (rk3_dt :: TMarch)
-            ! rkm_mode = RKM_EXP3
+            allocate (rk3_dt :: TMarchScheme)
             lstr = '0.6'; 
         case ('rungekuttaexplicit4')
-            allocate (rk45_dt :: TMarch)
-            ! rkm_mode = RKM_EXP4
+            allocate (rk45_dt :: TMarchScheme)
             lstr = '1.2'; 
         case default
             call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Wrong Scheme option.')
@@ -138,39 +121,7 @@ contains
 
         ! ###################################################################
         ! initialize
-        call TMarch%initialize()
-
-        ! ! RK coefficients
-        ! select case (rkm_mode)
-        ! case (RKM_EXP3)             ! Runge-Kutta explicit 3th order from Williamson 1980
-        !     rkm_endstep = 3
-
-        !     kdt(1:3) = [1.0_wp/3.0_wp, 15.0_wp/16.0_wp, 8.0_wp/15.0_wp]
-        !     ktime(1:3) = [0.0_wp, 1.0_wp/3.0_wp, 3.0_wp/4.0_wp]
-        !     kco(1:2) = [-5.0_wp/9.0_wp, -153.0_wp/128.0_wp]
-
-        ! case (RKM_EXP4)             ! Runge-Kutta explicit 4th order 5 stages from Carpenter & Kennedy 1994
-        !     rkm_endstep = 5
-
-            ! kdt(1) = 1432997174477.0_wp/9575080441755.0_wp
-            ! kdt(2) = 5161836677717.0_wp/13612068292357.0_wp
-            ! kdt(3) = 1720146321549.0_wp/2090206949498.0_wp
-            ! kdt(4) = 3134564353537.0_wp/4481467310338.0_wp
-            ! kdt(5) = 2277821191437.0_wp/14882151754819.0_wp
-
-        ! ktime(1) = 0.0_wp
-        ! ktime(2) = kdt(1)
-        ! ktime(3) = 2526269341429.0_wp/6820363962896.0_wp
-        ! ktime(4) = 2006345519317.0_wp/3224310063776.0_wp
-        ! ktime(5) = 2802321613138.0_wp/2924317926251.0_wp
-        ! ktime(6) = 1.0_wp
-
-        !     kco(1) = -567301805773.0_wp/1357537059087.0_wp
-        !     kco(2) = -2404267990393.0_wp/2016746695238.0_wp
-        !     kco(3) = -3550918686646.0_wp/2091501179385.0_wp
-        !     kco(4) = -1275806237668.0_wp/842570457699.0_wp
-
-        ! end select
+        call TMarchScheme%initialize()
 
         ! ###################################################################
         ! Memory management
@@ -184,7 +135,7 @@ contains
         pxy_hs(1:imax*jmax, 1:kmax, 1:inb_scal) => hs(1:imax*jmax*kmax*inb_scal, 1)
 
         ! ###################################################################
-        ! maximum diffusivities for TMarch_Courant
+        ! maximum diffusivities for TMarch_Compute_Step
         schmidtfactor = 1.0_wp
         dummy = 1.0_wp/prandtl
         schmidtfactor = max(schmidtfactor, dummy)
@@ -218,7 +169,7 @@ contains
 
         end do
 
-        ! Maximum of (1/dx^2 + 1/dy^2 + 1/dz^2) for TMarch_Courant
+        ! Maximum of (1/dx^2 + 1/dy^2 + 1/dz^2) for TMarch_Compute_Step
         dx2i = 0.0_wp
         do k = 1, kmax
             do j = 1, jmax
@@ -237,14 +188,14 @@ contains
         dx2i = dummy
 #endif
 
-        call TMarch_Courant()
+        call TMarch_Compute_Step()
 
         return
     end subroutine TMarch_Initialize
 
     ! ###################################################################
     ! ###################################################################
-    subroutine TMarch_RungeKutta()
+    subroutine TMarch_Advance_Step()
         use TLab_Arrays, only: q, s, txc
         use TLab_Sources, only: TLab_Sources_Flow, TLab_Sources_Scal, TLab_Sources_Scal_Implicit
         use TLab_Pointers_2D, only: pxy_q, pxy_s
@@ -253,66 +204,50 @@ contains
         use Buffer
 
         ! -------------------------------------------------------------------
-        integer rkm_substep
 #ifdef USE_PROFILE
         integer(wi) t_srt, t_end, t_dif, idummy, PROC_CYCLES, MAX_CYCLES
         character*256 time_string
 #endif
 
         !########################################################################
-        ! Initialize arrays to zero for the explicit low-storage algorithm
-        if (flow_on) hq = 0.0_wp
-        if (scal_on) hs = 0.0_wp
-        TMarch%time = rtime
+        hq(:, :) = 0.0_wp                                   ! Initialize the accumulation of rhs terms
+        hs(:, :) = 0.0_wp
 
-        !########################################################################
-        ! Loop over the sub-stages
-        !########################################################################
-        do rkm_substep = 1, TMarch%num_substep !rkm_endstep
+        TMarchScheme%time = rtime
+        TMarchScheme%substep = 1
+
+        do while (TMarchScheme%substep <= TMarchScheme%num_substep)     ! Loop over the sub-stages
 #ifdef USE_PROFILE
             call system_clock(t_srt, PROC_CYCLES, MAX_CYCLES)
 #endif
-            TMarch%substep = rkm_substep
 
-            ! dte = dtime*kdt(rkm_substep)
-            ! etime = rtime + dtime*ktime(rkm_substep)
-            ! dtrkm = dtime*(ktime(rkm_substep + 1) - ktime(rkm_substep))
-
-            ! -------------------------------------------------------------------
             ! Explicit part
-            ! call TLab_Sources_Flow(q, s, etime, hq, txc(:, 1))
-            ! call TLab_Sources_Scal(s, hs, etime, txc(:, 1), txc(:, 2), txc(:, 3), txc(:, 4))
-            call TLab_Sources_Flow(q, s, TMarch%time, hq, txc(:, 1))
-            call TLab_Sources_Scal(s, hs, TMarch%time, txc(:, 1), txc(:, 2), txc(:, 3), txc(:, 4))
+            call TLab_Sources_Flow(q, s, TMarchScheme%time, hq, txc(:, 1))
+            call TLab_Sources_Scal(s, hs, TMarchScheme%time, txc(:, 1), txc(:, 2), txc(:, 3), txc(:, 4))
 
             if (bufferType == BUFFER_TYPE_NUDGE) call Buffer_Nudge()
 
             select case (nse_eqns)
             case (DNS_EQNS_BOUSSINESQ)
-                ! call NSE_Boussinesq(dte, remove_divergence)
-                call NSE_Boussinesq(TMarch%coef_a(TMarch%substep)*dtime, remove_divergence)
-                call NSE_Boussinesq_BscFlow()
-                call NSE_Boussinesq_BscScal()
-                call TMarch%AdvanceSubstep_Boussinesq(pxy_q, pxy_hq, dtime)
-                call TMarch%AdvanceSubstep_Boussinesq(pxy_s, pxy_hs, dtime)
-                ! call TMarch_Substep_Boussinesq_Explicit()
+                call NSE_Boussinesq(TMarchScheme%coef_a(TMarchScheme%substep)*dtime, remove_divergence)
+                call NSE_Boussinesq_BcsFlow()
+                call NSE_Boussinesq_BcsScal()
+                call TMarchScheme%AdvanceSubstep_Boussinesq(pxy_q, pxy_hq, dtime)
+                call TMarchScheme%AdvanceSubstep_Boussinesq(pxy_s, pxy_hs, dtime)
 
             case (DNS_EQNS_ANELASTIC)
-                ! call NSE_Anelastic_PerVolume(dte, remove_divergence)
-                call NSE_Anelastic_PerVolume(TMarch%coef_a(TMarch%substep)*dtime, remove_divergence)
-                call NSE_Anelastic_PerVolume_BscFlow()
-                call NSE_Anelastic_PerVolume_BscScal()
-                call TMarch%AdvanceSubstep_Anelastic(pxy_q, pxy_hq, dtime, ribackground)
-                call TMarch%AdvanceSubstep_Anelastic(pxy_s, pxy_hs, dtime, ribackground)
-                ! call TMarch_Substep_Anelastic_Explicit()
+                call NSE_Anelastic_PerVolume(TMarchScheme%coef_a(TMarchScheme%substep)*dtime, remove_divergence)
+                call NSE_Anelastic_PerVolume_BcsFlow()
+                call NSE_Anelastic_PerVolume_BcsScal()
+                call TMarchScheme%AdvanceSubstep_Anelastic(pxy_q, pxy_hq, dtime, ribackground)
+                call TMarchScheme%AdvanceSubstep_Anelastic(pxy_s, pxy_hs, dtime, ribackground)
 
             case (DNS_EQNS_COMPRESSIBLE)
 
             end select
 
             ! Implicit part
-            ! call TLab_Sources_Scal_Implicit(time_step=dtrkm, s=s)
-            call TLab_Sources_Scal_Implicit(time_step=TMarch%coef_t(TMarch%substep)*dtime, s=s)
+            call TLab_Sources_Scal_Implicit(time_step=TMarchScheme%coef_t(TMarchScheme%substep)*dtime, s=s)
             ! Update of boundary condition still missing
 
             ! Limiters
@@ -321,8 +256,8 @@ contains
             ! Diagnostics
             call TLab_Diagnostic(imax, jmax, kmax, s)
 
-            ! TMarch%substep = TMarch%substep + 1
-            TMarch%time = TMarch%time + TMarch%coef_t(TMarch%substep)*dtime
+            TMarchScheme%substep = TMarchScheme%substep + 1
+            TMarchScheme%time = TMarchScheme%time + TMarchScheme%coef_t(TMarchScheme%substep)*dtime
 
             ! -------------------------------------------------------------------
             ! Profiling data
@@ -348,97 +283,7 @@ contains
         end do
 
         return
-    end subroutine TMarch_RungeKutta
-
-    ! !########################################################################
-    ! !########################################################################
-    ! ! Perform the time stepping
-    ! ! Memory intensive, cache-optimized
-    ! ! create size of memory blocks during initialization
-    ! subroutine TMarch_Substep_Boussinesq_Explicit()
-    !     use TLab_Pointers_2D, only: pxy_q, pxy_s
-
-    !     real(wp) alpha
-    !     integer iq, is, k
-
-    !     ! #######################################################################
-    !     if (rkm_substep < rkm_endstep) then
-    !         alpha = kco(rkm_substep)
-
-    !         do iq = 1, inb_flow
-    !             do k = 1, kmax
-    !                 pxy_q(:, k, iq) = pxy_q(:, k, iq) + dte*pxy_hq(:, k, iq)
-    !                 pxy_hq(:, k, iq) = pxy_hq(:, k, iq)*alpha
-    !             end do
-    !         end do
-
-    !         do iq = 1, inb_scal
-    !             do k = 1, kmax
-    !                 pxy_s(:, k, iq) = pxy_s(:, k, iq) + dte*pxy_hs(:, k, iq)
-    !                 pxy_hs(:, k, iq) = pxy_hs(:, k, iq)*alpha
-    !             end do
-    !         end do
-
-    !     else
-    !         do is = 1, inb_flow
-    !             do k = 1, kmax
-    !                 pxy_q(:, k, is) = pxy_q(:, k, is) + dte*pxy_hq(:, k, is)
-    !             end do
-    !         end do
-
-    !         do is = 1, inb_scal
-    !             do k = 1, kmax
-    !                 pxy_s(:, k, is) = pxy_s(:, k, is) + dte*pxy_hs(:, k, is)
-    !             end do
-    !         end do
-    !     end if
-
-    !     return
-    ! end subroutine TMarch_Substep_Boussinesq_Explicit
-
-    ! !########################################################################
-    ! !########################################################################
-    ! subroutine TMarch_Substep_Anelastic_Explicit()
-    !     use TLab_Pointers_2D, only: pxy_q, pxy_s
-    !     use Thermo_Anelastic, only: ribackground
-
-    !     real(wp) alpha
-    !     integer iq, is, k
-
-    !     ! #######################################################################
-    !     if (rkm_substep < rkm_endstep) then
-    !         alpha = kco(rkm_substep)
-
-    !         do iq = 1, inb_flow
-    !             do k = 1, kmax
-    !                 pxy_q(:, k, iq) = pxy_q(:, k, iq) + dte*pxy_hq(:, k, iq)*ribackground(k)
-    !                 pxy_hq(:, k, iq) = pxy_hq(:, k, iq)*alpha
-    !             end do
-    !         end do
-
-    !         do iq = 1, inb_scal
-    !             do k = 1, kmax
-    !                 pxy_s(:, k, iq) = pxy_s(:, k, iq) + dte*pxy_hs(:, k, iq)*ribackground(k)
-    !                 pxy_hs(:, k, iq) = pxy_hs(:, k, iq)*alpha
-    !             end do
-    !         end do
-
-    !     else
-    !         do is = 1, inb_flow
-    !             do k = 1, kmax
-    !                 pxy_q(:, k, is) = pxy_q(:, k, is) + dte*pxy_hq(:, k, is)*ribackground(k)
-    !             end do
-    !         end do
-
-    !         do is = 1, inb_scal
-    !             do k = 1, kmax
-    !                 pxy_s(:, k, is) = pxy_s(:, k, is) + dte*pxy_hs(:, k, is)*ribackground(k)
-    !             end do
-    !         end do
-    !     end if
-
-    !     return
-    ! end subroutine TMarch_Substep_Anelastic_Explicit
+    end subroutine TMarch_Advance_Step
 
     !########################################################################
     !#
@@ -465,7 +310,7 @@ contains
     !# For the (5)4RK from CarpenterKennedy1994 it is 4.639/1.989^2 = 1.17
     !#
     !########################################################################
-    subroutine TMarch_Courant()
+    subroutine TMarch_Compute_Step()
         use TLab_Grid, only: y, xSubgrid, ySubgrid
         use DNS_Control, only: logs_data, logs_dtime
         use TLab_Pointers_3D, only: u, v, w, p_wrk3d
@@ -562,6 +407,6 @@ contains
 
         return
 
-    end subroutine TMarch_Courant
+    end subroutine TMarch_Compute_Step
 
 end module TimeMarching

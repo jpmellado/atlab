@@ -163,7 +163,7 @@ program DNS
         if (itime >= nitera_last) exit
         if (int(logs_data(1)) /= 0) exit
 
-        call TMarch_RungeKutta()
+        call TMarch_Advance_Step()
         itime = itime + 1
         rtime = rtime + dtime
 
@@ -175,7 +175,7 @@ program DNS
             end if
         end if
 
-        if (use_variable_timestep) call TMarch_Courant()
+        if (use_variable_timestep) call TMarch_Compute_Step()
 
         ! -------------------------------------------------------------------
         ! The rest: Logging, postprocessing and check-pointing
@@ -183,7 +183,7 @@ program DNS
         call DNS_Control_Bounds()
         ! call DNS_OBS_CONTROL()
         if (mod(itime - nitera_first, nitera_log) == 0 .or. int(logs_data(1)) /= 0) then
-            if (.not. use_variable_timestep) call TMarch_Courant()
+            if (.not. use_variable_timestep) call TMarch_Compute_Step()
             call DNS_Logs_Write()
             ! if (dns_obs_log /= OBS_TYPE_NONE) then
             !     call DNS_OBS()

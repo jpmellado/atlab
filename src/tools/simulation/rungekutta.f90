@@ -108,44 +108,6 @@ contains
         return
     end subroutine
 
-    ! ! ###################################################################
-    ! ! ###################################################################
-    ! subroutine AdvanceStep(self, t, delta_t, a1, a2)
-    !     class(rungekutta_lowstorage_dt) self
-    !     real(wp), intent(in) :: t               ! updated outside of RK routines
-    !     real(wp), intent(in) :: delta_t
-    !     real(wp), intent(inout) :: a1(:, :, :)  ! First set of prognostic variables
-    !     real(wp), intent(inout) :: a2(:, :, :)  ! Second set of prognostic variables
-
-    !     ! initialize
-    !     self%time = t
-    !     b1(:, :, :) = 0.0_wp
-    !     b2(:, :, :) = 0.0_wp
-
-    !     ! loop over substeps
-    !     do
-    !         ! explicit part
-    !         call self%AccumulateRhs(self%time, &
-    !                                 self%coef_a(self%substep)*delta_t)
-    !         call AdvanceSubstep(self, a1, b1, delta_t)
-    !         call AdvanceSubstep(self, a2, b2, delta_t)
-
-    !         ! implicit part
-    !         ! call self%implicit(time_step=self%coef_t(self%substep)*delta_t, &
-    !         !                    s=a2)
-
-    !         ! call Diagnostics()
-
-    !         self%substep = self%substep + 1
-    !         self%time = self%time + self%coef_t(self%substep)*delta_t
-
-    !         if (self%substep == self%num_substep) exit
-
-    !     end do
-
-    !     return
-    ! end subroutine
-
     ! ###################################################################
     ! ###################################################################
     ! Memory intensive, cache-optimized
@@ -156,12 +118,14 @@ contains
         real(wp), intent(inout) :: b(:, :, :)
         real(wp), intent(in) :: delta_t
 
-        integer k, iq
+        integer k, kmax, iq
+
+        kmax = size(b, 2)
 
         if (self%substep < self%num_substep) then
 
             do iq = 1, size(b, 3)
-                do k = 1, size(b, 2)
+                do k = 1, kmax
                     a(:, k, iq) = a(:, k, iq) + self%coef_a(self%substep)*delta_t*b(:, k, iq)
                     b(:, k, iq) = b(:, k, iq)*self%coef_b(self%substep)
                 end do
@@ -169,7 +133,7 @@ contains
 
         else
             do iq = 1, size(b, 3)
-                do k = 1, size(b, 2)
+                do k = 1, kmax
                     a(:, k, iq) = a(:, k, iq) + self%coef_a(self%substep)*delta_t*b(:, k, iq)
                 end do
             end do
@@ -188,12 +152,14 @@ contains
         real(wp), intent(in) :: delta_t
         real(wp), intent(in) :: weight(:)
 
-        integer k, iq
+        integer k, kmax, iq
+
+        kmax = size(b, 2)
 
         if (self%substep < self%num_substep) then
 
             do iq = 1, size(b, 3)
-                do k = 1, size(b, 2)
+                do k = 1, kmax
                     a(:, k, iq) = a(:, k, iq) + self%coef_a(self%substep)*delta_t*b(:, k, iq)*weight(k)
                     b(:, k, iq) = b(:, k, iq)*self%coef_b(self%substep)
                 end do
@@ -201,7 +167,7 @@ contains
 
         else
             do iq = 1, size(b, 3)
-                do k = 1, size(b, 2)
+                do k = 1, kmax
                     a(:, k, iq) = a(:, k, iq) + self%coef_a(self%substep)*delta_t*b(:, k, iq)*weight(k)
                 end do
             end do

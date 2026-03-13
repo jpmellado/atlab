@@ -10,19 +10,21 @@
 !# Includes the scalar to benefit from the same reduction
 !#
 !########################################################################
-subroutine NSE_Boussinesq()
+subroutine NSE_Boussinesq(dte, remove_divergence)
     use TLab_Constants, only: wp, wi, BCS_NN
     use TLab_Memory, only: imax, jmax, kmax, inb_scal
     use TLab_Arrays, only: s
     use TLab_Pointers, only: u, v, w, tmp1, tmp2, tmp3
     use DNS_Arrays
-    use TimeMarching, only: dte, remove_divergence
+    ! use TimeMarching, only: dte, remove_divergence
     use BoundaryConditions
     use OPR_Partial
     use NSE_Burgers
     use OPR_Elliptic, only: OPR_Poisson
 
     implicit none
+    real(wp), intent(in) :: dte
+    logical, intent(in) :: remove_divergence
 
     ! -----------------------------------------------------------------------
     integer(wi) is

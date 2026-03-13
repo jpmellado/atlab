@@ -10,14 +10,14 @@
 !# Includes the scalar to benefit from the same reduction
 !#
 !########################################################################
-subroutine NSE_Anelastic_PerVolume()
+subroutine NSE_Anelastic_PerVolume(dte, remove_divergence)
     use TLab_Constants, only: wp, wi, BCS_NN
     use TLab_Memory, only: imax, jmax, kmax, inb_scal
     use TLab_Arrays, only: s
     use TLab_Pointers, only: u, v, w, tmp1, tmp2, tmp3, tmp4
     use TLab_Pointers_3D, only: p_q, pxy_tmp2 => tmp2, pxy_tmp3 => tmp3, pxy_tmp4 => tmp4
     use DNS_Arrays
-    use TimeMarching, only: dte, remove_divergence
+    ! use TimeMarching, only: dte, remove_divergence
     use Thermo_Anelastic, only: rbackground
     use BoundaryConditions
     use OPR_Partial
@@ -25,7 +25,9 @@ subroutine NSE_Anelastic_PerVolume()
     use OPR_Elliptic, only: OPR_Poisson
 
     implicit none
-
+    real(wp), intent(in) :: dte
+    logical, intent(in) :: remove_divergence
+    
     ! -----------------------------------------------------------------------
     integer(wi) is, k
     real(wp) dummy

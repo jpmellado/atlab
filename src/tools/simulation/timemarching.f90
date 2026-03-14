@@ -3,10 +3,9 @@
 module TimeMarching
     use TLab_Constants, only: wp, wi, big_wp
     use TLab_Constants, only: efile, wfile
-    use TLab_WorkFlow, only: flow_on, scal_on
     use TLab_Memory, only: imax, jmax, kmax, isize_field
-    use TLab_Time, only: rtime
     use TLab_Memory, only: inb_flow, inb_scal
+    use TLab_Time, only: rtime
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
 #ifdef USE_MPI
     use mpi_f08
@@ -14,7 +13,6 @@ module TimeMarching
 #endif
     use NavierStokes, only: nse_eqns, DNS_EQNS_COMPRESSIBLE, DNS_EQNS_BOUSSINESQ, DNS_EQNS_ANELASTIC
     use NavierStokes, only: visc, schmidt, prandtl
-    use DNS_Arrays
     use RungeKutta
 
     implicit none
@@ -24,6 +22,8 @@ module TimeMarching
     public :: TMarch_Advance_Step
     public :: TMarch_Compute_Step
 
+    public :: hq        ! needed in statistics; to be removed from public
+
     ! -----------------------------------------------------------------------
     class(rungekutta_lowstorage_dt), allocatable, protected :: TMarchScheme
 
@@ -32,16 +32,18 @@ module TimeMarching
 
     logical :: remove_divergence = .true.           ! Remove residual divergence every time step
 
-    real(wp) :: cfla, cfld, cflr                    ! CFL numbers
-
+    real(wp) :: cfla, cfld                          ! CFL numbers
     real(wp) schmidtfactor, dx2i
-    real(wp) dummy
-
     type :: ds_dt
         real(wp), allocatable :: one_ov_ds1(:)
         real(wp), allocatable :: one_ov_ds2(:)
     end type
     type(ds_dt) :: ds(3)
+
+    real(wp), allocatable, target :: hq(:, :)       ! Right-hand sides Eulerian fields
+    real(wp), allocatable, target :: hs(:, :)       ! Right-hand sides Eulerian fields
+    real(wp), pointer :: pxy_hq(:, :, :) => null()
+    real(wp), pointer :: pxy_hs(:, :, :) => null()
 
 contains
 
@@ -61,6 +63,8 @@ contains
         character(len=512) sRes
         integer ig
         integer(wi) i, j, k
+
+        real(wp) dummy
 
         ! ###################################################################
         ! read
@@ -95,8 +99,6 @@ contains
         call ScanFile_Real(bakfile, inifile, block, 'MaxCFL', trim(adjustl(lstr)), cfla)
         write (lstr, *) 0.25_wp*cfla ! Default value for diffusive CFL
         call ScanFile_Real(bakfile, inifile, block, 'MaxDiffusiveCFL', trim(adjustl(lstr)), cfld)
-        write (lstr, *) 0.5_wp*cfla ! Default value for reactive CFL
-        call ScanFile_Real(bakfile, inifile, block, 'MaxReactiveCFL', trim(adjustl(lstr)), cflr)
 
         call ScanFile_Char(bakfile, inifile, block, 'TimeStep', 'void', sRes)
         if (trim(adjustl(sRes)) /= 'void') then
@@ -120,16 +122,13 @@ contains
         end if
 
         ! ###################################################################
-        ! initialize
+        ! Initialize scheme
         call TMarchScheme%initialize()
 
         ! ###################################################################
         ! Memory management
         call TLab_Allocate_Real(__FILE__, hq, [isize_field, inb_flow], 'flow-rhs')
         call TLab_Allocate_Real(__FILE__, hs, [isize_field, inb_scal], 'scal-rhs')
-
-        p_hq(1:imax, 1:jmax, 1:kmax, 1:inb_flow) => hq(1:imax*jmax*kmax*inb_flow, 1)
-        p_hs(1:imax, 1:jmax, 1:kmax, 1:inb_scal) => hs(1:imax*jmax*kmax*inb_scal, 1)
 
         pxy_hq(1:imax*jmax, 1:kmax, 1:inb_flow) => hq(1:imax*jmax*kmax*inb_flow, 1)
         pxy_hs(1:imax*jmax, 1:kmax, 1:inb_scal) => hs(1:imax*jmax*kmax*inb_scal, 1)
@@ -229,14 +228,18 @@ contains
 
             select case (nse_eqns)
             case (DNS_EQNS_BOUSSINESQ)
-                call NSE_Boussinesq(TMarchScheme%coef_a(TMarchScheme%substep)*dtime, remove_divergence)
+                call NSE_Boussinesq(hq, hs, &
+                                    TMarchScheme%coef_a(TMarchScheme%substep)*dtime, &
+                                    remove_divergence)
                 call NSE_Boussinesq_BcsFlow(hq)
                 call NSE_Boussinesq_BcsScal(hs)
                 call TMarchScheme%AdvanceSubstep_Boussinesq(pxy_q, pxy_hq, dtime)
                 call TMarchScheme%AdvanceSubstep_Boussinesq(pxy_s, pxy_hs, dtime)
 
             case (DNS_EQNS_ANELASTIC)
-                call NSE_Anelastic_PerVolume(TMarchScheme%coef_a(TMarchScheme%substep)*dtime, remove_divergence)
+                call NSE_Anelastic_PerVolume(hq, hs, &
+                                             TMarchScheme%coef_a(TMarchScheme%substep)*dtime, &
+                                             remove_divergence)
                 call NSE_Anelastic_PerVolume_BcsFlow(hq)
                 call NSE_Anelastic_PerVolume_BcsScal(hs)
                 call TMarchScheme%AdvanceSubstep_Anelastic(pxy_q, pxy_hq, dtime, ribackground)

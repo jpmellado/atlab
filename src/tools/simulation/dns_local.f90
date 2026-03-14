@@ -1,25 +1,7 @@
 #include "tlab_error.h"
 
-module DNS_Arrays
-    use TLab_Constants, only: wp
-    implicit none
-
-    real(wp), allocatable, target :: hq(:, :)       ! Right-hand sides Eulerian fields
-    real(wp), allocatable, target :: hs(:, :)       ! Right-hand sides Eulerian fields
-    ! real(wp), allocatable, target :: l_hq(:, :)     ! Right-hand sides Lagrangian fields
-
-    real(wp), pointer :: p_hq(:, :, :, :) => null()
-    real(wp), pointer :: p_hs(:, :, :, :) => null()
-    real(wp), pointer :: pxy_hq(:, :, :) => null()
-    real(wp), pointer :: pxy_hs(:, :, :) => null()
-
-end module DNS_Arrays
-
-! ###################################################################
-! ###################################################################
-module DNS_LOCAL
+module DNS_Local
     use TLab_Constants, only: wp, wi, sp
-    ! use TLab_Constants, only: MAX_PATH_LENGTH
     implicit none
 
     integer :: nitera_first     ! First iteration in current run
@@ -45,7 +27,6 @@ contains
         use TLab_Constants, only: wp, wi, big_wp, efile, lfile, wfile
         use TLab_Memory, only: inb_txc
         use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
-        ! use PLANES
         ! use OPR_Filters, only: FilterDomain, PressureFilter, DNS_FILTER_NONE
 
         character*(*) inifile
@@ -97,16 +78,6 @@ contains
 
         call ScanFile_Real(bakfile, inifile, 'ViscChange', 'Time', '0.0', visc_time)
 
-        ! ! ###################################################################
-        ! ! Save planes to disk
-        ! ! ###################################################################
-        !         call TLab_Write_ASCII(bakfile, '#')
-        !         call TLab_Write_ASCII(bakfile, '#[SavePlanes]')
-
-        !         call PLANES_READBLOCK(bakfile, inifile, 'SavePlanes', 'PlanesI', iplanes)
-        !         call PLANES_READBLOCK(bakfile, inifile, 'SavePlanes', 'PlanesJ', jplanes)
-        !         call PLANES_READBLOCK(bakfile, inifile, 'SavePlanes', 'PlanesK', kplanes)
-
         ! ###################################################################
         ! Final initialization and consistency check
         ! ###################################################################
@@ -117,12 +88,10 @@ contains
         if (nitera_pln <= 0) nitera_pln = nitera_last - nitera_first + 1
         if (nitera_filter <= 0) nitera_filter = nitera_last - nitera_first + 1
 
-        ! -------------------------------------------------------------------
         ! Array sizes
-        ! -------------------------------------------------------------------
         inb_txc = 6
 
         return
     end subroutine DNS_Initialize_Parameters
 
-end module DNS_LOCAL
+end module DNS_Local

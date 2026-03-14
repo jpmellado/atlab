@@ -16,7 +16,7 @@ program DNS
     use IO_Fields
     use TLab_Grid
     use FDM, only: FDM_Initialize
-    use NavierStokes, only: NavierStokes_Initialize_Parameters, DNS_EQNS_ANELASTIC, DNS_EQNS_BOUSSINESQ
+    use NavierStokes, only: NavierStokes_Initialize_Parameters
     use Thermodynamics, only: Thermo_Initialize
     use NavierStokes, only: visc
     use Gravity, only: Gravity_Initialize
@@ -26,11 +26,11 @@ program DNS
     use Radiation, only: Radiation_Initialize
     use LargeScaleForcing, only: LargeScaleForcing_Initialize
     use OPR_Partial, only: OPR_Partial_Initialize
-    use Tlab_Background, only: TLab_Initialize_Background!, pbg, rbg
+    use Tlab_Background, only: TLab_Initialize_Background
     use OPR_Fourier, only: OPR_Fourier_Initialize
     use OPR_Elliptic, only: OPR_Elliptic_Initialize
     use NSE_Burgers, only: NSE_Burgers_Initialize
-    use DNS_LOCAL
+    use DNS_Local
     use DNS_Control, only: DNS_Control_Initialize, DNS_Control_Bounds
     use DNS_Control, only: logs_data, DNS_Logs_Write
     use TimeMarching
@@ -63,7 +63,6 @@ program DNS
 
     call Gravity_Initialize(ifile)
     call Rotation_Initialize(ifile)
-    ! call SpecialForcing_Initialize(ifile)
     call Microphysics_Initialize(ifile)
     call Radiation_Initialize(ifile)
     call LargeScaleForcing_Initialize(ifile)
@@ -110,13 +109,7 @@ program DNS
     rtime = params(1)
     visc = params(2)        ! Value read in restart file
 
-    call TLab_Diagnostic(imax, jmax, kmax, s)  ! Initialize diagnostic thermodynamic quantities
-
-    ! if (part%type /= PART_TYPE_NONE) then
-    !     write (fname, *) nitera_first; fname = trim(adjustl(tag_part))//trim(adjustl(fname))
-    !     call IO_READ_PARTICLE(fname, l_g, l_q)
-    !     call Particle_Initialize_Fields()
-    ! end if
+    call TLab_Diagnostic(imax, jmax, kmax, s)           ! Initialize diagnostic thermodynamic quantities
 
     ! ###################################################################
     ! Initialize change in viscosity
@@ -127,7 +120,7 @@ program DNS
         call TLab_Write_ASCII(lfile, 'Changing original viscosity '//trim(adjustl(str))//' to new value.')
         if (visc_time > 0.0_wp) then
             visc_rate = (visc_stop - visc)/visc_time
-            visc_time = rtime + visc_time                 ! Stop when this time is reached
+            visc_time = rtime + visc_time               ! Stop when this time is reached
             flag_viscosity = .true.
         else
             visc = visc_stop
@@ -163,7 +156,7 @@ program DNS
         if (itime >= nitera_last) exit
         if (int(logs_data(1)) /= 0) exit
 
-        call TMarch_Advance_Step()
+        call TMarch_Advance_Step()              ! Advance a time interval dtime
         itime = itime + 1
         rtime = rtime + dtime
 
@@ -209,19 +202,6 @@ program DNS
                 io_header_s(:)%params(1) = rtime
                 call IO_Write_Fields(fname, imax, jmax, kmax, itime, inb_scal, s, io_header_s(1:inb_scal))
             end if
-
-            ! if (use_tower) then
-            !     call DNS_TOWER_WRITE(wrk3d)
-            ! end if
-
-            ! if (part%type /= PART_TYPE_NONE) then
-            !     write (fname, *) itime; fname = trim(adjustl(tag_part))//trim(adjustl(fname))
-            !     call IO_WRITE_PARTICLE(fname, l_g, l_q)
-            !     if (imode_traj /= TRAJ_TYPE_NONE) then
-            !         write (fname, *) itime; fname = trim(adjustl(tag_traj))//trim(adjustl(fname))
-            !         call ParticleTrajectories_Write(fname)
-            !     end if
-            ! end if
 
         end if
 

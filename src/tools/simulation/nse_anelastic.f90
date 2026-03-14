@@ -27,7 +27,7 @@ subroutine NSE_Anelastic_PerVolume(dte, remove_divergence)
     implicit none
     real(wp), intent(in) :: dte
     logical, intent(in) :: remove_divergence
-    
+
     ! -----------------------------------------------------------------------
     integer(wi) is, k
     real(wp) dummy
@@ -95,11 +95,12 @@ subroutine NSE_Anelastic_PerVolume(dte, remove_divergence)
     return
 end subroutine NSE_Anelastic_PerVolume
 
-subroutine NSE_Anelastic_PerVolume_BcsFlow()
+subroutine NSE_Anelastic_PerVolume_BcsFlow(hq)
+    use TLab_Constants, only: wp
     use TLab_Memory, only: imax, jmax, kmax, inb_flow
-    use DNS_Arrays
-    use BoundaryConditions
+    use BoundaryConditions, only: BcsFlowKmin, BcsFlowKmax, DNS_BCS_Neumann, BCS_Neumann_Z_PerVolume
     use Thermo_Anelastic, only: rbackground
+    real(wp), intent(inout) :: hq(imax, jmax, kmax, inb_flow)
 
     integer iq, ibc
 
@@ -111,23 +112,24 @@ subroutine NSE_Anelastic_PerVolume_BcsFlow()
         if (BcsFlowKmin%type(iq) == DNS_BCS_Neumann) ibc = ibc + 1
         if (BcsFlowKmax%type(iq) == DNS_BCS_Neumann) ibc = ibc + 2
         if (ibc > 0) then
-            call BCS_Neumann_Z_PerVolume(ibc, imax*jmax, kmax, hq(:, iq), &
+            call BCS_Neumann_Z_PerVolume(ibc, imax*jmax, kmax, hq(:, :, :, iq), &
                                          BcsFlowKmin%ref(:, :, iq), BcsFlowKmax%ref(:, :, iq))
         end if
 
-        p_hq(:, :, 1, iq) = BcsFlowKmin%ref(:, :, iq)*rbackground(1)
-        p_hq(:, :, kmax, iq) = BcsFlowKmax%ref(:, :, iq)*rbackground(kmax)
+        hq(:, :, 1, iq) = BcsFlowKmin%ref(:, :, iq)*rbackground(1)
+        hq(:, :, kmax, iq) = BcsFlowKmax%ref(:, :, iq)*rbackground(kmax)
 
     end do
 
     return
 end subroutine
 
-subroutine NSE_Anelastic_PerVolume_BcsScal()
+subroutine NSE_Anelastic_PerVolume_BcsScal(hs)
+    use TLab_Constants, only: wp
     use TLab_Memory, only: imax, jmax, kmax, inb_scal
-    use DNS_Arrays
-    use BoundaryConditions
+    use BoundaryConditions, only: BcsScalKmin, BcsScalKmax, DNS_BCS_Neumann, BCS_Neumann_Z_PerVolume
     use Thermo_Anelastic, only: rbackground
+    real(wp), intent(inout) :: hs(imax, jmax, kmax, inb_scal)
 
     integer is, ibc
 
@@ -139,12 +141,12 @@ subroutine NSE_Anelastic_PerVolume_BcsScal()
         if (BcsScalKmin%type(is) == DNS_BCS_Neumann) ibc = ibc + 1
         if (BcsScalKmax%type(is) == DNS_BCS_Neumann) ibc = ibc + 2
         if (ibc > 0) then
-            call BCS_Neumann_Z_PerVolume(ibc, imax*jmax, kmax, hs(:, is), &
+            call BCS_Neumann_Z_PerVolume(ibc, imax*jmax, kmax, hs(:, :, :, is), &
                                          BcsScalKmin%ref(:, :, is), BcsScalKmax%ref(:, :, is))
         end if
 
-        p_hs(:, :, 1, is) = BcsScalKmin%ref(:, :, is)*rbackground(1)
-        p_hs(:, :, kmax, is) = BcsScalKmax%ref(:, :, is)*rbackground(kmax)
+        hs(:, :, 1, is) = BcsScalKmin%ref(:, :, is)*rbackground(1)
+        hs(:, :, kmax, is) = BcsScalKmax%ref(:, :, is)*rbackground(kmax)
 
     end do
 

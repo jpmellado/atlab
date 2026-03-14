@@ -203,7 +203,7 @@ contains
         io_subarrays%communicator = MPI_COMM_WORLD
         io_subarrays%subarray = IO_Create_Subarray_XOY(imax, jmax, locVar%size, MPI_REAL8)
 #endif
-        idummy = imax*jmax*locVar%size; io_sizes = [ idummy, 1, idummy, 1, 1 ]
+        idummy = imax*jmax*locVar%size; io_sizes = [idummy, 1, idummy, 1, 1]
 
         name = trim(adjustl(tag))
 
@@ -255,20 +255,24 @@ contains
 
     ! ###################################################################
     ! ###################################################################
-    subroutine Buffer_Nudge()
-        use TLab_Pointers_3D, only: p_q, p_s
-        use DNS_Arrays, only: p_hq, p_hs
+    subroutine Buffer_Nudge(q, s, hq, hs)
+        use TLab_Constants, only: wp
+        use TLab_Memory, only: imax, jmax, kmax, inb_flow, inb_scal
+        real(wp), intent(inout) :: q(imax, jmax, kmax, inb_scal)
+        real(wp), intent(inout) :: s(imax, jmax, kmax, inb_scal)
+        real(wp), intent(inout) :: hq(imax, jmax, kmax, inb_scal)
+        real(wp), intent(inout) :: hs(imax, jmax, kmax, inb_scal)
 
         integer is, iq
 
         do iq = 1, inb_flow
-            if (bufferFlowKmin(iq)%type == BUFFER_TYPE_NUDGE) call Nudge_K(bufferFlowKmin(iq), p_q(:, :, :, iq), p_hq(:, :, :, iq))
-            if (bufferFlowKmax(iq)%type == BUFFER_TYPE_NUDGE) call Nudge_K(bufferFlowKmax(iq), p_q(:, :, :, iq), p_hq(:, :, :, iq))
+            if (bufferFlowKmin(iq)%type == BUFFER_TYPE_NUDGE) call Nudge_K(bufferFlowKmin(iq), q(:, :, :, iq), hq(:, :, :, iq))
+            if (bufferFlowKmax(iq)%type == BUFFER_TYPE_NUDGE) call Nudge_K(bufferFlowKmax(iq), q(:, :, :, iq), hq(:, :, :, iq))
         end do
 
         do is = 1, inb_scal
-            if (bufferScalKmin(is)%type == BUFFER_TYPE_NUDGE) call Nudge_K(bufferScalKmin(is), p_s(:, :, :, is), p_hs(:, :, :, is))
-            if (bufferScalKmax(is)%type == BUFFER_TYPE_NUDGE) call Nudge_K(bufferScalKmax(is), p_s(:, :, :, is), p_hs(:, :, :, is))
+            if (bufferScalKmin(is)%type == BUFFER_TYPE_NUDGE) call Nudge_K(bufferScalKmin(is), s(:, :, :, is), hs(:, :, :, is))
+            if (bufferScalKmax(is)%type == BUFFER_TYPE_NUDGE) call Nudge_K(bufferScalKmax(is), s(:, :, :, is), hs(:, :, :, is))
         end do
 
         return

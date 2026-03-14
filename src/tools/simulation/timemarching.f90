@@ -225,20 +225,20 @@ contains
             call TLab_Sources_Flow(q, s, TMarchScheme%time, hq, txc(:, 1))
             call TLab_Sources_Scal(s, hs, TMarchScheme%time, txc(:, 1), txc(:, 2), txc(:, 3), txc(:, 4))
 
-            if (bufferType == BUFFER_TYPE_NUDGE) call Buffer_Nudge()
+            if (bufferType == BUFFER_TYPE_NUDGE) call Buffer_Nudge(q, s, hq, hs)
 
             select case (nse_eqns)
             case (DNS_EQNS_BOUSSINESQ)
                 call NSE_Boussinesq(TMarchScheme%coef_a(TMarchScheme%substep)*dtime, remove_divergence)
-                call NSE_Boussinesq_BcsFlow()
-                call NSE_Boussinesq_BcsScal()
+                call NSE_Boussinesq_BcsFlow(hq)
+                call NSE_Boussinesq_BcsScal(hs)
                 call TMarchScheme%AdvanceSubstep_Boussinesq(pxy_q, pxy_hq, dtime)
                 call TMarchScheme%AdvanceSubstep_Boussinesq(pxy_s, pxy_hs, dtime)
 
             case (DNS_EQNS_ANELASTIC)
                 call NSE_Anelastic_PerVolume(TMarchScheme%coef_a(TMarchScheme%substep)*dtime, remove_divergence)
-                call NSE_Anelastic_PerVolume_BcsFlow()
-                call NSE_Anelastic_PerVolume_BcsScal()
+                call NSE_Anelastic_PerVolume_BcsFlow(hq)
+                call NSE_Anelastic_PerVolume_BcsScal(hs)
                 call TMarchScheme%AdvanceSubstep_Anelastic(pxy_q, pxy_hq, dtime, ribackground)
                 call TMarchScheme%AdvanceSubstep_Anelastic(pxy_s, pxy_hs, dtime, ribackground)
 

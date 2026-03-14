@@ -224,7 +224,7 @@ contains
             call TLab_Sources_Flow(q, s, TMarchScheme%time, hq, txc(:, 1))
             call TLab_Sources_Scal(s, hs, TMarchScheme%time, txc(:, 1), txc(:, 2), txc(:, 3), txc(:, 4))
 
-            if (bufferType == BUFFER_TYPE_NUDGE) call Buffer_Nudge(q, s, hq, hs)
+            call Buffer_Nudge(q, s, hq, hs)
 
             select case (nse_eqns)
             case (DNS_EQNS_BOUSSINESQ)

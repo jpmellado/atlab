@@ -95,20 +95,20 @@ subroutine NSE_Boussinesq_BcsFlow(hq)
 
     integer iq, ibc
 
-    BcsFlowKmin%ref = 0.0_wp ! default is no-slip (dirichlet)
-    BcsFlowKmax%ref = 0.0_wp
-
     do iq = 1, inb_flow
+        BcsFlowKmin(iq)%ref = 0.0_wp ! default is no-slip (dirichlet)
+        BcsFlowKmax(iq)%ref = 0.0_wp
+
         ibc = 0
-        if (BcsFlowKmin%type(iq) == DNS_BCS_Neumann) ibc = ibc + 1
-        if (BcsFlowKmax%type(iq) == DNS_BCS_Neumann) ibc = ibc + 2
+        if (BcsFlowKmin(iq)%type == DNS_BCS_Neumann) ibc = ibc + 1
+        if (BcsFlowKmax(iq)%type == DNS_BCS_Neumann) ibc = ibc + 2
         if (ibc > 0) then
             call BCS_Neumann_Z(ibc, imax*jmax, kmax, hq(:, :, :, iq), &
-                               BcsFlowKmin%ref(:, :, iq), BcsFlowKmax%ref(:, :, iq))
+                               BcsFlowKmin(iq)%ref(:, :), BcsFlowKmax(iq)%ref(:, :))
         end if
 
-        hq(:, :, 1, iq) = BcsFlowKmin%ref(:, :, iq)
-        hq(:, :, kmax, iq) = BcsFlowKmax%ref(:, :, iq)
+        hq(:, :, 1, iq) = BcsFlowKmin(iq)%ref(:, :)
+        hq(:, :, kmax, iq) = BcsFlowKmax(iq)%ref(:, :)
 
     end do
 
@@ -123,20 +123,20 @@ subroutine NSE_Boussinesq_BcsScal(hs)
 
     integer is, ibc
 
-    BcsScalKmin%ref = 0.0_wp ! default is dirichlet
-    BcsScalKmax%ref = 0.0_wp
-
     do is = 1, inb_scal
+        BcsScalKmin(is)%ref = 0.0_wp ! default is dirichlet
+        BcsScalKmax(is)%ref = 0.0_wp
+
         ibc = 0
-        if (BcsScalKmin%type(is) == DNS_BCS_Neumann) ibc = ibc + 1
-        if (BcsScalKmax%type(is) == DNS_BCS_Neumann) ibc = ibc + 2
+        if (BcsScalKmin(is)%type == DNS_BCS_Neumann) ibc = ibc + 1
+        if (BcsScalKmax(is)%type == DNS_BCS_Neumann) ibc = ibc + 2
         if (ibc > 0) then
             call BCS_Neumann_Z(ibc, imax*jmax, kmax, hs(:, :, :, is), &
-                               BcsScalKmin%ref(:, :, is), BcsScalKmax%ref(:, :, is))
+                               BcsScalKmin(is)%ref(:, :), BcsScalKmax(is)%ref(:, :))
         end if
 
-        hs(:, :, 1, is) = BcsScalKmin%ref(:, :, is)
-        hs(:, :, kmax, is) = BcsScalKmax%ref(:, :, is)
+        hs(:, :, 1, is) = BcsScalKmin(is)%ref(:, :)
+        hs(:, :, kmax, is) = BcsScalKmax(is)%ref(:, :)
 
     end do
 

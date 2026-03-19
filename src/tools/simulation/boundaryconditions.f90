@@ -13,7 +13,8 @@ module BoundaryConditions
     public :: BcsScalImin, BcsScalImax, BcsScalJmin, BcsScalJmax, BcsScalKmin, BcsScalKmax
 
     public :: BCS_Initialize
-    public :: BCS_Neumann_Z, BCS_Neumann_Z_PerVolume
+    public :: BCS_Neumann_Z
+    public :: BCS_Explicit_FLow, BCS_Explicit_Scal
     ! public :: BCS_SURFACE_Z
 
     ! -------------------------------------------------------------------
@@ -38,8 +39,12 @@ module BoundaryConditions
         procedure :: initialize => initialize_scal_dt
     end type
 
-    type(bcs_flow_dt), allocatable :: BcsFlowImin(:), BcsFlowImax(:), BcsFlowJmin(:), BcsFlowJmax(:), BcsFlowKmin(:), BcsFlowKmax(:)
-    type(bcs_scal_dt), allocatable :: BcsScalImin(:), BcsScalImax(:), BcsScalJmin(:), BcsScalJmax(:), BcsScalKmin(:), BcsScalKmax(:)
+    type(bcs_flow_dt), allocatable :: BcsFlowImin(:), BcsFlowImax(:)
+    type(bcs_flow_dt), allocatable :: BcsFlowJmin(:), BcsFlowJmax(:)
+    type(bcs_flow_dt), allocatable :: BcsFlowKmin(:), BcsFlowKmax(:)
+    type(bcs_scal_dt), allocatable :: BcsScalImin(:), BcsScalImax(:)
+    type(bcs_scal_dt), allocatable :: BcsScalJmin(:), BcsScalJmax(:)
+    type(bcs_scal_dt), allocatable :: BcsScalKmin(:), BcsScalKmax(:)
 
     real(wp), allocatable :: c_b(:), c_t(:)
     integer :: k_bcs_b, k_bcs_t
@@ -58,10 +63,12 @@ contains
         use FDM_Derivative_1order, only: der1_biased_extended
         use FDM, only: fdm_der1_Z
         use FDM_derivative_Neumann
+        use NavierStokes, only: nse_eqns, DNS_EQNS_ANELASTIC
+        use Thermo_Anelastic, only: ribackground, rbackground
         character(len=*), intent(in) :: inifile
 
         ! -------------------------------------------------------------------
-        integer iq, is
+        integer iq, is, k
         character(len=32) str
 
         ! ###################################################################
@@ -99,6 +106,8 @@ contains
         end do
 
         ! ###################################################################
+        ! Initialize linear operator to calculate boundary value for Neuman conditions
+
         ! Using only truncated versions because typical decay index is 30-40
         allocate (c_b(kmax), c_t(kmax))
 
@@ -114,6 +123,13 @@ contains
             call TLab_Write_ASCII(lfile, 'Decay to round-off in top Neumann condition in '//trim(adjustl(str))//' indexes.')
 
         end select
+
+        if (nse_eqns == DNS_EQNS_ANELASTIC) then        ! formulation per unit volume
+            do k = 1, kmax
+                c_b(k) = c_b(k)*ribackground(k)*rbackground(1)
+                c_t(k) = c_t(k)*ribackground(k)*rbackground(kmax)
+            end do
+        end if
 
         return
     end subroutine
@@ -271,33 +287,58 @@ contains
 
     !########################################################################
     !########################################################################
-    subroutine BCS_Neumann_Z_PerVolume(ibc, nlines, nz, u, bcs_hb, bcs_ht)
-        use Thermo_Anelastic, only: ribackground
+    subroutine Bcs_Explicit_Flow(hq)
+        use TLab_Memory, only: imax, jmax, kmax, inb_flow
+        real(wp), intent(inout) :: hq(imax, jmax, kmax, inb_flow)
 
-        integer(wi), intent(in) :: ibc     ! BCs at Kmin/Kmax: 1, for Neumann/-
-        !                                                      2, for -      /Neumann
-        !                                                      3, for Neumann/Neumann
-        integer(wi) nlines, nz
-        real(wp), intent(in) :: u(nlines, nz)
-        real(wp), intent(out) :: bcs_hb(nlines), bcs_ht(nlines)
+        integer iq, ibc
 
-        integer k
+        do iq = 1, inb_flow
+            BcsFlowKmin(iq)%ref = 0.0_wp ! default is no-slip (dirichlet)
+            BcsFlowKmax(iq)%ref = 0.0_wp
 
-        ! ###################################################################
-        if (any([BCS_ND, BCS_NN] == ibc)) then
-            bcs_hb(:) = 0.0_wp                  ! zero derivative at the wall
-            do k = 2, k_bcs_b
-                bcs_hb(:) = bcs_hb(:) + c_b(k)*u(:, k)*ribackground(k)
-            end do
-        end if
-        if (any([BCS_DN, BCS_NN] == ibc)) then
-            bcs_ht(:) = 0.0_wp                  ! zero derivative at the wall
-            do k = nz - 1, nz - k_bcs_t + 1, -1
-                bcs_ht(:) = bcs_ht(:) + c_t(k)*u(:, k)*ribackground(k)
-            end do
-        end if
+            ibc = 0
+            if (BcsFlowKmin(iq)%type == DNS_BCS_Neumann) ibc = ibc + 1
+            if (BcsFlowKmax(iq)%type == DNS_BCS_Neumann) ibc = ibc + 2
+            if (ibc > 0) then
+                call BCS_Neumann_Z(ibc, imax*jmax, kmax, hq(:, :, :, iq), &
+                                   BcsFlowKmin(iq)%ref(:, :), BcsFlowKmax(iq)%ref(:, :))
+            end if
+
+            hq(:, :, 1, iq) = BcsFlowKmin(iq)%ref(:, :)
+            hq(:, :, kmax, iq) = BcsFlowKmax(iq)%ref(:, :)
+
+        end do
 
         return
-    end subroutine BCS_Neumann_Z_PerVolume
+    end subroutine
+
+    !########################################################################
+    !########################################################################
+    subroutine Bcs_Explicit_Scal(hs)
+        use TLab_Memory, only: imax, jmax, kmax, inb_scal
+        real(wp), intent(inout) :: hs(imax, jmax, kmax, inb_scal)
+
+        integer is, ibc
+
+        do is = 1, inb_scal
+            BcsScalKmin(is)%ref = 0.0_wp ! default is dirichlet
+            BcsScalKmax(is)%ref = 0.0_wp
+
+            ibc = 0
+            if (BcsScalKmin(is)%type == DNS_BCS_Neumann) ibc = ibc + 1
+            if (BcsScalKmax(is)%type == DNS_BCS_Neumann) ibc = ibc + 2
+            if (ibc > 0) then
+                call BCS_Neumann_Z(ibc, imax*jmax, kmax, hs(:, :, :, is), &
+                                   BcsScalKmin(is)%ref(:, :), BcsScalKmax(is)%ref(:, :))
+            end if
+
+            hs(:, :, 1, is) = BcsScalKmin(is)%ref(:, :)
+            hs(:, :, kmax, is) = BcsScalKmax(is)%ref(:, :)
+
+        end do
+
+        return
+    end subroutine
 
 end module BoundaryConditions

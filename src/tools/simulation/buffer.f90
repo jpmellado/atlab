@@ -10,7 +10,7 @@ module Buffer
     private
 
     public :: Buffer_Initialize
-    public :: Buffer_Nudge
+    public :: Buffer_Nudge_Flow, Buffer_Nudge_Scal
 
     ! -------------------------------------------------------------------
     integer, parameter :: BUFFER_TYPE_NONE = 0
@@ -125,7 +125,7 @@ contains
             end do
 
             allocate (bufferScalKmax(1:inb_scal))
-            bufferScalKmax(:)%type = bufferType;            ! So far, all the same
+            bufferScalKmax(:)%type = bufferType; ! So far, all the same
             bufferScalKmax(:)%form = FORM_POWER_MAX
             do is = 1, inb_scal
                 call bufferScalKmax(is)%readblock(bakfile, inifile, block, 'SKmax')
@@ -284,14 +284,12 @@ contains
 
     ! ###################################################################
     ! ###################################################################
-    subroutine Buffer_Nudge(q, s, hq, hs)
-        use TLab_Memory, only: imax, jmax, kmax, inb_flow, inb_scal
+    subroutine Buffer_Nudge_Flow(q, hq)
+        use TLab_Memory, only: imax, jmax, kmax, inb_flow
         real(wp), intent(inout) :: q(imax, jmax, kmax, inb_flow)
-        real(wp), intent(inout) :: s(imax, jmax, kmax, inb_scal)
         real(wp), intent(inout) :: hq(imax, jmax, kmax, inb_flow)
-        real(wp), intent(inout) :: hs(imax, jmax, kmax, inb_scal)
 
-        integer iq, is
+        integer iq
 
         if (bufferType /= BUFFER_TYPE_NUDGE) return
 
@@ -300,12 +298,26 @@ contains
             if (bufferFlowKmax(iq)%type == BUFFER_TYPE_NUDGE) call bufferFlowKmax(iq)%nudge(q(:, :, :, iq), hq(:, :, :, iq))
         end do
 
+        return
+    end subroutine
+
+    ! ###################################################################
+    ! ###################################################################
+    subroutine Buffer_Nudge_Scal(s, hs)
+        use TLab_Memory, only: imax, jmax, kmax, inb_scal
+        real(wp), intent(inout) :: s(imax, jmax, kmax, inb_scal)
+        real(wp), intent(inout) :: hs(imax, jmax, kmax, inb_scal)
+
+        integer is
+
+        if (bufferType /= BUFFER_TYPE_NUDGE) return
+
         do is = 1, inb_scal
             if (bufferScalKmin(is)%type == BUFFER_TYPE_NUDGE) call bufferScalKmin(is)%nudge(s(:, :, :, is), hs(:, :, :, is))
             if (bufferScalKmax(is)%type == BUFFER_TYPE_NUDGE) call bufferScalKmax(is)%nudge(s(:, :, :, is), hs(:, :, :, is))
         end do
 
         return
-    end subroutine Buffer_Nudge
+    end subroutine
 
 end module Buffer

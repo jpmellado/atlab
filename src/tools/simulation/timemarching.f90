@@ -201,6 +201,7 @@ contains
         use DNS_Control, only: DNS_Limit_Bounds
         use Thermo_Anelastic, only: ribackground
         use Buffer
+        use BoundaryConditions
 
         ! -------------------------------------------------------------------
 #ifdef USE_PROFILE
@@ -224,15 +225,16 @@ contains
             call TLab_Sources_Flow(q, s, TMarchScheme%time, hq, txc(:, 1))
             call TLab_Sources_Scal(s, hs, TMarchScheme%time, txc(:, 1), txc(:, 2), txc(:, 3), txc(:, 4))
 
-            call Buffer_Nudge(q, s, hq, hs)
+            call Buffer_Nudge_Flow(q, hq)
+            call Buffer_Nudge_Scal(s, hs)
 
             select case (nse_eqns)
             case (DNS_EQNS_BOUSSINESQ)
                 call NSE_Boussinesq(hq, hs, &
                                     TMarchScheme%coef_a(TMarchScheme%substep)*dtime, &
                                     remove_divergence)
-                call NSE_Boussinesq_BcsFlow(hq)
-                call NSE_Boussinesq_BcsScal(hs)
+                call Bcs_Explicit_Flow(hq)
+                call Bcs_Explicit_Scal(hs)
                 call TMarchScheme%AdvanceSubstep_Boussinesq(pxy_q, pxy_hq, dtime)
                 call TMarchScheme%AdvanceSubstep_Boussinesq(pxy_s, pxy_hs, dtime)
 
@@ -240,8 +242,8 @@ contains
                 call NSE_Anelastic_PerVolume(hq, hs, &
                                              TMarchScheme%coef_a(TMarchScheme%substep)*dtime, &
                                              remove_divergence)
-                call NSE_Anelastic_PerVolume_BcsFlow(hq)
-                call NSE_Anelastic_PerVolume_BcsScal(hs)
+                call Bcs_Explicit_Flow(hq)
+                call Bcs_Explicit_Scal(hs)
                 call TMarchScheme%AdvanceSubstep_Anelastic(pxy_q, pxy_hq, dtime, ribackground)
                 call TMarchScheme%AdvanceSubstep_Anelastic(pxy_s, pxy_hs, dtime, ribackground)
 

@@ -7,7 +7,7 @@ module TLab_WorkFlow
 #endif
 #ifdef USE_MPI
     use mpi_f08
-    use TLabMPI_VARS, only: ims_pro, ims_npro
+    use TLabMPI_VARS, only: mpiGrid
     use TLabMPI_VARS, only: ims_time_max, ims_time_min, ims_time_trans
     use TLabMPI_VARS, only: ims_err
 #endif
@@ -38,14 +38,16 @@ contains
         ! Inititalize MPI parallel mode
 #ifdef USE_MPI
         call MPI_INIT(ims_err)
-        call MPI_COMM_SIZE(MPI_COMM_WORLD, ims_npro, ims_err)
-        call MPI_COMM_RANK(MPI_COMM_WORLD, ims_pro, ims_err)
+        
+        mpiGrid%comm = MPI_COMM_WORLD
+        call MPI_COMM_SIZE(mpiGrid%comm, mpiGrid%num_processors, ims_err)
+        call MPI_COMM_RANK(mpiGrid%comm, mpiGrid%rank, ims_err)
 
-        write (line, *) ims_npro
+        write (line, *) mpiGrid%num_processors
         line = 'Number of MPI tasks '//trim(adjustl(line))
         call TLab_Write_ASCII(lfile, line)
 
-        if (ims_npro == 0) then
+        if (mpiGrid%num_processors == 0) then
             call TLab_Write_ASCII(efile, __FILE__//'. Number of processors is zero.')
             call TLab_Stop(DNS_ERROR_MINPROC)
         end if
@@ -130,7 +132,7 @@ contains
 
         ! #######################################################################
 #ifdef USE_MPI
-        if (ims_pro == 0 .or. present(flag_all)) then
+        if (mpiGrid%rank == 0 .or. present(flag_all)) then
 #endif
 
             if (imode_verbosity > 0) then

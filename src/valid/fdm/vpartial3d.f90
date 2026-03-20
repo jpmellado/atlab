@@ -8,7 +8,7 @@ program VPARTIAL3D
     use TLab_Arrays
 #ifdef USE_MPI
     use mpi_f08
-    use TLabMPI_VARS 
+    use TLabMPI_VARS
     use TLabMPI_PROCS, only: TLabMPI_Initialize
     use TLabMPI_Transpose, only: TLabMPI_Trp_Initialize
 #endif
@@ -33,6 +33,7 @@ program VPARTIAL3D
     call TLab_Start()
 
     call TLab_Initialize_Parameters(ifile)
+    call IO_Initialize()
 
     call FDM_Initialize(ifile)
 
@@ -73,7 +74,7 @@ program VPARTIAL3D
 
 #ifdef USE_MPI
     ! testing
-    ! if (ims_pro_i == 7) then
+    ! if (xMpi%rank == 7) then
     !     do i = 1, imax
     !         print *, i, der1_split_x%thomas3%y(i, :)
     !         ! print *, i, der2_split_x%thomas3%y(i, :)
@@ -177,7 +178,7 @@ contains
         sum_mpi = dummy
         call MPI_ALLREDUCE(sum_mpi, dummy, 1, MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ims_err)
 
-        if (ims_pro == 0) then
+        if (mpiGrid%rank == 0) then
 #endif
             write (*, *) 'Relative error .............: ', sqrt(error)/sqrt(dummy)
 #ifdef USE_MPI

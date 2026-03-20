@@ -9,7 +9,7 @@ program VELLIPTIC
     use TLab_Arrays
 #ifdef USE_MPI
     use mpi_f08
-    use TLabMPI_VARS, only: ims_err, ims_pro
+    use TLabMPI_VARS, only: ims_err, mpiGrid
     use TLabMPI_PROCS, only: TLabMPI_Initialize
     use TLabMPI_Transpose, only: TLabMPI_Trp_Initialize
 #endif
@@ -48,6 +48,7 @@ program VELLIPTIC
     call TLab_Start()
 
     call TLab_Initialize_Parameters(ifile)
+    call IO_Initialize()
 
     call TLab_Grid_Initialize()
 
@@ -144,9 +145,6 @@ program VELLIPTIC
     ! mean = AVG_IK(imax, jmax, kmax, 1, a)
     mean = AVG_IK(imax, jmax, kmax, kmax, a)
     a = a - mean
-
-    ! Just single precision, no header to visualize easily
-    io_datatype = IO_TYPE_SINGLE
 
     ! ###################################################################
     select case (type_of_problem)
@@ -287,7 +285,7 @@ contains
         sum_mpi = dummy
         call MPI_ALLREDUCE(sum_mpi, dummy, 1, MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ims_err)
 
-        if (ims_pro == 0) then
+        if (mpiGrid%rank == 0) then
 #endif
             write (*, *) 'Relative error .............: ', sqrt(error)/sqrt(dummy)
 #ifdef USE_MPI

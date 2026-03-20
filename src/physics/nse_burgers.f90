@@ -8,7 +8,7 @@ module NSE_Burgers
     use TLab_Arrays, only: wrk3d
     use TLab_Transpose
 #ifdef USE_MPI
-    use TLabMPI_VARS, only: ims_npro_i, ims_npro_j
+    use TLabMPI_VARS, only: xMpi, yMpi
     use TLabMPI_Transpose
     use FDM_Derivative_MPISplit
 #endif
@@ -163,7 +163,7 @@ contains
     subroutine anelastic_initialize_rho(rho, axis)
         use TLab_Memory, only: imax, jmax, kmax
 #ifdef USE_MPI
-        use TLabMPI_VARS, only: ims_pro_i, ims_npro_i, ims_pro_j, ims_npro_j
+        use TLabMPI_VARS, only: xMpi, yMpi
 #endif
         use Thermo_Anelastic, only: rbackground
         real(wp), allocatable, intent(out) :: rho(:)
@@ -178,9 +178,9 @@ contains
             ! Density correction term in the burgers operator along X
         case ('x')
 #ifdef USE_MPI
-            if (ims_npro_i > 1 .and. der_mode_i == TYPE_TRANSPOSE) then
+            if (xMpi%num_processors > 1 .and. der_mode_i == TYPE_TRANSPOSE) then
                 nlines = tmpi_plan_dx%nlines
-                offset = nlines*ims_pro_i
+                offset = nlines*xMpi%rank
             else
 #endif
                 nlines = jmax*kmax
@@ -198,9 +198,9 @@ contains
             ! Density correction term in the burgers operator along Y
         case ('y')
 #ifdef USE_MPI
-            if (ims_npro_j > 1 .and. der_mode_j == TYPE_TRANSPOSE) then
+            if (yMpi%num_processors > 1 .and. der_mode_j == TYPE_TRANSPOSE) then
                 nlines = tmpi_plan_dy%nlines
-                offset = nlines*ims_pro_j
+                offset = nlines*yMpi%rank
             else
 #endif
                 nlines = imax*kmax
@@ -276,7 +276,7 @@ contains
         ! ###################################################################
         ! Setting procedure pointers
 #ifdef USE_MPI
-        if (ims_npro_i > 1) then
+        if (xMpi%num_processors > 1) then
             select case (der_mode_i)
             case (TYPE_TRANSPOSE)
                 NSE_AddBurgers_PerVolume_X => NSE_AddBurgers_PerVolume_X_MPITranspose
@@ -300,7 +300,7 @@ contains
 #endif
 
 #ifdef USE_MPI
-        if (ims_npro_j > 1) then
+        if (yMpi%num_processors > 1) then
             select case (der_mode_j)
             case (TYPE_TRANSPOSE)
                 NSE_AddBurgers_PerVolume_Y => NSE_AddBurgers_PerVolume_Y_MPITranspose
@@ -410,9 +410,9 @@ contains
         call fdm_der2_X%compute(nlines, tmp1, result, wrk3d)
 
         if (present(rhou_in)) then      ! transposed velocity (times density) is passed as argument
-            call burgers1d_X(is)%compute(nlines, nx*ims_npro_i, der1=wrk3d, der2=result, rhou=rhou_in)
+            call burgers1d_X(is)%compute(nlines, nx*xMpi%num_processors, der1=wrk3d, der2=result, rhou=rhou_in)
         else
-            call burgers1d_X(is)%compute_setrhou(nlines, nx*ims_npro_i, der1=wrk3d, der2=result, rhou=tmp1)
+            call burgers1d_X(is)%compute_setrhou(nlines, nx*xMpi%num_processors, der1=wrk3d, der2=result, rhou=tmp1)
         end if
 
         ! Put arrays back in the order in which they came in
@@ -571,9 +571,9 @@ contains
         call fdm_der2_Y%compute(nlines, tmp1, result, wrk3d)
 
         if (present(rhou_in)) then      ! transposed velocity (times density) is passed as argument
-            call burgers1d_Y(is)%compute(nlines, ny*ims_npro_j, der1=wrk3d, der2=result, rhou=rhou_in)
+            call burgers1d_Y(is)%compute(nlines, ny*yMpi%num_processors, der1=wrk3d, der2=result, rhou=rhou_in)
         else
-            call burgers1d_Y(is)%compute_setrhou(nlines, ny*ims_npro_j, der1=wrk3d, der2=result, rhou=tmp1)
+            call burgers1d_Y(is)%compute_setrhou(nlines, ny*yMpi%num_processors, der1=wrk3d, der2=result, rhou=tmp1)
         end if
 
         ! Put arrays back in the order in which they came in

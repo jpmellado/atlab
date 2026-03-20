@@ -5,7 +5,7 @@ module OPR_Partial
     use TLab_Arrays, only: wrk2d, wrk3d
     use TLab_Transpose
 #ifdef USE_MPI
-    use TLabMPI_VARS, only: ims_npro_i, ims_npro_j
+    use TLabMPI_VARS, only: xMpi, yMpi
     use TLabMPI_Transpose
     use FDM_Derivative_MPISplit
     use FDM_Derivative_1order
@@ -109,7 +109,7 @@ contains
 #ifdef USE_MPI
         np = 0
 
-        if (ims_npro_i > 1) then
+        if (xMpi%num_processors > 1) then
             select case (der_mode_i)
             case (TYPE_TRANSPOSE)
                 OPR_Partial_X => OPR_Partial_X_MPITranspose
@@ -135,7 +135,7 @@ contains
 #endif
 
 #ifdef USE_MPI
-        if (ims_npro_j > 1) then
+        if (yMpi%num_processors > 1) then
             select case (der_mode_j)
             case (TYPE_TRANSPOSE)
                 OPR_Partial_Y => OPR_Partial_Y_MPITranspose

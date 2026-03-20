@@ -20,14 +20,14 @@ program vmpi_io_levante
     integer, parameter :: sizeofreal = sizeof(1.0_wp)
     integer, parameter :: sizeofint = sizeof(1_wi)
 
-    ! Decomposition along X and Y in ims_npro_i x ims_npro_j pencils
-    integer ims_npro                            ! number of tasks
-    ! integer, parameter :: ims_npro_i = 64       ! number of tasks in X
-    ! integer, parameter :: ims_npro_j = 64       ! number of tasks in Y
-    integer, parameter :: ims_npro_i = 128      ! number of tasks in X
-    integer, parameter :: ims_npro_j = 128      ! number of tasks in Y
-    integer ims_pro                             ! local task in global communicator
-    integer ims_pro_i, ims_pro_j                ! local task in each directional communicator; here used only as offsets
+    ! Decomposition along X and Y in xMpi%num_processors x yMpi%num_processors pencils
+    integer mpiGrid%num_processors                            ! number of tasks
+    ! integer, parameter :: xMpi%num_processors = 64       ! number of tasks in X
+    ! integer, parameter :: yMpi%num_processors = 64       ! number of tasks in Y
+    integer, parameter :: xMpi%num_processors = 128      ! number of tasks in X
+    integer, parameter :: yMpi%num_processors = 128      ! number of tasks in Y
+    integer mpiGrid%rank                             ! local task in global communicator
+    integer xMpi%rank, yMpi%rank                ! local task in each directional communicator; here used only as offsets
 
     ! grid points
     integer nx, ny, nz
@@ -45,8 +45,8 @@ program vmpi_io_levante
 
     ! ###############################################################
     call MPI_INIT(ims_err)
-    call MPI_COMM_SIZE(MPI_COMM_WORLD, ims_npro, ims_err)
-    call MPI_COMM_RANK(MPI_COMM_WORLD, ims_pro, ims_err)
+    call MPI_COMM_SIZE(MPI_COMM_WORLD, mpiGrid%num_processors, ims_err)
+    call MPI_COMM_RANK(MPI_COMM_WORLD, mpiGrid%rank, ims_err)
 
     ! initialize grid
     ! nx = 3072
@@ -55,11 +55,11 @@ program vmpi_io_levante
     nx = 6144
     ny = 6144
     nz = 1536
-    nx = nx/ims_npro_i                      ! task-local number of grid points along X
-    ny = ny/ims_npro_j                      ! task-local number of grid points along Z
+    nx = nx/xMpi%num_processors                      ! task-local number of grid points along X
+    ny = ny/yMpi%num_processors                      ! task-local number of grid points along Z
 
-    ims_pro_i = mod(ims_pro, ims_npro_i)    ! MPI offset
-    ims_pro_j = ims_pro/ims_npro_i          ! MPI offset
+    xMpi%rank = mod(mpiGrid%rank, xMpi%num_processors)    ! MPI offset
+    yMpi%rank = mpiGrid%rank/xMpi%num_processors          ! MPI offset
 
     allocate (a(nx*ny*nz, nv))
     a = 0.0_wp
@@ -79,10 +79,10 @@ program vmpi_io_levante
     do iv = 1, nv
 
         write (str, *) iv; str = trim(adjustl(name))//trim(adjustl(str))
-        if (ims_pro == 0) print *, 'Writing '//trim(adjustl(str))//'.'
+        if (mpiGrid%rank == 0) print *, 'Writing '//trim(adjustl(str))//'.'
 
         ! an old MPI_IO bug was that if PE 0 did this and not the others, then it hangs...
-        if (ims_pro == 0) then
+        if (mpiGrid%rank == 0) then
             open (55, file=str, status='unknown', form='unformatted', access='stream')
             write (55) nx*ny*nz
             close (55)
@@ -113,7 +113,7 @@ program vmpi_io_levante
     do iv = 1, nv
 
         write (str, *) iv; str = trim(adjustl(name))//trim(adjustl(str))
-        if (ims_pro == 0) print *, 'Reading '//trim(adjustl(str))//'.'
+        if (mpiGrid%rank == 0) print *, 'Reading '//trim(adjustl(str))//'.'
 
         call MPI_FILE_OPEN(MPI_COMM_WORLD, str, MPI_MODE_RDONLY, MPI_INFO_NULL, mpio_fh, ims_err)
 
@@ -143,9 +143,9 @@ contains
         integer, parameter :: ndims = 3
         integer(wi) :: sizes(ndims), locsize(ndims), offset(ndims)
 
-        sizes = [nx*ims_npro_i, ny*ims_npro_j, nz]
+        sizes = [nx*xMpi%num_processors, ny*yMpi%num_processors, nz]
         locsize = [nx, ny, nz]
-        offset = [nx*ims_pro_i, ny*ims_pro_j, 0]
+        offset = [nx*xMpi%rank, ny*yMpi%rank, 0]
 
         call MPI_Type_create_subarray(ndims, sizes, locsize, offset, MPI_ORDER_FORTRAN, locType, locSubarray, ims_err)
         call MPI_Type_commit(locSubarray, ims_err)

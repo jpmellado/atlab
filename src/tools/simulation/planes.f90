@@ -8,7 +8,7 @@ module Planes
     use TLab_Memory, only: inb_flow_array, inb_scal_array
     use TLab_Arrays, only: txc
     use TLab_Pointers_3D, only: pointers3d_dt
-    use IO_Fields, only: io_subarray_dt
+    use IO_Fields, only: io_subarray_dt, IO_Open_File
     implicit none
     private
 
@@ -61,7 +61,7 @@ contains
         use IO_Fields, only: IO_TYPE_SINGLE
 #ifdef USE_MPI
         use mpi_f08, only: MPI_REAL4
-        use TLabMPI_VARS, only: ims_comm_y, ims_pro_j, ims_pro_i, ims_npro_i
+        use TLabMPI_VARS, only: xMpi, yMpi
         use IO_Fields, only: IO_Create_Subarray_YOZ, IO_TYPE_SINGLE
 #endif
         class(planesX_dt), intent(out) :: self
@@ -80,14 +80,12 @@ contains
         self%io_subarray%precision = IO_TYPE_SINGLE
 #ifdef USE_MPI
         self%io_subarray%active = .false.  ! defaults
-        if (ims_npro_i > 1) then
-            if (ims_pro_i == (self%nodes(1)/imax)) then
-                self%io_subarray%active = .true.
-                self%io_subarray%communicator = ims_comm_y
-                self%io_subarray%subarray = IO_Create_Subarray_YOZ(jmax, self%size*kmax, MPI_REAL4)
-                self%nodes(:) = self%nodes(:) - xSubgrid%offset        ! go to plane positions in local processor
-                if (ims_pro_j /= 0) self%writeheader = .false.
-            end if
+        if (xMpi%rank == ((self%nodes(1) - 1)/imax)) then
+            self%io_subarray%active = .true.
+            self%io_subarray%communicator = yMpi%comm
+            self%io_subarray%subarray = IO_Create_Subarray_YOZ(jmax, self%size*kmax, MPI_REAL4)
+            self%nodes(:) = self%nodes(:) - xSubgrid%offset        ! go to plane positions in local processor
+            if (yMpi%rank /= 0) self%writeheader = .false.
         end if
 #endif
 
@@ -102,7 +100,7 @@ contains
         use IO_Fields, only: IO_TYPE_SINGLE
 #ifdef USE_MPI
         use mpi_f08, only: MPI_REAL4
-        use TLabMPI_VARS, only: ims_comm_x, ims_pro_i, ims_pro_j, ims_npro_j
+        use TLabMPI_VARS, only: xMpi, yMpi
         use IO_Fields, only: IO_Create_Subarray_XOZ, IO_TYPE_SINGLE
 #endif
         class(planesY_dt), intent(out) :: self
@@ -121,14 +119,12 @@ contains
         self%io_subarray%precision = IO_TYPE_SINGLE
 #ifdef USE_MPI
         self%io_subarray%active = .false.          ! defaults
-        if (ims_npro_j > 1) then
-            if (ims_pro_j == (self%nodes(1)/jmax)) then
-                self%io_subarray%active = .true.
-                self%io_subarray%communicator = ims_comm_x
-                self%io_subarray%subarray = IO_Create_Subarray_XOZ(imax, kmax*self%size, MPI_REAL4)
-                self%nodes(:) = self%nodes(:) - ySubgrid%offset        ! go to plane positions in local processor
-                if (ims_pro_i /= 0) self%writeheader = .false.
-            end if
+        if (yMpi%rank == ((self%nodes(1) - 1)/jmax)) then
+            self%io_subarray%active = .true.
+            self%io_subarray%communicator = xMpi%comm
+            self%io_subarray%subarray = IO_Create_Subarray_XOZ(imax, kmax*self%size, MPI_REAL4)
+            self%nodes(:) = self%nodes(:) - ySubgrid%offset        ! go to plane positions in local processor
+            if (xMpi%rank /= 0) self%writeheader = .false.
         end if
 #endif
 
@@ -171,10 +167,6 @@ contains
     ! ###################################################################
     ! ###################################################################
     subroutine planes_initialize(self, inifile, subaxis)
-#ifdef USE_MPI
-        use TLabMPI_VARS, only: ims_npro_i, ims_npro_j
-        use TLabMPI_VARS, only: ims_pro_i, ims_pro_j
-#endif
         use TLab_Grid, only: subaxis_dt
         class(planes_dt), intent(out) :: self
         type(subaxis_dt), intent(in) :: subaxis
@@ -205,6 +197,8 @@ contains
             tag = 'PlanesK'
         end select
 
+        self%type = TYPE_NONE
+        nodes_size = 0
         call ScanFile_Char(bakfile, inifile, block, tag, 'void', sRes)
         if (trim(adjustl(sRes)) /= 'void') then
             nodes_size = nodes_size_max; call LIST_INTEGER(sRes, nodes_size, nodes)
@@ -220,13 +214,15 @@ contains
 
         end if
 
-        ! Limit planes to those inside the local grid
+        ! Limit planes to those inside the local grid of the first planes
         nodes_size_global = nodes_size
         nodes_size = 0
         do ip = 1, nodes_size_global
             if (1 <= (nodes(ip) - subaxis%offset) .and. (nodes(ip) - subaxis%offset) <= subaxis%size) then
                 nodes_size = nodes_size + 1
                 nodes(nodes_size) = nodes(ip)
+            else
+                exit
             end if
         end do
 
@@ -402,7 +398,7 @@ contains
         use TLab_Constants, only: i4, dp
 #ifdef USE_MPI
         use mpi_f08, only: MPI_COMM_WORLD
-        use TLabMPI_VARS, only: ims_pro, ims_err
+        use TLabMPI_VARS, only: mpiGrid, ims_err
 #endif
         use TLab_Time
         use IO_Fields, only: IO_Write_Subarray
@@ -411,18 +407,26 @@ contains
 
         character*32 str, name
 
-        write (str, *) itime
-        name = trim(adjustl(name_tag))//trim(adjustl(str))
-
-        if (self%writeheader) then
-#include "tlab_open_file.h"
-            write (LOC_UNIT_ID) int(self%io_subarray%offset, wi), itime, rtime, int(self%nodes(:), wi)
-            close (LOC_UNIT_ID)
-        end if
 #ifdef USE_MPI
-        call MPI_BARRIER(self%io_subarray%communicator, ims_err)
+        if (self%io_subarray%active) then
 #endif
-        call IO_Write_Subarray(self%io_subarray, name, [' '], self%data, self%io)
+
+            write (str, *) itime
+            name = trim(adjustl(name_tag))//trim(adjustl(str))
+
+            if (self%writeheader) then
+                call IO_Open_File(name, LOC_STATUS, LOC_UNIT_ID)
+                write (LOC_UNIT_ID) int(self%io_subarray%offset, wi), itime, rtime, int(self%nodes(:), wi)
+                close (LOC_UNIT_ID)
+            end if
+#ifdef USE_MPI
+            call MPI_BARRIER(self%io_subarray%communicator, ims_err)
+#endif
+            call IO_Write_Subarray(self%io_subarray, name, [' '], self%data, self%io)
+
+#ifdef USE_MPI
+        end if
+#endif
 
         return
     end subroutine

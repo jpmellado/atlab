@@ -94,7 +94,7 @@ subroutine TLab_Read_ASCII(fname, title, name, value, default)
 
 #ifdef USE_MPI
     use mpi_f08
-    use TLabMPI_VARS, only: ims_pro, ims_err
+    use TLabMPI_VARS, only: mpiGrid, ims_err
 #endif
     implicit none
 
@@ -123,7 +123,7 @@ subroutine TLab_Read_ASCII(fname, title, name, value, default)
 
 ! -----------------------------------------------------------------------
 #ifdef USE_MPI
-    if (ims_pro == 0) then
+    if (mpiGrid%rank == 0) then
 #endif
 
         open (unit=45, file=fname, status='OLD')
@@ -176,7 +176,7 @@ end subroutine TLab_Read_ASCII
 !     use TLab_Constants, only: wp, wi
 
 ! #ifdef USE_MPI
-!     use TLabMPI_VARS, only: ims_pro
+!     use TLabMPI_VARS, only: mpiGrid%rank
 ! #endif
 
 !     implicit none
@@ -191,7 +191,7 @@ end subroutine TLab_Read_ASCII
 
 ! ! #######################################################################
 ! #ifdef USE_MPI
-!     write (name_loc, *) ims_pro; name_loc = trim(adjustl(fname))//'-'//trim(adjustl(name_loc))
+!     write (name_loc, *) mpiGrid%rank; name_loc = trim(adjustl(fname))//'-'//trim(adjustl(name_loc))
 ! #else
 !     name_loc = trim(adjustl(fname))
 ! #endif

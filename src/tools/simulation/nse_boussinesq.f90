@@ -10,19 +10,20 @@
 !# Includes the scalar to benefit from the same reduction
 !#
 !########################################################################
-subroutine NSE_Boussinesq()
+subroutine NSE_Boussinesq(hq, hs, dte, remove_divergence)
     use TLab_Constants, only: wp, wi, BCS_NN
-    use TLab_Memory, only: imax, jmax, kmax, inb_scal
-    use TLab_Arrays, only: s
+    use TLab_Memory, only: imax, jmax, kmax, isize_field, inb_flow, inb_scal
     use TLab_Pointers, only: u, v, w, tmp1, tmp2, tmp3
-    use DNS_Arrays
-    use TimeMarching, only: dte, remove_divergence
-    use BoundaryConditions
+    use TLab_Arrays, only: s
     use OPR_Partial
     use NSE_Burgers
     use OPR_Elliptic, only: OPR_Poisson
-
     implicit none
+
+    real(wp), intent(out) :: hq(isize_field, inb_flow)
+    real(wp), intent(out) :: hs(isize_field, inb_scal)
+    real(wp), intent(in) :: dte
+    logical, intent(in) :: remove_divergence
 
     ! -----------------------------------------------------------------------
     integer(wi) is
@@ -72,12 +73,10 @@ subroutine NSE_Boussinesq()
 
     end if
 
-    ! Neumman BCs in d/dy(p) s.t. v=0 (no-penetration)
-    BcsFlowKmin%ref(:, :, 3) = p_hq(:, :, 1, 3)
-    BcsFlowKmax%ref(:, :, 3) = p_hq(:, :, kmax, 3)
-
     ! Solution of Poisson equation: pressure in tmp1
-    call OPR_Poisson(imax, jmax, kmax, BCS_NN, tmp1, tmp2, tmp3, BcsFlowKmin%ref(:, :, 3), BcsFlowKmax%ref(:, :, 3))
+    call OPR_Poisson(imax, jmax, kmax, BCS_NN, tmp1, tmp2, tmp3, &
+                     bcs_hb=hq(1:imax*jmax, 3), &                               ! Neumman BCs in d/dy(p) s.t. v=0 (no-penetration)
+                     bcs_ht=hq(isize_field - imax*jmax + 1:isize_field, 3))
 
     ! Add pressure gradient
     call OPR_Partial_X(OPR_P1_SUBTRACT, imax, jmax, kmax, tmp1, tmp2, hq(:, 1))
@@ -88,10 +87,11 @@ subroutine NSE_Boussinesq()
     return
 end subroutine NSE_Boussinesq
 
-subroutine NSE_Boussinesq_BscFlow()
+subroutine NSE_Boussinesq_BcsFlow(hq)
+    use TLab_Constants, only: wp
     use TLab_Memory, only: imax, jmax, kmax, inb_flow
-    use DNS_Arrays
-    use BoundaryConditions
+    use BoundaryConditions, only: BcsFlowKmin, BcsFlowKmax, DNS_BCS_Neumann, BCS_Neumann_Z
+    real(wp), intent(inout) :: hq(imax, jmax, kmax, inb_flow)
 
     integer iq, ibc
 
@@ -103,22 +103,23 @@ subroutine NSE_Boussinesq_BscFlow()
         if (BcsFlowKmin%type(iq) == DNS_BCS_Neumann) ibc = ibc + 1
         if (BcsFlowKmax%type(iq) == DNS_BCS_Neumann) ibc = ibc + 2
         if (ibc > 0) then
-            call BCS_Neumann_Z(ibc, imax*jmax, kmax, hq(:, iq), &
+            call BCS_Neumann_Z(ibc, imax*jmax, kmax, hq(:, :, :, iq), &
                                BcsFlowKmin%ref(:, :, iq), BcsFlowKmax%ref(:, :, iq))
         end if
 
-        p_hq(:, :, 1, iq) = BcsFlowKmin%ref(:, :, iq)
-        p_hq(:, :, kmax, iq) = BcsFlowKmax%ref(:, :, iq)
+        hq(:, :, 1, iq) = BcsFlowKmin%ref(:, :, iq)
+        hq(:, :, kmax, iq) = BcsFlowKmax%ref(:, :, iq)
 
     end do
 
     return
 end subroutine
 
-subroutine NSE_Boussinesq_BscScal()
+subroutine NSE_Boussinesq_BcsScal(hs)
+    use TLab_Constants, only: wp
     use TLab_Memory, only: imax, jmax, kmax, inb_scal
-    use DNS_Arrays
-    use BoundaryConditions
+    use BoundaryConditions, only: BcsScalKmin, BcsScalKmax, DNS_BCS_Neumann, BCS_Neumann_Z
+    real(wp), intent(inout) :: hs(imax, jmax, kmax, inb_scal)
 
     integer is, ibc
 
@@ -130,12 +131,12 @@ subroutine NSE_Boussinesq_BscScal()
         if (BcsScalKmin%type(is) == DNS_BCS_Neumann) ibc = ibc + 1
         if (BcsScalKmax%type(is) == DNS_BCS_Neumann) ibc = ibc + 2
         if (ibc > 0) then
-            call BCS_Neumann_Z(ibc, imax*jmax, kmax, hs(:, is), &
+            call BCS_Neumann_Z(ibc, imax*jmax, kmax, hs(:, :, :, is), &
                                BcsScalKmin%ref(:, :, is), BcsScalKmax%ref(:, :, is))
         end if
 
-        p_hs(:, :, 1, is) = BcsScalKmin%ref(:, :, is)
-        p_hs(:, :, kmax, is) = BcsScalKmax%ref(:, :, is)
+        hs(:, :, 1, is) = BcsScalKmin%ref(:, :, is)
+        hs(:, :, kmax, is) = BcsScalKmax%ref(:, :, is)
 
     end do
 

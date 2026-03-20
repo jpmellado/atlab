@@ -8,7 +8,7 @@ module DNS_Control
     use TLab_Time
     use NavierStokes
     ! use TLab_Constants, only: MAX_PATH_LENGTH
-    use DNS_LOCAL, only: wall_time, start_clock
+    use DNS_Local, only: wall_time, start_clock
     implicit none
     private
 

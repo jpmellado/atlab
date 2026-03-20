@@ -6,7 +6,7 @@ module RAND_LOCAL
     use TLab_Memory, only: imax, jmax, kmax, isize_field, isize_txc_field, inb_txc
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
 #ifdef USE_MPI
-    use TLabMPI_VARS, only: ims_pro
+    use TLabMPI_VARS, only: mpiGrid
 #endif
     use TLab_Grid, only: x, y, z
     use Averages, only: AVG1V2D
@@ -102,7 +102,7 @@ contains
         ! call ScanFile_Int(bakfile, inifile, block, 'Seed', '13579', seed_ref)
         call ScanFile_Int(bakfile, inifile, block, 'Seed', '7', seed_ref)
 #ifdef USE_MPI
-        seed_ref = seed_ref + ims_pro
+        seed_ref = seed_ref + mpiGrid%rank
 #endif
         seed_ref = -abs(seed_ref)
 

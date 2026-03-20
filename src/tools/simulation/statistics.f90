@@ -70,7 +70,7 @@ contains
         ! use TLab_Time, only: itime !, rtime
         ! use Thermo_Anelastic
         use NSE_Pressure
-        use DNS_ARRAYS
+        use TimeMarching, only: hq
         ! use PARTICLE_VARS
         ! use PARTICLE_ARRAYS
         use FI_VORTICITY_EQN

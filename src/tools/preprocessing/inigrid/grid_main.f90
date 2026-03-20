@@ -10,7 +10,7 @@ program INIGRID
     use TLab_Grid, only: axis_dt, TLab_Grid_Write
     use GRID_LOCAL
 #ifdef USE_MPI
-    use TLabMPI_VARS, only: ims_pro
+    use TLabMPI_VARS, only: mpiGrid
 #endif
     implicit none
 
@@ -114,7 +114,7 @@ program INIGRID
     ! Statistics
     ! #######################################################################
 #ifdef USE_MPI
-    if (ims_pro == 0) then
+    if (mpiGrid%rank == 0) then
 #endif
         open (20, file=sfile)
 

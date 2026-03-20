@@ -10,7 +10,7 @@ program IniRand
     use TLabMPI_PROCS, only: TLabMPI_Initialize
     use TLabMPI_Transpose, only: TLabMPI_Trp_Initialize
 #endif
-    use IO_Fields, only: IO_Write_Fields, io_header_q, io_header_s
+    use IO_Fields, only: IO_Initialize, IO_Write_Fields, io_header_q, io_header_s
     use TLab_Grid
     use NavierStokes, only: NavierStokes_Initialize_Parameters
     use OPR_Fourier, only: OPR_Fourier_Initialize
@@ -25,6 +25,7 @@ program IniRand
     call TLab_Start()
 
     call TLab_Initialize_Parameters(ifile)
+    call IO_Initialize()
 
     call TLab_Grid_Initialize()
 

@@ -180,7 +180,7 @@ contains
         use TLab_Constants, only: i8
         use TLab_Arrays
 #ifdef USE_MPI
-        use TLabMPI_VARS, only: ims_npro_i, ims_npro_j, ims_npro_k
+        use TLabMPI_VARS, only: xMpi, yMpi, zMpi
 #endif
 
         character(len=*), intent(in) :: C_FILE_LOC
@@ -207,7 +207,7 @@ contains
 
         ! scratch arrays
 #ifdef USE_MPI
-        isize_wrk1d = max(imax*ims_npro_i, max(jmax*ims_npro_j, kmax*ims_npro_k))
+        isize_wrk1d = max(imax*xMpi%num_processors, max(jmax*yMpi%num_processors, kmax*zMpi%num_processors))
 #else
         isize_wrk1d = max(imax, max(jmax, kmax))
 #endif

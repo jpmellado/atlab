@@ -88,7 +88,7 @@ contains
         ! ###################################################################
         ! Calculate pressure
         if (any([DNS_EQNS_BOUSSINESQ, DNS_EQNS_ANELASTIC] == nse_eqns)) then
-            call NSE_Pressure_Incompressible(q, s, txc(:, 3), txc(:, 4), txc(:, 1), txc(:, 2))
+            call NSE_Pressure_Incompressible(q, s, txc(:, 1), hq, txc(:, 2), txc(:, 3))
         end if
 
         ! ###################################################################
@@ -151,14 +151,16 @@ contains
         if (stats_averages) then
             if (scal_on) then
                 do is = 1, inb_scal_array          ! All, prognostic and diagnostic fields in array s
-                    hq(1:isize_field, 3) = txc(1:isize_field, 3) ! Pass the pressure in hq3
+                    hq(1:isize_field, 3) = txc(1:isize_field, 1) ! Pass the pressure in hq3
                     call AVG_SCAL_XZ(is, q, s, s(1, is), &
-                                     txc(1, 1), txc(1, 2), txc(1, 4), txc(1, 5), txc(1, 6), hq(1, 3), mean)
+                                     txc(1, 2), txc(1, 3), txc(1, 4), hq(1, 1), hq(1, 2), hq(1, 3), &
+                                     mean)
                 end do
 
             end if
 
-            call AVG_FLOW_XZ(q, s, txc(1, 1), txc(1, 2), txc(1, 3), txc(1, 4), txc(1, 5), txc(1, 6), hq(1, 1), hq(1, 2), hq(1, 3), &
+            call AVG_FLOW_XZ(q, s, &
+                             txc(1, 1), txc(1, 2), txc(1, 3), txc(1, 4), hq(1, 1), hq(1, 2), hq(1, 3), &
                              mean)
         end if
 

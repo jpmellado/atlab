@@ -31,18 +31,15 @@ FILE(GLOB sourcefiles "postprocessing/averages*.f90")
 add_executable(averages.x ${sourcefiles})
 target_link_libraries(averages.x statistics physics mappings operators finitedifferences thermodynamics ${LEVEL1_LIBS} ${LIBS})
 
+FILE(GLOB sourcefiles "postprocessing/pdfs*.f90")
+add_executable(pdfs.x ${sourcefiles})
+target_link_libraries(pdfs.x statistics physics mappings operators finitedifferences thermodynamics ${LEVEL1_LIBS} ${LIBS})
+
 # FILE(GLOB sourcefiles "statistics/spectra*.f90")
 # add_executable(spectra.x ${sourcefiles})
 # target_link_libraries(spectra.x statistics physics mappings operators filters finitedifferencesibm thermodynamics ${LEVEL1_LIBS} ${LIBS})
 # if (PSFFT_LIB)
 # set_target_properties(spectra.x PROPERTIES LINK_FLAGS "${PSFFT_LINK_FLAGS} ${LINK_FLAGS}")
-# endif()
-
-# FILE(GLOB sourcefiles "statistics/pdfs*.f90")
-# add_executable(pdfs.x ${sourcefiles})
-# target_link_libraries(pdfs.x statistics physics mappings operators filters finitedifferencesibm thermodynamics ${LEVEL1_LIBS} ${LIBS})
-# if (PSFFT_LIB)
-# set_target_properties(pdfs.x PROPERTIES LINK_FLAGS "${PSFFT_LINK_FLAGS} ${LINK_FLAGS}")
 # endif()
 
 FILE(GLOB sourcefiles "postprocessing/transgrid*.f90")

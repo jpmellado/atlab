@@ -36,6 +36,7 @@ program PDFS
     use FI_VORTICITY_EQN
     use Tensor
     use Reductions, only: Reduce_Block_InPlace
+    use StatsPDFs
 
     implicit none
 
@@ -75,7 +76,7 @@ program PDFS
     ! integer(wi), parameter :: igate_size_max = 8
     ! integer(wi) igate_size
     ! real(wp) gate_threshold(igate_size_max)
-    integer(1) gate_level
+    ! integer(1) gate_level
 
     !########################################################################
     !########################################################################
@@ -181,7 +182,7 @@ program PDFS
         !                  imax, jmax, kmax, igate_size, gate_threshold, q, s, txc, gate)
 
         !     if (kmax_aux*opt_block /= z%size) then
-                !   call REDUCE_BLOCK_INPLACE_INT1(imax, jmax, kmax, 1, 1, 1, imax, jmax*opt_block, kmax_aux, gate, wrk1d)
+        !   call REDUCE_BLOCK_INPLACE_INT1(imax, jmax, kmax, 1, 1, 1, imax, jmax*opt_block, kmax_aux, gate, wrk1d)
         !     end if
 
         ! end if
@@ -355,7 +356,7 @@ program PDFS
             end if
 
             write (fname, *) itime; fname = 'pdf'//trim(adjustl(fname))//'.RQ'
-            call PDF2V(fname, rtime, imax, jmax*opt_block, kmax_aux, opt_bins, z_aux, txc(1, 1), txc(1, 2), pdf)
+            call PDF2V(fname, imax, jmax*opt_block, kmax_aux, opt_bins, z_aux, txc(1, 1), txc(1, 2), pdf)
 
             ! ###################################################################
             ! Joint PDF W^2 and 2S^2
@@ -375,7 +376,7 @@ program PDFS
             end if
 
             write (fname, *) itime; fname = 'pdf'//trim(adjustl(fname))//'.WS'
-            call PDF2V(fname, rtime, imax, jmax*opt_block, kmax_aux, opt_bins, z_aux, txc(1, 1), txc(1, 2), pdf)
+            call PDF2V(fname, imax, jmax*opt_block, kmax_aux, opt_bins, z_aux, txc(1, 1), txc(1, 2), pdf)
 
             ! ###################################################################
             ! Joint PDF Scalar and Scalar Gradient
@@ -398,7 +399,7 @@ program PDFS
             end if
 
             write (fname, *) itime; fname = 'pdf'//trim(adjustl(fname))//'.SLnG'
-            call PDF2V(fname, rtime, imax, jmax*opt_block, kmax_aux, opt_bins, s(1, 1), txc(1, 2), z_aux, pdf)
+            call PDF2V(fname, imax, jmax*opt_block, kmax_aux, opt_bins, s(1, 1), txc(1, 2), z_aux, pdf)
 
             ! write (fname, *) itime; fname = 'cavgGiGi'//trim(adjustl(fname))
             ! call CAVG1V_N(fname, rtime, imax*opt_block, kmax_aux, kmax, &
@@ -432,7 +433,7 @@ program PDFS
             ifield = ifield + 1; vars(ifield)%field => txc(:, 4); vars(ifield)%tag = 'Gphi'; ibc(ifield) = 2
 
             write (fname, *) itime; fname = 'pdf'//trim(adjustl(fname))//'.GphiS'
-            call PDF2V(fname, rtime, imax, jmax*opt_block, kmax_aux, opt_bins, s(1, 1), txc(1, 4), z_aux, pdf)
+            call PDF2V(fname, imax, jmax*opt_block, kmax_aux, opt_bins, s(1, 1), txc(1, 4), z_aux, pdf)
 
             ! ###################################################################
             ! eigenvalues of rate-of-strain tensor
@@ -549,7 +550,7 @@ program PDFS
 
             write (fname, *) itime; fname = 'pdf'//trim(adjustl(fname))
             call PDF1V_N(fname, imax, jmax*opt_block, kmax_aux, &
-                         ifield, opt_bins(1), ibc, vmin, vmax, vars, gate_level, gate, z_aux, pdf)
+                         ifield, opt_bins(1), ibc, vmin, vmax, vars, z_aux, pdf)
 
         end if
 
@@ -593,7 +594,7 @@ contains
         ! -------------------------------------------------------------------
         opt_main = -1 ! default values
         opt_block = 1
-        gate_level = 0
+        ! gate_level = 0
         opt_bins = 16
 
         call ScanFile_Char(bakfile, ifile, 'PostProcessing', 'ParamPdfs', '-1', sRes)

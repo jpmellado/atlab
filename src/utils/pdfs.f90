@@ -12,7 +12,7 @@ module PDFS
     public :: PDF_ANALYZE
 
     ! -------------------------------------------------------------------
-    integer(wi) i, j, up, vp, ip, offset
+    integer(wi) i, j, up, vp
     real(wp) umin, umax, ustep
 
 #ifdef USE_MPI
@@ -33,7 +33,7 @@ contains
         integer(wi), intent(IN) :: ilim, nx, ny, nz, k, nbins
         real(wp), intent(IN) :: umin_ext, umax_ext
         real(wp), intent(IN) :: u(nx, ny, nz)
-        real(wp), intent(OUT) :: pdf(nbins + 2)            ! Space at the end for min/max bins of u
+        real(wp), intent(OUT) :: pdf(nbins + 2)         ! Space at the end for min/max bins of u
         real(wp), intent(INOUT) :: wrk1d(nbins)
         real(wp), optional :: a(nx, ny, nz), avg(nbins) ! For conditional average, if needed
 
@@ -214,18 +214,18 @@ contains
     !########################################################################
     ! Joint PDFs
     !########################################################################
-    subroutine PDF2V2D(nx, ny, nz, k, u, v, nbins, pdf, wrk2d, a, avg)
+    subroutine PDF2V2D(nx, ny, nz, k, u, v, nbins, pdf, ranges, wrk2d, a, avg)
         integer(wi), intent(IN) :: nx, ny, nz, k, nbins(2)
         real(wp), intent(IN) :: u(nx, ny, nz), v(nx, ny, nz)
-        real(wp), intent(OUT) :: pdf(nbins(1)*nbins(2) + 2 + 2*nbins(1)) ! Space at the end for min/max bins of u,v
-        real(wp), intent(INOUT) :: wrk2d(nbins(1), nbins(2))              ! nbins(2) should be greater than 2 for enough memory space
-        real(wp), optional :: a(nx, ny, nz), avg(nbins(1)*nbins(2))   ! For conditional average, if needed
+        real(wp), intent(OUT) :: pdf(nbins(1), nbins(2))
+        real(wp), intent(OUT) :: ranges(2, 0:nbins(1))              ! min/max bins of v for each u value
+        !                                                             0 is global min/max of u
+        real(wp), intent(INOUT) :: wrk2d(nbins(1), nbins(2))        ! nbins(2) should be greater than 2 for enough memory space
+        real(wp), optional :: a(nx, ny, nz), avg(nbins(1), nbins(2))! For conditional average, if needed
 
         ! ###################################################################
-        pdf = 0.0_wp
-        if (present(avg)) avg = 0.0_wp
-
-        offset = nbins(1)*nbins(2) + 2
+        pdf(:, :) = 0.0_wp
+        if (present(avg)) avg(:, :) = 0.0_wp
 
         ! -------------------------------------------------------------------
         ! Calculate Minimum and Maximum
@@ -247,10 +247,12 @@ contains
         umax = umax_p
 #endif
 
-        ustep = (umax - umin)/real(nbins(1), wp)         ! Calculate step in histogram
-        pdf(nbins(1)*nbins(2) + 1) = umin + 0.5_wp*ustep ! Calculate coordinate of histogram
-        pdf(nbins(1)*nbins(2) + 2) = umax - 0.5_wp*ustep
-        if (ustep == 0.0_wp) ustep = 1.0_wp            ! Just 1 point, prevent division by zero and force all in first bin
+        ustep = (umax - umin)/real(nbins(1), wp)        ! Calculate step in histogram
+        ! pdf(nbins(1)*nbins(2) + 1) = umin + 0.5_wp*ustep ! Calculate coordinate of histogram
+        ! pdf(nbins(1)*nbins(2) + 2) = umax - 0.5_wp*ustep
+        ranges(1, 0) = umin + 0.5_wp*ustep              ! Calculate coordinate of histogram
+        ranges(2, 0) = umax - 0.5_wp*ustep
+        if (ustep == 0.0_wp) ustep = 1.0_wp             ! Just 1 point, prevent division by zero and force all in first bin
 
         ! Second variable
 #define vmin(ib)   wrk2d(ib,1)
@@ -274,11 +276,13 @@ contains
         vmax(1:nbins(1)) = vstep(1:nbins(1))
 #endif
 
-        do up = 1, nbins(1)                                          ! Calculate step in histogram
+        do up = 1, nbins(1)                                         ! Calculate step in histogram
             vstep(up) = (vmax(up) - vmin(up))/real(nbins(2), wp)
-            ip = offset + up; pdf(ip) = vmin(up) + 0.5_wp*vstep(up)   ! Calculate coordinate of histogram
-            ip = ip + nbins(1); pdf(ip) = vmax(up) - 0.5_wp*vstep(up)
-            if (vstep(up) == 0.0_wp) vstep(up) = 1.0_wp               ! Just 1 point, prevent division by zero and force all in first bin
+            ! ip = offset + up; pdf(ip) = vmin(up) + 0.5_wp*vstep(up)   ! Calculate coordinate of histogram
+            ! ip = ip + nbins(1); pdf(ip) = vmax(up) - 0.5_wp*vstep(up)
+            ranges(1, up) = vmin(up) + 0.5_wp*vstep(up)             ! Calculate coordinate of histogram
+            ranges(2, up) = vmax(up) - 0.5_wp*vstep(up)
+            if (vstep(up) == 0.0_wp) vstep(up) = 1.0_wp             ! Just 1 point, prevent division by zero and force all in first bin
         end do
 
         ! -------------------------------------------------------------------
@@ -290,9 +294,10 @@ contains
                 up = min(up, nbins(1))
                 vp = int((v(i, j, k) - vmin(up))/vstep(up)) + 1
                 vp = min(vp, nbins(2))
-                ip = (vp - 1)*nbins(1) + up
-                pdf(ip) = pdf(ip) + 1.0_wp
-                if (present(a) .and. present(avg)) avg(ip) = avg(ip) + a(i, j, k)
+                ! ip = (vp - 1)*nbins(1) + up
+                ! pdf(ip) = pdf(ip) + 1.0_wp
+                pdf(up, vp) = pdf(up, vp) + 1.0_wp
+                if (present(a) .and. present(avg)) avg(up, vp) = avg(up, vp) + a(i, j, k)
             end do
         end do
 
@@ -303,18 +308,20 @@ contains
 #ifdef USE_MPI
         impi = nbins(1)*nbins(2)
         call MPI_ALLREDUCE(pdf, wrk2d, impi, MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ims_err)
-        pdf(1:nbins(1)*nbins(2)) = wrk2d(1:nbins(1)*nbins(2), 1)
+        pdf(:, :) = wrk2d(:, :)
         if (present(avg)) then
             call MPI_ALLREDUCE(avg, wrk2d, impi, MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ims_err)
-            avg(1:nbins(1)*nbins(2)) = wrk2d(1:nbins(1)*nbins(2), 1)
+            avg(:, :) = wrk2d(:, :)
         end if
 #endif
 
         if (present(avg)) then              ! Save avg data in pdf array
-            do ip = 1, nbins(1)*nbins(2)
-                if (pdf(ip) > 0.0_wp) then       ! Avg remains zero if there is no point in this interval
-                    avg(ip) = avg(ip)/pdf(ip)
-                end if
+            do vp = 1, nbins(2)
+                do up = 1, nbins(1)
+                    if (pdf(up, vp) > 0.0_wp) then       ! Avg remains zero if there is no point in this interval
+                        avg(up, vp) = avg(up, vp)/pdf(up, vp)
+                    end if
+                end do
             end do
         end if
 

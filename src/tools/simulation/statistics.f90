@@ -74,7 +74,7 @@ contains
     subroutine Statistics_Compute()
         use TLab_Memory, only: inb_scal_array, isize_field, imax, jmax, kmax
         use TLab_WorkFlow, only: scal_on
-        use TLab_Arrays, only: q, s, txc, wrk3d
+        use TLab_Arrays, only: q, s, txc
         use TLab_Pointers, only: pointers_dt
         use TLab_Grid, only: z
         use NavierStokes, only: nse_eqns, DNS_EQNS_ANELASTIC, DNS_EQNS_BOUSSINESQ
@@ -83,6 +83,7 @@ contains
         use NSE_Pressure
         use TimeMarching, only: hq
         use FI_VORTICITY_EQN
+        use StatsPDFs
 
         ! -------------------------------------------------------------------
         integer is
@@ -91,7 +92,7 @@ contains
         real(wp) amin(nfield_max), amax(nfield_max)
         character*32 fname
         character*64 str
-        integer(1) igate
+        ! integer(1) igate
         ! integer(1), allocatable, save :: gate(:)
 
         ! ###################################################################
@@ -144,11 +145,9 @@ contains
                 write (str, *) is; vars(nfield)%tag = trim(adjustl(vars(nfield)%tag))//trim(adjustl(str))
             end do
 
-            igate = 0           ! no intermittency partition
-
             write (fname, *) itime; fname = 'pdf'//trim(adjustl(fname))
             call PDF1V_N(fname, imax, jmax, kmax, &
-                         nfield, nbins, ibc, amin, amax, vars, igate, wrk3d, z%nodes, pdfs)
+                         nfield, nbins, ibc, amin, amax, vars, z%nodes, pdfs)
 
         end if
 

@@ -4,27 +4,33 @@
 !#
 !########################################################################
 module IO_PDFS
-contains
-    subroutine IO_Write_PDFs(fname, itime, rtime, z, pdf, varnames)
-        use TLab_Constants, only: wp, sp, wi
-        use TLab_Constants, only: lfile
-        use TLab_WorkFlow, only: TLab_Write_ASCII
+    use TLab_Constants, only: wp, sp, wi
+    use TLab_Constants, only: lfile
+    use TLab_WorkFlow, only: TLab_Write_ASCII
 #ifdef USE_NETCDF
-        use NETCDF
+    use NETCDF
 #else
-        use IO_Fields
+    use IO_Fields, only: IO_Open_File
 #endif
 #ifdef USE_MPI
-        use mpi_f08, only: MPI_COMM_WORLD, MPI_COMM_RANK
+    use mpi_f08, only: MPI_COMM_WORLD, MPI_COMM_RANK
 #endif
-        implicit none
+    implicit none
+    private
 
+    public :: IO_Write_PDFs_1D
+    public :: IO_Write_PDFs_2D
+
+contains
+    ! ###################################################################
+    ! ###################################################################
+    subroutine IO_Write_PDFs_1D(fname, itime, rtime, z, pdf, varnames)
         character(len=*), intent(in) :: fname
         integer(wi), intent(in) :: itime
         real(wp), intent(in) :: rtime
         real(wp), intent(in) :: z(:)
         real(wp), intent(in) :: pdf(:, :, :)
-        character(len=*), intent(in) :: varnames(size(pdf, 3))
+        character(len=*), intent(in) :: varnames(:)
 
         ! -------------------------------------------------------------------
         integer nbins, nv, iv, nz
@@ -53,6 +59,9 @@ contains
             nz = size(pdf, 2) - 1       ! Second index is height; last one is global PDF
             nv = size(pdf, 3)           ! Third index is variable
 
+            ! -----------------------------------------------------------------------
+            ! Using NetCDF format
+#ifdef USE_NETCDF
             if (allocated(vid)) deallocate (vid)
             allocate (vid(1:nv))
             if (allocated(vid_range)) deallocate (vid_range)
@@ -62,9 +71,6 @@ contains
             if (allocated(vid_global_range)) deallocate (vid_global_range)
             allocate (vid_global_range(1:nv))
 
-            ! -----------------------------------------------------------------------
-            ! Using NetCDF format
-#ifdef USE_NETCDF
             call NC_CHECK(NF90_CREATE(trim(adjustl(fname))//'.nc', NF90_NETCDF4, fid))
 
             call NC_CHECK(NF90_DEF_DIM(fid, "t", NF90_UNLIMITED, dtid))
@@ -108,9 +114,9 @@ contains
                 call TLab_Write_ASCII(lfile, 'Writing field '//trim(adjustl(name))//'...')
                 call IO_Open_File(name, LOC_STATUS, LOC_UNIT_ID)
                 if (nz > 1) then
-                    write (LOC_UNIT_ID) SNGL(rtime), nz, nbins, SNGL(z(:)), SNGL(pdf(:, :, iv))
+                    write (LOC_UNIT_ID) real(rtime, sp), nz, nbins, real(z(:), sp), real(pdf(:, :, iv), sp)
                 else
-                    write (LOC_UNIT_ID) SNGL(rtime), nz, nbins, SNGL(z(:)), SNGL(pdf(:, 1, iv))
+                    write (LOC_UNIT_ID) real(rtime, sp), nz, nbins, real(z(:), sp), SNGL(pdf(:, 1, iv), sp)
                 end if
                 close (LOC_UNIT_ID)
             end do
@@ -122,24 +128,88 @@ contains
 #endif
 
         return
-    contains
+    end subroutine IO_Write_PDFs_1D
+
+    ! ###################################################################
+    ! ###################################################################
+    subroutine IO_Write_PDFs_2D(fname, itime, rtime, z, pdf, ranges)
+        character(len=*), intent(in) :: fname
+        integer(wi), intent(in) :: itime
+        real(wp), intent(in) :: rtime
+        real(wp), intent(in) :: z(:)
+        real(wp), intent(in) :: pdf(:, :, :)
+        real(wp), intent(in) :: ranges(:, :, :)
+
+        ! -------------------------------------------------------------------
+        integer nz
+
+#ifdef USE_NETCDF
+        ! integer fid, dtid, dbid, drid, dzid, tid, zid, itid
+        ! integer, allocatable :: vid(:), vid_range(:)
+        ! integer, allocatable :: vid_global(:), vid_global_range(:)
+#endif
+
+#ifdef USE_MPI
+        integer locRank, ims_err
+        call MPI_COMM_RANK(MPI_COMM_WORLD, locRank, ims_err)
+#endif
+
+        ! ###################################################################
+        call TLab_Write_ASCII(lfile, 'Writing '//trim(adjustl(fname))//'...')
+
+#ifdef USE_MPI
+        if (locRank == 0) then
+#endif
+
+            ! nbins = size(pdf, 1) - 2    ! First index is random variable; last 2 values are min and max
+            nz = size(pdf, 2) - 1       ! Second index is height; last one is global PDF
+
+            ! -----------------------------------------------------------------------
+            ! Using NetCDF format
+#ifdef USE_NETCDF
+            ! to be done
+
+            ! -----------------------------------------------------------------------
+            ! Using ASCII format; to be checked
+#else
+
+#define LOC_UNIT_ID 21
+#define LOC_STATUS 'unknown'
+            call TLab_Write_ASCII(lfile, 'Writing field '//trim(adjustl(fname))//'...')
+            call IO_Open_File(fname, LOC_STATUS, LOC_UNIT_ID)
+            ! if (nz > 1) then
+                write (LOC_UNIT_ID) real(time, sp), nz, nbins, real(z(:), sp), real(pdf(:, :), sp)
+            ! else
+            !     write (LOC_UNIT_ID) real(time, sp), nz, nbins, real(z(:), sp), real(pdf(:, 1), sp)
+            ! end if
+            close (LOC_UNIT_ID)
+
+#endif
+
+#ifdef USE_MPI
+        end if
+#endif
+
+        return
+    end subroutine IO_Write_PDFs_2D
+
+! ###################################################################
 ! ###################################################################
 #include "tlab_error.h"
 
 #ifdef USE_NETCDF
-        subroutine NC_CHECK(status)
-            use TLab_Constants, only: efile
-            use TLab_WorkFlow, only: TLab_Stop
-            integer, intent(in) :: status
+    subroutine NC_CHECK(status)
+        use TLab_Constants, only: efile
+        use TLab_WorkFlow, only: TLab_Stop
+        integer, intent(in) :: status
 
-            if (status /= nf90_noerr) then
-                call TLab_Write_ASCII(efile, __FILE__//'. NETCDF error signal '//trim(adjustl(NF90_STRERROR(status))))
-                call TLab_Stop(DNS_ERROR_UNDEVELOP)
-            end if
+        if (status /= nf90_noerr) then
+            call TLab_Write_ASCII(efile, __FILE__//'. NETCDF error signal '//trim(adjustl(NF90_STRERROR(status))))
+            call TLab_Stop(DNS_ERROR_UNDEVELOP)
+        end if
 
-            return
-        end subroutine NC_CHECK
+        return
+    end subroutine NC_CHECK
 #endif
 
-    end subroutine IO_Write_PDFs
 end module

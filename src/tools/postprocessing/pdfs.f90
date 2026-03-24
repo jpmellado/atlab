@@ -199,6 +199,8 @@ program PDFS
             ! Main variable 2D-PDF
             ! ###################################################################
         case (1)
+            write (fname, *) itime; fname = 'pdf'//trim(adjustl(fname))
+
             ifield = ifield + 1; vars(ifield)%field => q(:, 1); vars(ifield)%tag = 'u'
             ifield = ifield + 1; vars(ifield)%field => q(:, 2); vars(ifield)%tag = 'v'
             ifield = ifield + 1; vars(ifield)%field => q(:, 3); vars(ifield)%tag = 'w'
@@ -224,6 +226,7 @@ program PDFS
             ! Scalar gradient equation
             ! ###################################################################
         case (2)
+            write (fname, *) itime; fname = 'pdfG2'//trim(adjustl(fname))
             call TLab_Write_ASCII(lfile, 'Computing scalar gradient equation...')
 
             call FI_GRADIENT_PRODUCTION(imax, jmax, kmax, s, q(1, 1), q(1, 2), q(1, 3), &
@@ -245,6 +248,7 @@ program PDFS
             ! Enstrophy equation
             ! ###################################################################
         case (3)
+            write (fname, *) itime; fname = 'pdfW2'//trim(adjustl(fname))
             call TLab_Write_ASCII(lfile, 'Computing enstrophy equation...')
 
             if (any([DNS_EQNS_BOUSSINESQ, DNS_EQNS_ANELASTIC] == nse_eqns)) then
@@ -304,6 +308,7 @@ program PDFS
             ! Strain equation
             ! ###################################################################
         case (4)
+            write (fname, *) itime; fname = 'pdfS2'//trim(adjustl(fname))
             call TLab_Write_ASCII(lfile, 'Computing strain equation...')
 
             if (any([DNS_EQNS_BOUSSINESQ, DNS_EQNS_ANELASTIC] == nse_eqns)) then
@@ -338,6 +343,7 @@ program PDFS
             ! Velocity gradient invariants
             ! ###################################################################
         case (5)
+            write (fname, *) itime; fname = 'pdfInv'//trim(adjustl(fname))
             call TLab_Write_ASCII(lfile, 'Computing velocity gradient invariants...')
 
             call FI_INVARIANT_R(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), txc(1, 1), txc(1, 2), txc(1, 3), txc(1, 4), txc(1, 5), txc(1, 6))
@@ -362,6 +368,7 @@ program PDFS
             ! Joint PDF W^2 and 2S^2
             ! ###################################################################
         case (6)
+            write (fname, *) itime; fname = 'pdf'//trim(adjustl(fname))
             call TLab_Write_ASCII(lfile, 'Computing enstrophy-strain pdf...')
 
             call FI_VORTICITY(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), txc(1, 1), txc(1, 2), txc(1, 3))
@@ -382,6 +389,7 @@ program PDFS
             ! Joint PDF Scalar and Scalar Gradient
             ! ###################################################################
         case (7)
+            write (fname, *) itime; fname = 'pdfSGi'//trim(adjustl(fname))
             call TLab_Write_ASCII(lfile, 'Computing scalar-scalar--gradient pdf...')
 
             call FI_GRADIENT(imax, jmax, kmax, s, txc(1, 1), txc(1, 2))
@@ -412,8 +420,8 @@ program PDFS
             ! ###################################################################
             ! Scalar gradient components
             ! ###################################################################
-            ! Check angles for new frame of reference
         case (8)
+            write (fname, *) itime; fname = 'pdfGi'//trim(adjustl(fname))
             call TLab_Write_ASCII(lfile, 'Computing scalar gradient components...')
 
             call OPR_Partial_X(OPR_P1, imax, jmax, kmax, s, txc(1, 1))
@@ -422,8 +430,8 @@ program PDFS
             ! Angles; s array is overwritten to save space
             do ij = 1, isize_field
                 dummy = txc(ij, 3)/sqrt(txc(ij, 1)*txc(ij, 1) + txc(ij, 2)*txc(ij, 2) + txc(ij, 3)*txc(ij, 3))
-                txc(ij, 4) = asin(dummy)                 ! with Oz
-                s(ij, 1) = atan2(txc(ij, 2), txc(ij, 1))  ! with Ox in plane xOy
+                txc(ij, 4) = asin(dummy)                    ! with Oz
+                s(ij, 1) = atan2(txc(ij, 2), txc(ij, 1))    ! with Ox in plane xOy
             end do
 
             ifield = ifield + 1; vars(ifield)%field => txc(:, 1); vars(ifield)%tag = 'Gx'; ibc(ifield) = 2
@@ -439,6 +447,7 @@ program PDFS
             ! eigenvalues of rate-of-strain tensor
             ! ###################################################################
         case (9)
+            write (fname, *) itime; fname = 'pdfEig'//trim(adjustl(fname))
             call TLab_Write_ASCII(lfile, 'Computing eigenvalues of Sij...')
 
             call FI_STRAIN_TENSOR(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), txc(1, 1), txc(1, 2), txc(1, 3), txc(1, 4), txc(1, 5), txc(1, 6))
@@ -452,6 +461,7 @@ program PDFS
             ! eigenframe of rate-of-strain tensor
             ! ###################################################################
         case (10)
+            write (fname, *) itime; fname = 'pdfCos'//trim(adjustl(fname))
             call TLab_Write_ASCII(lfile, 'Computing eigenframe of Sij...')
 
             call FI_STRAIN_TENSOR(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), txc(1, 1), txc(1, 2), txc(1, 3), txc(1, 4), txc(1, 5), txc(1, 6))
@@ -496,6 +506,7 @@ program PDFS
             ! Longitudinal velocity derivatives
             ! ###################################################################
         case (11)
+            write (fname, *) itime; fname = 'pdfUDer'//trim(adjustl(fname))
             call TLab_Write_ASCII(lfile, 'Computing longitudinal velocity derivatives...')
 
             call OPR_Partial_X(OPR_P1, imax, jmax, kmax, q(1, 1), txc(1, 1))
@@ -510,6 +521,7 @@ program PDFS
             ! Potential vorticity
             ! ###################################################################
         case (12)
+            write (fname, *) itime; fname = 'pdfPV'//trim(adjustl(fname))
             call TLab_Write_ASCII(lfile, 'Computing potential vorticity...')
 
             call FI_CURL(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), txc(1, 1), txc(1, 2), txc(1, 3), txc(1, 4))
@@ -548,7 +560,6 @@ program PDFS
                 end do
             end if
 
-            write (fname, *) itime; fname = 'pdf'//trim(adjustl(fname))
             call PDF1V_N(fname, imax, jmax*opt_block, kmax_aux, &
                          ifield, opt_bins(1), ibc, vmin, vmax, vars, z_aux, pdf)
 

@@ -550,7 +550,7 @@ program AVERAGES
             ! longitudinal velocity derivatives
             ! ###################################################################
         case (12)
-            write (fname, *) itime; fname = 'avgDer'//trim(adjustl(fname))
+            write (fname, *) itime; fname = 'avgUDer'//trim(adjustl(fname))
             call TLab_Write_ASCII(lfile, 'Computing '//trim(adjustl(fname))//'...')
             ifield = 0
 

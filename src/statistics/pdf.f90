@@ -11,40 +11,30 @@
 !#                      5 local interval, analysis and drop both points
 !#
 !########################################################################
-subroutine PDF1V_N(fname, time, nx, ny, nz, nv, nbins, ibc, umin, umax, u, igate, gate, z, pdf)
+subroutine PDF1V_N(fname, nx, ny, nz, nv, nbins, ibc, umin, umax, u, igate, gate, z, pdf)
     use TLab_Constants, only: wp, wi
     use TLab_Constants, only: lfile
+    use TLab_Time, only: itime, rtime
     use TLab_Pointers, only: pointers_dt
     use TLab_Arrays, only: wrk1d
     use TLab_WorkFlow, only: TLab_Write_ASCII
     use IO_Fields
     use PDFS
-#ifdef USE_MPI
-    use mpi_f08
-#endif
-
+    use IO_PDFS
     implicit none
 
     character(len=*), intent(IN) :: fname
-    real(wp), intent(IN) :: time
     integer(wi), intent(IN) :: nx, ny, nz, nv, nbins, ibc(nv)
     real(wp), intent(IN) :: umin(nv), umax(nv)              ! Random variables
     type(pointers_dt), intent(IN) :: u(nv)
     integer(1), intent(IN) :: gate(*), igate                ! discrete conditioning criteria
     real(wp), intent(IN) :: z(nz)                           ! heights of each plane
-    real(wp), intent(OUT) :: pdf(nbins + 2, nz + 1, nv)     ! last 2 bins contain the interval bounds
+    real(wp), intent(inout) :: pdf(nbins + 2, nz + 1, nv)     ! last 2 bins contain the interval bounds
 
     ! -------------------------------------------------------------------
     integer(wi) iv, k, nplim, ibc_loc
     real(wp) plim, umin_loc, umax_loc
-
-    character*64 name
-
-#ifdef USE_MPI
-    integer ims_pro, ims_err
-    call MPI_COMM_RANK(MPI_COMM_WORLD, ims_pro, ims_err)
-#endif
-
+ 
     ! ###################################################################
     call TLab_Write_ASCII(lfile, 'Calculating '//trim(adjustl(fname))//'...')
 
@@ -93,28 +83,7 @@ subroutine PDF1V_N(fname, time, nx, ny, nz, nv, nbins, ibc, umin, umax, u, igate
     end do
 
     ! ###################################################################
-#ifdef USE_MPI
-    if (ims_pro == 0) then
-#endif
-
-#define LOC_UNIT_ID 21
-#define LOC_STATUS 'unknown'
-        do iv = 1, nv
-            name = trim(adjustl(fname))
-            if (u(iv)%tag /= '') name = trim(adjustl(fname))//'.'//trim(adjustl(u(iv)%tag))
-            call TLab_Write_ASCII(lfile, 'Writing field '//trim(adjustl(name))//'...')
-            call IO_Open_File(name, LOC_STATUS, LOC_UNIT_ID)
-            if (nz > 1) then
-                write (LOC_UNIT_ID) SNGL(time), nz, nbins, SNGL(z(:)), SNGL(pdf(:, :, iv))
-            else
-                write (LOC_UNIT_ID) SNGL(time), nz, nbins, SNGL(z(:)), SNGL(pdf(:, 1, iv))
-            end if
-            close (LOC_UNIT_ID)
-        end do
-
-#ifdef USE_MPI
-    end if
-#endif
+    call IO_Write_PDFs(fname, itime, rtime, z, pdf, u(1:nv)%tag)
 
     return
 

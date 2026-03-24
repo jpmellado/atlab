@@ -137,7 +137,7 @@ program PDFS
     ! Space for the 3D pdf at kmax_aux+1
     allocate (pdf(isize_pdf*(kmax_aux + 1)*nfield))
 
-    ibc(1:nfield) = 1
+    ibc(1:nfield) = 1       ! default is to consider local interval; see pdf1v_n
 
     ! ###################################################################
     ! Postprocess given list of files
@@ -548,7 +548,7 @@ program PDFS
             end if
 
             write (fname, *) itime; fname = 'pdf'//trim(adjustl(fname))
-            call PDF1V_N(fname, rtime, imax, jmax*opt_block, kmax_aux, &
+            call PDF1V_N(fname, imax, jmax*opt_block, kmax_aux, &
                          ifield, opt_bins(1), ibc, vmin, vmax, vars, gate_level, gate, z_aux, pdf)
 
         end if

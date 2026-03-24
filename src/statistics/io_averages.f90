@@ -14,7 +14,7 @@ subroutine IO_WRITE_AVERAGES(fname, itime, rtime, nz, nv, ng, z, varnames, group
 #ifdef USE_NETCDF
     use NETCDF
 #else
-    use TLab_WorkFlow, only : TLab_Stop
+    use TLab_WorkFlow, only: TLab_Stop
 #endif
     implicit none
 
@@ -126,24 +126,25 @@ subroutine IO_WRITE_AVERAGES(fname, itime, rtime, nz, nv, ng, z, varnames, group
 #endif
 
     return
-end subroutine IO_WRITE_AVERAGES
-
+contains
 ! ###################################################################
 #ifdef USE_NETCDF
-subroutine NC_CHECK(status)
-    use TLab_Constants, only: efile
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
-    use NETCDF
+    subroutine NC_CHECK(status)
+        use TLab_Constants, only: efile
+        use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
+        use NETCDF
 
-    implicit none
+        implicit none
 
-    integer, intent(IN) :: status
+        integer, intent(IN) :: status
 
-    if (status /= nf90_noerr) then
-        call TLab_Write_ASCII(efile, 'NETCDF error signal '//trim(adjustl(NF90_STRERROR(status))))
-        call TLab_Stop(DNS_ERROR_UNDEVELOP)
-    end if
+        if (status /= nf90_noerr) then
+            call TLab_Write_ASCII(efile, 'NETCDF error signal '//trim(adjustl(NF90_STRERROR(status))))
+            call TLab_Stop(DNS_ERROR_UNDEVELOP)
+        end if
 
-    return
-end subroutine NC_CHECK
+        return
+    end subroutine NC_CHECK
 #endif
+
+end subroutine IO_WRITE_AVERAGES

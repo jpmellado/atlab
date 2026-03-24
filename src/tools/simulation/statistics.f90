@@ -11,9 +11,15 @@ module Statistics
 
     ! -------------------------------------------------------------------
     logical :: stats_averages = .false.
-    logical :: stats_pdfs = .false.
-    logical :: stats_intermittency = .false.
     real(wp), allocatable :: mean(:, :)
+
+    logical :: stats_pdfs = .false.
+    real(wp), allocatable :: pdfs(:, :, :)
+    integer, parameter :: nfield_max = 16
+    integer :: nbins = 32
+    integer :: ibc(1:nfield_max) = 1   ! consider local interval of random variable; see pdf1v_n
+
+    logical :: stats_intermittency = .false.
 
 contains
 
@@ -53,7 +59,12 @@ contains
 
         ! ###################################################################
         ! Memory management
-        call TLab_Allocate_Real(__FILE__, mean, [kmax, MAX_AVG_TEMPORAL], 'mean')
+        if (stats_averages) then
+            call TLab_Allocate_Real(__FILE__, mean, [kmax, MAX_AVG_TEMPORAL], 'mean')
+        end if
+        if (stats_pdfs) then
+            call TLab_Allocate_Real(__FILE__, pdfs, [nbins + 2, kmax + 1, nfield_max], 'pdfs')
+        end if
 
         return
     end subroutine Statistics_Initialize
@@ -61,28 +72,26 @@ contains
     !########################################################################
     !########################################################################
     subroutine Statistics_Compute()
-        ! use TLab_Pointers, only: pointers_dt
-        use TLab_Memory, only: inb_scal_array, isize_field
-        use NavierStokes, only: nse_eqns, DNS_EQNS_ANELASTIC, DNS_EQNS_BOUSSINESQ
+        use TLab_Memory, only: inb_scal_array, isize_field, imax, jmax, kmax
         use TLab_WorkFlow, only: scal_on
-        use TLab_Arrays
-        ! use NavierStokes, only: froude, schmidt
-        ! use TLab_Time, only: itime !, rtime
+        use TLab_Arrays, only: q, s, txc, wrk3d
+        use TLab_Pointers, only: pointers_dt
+        use TLab_Grid, only: z
+        use NavierStokes, only: nse_eqns, DNS_EQNS_ANELASTIC, DNS_EQNS_BOUSSINESQ
+        use TLab_Time, only: itime
         ! use Thermo_Anelastic
         use NSE_Pressure
         use TimeMarching, only: hq
-        ! use PARTICLE_VARS
-        ! use PARTICLE_ARRAYS
         use FI_VORTICITY_EQN
 
         ! -------------------------------------------------------------------
-        ! real(wp) dummy, amin(16), amax(16)
-        integer is !, idummy, nbins, ibc(16), nfield
-        ! integer(wi) ij
-        ! type(pointers_dt) vars(16)
-        ! character*32 fname !, gatename(1)
-        ! character*64 str
-        ! integer(1) igate
+        integer is
+        integer nfield
+        type(pointers_dt) vars(nfield_max)
+        real(wp) amin(nfield_max), amax(nfield_max)
+        character*32 fname
+        character*64 str
+        integer(1) igate
         ! integer(1), allocatable, save :: gate(:)
 
         ! ###################################################################
@@ -117,33 +126,31 @@ contains
         ! ###################################################################
         ! Unconditional plane PDFs
         ! ###################################################################
-        ! if (stats_pdfs) then
-        !     nfield = 0
-        !     nfield = nfield + 1; vars(nfield)%field => q(:, 1); vars(nfield)%tag = 'u'
-        !     nfield = nfield + 1; vars(nfield)%field => q(:, 2); vars(nfield)%tag = 'v'
-        !     nfield = nfield + 1; vars(nfield)%field => q(:, 3); vars(nfield)%tag = 'w'
-        !     if (any([DNS_EQNS_BOUSSINESQ, DNS_EQNS_ANELASTIC] == nse_eqns)) then
-        !         nfield = nfield + 1; vars(nfield)%field => txc(:, 3); vars(nfield)%tag = 'p'
-        !     else
-        !         nfield = nfield + 1; vars(nfield)%field => q(:, 6); vars(nfield)%tag = 'p'
-        !         nfield = nfield + 1; vars(nfield)%field => q(:, 5); vars(nfield)%tag = 'r'
-        !         nfield = nfield + 1; vars(nfield)%field => q(:, 7); vars(nfield)%tag = 't'
-        !     end if
+        if (stats_pdfs) then
+            nfield = 0
+            nfield = nfield + 1; vars(nfield)%field => q(:, 1); vars(nfield)%tag = 'u'
+            nfield = nfield + 1; vars(nfield)%field => q(:, 2); vars(nfield)%tag = 'v'
+            nfield = nfield + 1; vars(nfield)%field => q(:, 3); vars(nfield)%tag = 'w'
+            if (any([DNS_EQNS_BOUSSINESQ, DNS_EQNS_ANELASTIC] == nse_eqns)) then
+                nfield = nfield + 1; vars(nfield)%field => txc(:, 1); vars(nfield)%tag = 'p'
+            else
+                nfield = nfield + 1; vars(nfield)%field => q(:, 6); vars(nfield)%tag = 'p'
+                nfield = nfield + 1; vars(nfield)%field => q(:, 5); vars(nfield)%tag = 'r'
+                nfield = nfield + 1; vars(nfield)%field => q(:, 7); vars(nfield)%tag = 't'
+            end if
 
-        !     do is = 1, inb_scal_array
-        !         nfield = nfield + 1; vars(nfield)%field => s(:, is); vars(nfield)%tag = 's'
-        !         write (str, *) is; vars(nfield)%tag = trim(adjustl(vars(nfield)%tag))//trim(adjustl(str))
-        !     end do
+            do is = 1, inb_scal_array
+                nfield = nfield + 1; vars(nfield)%field => s(:, is); vars(nfield)%tag = 's'
+                write (str, *) is; vars(nfield)%tag = trim(adjustl(vars(nfield)%tag))//trim(adjustl(str))
+            end do
 
-        !     ibc(1:nfield) = 2 ! BCs in the calculation of the PDFs
-        !     igate = 0         ! no intermittency partition
+            igate = 0           ! no intermittency partition
 
-        !     nbins = 32
-        !     write (fname, *) itime; fname = 'pdf'//trim(adjustl(fname))
-        !     call PDF1V_N(fname, rtime, imax, jmax, kmax, &
-        !                  nfield, nbins, ibc, amin, amax, vars, igate, wrk3d, g(2)%nodes, txc)
+            write (fname, *) itime; fname = 'pdf'//trim(adjustl(fname))
+            call PDF1V_N(fname, imax, jmax, kmax, &
+                         nfield, nbins, ibc, amin, amax, vars, igate, wrk3d, z%nodes, pdfs)
 
-        ! end if
+        end if
 
         ! ###################################################################
         ! Plane averages

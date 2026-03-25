@@ -3,7 +3,7 @@ module StatsPDFs
     use TLab_Constants, only: lfile
     use TLab_WorkFlow, only: TLab_Write_ASCII
     use TLab_Time, only: itime, rtime
-    use PDFS
+    use PDF_kernels
     use IO_PDFS
     implicit none
     private

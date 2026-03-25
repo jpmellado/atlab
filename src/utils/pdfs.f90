@@ -1,4 +1,4 @@
-module PDFS
+module PDF_kernels
     use TLab_Constants, only: wp, wi, big_wp
 #ifdef USE_MPI
     use mpi_f08
@@ -383,4 +383,4 @@ contains
         return
     end subroutine PDF_ANALYZE
 
-end module PDFS
+end module PDF_kernels

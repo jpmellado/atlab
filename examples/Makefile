@@ -30,7 +30,7 @@ PRJS=\
      Case73 
 #     Case28 \
 
-FILES=avg* grid* flow* scal* tlab.log tlab.err tlab.war tlab.ini.bak dns.out part* traj* main.* field.* figure1.pdf gmon.out planes?.*
+FILES=avg* grid* flow* scal* tlab.log tlab.err tlab.war tlab.ini.bak dns.out part* traj* main.* field.* figure1.pdf gmon.out planes?.* pdf*
 
 PROCS=4
 MPIRUN="mpirun -np  $(PROCS)"

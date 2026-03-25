@@ -82,7 +82,7 @@ subroutine NSE_Anelastic_PerVolume(hq, hs, dte, remove_divergence)
     hq(:, 3) = hq(:, 3) - tmp2(:)
 
     return
-    
+
 contains
     subroutine Add_Residual_Divergence(hq)
         use TLab_Pointers_3D, only: p_q, pxy_tmp2 => tmp2, pxy_tmp3 => tmp3, pxy_tmp4 => tmp4
@@ -103,61 +103,3 @@ contains
     end subroutine
 
 end subroutine NSE_Anelastic_PerVolume
-
-subroutine NSE_Anelastic_PerVolume_BcsFlow(hq)
-    use TLab_Constants, only: wp
-    use TLab_Memory, only: imax, jmax, kmax, inb_flow
-    use BoundaryConditions, only: BcsFlowKmin, BcsFlowKmax, DNS_BCS_Neumann, BCS_Neumann_Z_PerVolume
-    use Thermo_Anelastic, only: rbackground
-    real(wp), intent(inout) :: hq(imax, jmax, kmax, inb_flow)
-
-    integer iq, ibc
-
-    BcsFlowKmin%ref = 0.0_wp ! default is no-slip (dirichlet)
-    BcsFlowKmax%ref = 0.0_wp
-
-    do iq = 1, inb_flow
-        ibc = 0
-        if (BcsFlowKmin%type(iq) == DNS_BCS_Neumann) ibc = ibc + 1
-        if (BcsFlowKmax%type(iq) == DNS_BCS_Neumann) ibc = ibc + 2
-        if (ibc > 0) then
-            call BCS_Neumann_Z_PerVolume(ibc, imax*jmax, kmax, hq(:, :, :, iq), &
-                                         BcsFlowKmin%ref(:, :, iq), BcsFlowKmax%ref(:, :, iq))
-        end if
-
-        hq(:, :, 1, iq) = BcsFlowKmin%ref(:, :, iq)*rbackground(1)
-        hq(:, :, kmax, iq) = BcsFlowKmax%ref(:, :, iq)*rbackground(kmax)
-
-    end do
-
-    return
-end subroutine
-
-subroutine NSE_Anelastic_PerVolume_BcsScal(hs)
-    use TLab_Constants, only: wp
-    use TLab_Memory, only: imax, jmax, kmax, inb_scal
-    use BoundaryConditions, only: BcsScalKmin, BcsScalKmax, DNS_BCS_Neumann, BCS_Neumann_Z_PerVolume
-    use Thermo_Anelastic, only: rbackground
-    real(wp), intent(inout) :: hs(imax, jmax, kmax, inb_scal)
-
-    integer is, ibc
-
-    BcsScalKmin%ref = 0.0_wp ! default is dirichlet
-    BcsScalKmax%ref = 0.0_wp
-
-    do is = 1, inb_scal
-        ibc = 0
-        if (BcsScalKmin%type(is) == DNS_BCS_Neumann) ibc = ibc + 1
-        if (BcsScalKmax%type(is) == DNS_BCS_Neumann) ibc = ibc + 2
-        if (ibc > 0) then
-            call BCS_Neumann_Z_PerVolume(ibc, imax*jmax, kmax, hs(:, :, :, is), &
-                                         BcsScalKmin%ref(:, :, is), BcsScalKmax%ref(:, :, is))
-        end if
-
-        hs(:, :, 1, is) = BcsScalKmin%ref(:, :, is)*rbackground(1)
-        hs(:, :, kmax, is) = BcsScalKmax%ref(:, :, is)*rbackground(kmax)
-
-    end do
-
-    return
-end subroutine

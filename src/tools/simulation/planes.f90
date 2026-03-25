@@ -169,9 +169,8 @@ contains
     subroutine planes_initialize(self, inifile, subaxis)
         use TLab_Grid, only: subaxis_dt
         class(planes_dt), intent(out) :: self
-        type(subaxis_dt), intent(in) :: subaxis
-
         character(len=*), intent(in) :: inifile
+        type(subaxis_dt), intent(in) :: subaxis
 
         ! -------------------------------------------------------------------
         character(len=32) bakfile, block, tag

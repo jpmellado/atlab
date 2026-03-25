@@ -89,7 +89,7 @@ contains
         if (nitera_filter <= 0) nitera_filter = nitera_last - nitera_first + 1
 
         ! Array sizes
-        inb_txc = 6
+        inb_txc = 4
 
         return
     end subroutine DNS_Initialize_Parameters

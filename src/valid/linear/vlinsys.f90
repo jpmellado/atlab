@@ -6,11 +6,16 @@ program vLinSys
     use MatMul_Thomas
     use Thomas
     use Thomas_Circulant
+    use TLab_Arrays, only: wrk2d
     implicit none
 
-    interface matmul_ice
+    interface matmul_generic
         procedure MatMul_X, MatMul_X_ThomasL_Y
-    end interface matmul_ice
+    end interface matmul_generic
+
+    interface matmul_halo_generic
+        procedure MatMul_Halo_X, MatMul_Halo_X_ThomasL_Y
+    end interface matmul_halo_generic
 
     integer(wi), parameter :: nlines = 1
     integer(wi), parameter :: nsize = 1024
@@ -19,7 +24,6 @@ program vLinSys
 
     real(wp) :: rhs(nsize, ndmax), lhs(nsize, ndmax + 2)
     real(wp) :: u(nlines, nsize), f(nlines, nsize)
-    real(wp) :: wrk(nlines)       ! for circulant case
 
     integer :: nseed
     integer, allocatable :: seed(:)
@@ -29,6 +33,10 @@ program vLinSys
 
     character(len=32) str
     logical, parameter :: circulant = .false.
+
+    type(thomas_dt) :: thomas
+    type(thomas_circulant_dt) :: thomas_circulant
+    allocate (wrk2d(nlines, 1))     ! needed in thomas_circulant
 
     ! ###################################################################
     ! random number initialization for reproducibility
@@ -49,7 +57,7 @@ program vLinSys
     call random_number(rhs)     ! diagonals in matrix A
     call random_number(u)       ! solution u
 
-    ! The points at the boundary, can have a longer stencil by using the left of the rhs array
+    ! In matmul, the points at the boundary can have a longer stencil by using the left of the rhs array
     rhs(1, 1) = 0.0_wp
     rhs(nsize, minval(list_of_cases):) = 0.0_wp
 
@@ -61,42 +69,18 @@ program vLinSys
         print *, new_line('a'), 'Solve biased system, bands ', nd
 
         lhs(:, 1:nd) = rhs(:, 1:nd)
-        call Thomas_FactorLU_InPlace(lhs(:, 1:nd/2), &
-                                     lhs(:, nd/2 + 1:nd))
-        ! select case (nd)
-        ! case (3)
-        !     call Thomas3_FactorLU_InPlace(lhs(:, 1:nd/2), &
-        !                                   lhs(:, nd/2 + 1:nd))
-        ! case (5)
-        !     call Thomas5_FactorLU_InPlace(lhs(:, 1:nd/2), &
-        !                                   lhs(:, nd/2 + 1:nd))
-        ! case (7)
-        !     call Thomas7_FactorLU_InPlace(lhs(:, 1:nd/2), &
-        !                                   lhs(:, nd/2 + 1:nd))
-        ! end select
+        call thomas%initialize(lhs(:, 1:nd))
 
         ! compute forcing
-        call matmul_ice(rhs=rhs(:, 1:nd), &
-                        rhs_b=rhs(1:nd/2, 1:nd), &
-                        rhs_t=rhs(nsize - nd/2 + 1:nsize, 1:nd), &
-                        u=u, &
-                        f=f, &
-                        L=lhs(:, 1:nd/2))
+        call matmul_generic(rhs=rhs(:, 1:nd), &
+                            rhs_b=rhs(1:nd/2, 1:nd), &
+                            rhs_t=rhs(nsize - nd/2 + 1:nsize, 1:nd), &
+                            u=u, &
+                            f=f, &
+                            L=thomas%L)
 
-        ! call Thomas_SolveL(lhs(:, 1:nd/2), f)
-        call Thomas_SolveU(lhs(:, nd/2 + 1:nd), f)
-
-        ! select case (nd)
-        ! case (3)
-        !     call Thomas3_SolveL(lhs(:, 1:nd/2), f)
-        !     call Thomas3_SolveU(lhs(:, nd/2 + 1:nd), f)
-        ! case (5)
-        !     call Thomas5_SolveL(lhs(:, 1:nd/2), f)
-        !     call Thomas5_SolveU(lhs(:, nd/2 + 1:nd), f)
-        ! case (7)
-        !     call Thomas7_SolveL(lhs(:, 1:nd/2), f)
-        !     call Thomas7_SolveU(lhs(:, nd/2 + 1:nd), f)
-        ! end select
+        ! call thomas%solveL(f)
+        call thomas%solveU(f)
 
         write (str, *) nd
         call check(f, u, 'linsys-'//trim(adjustl(str))//'.dat')
@@ -104,46 +88,22 @@ program vLinSys
         ! -------------------------------------------------------------------
         print *, new_line('a'), 'Solve circulant system, bands', nd
 
+        if (nd == 7) cycle      ! not implemented
+
         lhs(:, 1:nd) = rhs(:, 1:nd)
-        select case (nd)
-        case (3)
-            call ThomasCirculant_3_Initialize(lhs(:, 1:nd/2), &
-                                              lhs(:, nd/2 + 1:nd), &
-                                              lhs(1, nd + 1))
-        case (5)
-            call ThomasCirculant_5_Initialize(lhs(:, 1:nd/2), &
-                                              lhs(:, nd/2 + 1:nd), &
-                                              lhs(1, nd + 1))
-        case (7)
-            cycle
-        end select
+        call thomas_circulant%initialize(lhs(:, 1:nd))
 
         ! compute forcing
-        ! call MatMul_Halo_X(rhs(:, 1:nd), u, u(:, nsize - nd/2 + 1:nsize), u(:, 1:nd/2), f)
-        call MatMul_Halo_X_ThomasL_Y(rhs=rhs(:, 1:nd), &
-                                     u=u, &
-                                     u_halo_m=u(:, nsize - nd/2 + 1:nsize), &
-                                     u_halo_p=u(:, 1:nd/2), &
-                                     f=f, &
-                                     L=lhs(:, 1:nd/2))
+        call MatMul_halo_generic(rhs=rhs(:, 1:nd), &
+                                 u=u, &
+                                 u_halo_m=u(:, nsize - nd/2 + 1:nsize), &
+                                 u_halo_p=u(:, 1:nd/2), &
+                                 f=f, &
+                                 L=thomas_circulant%L)
 
-        select case (nd)
-        case (3)
-            ! call Thomas3_SolveL(lhs(:, 1:nd/2), f)
-            call Thomas3_SolveU(lhs(:, nd/2 + 1:nd), f)
-            call ThomasCirculant_3_Reduce(lhs(:, 1:nd/2), &
-                                          lhs(:, nd/2 + 1:nd), &
-                                          lhs(:, nd + 1), &
-                                          f, wrk)
-        case (5)
-            ! call Thomas5_SolveL(lhs(:, 1:nd/2), f)
-            call Thomas5_SolveU(lhs(:, nd/2 + 1:nd), f)
-            call ThomasCirculant_5_Reduce(lhs(:, 1:nd/2), &
-                                          lhs(:, nd/2 + 1:nd), &
-                                          lhs(:, nd + 1), &
-                                          f)
-        case (7)
-        end select
+        ! call thomas_circulant%solveL(f)
+        call thomas_circulant%solveU(f)
+        call thomas_circulant%reduce(f)
 
         write (str, *) nd
         call check(f, u, 'linsys-'//trim(adjustl(str))//'.dat')

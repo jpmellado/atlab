@@ -74,29 +74,6 @@ contains
         return
     end subroutine
 
-    ! subroutine thomas_solveU_dt(self, f)
-    !     use TLab_Arrays, only: wrk2d
-    !     class(thomas_circulant_dt), intent(in) :: self
-    !     real(wp), intent(inout) :: f(:, :)
-
-    !     call self%ptr_solveU(self%U, f)
-
-    !     select case (size(self%L, 2))
-    !     case (1)
-    !         call ThomasCirculant_3_Reduce(self%L, &
-    !                                       self%U, &
-    !                                       self%z(1, :), &
-    !                                       f, wrk2d(:, 1))
-    !     case (2)
-    !         call ThomasCirculant_5_Reduce(self%L, &
-    !                                       self%U, &
-    !                                       self%z, &
-    !                                       f)!, wrk2d)
-    !     end select
-
-    !     return
-    ! end subroutine
-
     subroutine thomas_solveU_dt(self, f)
         class(thomas_circulant_dt), intent(in) :: self
         real(wp), intent(inout) :: f(:, :)

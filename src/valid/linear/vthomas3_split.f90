@@ -3,6 +3,7 @@ program vThomas3_Split
     use Thomas
     use Thomas_Circulant
     use Thomas_Split
+    use TLab_Arrays, only: wrk2d
 #ifdef USE_MPI
     use mpi_f08
     use TLabMPI_VARS, only: mpiGrid
@@ -14,9 +15,8 @@ program vThomas3_Split
     integer(wi), parameter :: nd = 3
     integer(wi) n
 
-    real(wp) :: lhs(nsize, nd), lhs_loc(nsize, nd)
+    real(wp) :: rhs(nsize, nd), lhs(nsize, nd)
     real(wp) :: u(nlines, nsize), u_loc(nlines, nsize), f(nlines, nsize)
-    real(wp) :: z(nsize), wrk(nlines)       ! for circulant case
 
     integer(wi) k
     integer, parameter :: nblocks = 4       ! number of blocks
@@ -31,10 +31,12 @@ program vThomas3_Split
 
     logical, parameter :: periodic = .true.
 
+    type(thomas_dt) :: thomas
+    type(thomas_circulant_dt) :: thomas_circulant
+
 #ifdef USE_MPI
     integer ims_err
     type(thomas3_split_dt) split_mpi
-    real(wp), allocatable :: wrk2d(:, :)
 #endif
 
     ! -------------------------------------------------------------------
@@ -44,7 +46,7 @@ program vThomas3_Split
     call MPI_COMM_RANK(MPI_COMM_WORLD, mpiGrid%rank, ims_err)
 #endif
 
-! -------------------------------------------------------------------
+    ! -------------------------------------------------------------------
     ! random number initialization for reproducibility
     ! from https://masuday.github.io/fortran_tutorial/random.html
     call random_seed(size=nseed)
@@ -58,19 +60,18 @@ program vThomas3_Split
     deallocate (seed)
 
     ! -------------------------------------------------------------------
-    ! generate system
-    call random_number(lhs)
-
-    call random_number(u)
+    ! generate random data for f = Au
+    call random_number(rhs)     ! diagonals in matrix A
+    call random_number(u)       ! solution u
 
     n = 1
-    f(:, n) = lhs(n, 2)*u(:, n) + lhs(n, 3)*u(:, n + 1)
-    if (periodic) f(:, n) = f(:, n) + lhs(n, 1)*u(:, nsize)
+    f(:, n) = rhs(n, 2)*u(:, n) + rhs(n, 3)*u(:, n + 1)
+    if (periodic) f(:, n) = f(:, n) + rhs(n, 1)*u(:, nsize)
     do n = 2, nsize - 1
-        f(:, n) = lhs(n, 1)*u(:, n - 1) + lhs(n, 2)*u(:, n) + lhs(n, 3)*u(:, n + 1)
+        f(:, n) = rhs(n, 1)*u(:, n - 1) + rhs(n, 2)*u(:, n) + rhs(n, 3)*u(:, n + 1)
     end do
-    f(:, n) = lhs(n, 1)*u(:, n - 1) + lhs(n, 2)*u(:, n)
-    if (periodic) f(:, n) = f(:, n) + lhs(n, 3)*u(:, 1)
+    f(:, n) = rhs(n, 1)*u(:, n - 1) + rhs(n, 2)*u(:, n)
+    if (periodic) f(:, n) = f(:, n) + rhs(n, 3)*u(:, 1)
 
     ! -------------------------------------------------------------------
 #ifdef USE_MPI
@@ -87,21 +88,22 @@ program vThomas3_Split
         ! -------------------------------------------------------------------
         print *, new_line('a'), 'Standard Thomas algorithm'
 
-        u_loc(:, :) = f(:, :)
-
-        lhs_loc = lhs
+        lhs(:, :) = rhs(:, :)
+        u_loc(:, :) = f(:, :)   ! f = Au
         if (periodic) then
-            call ThomasCirculant_3_Initialize(lhs_loc(:, 1:1), &
-                                            lhs_loc(:, 2:3), z)
-            call Thomas3_SolveL(lhs_loc(:, 1:1), u_loc)
-            call Thomas3_SolveU(lhs_loc(:, 2:3), u_loc)
-            call ThomasCirculant_3_Reduce(lhs_loc(:, 1:1), &
-                                       lhs_loc(:, 2:3), z, u_loc, wrk)
+            call thomas_circulant%initialize(lhs(:, 1:nd))
+
+            allocate (wrk2d(nlines, 1))     ! needed in thomas_circulant
+            call thomas_circulant%solveL(u_loc)
+            call thomas_circulant%solveU(u_loc)
+            call thomas_circulant%reduce(u_loc)
+
         else
-            call Thomas3_FactorLU_InPlace(lhs_loc(:, 1:1), &
-                                          lhs_loc(:, 2:3))
-            call Thomas3_SolveL(lhs_loc(:, 1:1), u_loc)
-            call Thomas3_SolveU(lhs_loc(:, 2:3), u_loc)
+            call thomas%initialize(lhs(:, 1:nd))
+
+            call thomas%solveL(u_loc)
+            call thomas%solveU(u_loc)
+
         end if
 
         call check(u_loc, u, 'linear.dat')
@@ -109,18 +111,18 @@ program vThomas3_Split
         ! -------------------------------------------------------------------
         print *, new_line('a'), 'Splitting Thomas algorithm'
 
-        u_loc(:, :) = f(:, :)
-
         do k = 1, nblocks
             split(k)%circulant = periodic
             split(k)%block_id = k
 
-            lhs_loc = lhs
-            call Thomas_Split_3_Initialize(lhs_loc(:, 1:1), lhs_loc(:, 2:3), &
-                                          points, split(k))
+            lhs(:, :) = rhs(:, :)
+            call Thomas_Split_3_Initialize(lhs(:, 1:1), lhs(:, 2:3), &
+                                           points, split(k))
             data(k)%p => u_loc(1:nlines, split(k)%nmin:split(k)%nmax)
 
         end do
+
+        u_loc(:, :) = f(:, :)   ! f = Au
 
         do k = 1, nblocks
             call Thomas3_SolveL(split(k)%lhs(:, 1:1), data(k)%p(:, :))
@@ -145,13 +147,14 @@ program vThomas3_Split
     split_mpi%rank = mpiGrid%rank
     split_mpi%n_ranks = mpiGrid%num_processors
 
-    lhs_loc = lhs
-    call Thomas_Split_3_Initialize(lhs_loc(:, 1:1), lhs_loc(:, 2:3), &
-                                  points, split_mpi)
+    lhs(:, :) = rhs(:, :)
+    call Thomas_Split_3_Initialize(lhs(:, 1:1), lhs(:, 2:3), &
+                                   points, split_mpi)
 
     u_loc(:, :) = f(:, :)   ! Each processor will only see its part of the array
 
     ! Solve and reduce
+    if (allocated(wrk2d)) deallocate(wrk2d)
     allocate (wrk2d(nlines, 2))
     call Thomas3_SolveL(split_mpi%lhs(:, 1:1), u_loc(1:nlines, split_mpi%nmin:split_mpi%nmax))
     call Thomas3_SolveU(split_mpi%lhs(:, 2:3), u_loc(1:nlines, split_mpi%nmin:split_mpi%nmax))

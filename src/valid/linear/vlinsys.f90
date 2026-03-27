@@ -34,8 +34,8 @@ program vLinSys
     character(len=32) str
     logical, parameter :: circulant = .false.
 
-    type(thomas_dt) :: thomas
-    type(thomas_circulant_dt) :: thomas_circulant
+    type(thomas_dt) :: thomas1
+    type(thomas_circulant_dt) :: thomas_circulant1
     allocate (wrk2d(nlines, 1))     ! needed in thomas_circulant
 
     ! ###################################################################
@@ -69,7 +69,7 @@ program vLinSys
         print *, new_line('a'), 'Solve biased system, bands ', nd
 
         lhs(:, 1:nd) = rhs(:, 1:nd)
-        call thomas%initialize(lhs(:, 1:nd))
+        call thomas1%initialize(lhs(:, 1:nd))
 
         ! compute forcing
         call matmul_generic(rhs=rhs(:, 1:nd), &
@@ -77,10 +77,10 @@ program vLinSys
                             rhs_t=rhs(nsize - nd/2 + 1:nsize, 1:nd), &
                             u=u, &
                             f=f, &
-                            L=thomas%L)
+                            L=thomas1%L)
 
-        ! call thomas%solveL(f)
-        call thomas%solveU(f)
+        ! call thomas1%solveL(f)
+        call thomas1%solveU(f)
 
         write (str, *) nd
         call check(f, u, 'linsys-'//trim(adjustl(str))//'.dat')
@@ -91,7 +91,7 @@ program vLinSys
         if (nd == 7) cycle      ! not implemented
 
         lhs(:, 1:nd) = rhs(:, 1:nd)
-        call thomas_circulant%initialize(lhs(:, 1:nd))
+        call thomas_circulant1%initialize(lhs(:, 1:nd))
 
         ! compute forcing
         call MatMul_halo_generic(rhs=rhs(:, 1:nd), &
@@ -99,11 +99,11 @@ program vLinSys
                                  u_halo_m=u(:, nsize - nd/2 + 1:nsize), &
                                  u_halo_p=u(:, 1:nd/2), &
                                  f=f, &
-                                 L=thomas_circulant%L)
+                                 L=thomas_circulant1%L)
 
-        ! call thomas_circulant%solveL(f)
-        call thomas_circulant%solveU(f)
-        call thomas_circulant%reduce(f)
+        ! call thomas_circulant1%solveL(f)
+        call thomas_circulant1%solveU(f)
+        call thomas_circulant1%reduce(f)
 
         write (str, *) nd
         call check(f, u, 'linsys-'//trim(adjustl(str))//'.dat')

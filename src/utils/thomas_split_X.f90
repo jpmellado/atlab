@@ -65,17 +65,7 @@ contains
         logical, intent(in) :: circulant
 
         ! -------------------------------------------------------------------
-        integer ndl
-
-        integer nblocks, m, k
-        integer(wi) n, nsize
-        integer(wi) p, p_plus_1
-        character(len=32) str
-
-        real(wp), allocatable :: lhs_loc(:, :), zloc(:)
-        real(wp) alpha_0(2), alpha(2)
-        real(wp) delta
-        real(wp) alpha_previous(2), beta_loc, gamma_loc
+        integer ndl, nblocks, nsize, k
 
         !########################################################################
         self%block_id = block_id
@@ -104,7 +94,41 @@ contains
         allocate (self%y(1:nsize, nblocks))
         self%y(:, :) = 0.0_wp
 
+        select case (ndl)
+        case (3)
+            call ThomasSplit_3_Initialize(self, lhs, points)
+        end select
+
+        select case (ndl)
+        case (3)
+            self%ptr_solveL => Thomas3_SolveL
+            self%ptr_solveU => Thomas3_SolveU
+        end select
+
+        return
+    end subroutine thomas_initialize_dt
+
+    !########################################################################
+    !########################################################################
+    subroutine ThomasSplit_3_Initialize(self, lhs, points)
+        class(thomas_split_dt), intent(inout) :: self
+        real(wp), intent(inout) :: lhs(:, :)
+        integer(wi), intent(in) :: points(:)   ! sequence of splitting points in ascending order
+
         ! -------------------------------------------------------------------
+        integer nblocks, m
+        integer(wi) n, nsize
+        integer(wi) p, p_plus_1
+        character(len=32) str
+
+        real(wp), allocatable :: lhs_loc(:, :), zloc(:)
+        real(wp) alpha_0(2), alpha(2)
+        real(wp) delta
+        real(wp) alpha_previous(2), beta_loc, gamma_loc
+
+        !########################################################################
+        nblocks = size(points)
+
         ! temporary arrays to calculate z_j
         nsize = size(lhs, 1)
         allocate (lhs_loc(nsize, 3), zloc(nsize))
@@ -112,8 +136,8 @@ contains
         if (self%circulant) then
             m = nblocks             ! last block has the circulant coefficient
 
-            call Splitting(L=lhs(:, 1:ndl/2), &
-                           U=lhs(:, ndl/2 + 1:ndl), &
+            call Splitting(L=lhs(:, 1:1), &
+                           U=lhs(:, 2:3), &
                            p=points(m), &               ! index of splitting point
                            p_plus_1=1, &
                            alpha=alpha_0, &
@@ -136,8 +160,8 @@ contains
         end if
 
         do m = 1, nblocks - 1       ! loop over remaining coefficients
-            call Splitting(L=lhs(:, 1:ndl/2), &
-                           U=lhs(:, ndl/2 + 1:ndl), &
+            call Splitting(L=lhs(:, 1:1), &
+                           U=lhs(:, 2:3), &
                            p=points(m), &               ! index of splitting point
                            p_plus_1=points(m) + 1, &
                            alpha=alpha, &
@@ -166,13 +190,10 @@ contains
 
         ! -------------------------------------------------------------------
         ! block matrix Am and LU decomposition
-        self%L(:, :) = lhs_loc(self%nmin:self%nmax, 1:ndl/2)
-        self%U(:, :) = lhs_loc(self%nmin:self%nmax, ndl/2 + 1:ndl)
+        self%L(:, :) = lhs_loc(self%nmin:self%nmax, 1:1)
+        self%U(:, :) = lhs_loc(self%nmin:self%nmax, 2:3)
 
         deallocate (lhs_loc, zloc)
-
-        self%ptr_solveL => Thomas3_SolveL
-        self%ptr_solveU => Thomas3_SolveU
 
         return
 
@@ -222,7 +243,7 @@ contains
             return
         end subroutine Splitting
 
-    end subroutine thomas_initialize_dt
+    end subroutine ThomasSplit_3_Initialize
 
     !########################################################################
     !########################################################################

@@ -5,18 +5,12 @@
 ! Marginally slower because one more call to memory for array f, but clearer
 
 module Thomas_Circulant
-    use TLab_Constants, only: wp, wi, small_wp !, roundoff_wp
-    use TLab_Constants, only: efile!, lfile
+    use TLab_Constants, only: wp, wi, small_wp
+    use TLab_Constants, only: efile
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
     use Thomas
     implicit none
     private
-
-    public :: ThomasCirculant_3_Initialize
-    public :: ThomasCirculant_3_Reduce
-
-    public :: ThomasCirculant_5_Initialize
-    public :: ThomasCirculant_5_Reduce
 
     public :: thomas_circulant_dt
 
@@ -25,8 +19,6 @@ module Thomas_Circulant
         real(wp), allocatable :: z(:, :)
     contains
         procedure :: initialize => thomas_initialize_dt
-        procedure :: solveL => thomas_solveL_dt
-        procedure :: solveU => thomas_solveU_dt
         procedure :: reduce => thomas_reduce_dt
     end type
 
@@ -39,9 +31,12 @@ contains
 
         integer ndl
 
+        call self%thomas_dt%initialize(lhs)
+
+        ! corrections for circulant case
         ndl = size(lhs, 2)
-        allocate (self%L, source=lhs(:, 1:ndl/2))
-        allocate (self%U, source=lhs(:, ndl/2 + 1:ndl))
+        self%L(:, :) = lhs(:, 1:ndl/2)
+        self%U(:, :) = lhs(:, ndl/2 + 1:ndl)
         allocate (self%z(ndl/2, size(lhs, 1)))
         select case (ndl)
         case (3)
@@ -49,36 +44,6 @@ contains
         case (5)
             call ThomasCirculant_5_Initialize(self%L, self%U, self%z)
         end select
-
-        select case (ndl)
-        case (3)
-            self%ptr_solveL => Thomas3_SolveL
-            self%ptr_solveU => Thomas3_SolveU
-        case (5)
-            self%ptr_solveL => Thomas5_SolveL
-            self%ptr_solveU => Thomas5_SolveU
-        case (7)
-            self%ptr_solveL => Thomas7_SolveL
-            self%ptr_solveU => Thomas7_SolveU
-        end select
-
-        return
-    end subroutine
-
-    subroutine thomas_solveL_dt(self, f)
-        class(thomas_circulant_dt), intent(in) :: self
-        real(wp), intent(inout) :: f(:, :)
-
-        call self%ptr_solveL(self%L, f)
-
-        return
-    end subroutine
-
-    subroutine thomas_solveU_dt(self, f)
-        class(thomas_circulant_dt), intent(in) :: self
-        real(wp), intent(inout) :: f(:, :)
-
-        call self%ptr_solveU(self%U, f)
 
         return
     end subroutine

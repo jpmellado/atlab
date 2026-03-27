@@ -34,8 +34,8 @@ program vThomas3_Split
 
     logical, parameter :: periodic = .true.
 
-    type(thomas_dt) :: thomas
-    type(thomas_circulant_dt) :: thomas_circulant
+    type(thomas_dt) :: thomas1
+    type(thomas_circulant_dt) :: thomas_circulant1
 
 #ifdef USE_MPI
     integer ims_err
@@ -95,18 +95,18 @@ program vThomas3_Split
         lhs(:, :) = rhs(:, :)
         u_loc(:, :) = f(:, :)   ! f = Au
         if (periodic) then
-            call thomas_circulant%initialize(lhs(:, 1:nd))
+            call thomas_circulant1%initialize(lhs(:, 1:nd))
 
             allocate (wrk2d(nlines, 1))     ! needed in thomas_circulant
-            call thomas_circulant%solveL(u_loc)
-            call thomas_circulant%solveU(u_loc)
-            call thomas_circulant%reduce(u_loc)
+            call thomas_circulant1%solveL(u_loc)
+            call thomas_circulant1%solveU(u_loc)
+            call thomas_circulant1%reduce(u_loc)
 
         else
-            call thomas%initialize(lhs(:, 1:nd))
+            call thomas1%initialize(lhs(:, 1:nd))
 
-            call thomas%solveL(u_loc)
-            call thomas%solveU(u_loc)
+            call thomas1%solveL(u_loc)
+            call thomas1%solveU(u_loc)
 
         end if
 

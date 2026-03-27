@@ -2,8 +2,7 @@ program vThomas3_Split
     use TLab_Constants, only: wp, wi, BCS_NONE
     use Thomas
     use Thomas_Circulant
-    ! use Thomas_Split, only: thomas3_split_dt, Thomas_Split_3_Initialize
-    use Thomas_Split_X !, only: thomas_split_dt
+    use Thomas_Split_X
     use TLab_Arrays, only: wrk2d
 #ifdef USE_MPI
     use mpi_f08
@@ -20,28 +19,25 @@ program vThomas3_Split
     real(wp) :: rhs(nsize, nd), lhs(nsize, nd)
     real(wp) :: u(nlines, nsize), u_loc(nlines, nsize), f(nlines, nsize)
 
-    integer(wi) k
-    integer, parameter :: nblocks = 4       ! number of blocks
-    integer, parameter :: points(1:nblocks) = [(k, k=nsize/nblocks, nsize, nsize/nblocks)]
-
-    ! type(thomas3_split_dt) split(nblocks)
-    type(thomas_split_dt) split_X(nblocks)
-    type(data_dt) data(nblocks)
-    target u_loc
-
     integer :: nseed
     integer, allocatable :: seed(:)
 
-    logical, parameter :: periodic = .true.
+    logical, parameter :: circulant = .true.
 
     type(thomas_dt) :: thomas1
     type(thomas_circulant_dt) :: thomas_circulant1
-
 #ifdef USE_MPI
-    integer ims_err
-    ! type(thomas3_split_dt) split_mpi
     type(thomas_split_dt) split_mpi_X
+    integer ims_err
 #endif
+    integer, parameter :: nblocks = 4       ! number of blocks
+    type(thomas_split_dt) thomas_split1(nblocks)
+
+    integer(wi) k
+    integer, parameter :: points(1:nblocks) = [(k, k=nsize/nblocks, nsize, nsize/nblocks)]
+
+    type(data_dt) data(nblocks)
+    target u_loc
 
     ! -------------------------------------------------------------------
 #ifdef USE_MPI
@@ -70,12 +66,12 @@ program vThomas3_Split
 
     n = 1
     f(:, n) = rhs(n, 2)*u(:, n) + rhs(n, 3)*u(:, n + 1)
-    if (periodic) f(:, n) = f(:, n) + rhs(n, 1)*u(:, nsize)
+    if (circulant) f(:, n) = f(:, n) + rhs(n, 1)*u(:, nsize)
     do n = 2, nsize - 1
         f(:, n) = rhs(n, 1)*u(:, n - 1) + rhs(n, 2)*u(:, n) + rhs(n, 3)*u(:, n + 1)
     end do
     f(:, n) = rhs(n, 1)*u(:, n - 1) + rhs(n, 2)*u(:, n)
-    if (periodic) f(:, n) = f(:, n) + rhs(n, 3)*u(:, 1)
+    if (circulant) f(:, n) = f(:, n) + rhs(n, 3)*u(:, 1)
 
     ! -------------------------------------------------------------------
 #ifdef USE_MPI
@@ -94,7 +90,7 @@ program vThomas3_Split
 
         lhs(:, :) = rhs(:, :)
         u_loc(:, :) = f(:, :)   ! f = Au
-        if (periodic) then
+        if (circulant) then
             call thomas_circulant1%initialize(lhs(:, 1:nd))
 
             allocate (wrk2d(nlines, 1))     ! needed in thomas_circulant
@@ -116,34 +112,21 @@ program vThomas3_Split
         print *, new_line('a'), 'Splitting Thomas algorithm'
 
         do k = 1, nblocks
-            ! split(k)%circulant = periodic
-            ! split(k)%block_id = k
-
-            ! lhs(:, :) = rhs(:, :)
-            ! call Thomas_Split_3_Initialize(lhs(:, 1:1), lhs(:, 2:3), &
-            !                                points, split(k))
-            ! data(k)%p => u_loc(1:nlines, split(k)%nmin:split(k)%nmax)
-
-            !
-            split_X(k)%circulant = periodic
-            split_X(k)%block_id = k
-
             lhs(:, :) = rhs(:, :)
-            call split_X(k)%initialize(lhs(:, 1:3), points)
+            call thomas_split1(k)%initialize(lhs(:, 1:3), points, &
+                                             block_id=k, &
+                                             circulant=circulant)
 
-            data(k)%p => u_loc(1:nlines, split_X(k)%nmin:split_X(k)%nmax)
+            data(k)%p => u_loc(1:nlines, thomas_split1(k)%nmin:thomas_split1(k)%nmax)
         end do
 
         u_loc(:, :) = f(:, :)   ! f = Au
 
         do k = 1, nblocks
-            ! call Thomas3_SolveL(split(k)%lhs(:, 1:1), data(k)%p(:, :))
-            ! call Thomas3_SolveU(split(k)%lhs(:, 2:3), data(k)%p(:, :))
-            call split_X(k)%solveL(data(k)%p(:, :))
-            call split_X(k)%solveU(data(k)%p(:, :))
+            call thomas_split1(k)%solveL(data(k)%p(:, :))
+            call thomas_split1(k)%solveU(data(k)%p(:, :))
         end do
-        ! call ThomasSplit_3_Reduce_Serial(split, data)
-        call ThomasSplit_3_Reduce_Serial(split_X, data)
+        call ThomasSplit_3_Reduce_Serial(thomas_split1, data)
 
         call check(u_loc, u, 'linear.dat')
 
@@ -156,14 +139,12 @@ program vThomas3_Split
         print *, new_line('a'), 'Splitting Thomas algorithm'
     end if
 
-    split_mpi_X%circulant = periodic
-    split_mpi_X%block_id = mpiGrid%rank + 1
-    split_mpi_X%mpi%comm = mpiGrid%comm
-    split_mpi_X%mpi%rank = mpiGrid%rank
-    split_mpi_X%mpi%num_processors = mpiGrid%num_processors
-
     lhs(:, :) = rhs(:, :)
-    call split_mpi_X%initialize(lhs, points)
+
+    split_mpi_X%mpi = mpiGrid%mpi_axis_dt
+    call split_mpi_X%initialize(lhs, points, &
+                                block_id=mpiGrid%rank + 1, &
+                                circulant=circulant)
 
     u_loc(:, :) = f(:, :)   ! Each processor will only see its part of the array
 

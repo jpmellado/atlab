@@ -5,13 +5,12 @@ module FDM_Derivative_MPISplit
     use TLab_Constants, only: wp, wi
     use TLab_Constants, only: efile
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
-    use TLabMPI_VARS, only: xMpi, yMpi
+    use TLabMPI_VARS, only: mpi_axis_dt
     use FDM_Derivative_Base, only: der_periodic
     use FDM_Derivative_Base, only: matmul_halo_thomas_ice, matmul_halo_thomas_combined_ice
     use FDM_Derivative_1order, only: der1_periodic
     use FDM_Derivative_2order, only: der2_periodic
     use Thomas
-    ! use Thomas_Split
     use Thomas_Split_X
     implicit none
     private
@@ -29,7 +28,6 @@ module FDM_Derivative_MPISplit
     type, extends(der_mpisplit) :: der_periodic_mpisplit
         ! procedure(matmul_halo_ice), pointer, nopass :: matmul => null()
         procedure(matmul_halo_thomas_ice), pointer, nopass :: matmul => null()
-        ! type(thomas3_split_dt) thomas3
         type(thomas_split_dt) thomas3
     contains
         procedure :: initialize => der_periodic_initialize
@@ -48,12 +46,12 @@ module FDM_Derivative_MPISplit
 contains
     ! ###################################################################
     ! ###################################################################
-    subroutine der_periodic_initialize(self, ref, axis)
+    subroutine der_periodic_initialize(self, ref, mpiAxis)
         class(der_periodic_mpisplit), intent(out) :: self
         class(der_periodic), intent(in), target :: ref
-        character(len=*), intent(in) :: axis
+        type(mpi_axis_dt) mpiAxis
 
-        integer nx, k
+        integer nx, k, np
         real(wp), allocatable :: lhs_loc(:, :)
 
         ! ###################################################################
@@ -67,34 +65,15 @@ contains
         self%matmul => ref%matmul
         self%rhs => ref%rhs
 
-        select case (trim(adjustl(axis)))
-        case ('x')
-            self%thomas3%mpi = xMpi
-            ! self%thomas3%communicator = xMpi%comm
-            ! self%thomas3%rank = xMpi%rank
-            ! self%thomas3%n_ranks = xMpi%num_processors
-
-        case ('y')
-            self%thomas3%mpi = yMpi
-            ! self%thomas3%communicator = yMpi%comm
-            ! self%thomas3%rank = yMpi%rank
-            ! self%thomas3%n_ranks = yMpi%num_processors
-
-        end select
-
-        self%thomas3%circulant = .true.
-        ! self%thomas3%block_id = self%thomas3%rank + 1
-        self%thomas3%block_id = self%thomas3%mpi%rank + 1
-
         nx = size(ref%lhs, 1)
         allocate (lhs_loc, source=ref%lhs)
-        ! call Thomas_Split_3_Initialize(lhs_loc(:, 1:1), lhs_loc(:, 2:3), &
-        !                                [(k, k=nx/self%thomas3%mpi%num_processors, nx, nx/self%thomas3%mpi%num_processors)], &
-        !                                self%thomas3)
-        ! !    [(k, k=nx/self%thomas3%n_ranks, nx, nx/self%thomas3%n_ranks)], &
-        ! !    self%thomas3)
+
+        self%thomas3%mpi = mpiAxis
+        np = self%thomas3%mpi%num_processors    ! for clarity below
         call self%thomas3%initialize(lhs_loc, &
-                                     [(k, k=nx/self%thomas3%mpi%num_processors, nx, nx/self%thomas3%mpi%num_processors)])
+                                     [(k, k=nx/np, nx, nx/np)], &
+                                     block_id=self%thomas3%mpi%rank + 1, &
+                                     circulant=.true.)
 
         deallocate (lhs_loc)
 
@@ -108,25 +87,18 @@ contains
         class(der_periodic_mpisplit), intent(in) :: self
         integer(wi), intent(in) :: nlines
         real(wp), intent(in) :: u(nlines, size(self%thomas3%L, 1))
-        ! real(wp), intent(in) :: u(nlines, size(self%thomas3%lhs, 1))
         real(wp), intent(in) :: u_halo_m(:, :)
         real(wp), intent(in) :: u_halo_p(:, :)
         real(wp), intent(out) :: result(nlines, size(self%thomas3%L, 1))
-        ! real(wp), intent(out) :: result(nlines, size(self%thomas3%lhs, 1))
 
         ! ###################################################################
-        ! call self%matmul(self%rhs, u, u_halo_m, u_halo_p, result)
         call self%matmul(rhs=self%rhs(1, :), &
                          u=u, &
                          u_halo_m=u_halo_m, &
                          u_halo_p=u_halo_p, &
                          f=result, &
                          L=self%thomas3%L)
-        !  L=self%thomas3%lhs(:, 1:1))
 
-        ! ! call Thomas3_SolveL(self%thomas3%lhs(:, 1:1), result)
-        ! call Thomas3_SolveU(self%thomas3%lhs(:, 2:3), result)
-        ! call ThomasSplit_3_Reduce_MPI(self%thomas3, result, wrk2d(:, 1), wrk2d(:, 2))
         ! call self%thomas3%SolveL(result)
         call self%thomas3%SolveU(result)
         call self%thomas3%reduce(result, wrk2d(:, 1), wrk2d(:, 2))
@@ -165,13 +137,10 @@ contains
         class(der_burgers_mpisplit), intent(in) :: self
         integer(wi), intent(in) :: nlines
         real(wp), intent(in) :: u(nlines, size(self%der1%thomas3%L, 1))
-        ! real(wp), intent(in) :: u(nlines, size(self%der1%thomas3%lhs, 1))
         real(wp), intent(in) :: u_halo_m(:, :)
         real(wp), intent(in) :: u_halo_p(:, :)
         real(wp), intent(out) :: du1(nlines, size(self%der1%thomas3%L, 1))
         real(wp), intent(out) :: du2(nlines, size(self%der1%thomas3%L, 1))
-        ! real(wp), intent(out) :: du1(nlines, size(self%der1%thomas3%lhs, 1))
-        ! real(wp), intent(out) :: du2(nlines, size(self%der1%thomas3%lhs, 1))
 
         integer ndr1, ndr2, np
 
@@ -186,10 +155,8 @@ contains
                          u_halo_p=u_halo_p, &
                          f=du1, &
                          L1=self%der1%thomas3%L, &
-                         !  L1=self%der1%thomas3%lhs(:, 1:1), &
                          g=du2, &
                          L2=self%der2%thomas3%L)
-        !  L2=self%der2%thomas3%lhs(:, 1:1))
 
         ! call self%der1%matmul(rhs=self%der1%rhs(1, :), &
         !                       u=u, &
@@ -205,12 +172,6 @@ contains
         !                       f=du2, &
         !                       L=self%der2%thomas3%lhs(:, 1:1))
 
-        ! call Thomas3_SolveU(self%der1%thomas3%lhs(:, 2:3), du1)
-        ! call Thomas3_SolveU(self%der2%thomas3%lhs(:, 2:3), du2)
-        ! call ThomasSplit_3_Reduce_MPI(self%der1%thomas3, &
-        !                               du1, wrk2d(:, 1), wrk2d(:, 2))
-        ! call ThomasSplit_3_Reduce_MPI(self%der2%thomas3, &
-        !                               du2, wrk2d(:, 1), wrk2d(:, 2))
         call self%der1%thomas3%solveU(du1)
         call self%der2%thomas3%solveU(du2)
         call self%der1%thomas3%reduce(du1, wrk2d(:, 1), wrk2d(:, 2))

@@ -116,12 +116,12 @@ contains
                 OPR_Partial_X => OPR_Partial_X_MPISplit
                 select type (fdm_der1_X)
                 type is (der1_periodic)
-                    call fdm_der1_X_split%initialize(fdm_der1_X, 'x')
+                    call fdm_der1_X_split%initialize(fdm_der1_X, xMpi)
                 end select
                 np = max(np, size(fdm_der1_X_split%rhs, 2)/2)
                 select type (fdm_der2_X)
                 type is (der2_extended_periodic)
-                    call fdm_der2_X_split%initialize(fdm_der2_X%der2, 'x')
+                    call fdm_der2_X_split%initialize(fdm_der2_X%der2, xMpi)
                 end select
                 np = max(np, size(fdm_der2_X_split%rhs, 2)/2)
             end select
@@ -142,12 +142,12 @@ contains
                 OPR_Partial_Y => OPR_Partial_Y_MPISplit
                 select type (fdm_der1_Y)
                 type is (der1_periodic)
-                    call fdm_der1_Y_split%initialize(fdm_der1_Y, 'y')
+                    call fdm_der1_Y_split%initialize(fdm_der1_Y, yMpi)
                 end select
                 np = max(np, size(fdm_der1_Y_split%rhs, 2)/2)
                 select type (fdm_der2_Y)
                 type is (der2_extended_periodic)
-                    call fdm_der2_Y_split%initialize(fdm_der2_Y%der2, 'y')
+                    call fdm_der2_Y_split%initialize(fdm_der2_Y%der2, yMpi)
                 end select
                 np = max(np, size(fdm_der2_Y_split%rhs, 2)/2)
             end select

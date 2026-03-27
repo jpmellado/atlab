@@ -1,6 +1,6 @@
 #include "tlab_error.h"
 
-! Matrix splitting
+! Splitting algorithm of linear solver
 
 module Thomas_Split_X
     use TLab_Constants, only: wp, wi, small_wp, roundoff_wp
@@ -57,10 +57,12 @@ module Thomas_Split_X
 contains
     !########################################################################
     !########################################################################
-    subroutine thomas_initialize_dt(self, lhs, points)
+    subroutine thomas_initialize_dt(self, lhs, points, block_id, circulant)
         class(thomas_split_dt), intent(inout) :: self
         real(wp), intent(inout) :: lhs(:, :)
         integer(wi), intent(in) :: points(:)   ! sequence of splitting points in ascending order
+        integer, intent(in) :: block_id
+        logical, intent(in) :: circulant
 
         ! -------------------------------------------------------------------
         integer ndl
@@ -76,6 +78,9 @@ contains
         real(wp) alpha_previous(2), beta_loc, gamma_loc
 
         !########################################################################
+        self%block_id = block_id
+        self%circulant = circulant
+
         nblocks = size(points)
         ! Number of coefficients are nblocks-1 for the tridiagonal case
         ! and we add one for the circulant case, which is managed by last block
@@ -109,7 +114,7 @@ contains
 
             call Splitting(L=lhs(:, 1:ndl/2), &
                            U=lhs(:, ndl/2 + 1:ndl), &
-                           p=points(m), &               ! index of selfting point
+                           p=points(m), &               ! index of splitting point
                            p_plus_1=1, &
                            alpha=alpha_0, &
                            z=zloc)
@@ -150,8 +155,10 @@ contains
             if (m > 1) then
                 p = points(m - 1)
                 p_plus_1 = p + 1
-                beta_loc = alpha_previous(1)*zloc(p) + alpha_previous(2)*zloc(p_plus_1)
-                self%y(:, m) = self%y(:, m) + beta_loc*self%y(:, m - 1)
+                beta_loc = alpha_previous(1)*zloc(p) + &
+                           alpha_previous(2)*zloc(p_plus_1)
+                self%y(:, m) = self%y(:, m) + &
+                               beta_loc*self%y(:, m - 1)
             end if
             alpha_previous(:) = alpha(:)
 

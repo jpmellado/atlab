@@ -7,22 +7,24 @@ module Thomas_Split
     use TLab_Constants, only: efile, wfile, fmt_r
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
 #ifdef USE_MPI
-    use mpi_f08, only: MPI_Comm
+    use TLabMPI_VARS, only: mpi_axis_dt
 #endif
     use Thomas
     implicit none
     private
 
+    ! -----------------------------------------------------------------------
     public :: Thomas_Split_3_Initialize
-    public :: ThomasSplit_3_Reduce_Serial
+    ! public :: ThomasSplit_3_Reduce_Serial
 #ifdef USE_MPI
     public :: ThomasSplit_3_Reduce_MPI
 #endif
 
     type, public :: thomas3_split_dt
 #ifdef USE_MPI
-        type(MPI_Comm) communicator
-        integer rank, n_ranks
+        type(mpi_axis_dt) mpi
+        ! type(MPI_Comm) communicator
+        ! integer rank, n_ranks
 #endif
         integer :: block_id
         integer(wi) :: nmin, nmax
@@ -273,7 +275,8 @@ contains
         !########################################################################
         ! Assume circulant matrix and need alpha_0
 
-        nblocks = split%n_ranks
+        ! nblocks = split%n_ranks
+        nblocks = split%mpi%num_processors
         nlines = size(f, 1)
         nsize = size(f, 2)              ! Assume all blocks have same size
 
@@ -281,12 +284,15 @@ contains
         ! pass x(:,1) to previous block and calculate local coefficient
 #define xp(j) alpha(j)
 
-        dest = mod(split%rank - 1 + split%n_ranks, split%n_ranks)
-        source = mod(split%rank + 1, split%n_ranks)
+        ! dest = mod(split%rank - 1 + split%n_ranks, split%n_ranks)
+        ! source = mod(split%rank + 1, split%n_ranks)
+        dest = mod(split%mpi%rank - 1 + split%mpi%num_processors, split%mpi%num_processors)
+        source = mod(split%mpi%rank + 1, split%mpi%num_processors)
         tag = 0
         call MPI_Sendrecv(f(:, 1), nlines, MPI_REAL8, dest, tag, &
                           xp(:), nlines, MPI_REAL8, source, tag, &
-                          split%communicator, MPI_STATUS_IGNORE, ims_err)
+                          split%mpi%comm, MPI_STATUS_IGNORE, ims_err)
+        !   split%communicator, MPI_STATUS_IGNORE, ims_err)
         alpha(:) = split%alpha(1)*f(:, nsize) + split%alpha(2)*xp(:)
 
 #undef xp
@@ -294,12 +300,15 @@ contains
         ! -------------------------------------------------------------------
         ! Truncated algorithm
         ! Pass alpha to following block
-        dest = mod(split%rank + 1, split%n_ranks)
-        source = mod(split%rank - 1 + split%n_ranks, split%n_ranks)
+        ! dest = mod(split%rank + 1, split%n_ranks)
+        ! source = mod(split%rank - 1 + split%n_ranks, split%n_ranks)
+        dest = mod(split%mpi%rank + 1, split%mpi%num_processors)
+        source = mod(split%mpi%rank - 1 + split%mpi%num_processors, split%mpi%num_processors)
         tag = 1
         call MPI_Sendrecv(alpha, nlines, MPI_REAL8, dest, tag, &
                           tmp, nlines, MPI_REAL8, source, tag, &
-                          split%communicator, MPI_STATUS_IGNORE, ims_err)
+                          split%mpi%comm, MPI_STATUS_IGNORE, ims_err)
+        !   split%communicator, MPI_STATUS_IGNORE, ims_err)
 
         ! Update solution
         do n = 1, nsize

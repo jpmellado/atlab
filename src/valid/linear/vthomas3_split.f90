@@ -2,10 +2,12 @@ program vThomas3_Split
     use TLab_Constants, only: wp, wi, BCS_NONE
     use Thomas
     use Thomas_Circulant
-    use Thomas_Split
+    ! use Thomas_Split, only: thomas3_split_dt, Thomas_Split_3_Initialize
+    use Thomas_Split_X !, only: thomas_split_dt
     use TLab_Arrays, only: wrk2d
 #ifdef USE_MPI
     use mpi_f08
+    use Thomas_Split, only: thomas3_split_dt, ThomasSplit_3_Reduce_MPI
     use TLabMPI_VARS, only: mpiGrid
 #endif
     implicit none
@@ -22,7 +24,8 @@ program vThomas3_Split
     integer, parameter :: nblocks = 4       ! number of blocks
     integer, parameter :: points(1:nblocks) = [(k, k=nsize/nblocks, nsize, nsize/nblocks)]
 
-    type(thomas3_split_dt) split(nblocks)
+    ! type(thomas3_split_dt) split(nblocks)
+    type(thomas_split_dt) split_X(nblocks)
     type(data_dt) data(nblocks)
     target u_loc
 
@@ -36,7 +39,8 @@ program vThomas3_Split
 
 #ifdef USE_MPI
     integer ims_err
-    type(thomas3_split_dt) split_mpi
+    ! type(thomas3_split_dt) split_mpi
+    type(thomas_split_dt) split_mpi_X
 #endif
 
     ! -------------------------------------------------------------------
@@ -112,23 +116,34 @@ program vThomas3_Split
         print *, new_line('a'), 'Splitting Thomas algorithm'
 
         do k = 1, nblocks
-            split(k)%circulant = periodic
-            split(k)%block_id = k
+            ! split(k)%circulant = periodic
+            ! split(k)%block_id = k
+
+            ! lhs(:, :) = rhs(:, :)
+            ! call Thomas_Split_3_Initialize(lhs(:, 1:1), lhs(:, 2:3), &
+            !                                points, split(k))
+            ! data(k)%p => u_loc(1:nlines, split(k)%nmin:split(k)%nmax)
+
+            !
+            split_X(k)%circulant = periodic
+            split_X(k)%block_id = k
 
             lhs(:, :) = rhs(:, :)
-            call Thomas_Split_3_Initialize(lhs(:, 1:1), lhs(:, 2:3), &
-                                           points, split(k))
-            data(k)%p => u_loc(1:nlines, split(k)%nmin:split(k)%nmax)
+            call split_X(k)%initialize(lhs(:, 1:3), points)
 
+            data(k)%p => u_loc(1:nlines, split_X(k)%nmin:split_X(k)%nmax)
         end do
 
         u_loc(:, :) = f(:, :)   ! f = Au
 
         do k = 1, nblocks
-            call Thomas3_SolveL(split(k)%lhs(:, 1:1), data(k)%p(:, :))
-            call Thomas3_SolveU(split(k)%lhs(:, 2:3), data(k)%p(:, :))
+            ! call Thomas3_SolveL(split(k)%lhs(:, 1:1), data(k)%p(:, :))
+            ! call Thomas3_SolveU(split(k)%lhs(:, 2:3), data(k)%p(:, :))
+            call split_X(k)%solveL(data(k)%p(:, :))
+            call split_X(k)%solveU(data(k)%p(:, :))
         end do
-        call ThomasSplit_3_Reduce_Serial(split, data)
+        ! call ThomasSplit_3_Reduce_Serial(split, data)
+        call ThomasSplit_3_Reduce_Serial(split_X, data)
 
         call check(u_loc, u, 'linear.dat')
 
@@ -141,27 +156,27 @@ program vThomas3_Split
         print *, new_line('a'), 'Splitting Thomas algorithm'
     end if
 
-    split_mpi%circulant = periodic
-    split_mpi%block_id = mpiGrid%rank + 1
-    split_mpi%communicator = MPI_COMM_WORLD
-    split_mpi%rank = mpiGrid%rank
-    split_mpi%n_ranks = mpiGrid%num_processors
+    split_mpi_X%circulant = periodic
+    split_mpi_X%block_id = mpiGrid%rank + 1
+    split_mpi_X%mpi%comm = mpiGrid%comm
+    split_mpi_X%mpi%rank = mpiGrid%rank
+    split_mpi_X%mpi%num_processors = mpiGrid%num_processors
 
     lhs(:, :) = rhs(:, :)
-    call Thomas_Split_3_Initialize(lhs(:, 1:1), lhs(:, 2:3), &
-                                   points, split_mpi)
+    call split_mpi_X%initialize(lhs, points)
 
     u_loc(:, :) = f(:, :)   ! Each processor will only see its part of the array
 
     ! Solve and reduce
-    if (allocated(wrk2d)) deallocate(wrk2d)
+    if (allocated(wrk2d)) deallocate (wrk2d)
     allocate (wrk2d(nlines, 2))
-    call Thomas3_SolveL(split_mpi%lhs(:, 1:1), u_loc(1:nlines, split_mpi%nmin:split_mpi%nmax))
-    call Thomas3_SolveU(split_mpi%lhs(:, 2:3), u_loc(1:nlines, split_mpi%nmin:split_mpi%nmax))
-    call ThomasSplit_3_Reduce_MPI(split_mpi, u_loc(1:nlines, split_mpi%nmin:split_mpi%nmax), wrk2d(:, 1), wrk2d(:, 2))
+    call split_mpi_X%SolveL(u_loc(1:nlines, split_mpi_X%nmin:split_mpi_X%nmax))
+    call split_mpi_X%SolveU(u_loc(1:nlines, split_mpi_X%nmin:split_mpi_X%nmax))
+    call split_mpi_X%reduce(u_loc(1:nlines, split_mpi_X%nmin:split_mpi_X%nmax), wrk2d(:, 1), wrk2d(:, 2))
 
     ! each processor checks its part
-    call check(u_loc(1:nlines, split_mpi%nmin:split_mpi%nmax), u(1:nlines, split_mpi%nmin:split_mpi%nmax))
+    call check(u_loc(1:nlines, split_mpi_X%nmin:split_mpi_X%nmax), &
+               u(1:nlines, split_mpi_X%nmin:split_mpi_X%nmax))
 
     call MPI_FINALIZE(ims_err)
 

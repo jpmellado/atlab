@@ -14,7 +14,6 @@ module OPR_Partial
     use TLab_Grid, only: x, y, z
     use FDM, only: fdm_der1_X, fdm_der1_Y, fdm_der1_Z
     use FDM, only: fdm_der2_X, fdm_der2_Y, fdm_der2_Z
-    use Thomas_Split
     implicit none
     private
 

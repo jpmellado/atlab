@@ -1,17 +1,17 @@
 cmake_minimum_required (VERSION 3.13)
+
 # specify the location of loadable modules (.cmake extension)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/../config)
+
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 #message(STATUS ${CMAKE_CURRENT_SOURCE_DIR})
 
 # load system specific settings if not set, force default.cmake
-# cmake ../src -DSYST=mpipc
 if(NOT SYST)
   set(SYST default)
 endif()
 include(${SYST} OPTIONAL RESULT_VARIABLE SYSTINC)
 
-# trigger fatal error if illegal module is loaded
 if(${SYSTINC} STREQUAL "NOTFOUND")
   message(FATAL_ERROR "Config file config/" ${SYST} ".cmake does not exist.")
 endif()
@@ -50,14 +50,15 @@ else()
 endif()
 
 # start the project only after the system specific settings are loaded
-project(tlab Fortran)
+project(ATLab LANGUAGES Fortran)
 
 # set the include dirs
 set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/modules)
-set(INCLUDE_DIRS ${INCLUDE_DIRS} ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_BINARY_DIR}/modules)
+
+set(INCLUDE_DIRS ${INCLUDE_DIRS} ${CMAKE_CURRENT_SOURCE_DIR}/include)
 include_directories(${INCLUDE_DIRS})
 
-# retrieve current git branch and the git hash from the current commit and pass it as a string macro to the precompiler
+# retrieve current git branch and the git hash and pass it as a string macro to the precompiler
 find_package(Git)
 if(GIT_EXECUTABLE)
   execute_process(COMMAND git -C ${CMAKE_CURRENT_SOURCE_DIR} log -1 --format=%h OUTPUT_VARIABLE GITHASH RESULT_VARIABLE GITRETURN OUTPUT_STRIP_TRAILING_WHITESPACE)

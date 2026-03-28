@@ -1,14 +1,14 @@
 if ( NOT BUILD_TYPE )
-    message( WARNING "Setting CMAKE_BUILD_TYPE to default value." )
     set(BUILD_TYPE BIG)
 endif()
+message( STATUS "Build type : " ${BUILD_TYPE} )
 
 set(USER_Fortran_FLAGS "-cpp -ffree-form -ffree-line-length-none -fno-automatic -fallow-argument-mismatch")
 set(USER_Fortran_FLAGS_RELEASE "-O3 -ffpe-summary=none -ffast-math -mtune=native -march=native")
 set(USER_Fortran_FLAGS_DEBUG "-O0 -ggdb -Wall -fbacktrace -ffpe-trap=invalid,zero,overflow") # ,underflow,precision,denormal")
 
-if ( ${BUILD_TYPE} STREQUAL "PARALLEL" ) # compiler for parallel build
-    set(ENV{FC} mpif90)
+if (BUILD_TYPE STREQUAL "PARALLEL" ) # compiler for parallel build
+    # set(ENV{FC} mpif90)
     set(CMAKE_Fortran_COMPILER mpif90)
 
     set(USER_Fortran_FLAGS_RELEASE "-fconvert=little-endian ${USER_Fortran_FLAGS_RELEASE}")
@@ -19,18 +19,18 @@ if ( ${BUILD_TYPE} STREQUAL "PARALLEL" ) # compiler for parallel build
     # set(CMAKE_BUILD_TYPE DEBUG)
     
 else() # compiler for serial build
-    set(ENV{FC} gfortran)
+    # set(ENV{FC} gfortran)
     set(CMAKE_Fortran_COMPILER gfortran)
     
-    if    ( ${BUILD_TYPE} STREQUAL "BIG" )
+    if    (BUILD_TYPE  STREQUAL "BIG" )
         set(USER_Fortran_FLAGS_RELEASE "-fconvert=big-endian ${USER_Fortran_FLAGS_RELEASE}")
         set(CMAKE_BUILD_TYPE RELEASE)
         
-    elseif( ${BUILD_TYPE} STREQUAL "LITTLE" )
+    elseif(BUILD_TYPE  STREQUAL "LITTLE" )
         set(USER_Fortran_FLAGS_RELEASE "-fconvert=little-endian ${USER_Fortran_FLAGS_RELEASE}")
         set(CMAKE_BUILD_TYPE RELEASE)
         
-    elseif( ${BUILD_TYPE} STREQUAL "PROFILE" )
+    elseif(BUILD_TYPE  STREQUAL "PROFILE" )
         set(USER_Fortran_FLAGS_DEBUG "-fconvert=little-endian -pg ${USER_Fortran_FLAGS_DEBUG}")
         set(CMAKE_BUILD_TYPE DEBUG)
         

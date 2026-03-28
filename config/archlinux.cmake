@@ -1,7 +1,7 @@
 if ( NOT BUILD_TYPE )
     set(BUILD_TYPE BIG)
 endif()
-message( STATUS "Build type : " ${BUILD_TYPE} )
+message( STATUS "Build Type: " ${BUILD_TYPE} )
 
 set(USER_Fortran_FLAGS "-cpp -ffree-form -ffree-line-length-none -fno-automatic -fallow-argument-mismatch")
 set(USER_Fortran_FLAGS_RELEASE "-O3 -ffpe-summary=none -ffast-math -mtune=native -march=native")

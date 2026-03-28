@@ -80,6 +80,17 @@ message(STATUS "Git branch " ${GITBRANCH})
 add_definitions(-DGITHASH="${GITHASH}")
 add_definitions(-DGITBRANCH="${GITBRANCH}")
 
+# Interprocedural optimization
+include(CheckIPOSupported)
+check_ipo_supported(RESULT ipo_supported OUTPUT error LANGUAGES Fortran)
+
+if(ipo_supported)
+    message(STATUS "IPO/LTO supported")
+    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
+else()
+    message(WARNING "IPO not supported: ${error}")
+endif()
+
 # produce base library
 add_subdirectory(base)
 

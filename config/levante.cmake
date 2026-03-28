@@ -1,7 +1,7 @@
 if ( NOT BUILD_TYPE )
-   message( WARNING "Setting CMAKE_BUILD_TYPE to default value." )
    set(BUILD_TYPE PARALLEL)
 endif()
+message( STATUS "Build Type: " ${BUILD_TYPE} )
 
 set(USER_Fortran_FLAGS  " -fpp ${USER_profile_FLAGS} -nbs -save-temps -heap-arrays -simd -vec-threshold50 -unroll-aggressive ${USER_omp_FLAGS} " )
 

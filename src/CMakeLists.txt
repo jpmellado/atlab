@@ -4,7 +4,6 @@ cmake_minimum_required (VERSION 3.13)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/../config)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
-#message(STATUS ${CMAKE_CURRENT_SOURCE_DIR})
 
 # load system specific settings if not set, force default.cmake
 if(NOT SYST)
@@ -52,12 +51,6 @@ endif()
 # start the project only after the system specific settings are loaded
 project(ATLab LANGUAGES Fortran)
 
-# set the include dirs
-set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/modules)
-
-set(INCLUDE_DIRS ${INCLUDE_DIRS} ${CMAKE_CURRENT_SOURCE_DIR}/include)
-include_directories(${INCLUDE_DIRS})
-
 # retrieve current git branch and the git hash and pass it as a string macro to the precompiler
 find_package(Git)
 if(GIT_EXECUTABLE)
@@ -79,6 +72,29 @@ message(STATUS "Git branch " ${GITBRANCH})
 
 add_definitions(-DGITHASH="${GITHASH}")
 add_definitions(-DGITBRANCH="${GITBRANCH}")
+
+# Manage parallel compiling (used is supermuc so far)
+if(PARALLEL STREQUAL "MPI_ONLY" OR PARALLEL STREQUAL "HYBRID")
+  find_package(MPI REQUIRED COMPONENTS Fortran)
+  message(STATUS "MPI Fortran found: ${MPI_Fortran_COMPILER}")
+  set(PARALLEL_DEPS ${PARALLEL_DEPS} MPI::MPI_Fortran)
+  set(INCLUDE_DIRS ${INCLUDE_DIRS} ${MPI_Fortran_INCLUDE_DIRS})
+endif()
+
+if(PARALLEL STREQUAL "OPENMP_ONLY" OR PARALLEL STREQUAL "HYBRID")
+  find_package(OpenMP 4.5 REQUIRED COMPONENTS Fortran)
+  message(STATUS "OpenMP Fortran Found: ${OpenMP_Fortran_FLAGS}")
+  set(PARALLEL_DEPS ${PARALLEL_DEPS} OpenMP::OpenMP_Fortran)
+endif()
+
+#set libraries
+set(LIBS ${LIBS} ${PARALLEL_DEPS})
+
+# set the include dirs
+set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/modules)
+
+set(INCLUDE_DIRS ${INCLUDE_DIRS} ${CMAKE_CURRENT_SOURCE_DIR}/include)
+include_directories(${INCLUDE_DIRS})
 
 # Interprocedural optimization
 include(CheckIPOSupported)
@@ -111,5 +127,3 @@ add_subdirectory(tools)
 
 # produce validation tools
 add_subdirectory(valid)
-
-#add_custom_target(examples message(STATUS "We are making examples"))

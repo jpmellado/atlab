@@ -11,7 +11,7 @@ module FDM_Derivative_MPISplit
     use FDM_Derivative_1order, only: der1_periodic
     use FDM_Derivative_2order, only: der2_periodic
     use Thomas
-    use Thomas_Split_X
+    use Thomas_Split
     implicit none
     private
 
@@ -68,12 +68,12 @@ contains
         nx = size(ref%lhs, 1)
         allocate (lhs_loc, source=ref%lhs)
 
-        self%thomas3%mpi = mpiAxis
-        np = self%thomas3%mpi%num_processors    ! for clarity below
+        np = mpiAxis%num_processors     ! for clarity below
         call self%thomas3%initialize(lhs_loc, &
                                      [(k, k=nx/np, nx, nx/np)], &
-                                     block_id=self%thomas3%mpi%rank + 1, &
+                                     block_id=mpiAxis%rank + 1, &
                                      circulant=.true.)
+        self%thomas3%mpi = mpiAxis
 
         deallocate (lhs_loc)
 

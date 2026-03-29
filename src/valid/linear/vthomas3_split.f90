@@ -2,11 +2,10 @@ program vThomas3_Split
     use TLab_Constants, only: wp, wi, BCS_NONE
     use Thomas
     use Thomas_Circulant
-    use Thomas_Split_X
+    use Thomas_Split
     use TLab_Arrays, only: wrk2d
 #ifdef USE_MPI
     use mpi_f08
-    use Thomas_Split, only: thomas3_split_dt, ThomasSplit_3_Reduce_MPI
     use TLabMPI_VARS, only: mpiGrid
 #endif
     implicit none
@@ -27,7 +26,7 @@ program vThomas3_Split
     type(thomas_dt) :: thomas1
     type(thomas_circulant_dt) :: thomas_circulant1
 #ifdef USE_MPI
-    type(thomas_split_dt) split_mpi_X
+    type(thomas_split_dt) split_mpi
     integer ims_err
 #endif
     integer, parameter :: nblocks = 4       ! number of blocks
@@ -141,23 +140,23 @@ program vThomas3_Split
 
     lhs(:, :) = rhs(:, :)
 
-    split_mpi_X%mpi = mpiGrid%mpi_axis_dt
-    call split_mpi_X%initialize(lhs, points, &
+    call split_mpi%initialize(lhs, points, &
                                 block_id=mpiGrid%rank + 1, &
                                 circulant=circulant)
+    split_mpi%mpi = mpiGrid%mpi_axis_dt
 
     u_loc(:, :) = f(:, :)   ! Each processor will only see its part of the array
 
     ! Solve and reduce
     if (allocated(wrk2d)) deallocate (wrk2d)
     allocate (wrk2d(nlines, 2))
-    call split_mpi_X%SolveL(u_loc(1:nlines, split_mpi_X%nmin:split_mpi_X%nmax))
-    call split_mpi_X%SolveU(u_loc(1:nlines, split_mpi_X%nmin:split_mpi_X%nmax))
-    call split_mpi_X%reduce(u_loc(1:nlines, split_mpi_X%nmin:split_mpi_X%nmax), wrk2d(:, 1), wrk2d(:, 2))
+    call split_mpi%SolveL(u_loc(1:nlines, split_mpi%nmin:split_mpi%nmax))
+    call split_mpi%SolveU(u_loc(1:nlines, split_mpi%nmin:split_mpi%nmax))
+    call split_mpi%reduce(u_loc(1:nlines, split_mpi%nmin:split_mpi%nmax), wrk2d(:, 1), wrk2d(:, 2))
 
     ! each processor checks its part
-    call check(u_loc(1:nlines, split_mpi_X%nmin:split_mpi_X%nmax), &
-               u(1:nlines, split_mpi_X%nmin:split_mpi_X%nmax))
+    call check(u_loc(1:nlines, split_mpi%nmin:split_mpi%nmax), &
+               u(1:nlines, split_mpi%nmin:split_mpi%nmax))
 
     call MPI_FINALIZE(ims_err)
 

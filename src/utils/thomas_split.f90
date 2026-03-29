@@ -1,6 +1,6 @@
 #include "tlab_error.h"
 
-! Matrix splitting
+! Splitting algorithm of linear solver
 
 module Thomas_Split
     use TLab_Constants, only: wp, wi, small_wp, roundoff_wp
@@ -13,41 +13,110 @@ module Thomas_Split
     implicit none
     private
 
-    ! -----------------------------------------------------------------------
-    public :: Thomas_Split_3_Initialize
-    ! public :: ThomasSplit_3_Reduce_Serial
-#ifdef USE_MPI
-    public :: ThomasSplit_3_Reduce_MPI
-#endif
+    public :: thomas_split_dt
 
-    type, public :: thomas3_split_dt
-#ifdef USE_MPI
-        type(mpi_axis_dt) mpi
-        ! type(MPI_Comm) communicator
-        ! integer rank, n_ranks
-#endif
-        integer :: block_id
-        integer(wi) :: nmin, nmax
-        logical :: circulant = .true.
-        real(wp), allocatable :: lhs(:, :)
-        real(wp), allocatable :: y(:, :)
-        real(wp) :: alpha(2) = [0.0_wp, 0.0_wp]
-    end type thomas3_split_dt
-
-    type, public :: data_dt                     ! for validating the algorithm in serial
+    public :: ThomasSplit_3_Reduce_Serial       ! For testing the algorithm in serial
+    type, public :: data_dt
         real(wp), pointer :: p(:, :)
     end type data_dt
+
+    ! -----------------------------------------------------------------------
+    ! type, extends(thomas_dt) :: thomas_split_dt
+    type :: thomas_split_dt
+        real(wp), allocatable :: L(:, :)
+        real(wp), allocatable :: U(:, :)
+        procedure(thomas_ice), pointer, nopass :: ptr_solveL
+        procedure(thomas_ice), pointer, nopass :: ptr_solveU
+        !
+        real(wp), allocatable :: y(:, :)
+        !
+        logical :: circulant = .true.
+        integer :: block_id
+        integer(wi) :: nmin, nmax
+        real(wp) :: alpha(2) = [0.0_wp, 0.0_wp]
+#ifdef USE_MPI
+        type(mpi_axis_dt) mpi
+#endif
+    contains
+        procedure :: initialize => thomas_initialize_dt
+        procedure :: solveL => thomas_solveL_dt
+        procedure :: solveU => thomas_solveU_dt
+#ifdef USE_MPI
+        procedure :: reduce => thomas_reduce_mpi_dt
+#endif
+    end type thomas_split_dt
+
+    abstract interface
+        subroutine thomas_ice(A, f)
+            import wp
+            real(wp), intent(in) :: A(:, :)
+            real(wp), intent(inout) :: f(:, :)          ! RHS and solution
+        end subroutine thomas_ice
+    end interface
 
 contains
     !########################################################################
     !########################################################################
-    subroutine Thomas_Split_3_Initialize(L, U, points, split)
-        real(wp), intent(inout) :: L(:, :), U(:, :)
+    subroutine thomas_initialize_dt(self, lhs, points, block_id, circulant)
+        class(thomas_split_dt), intent(out) :: self
+        real(wp), intent(inout) :: lhs(:, :)
         integer(wi), intent(in) :: points(:)   ! sequence of splitting points in ascending order
-        type(thomas3_split_dt), intent(inout) :: split
+        integer, intent(in) :: block_id
+        logical, intent(in) :: circulant
 
         ! -------------------------------------------------------------------
-        integer nblocks, m, k
+        integer ndl, nblocks, nsize, k
+
+        !########################################################################
+        self%block_id = block_id
+        self%circulant = circulant
+
+        nblocks = size(points)
+        ! Number of coefficients are nblocks-1 for the tridiagonal case
+        ! and we add one for the circulant case, which is managed by last block
+
+        nsize = size(lhs, 1)
+
+        k = self%block_id
+        self%nmin = points(mod(k - 2 + nblocks, nblocks) + 1)
+        self%nmin = mod(self%nmin, nsize) + 1
+        self%nmax = points(k)
+
+        ! -------------------------------------------------------------------
+        ! memory management
+        nsize = self%nmax - self%nmin + 1
+
+        ndl = size(lhs, 2)
+        allocate (self%L(1:nsize, 1:ndl/2))
+        allocate (self%U(1:nsize, ndl/2 + 1:ndl))
+
+        if (allocated(self%y)) deallocate (self%y)
+        allocate (self%y(1:nsize, nblocks))
+        self%y(:, :) = 0.0_wp
+
+        select case (ndl)
+        case (3)
+            call ThomasSplit_3_Initialize(self, lhs, points)
+        end select
+
+        select case (ndl)
+        case (3)
+            self%ptr_solveL => Thomas3_SolveL
+            self%ptr_solveU => Thomas3_SolveU
+        end select
+
+        return
+    end subroutine thomas_initialize_dt
+
+    !########################################################################
+    !########################################################################
+    subroutine ThomasSplit_3_Initialize(self, lhs, points)
+        class(thomas_split_dt), intent(inout) :: self
+        real(wp), intent(inout) :: lhs(:, :)
+        integer(wi), intent(in) :: points(:)   ! sequence of splitting points in ascending order
+
+        ! -------------------------------------------------------------------
+        integer nblocks, m
         integer(wi) n, nsize
         integer(wi) p, p_plus_1
         character(len=32) str
@@ -57,50 +126,26 @@ contains
         real(wp) delta
         real(wp) alpha_previous(2), beta_loc, gamma_loc
 
-#define a(i) L(i,1)
-#define b(i) U(i,1)
-#define c(i) U(i,2)
-
         !########################################################################
         nblocks = size(points)
-        ! Number of coefficients are nblocks-1 for the tridiagonal case
-        ! and we add one for the circulant case, which is managed by last block
 
-        nsize = size(a(:))
-
-        k = split%block_id
-        split%nmin = points(mod(k - 2 + nblocks, nblocks) + 1)
-        split%nmin = mod(split%nmin, nsize) + 1
-        split%nmax = points(k)
-
-        ! -------------------------------------------------------------------
-        ! memory management
-        nsize = split%nmax - split%nmin + 1
-
-        if (allocated(split%lhs)) deallocate (split%lhs)
-        allocate (split%lhs(1:nsize, 3))
-        split%lhs(:, :) = 0.0_wp
-
-        if (allocated(split%y)) deallocate (split%y)
-        allocate (split%y(1:nsize, nblocks))
-        split%y(:, :) = 0.0_wp
-
-        ! -------------------------------------------------------------------
         ! temporary arrays to calculate z_j
-        nsize = size(a(:))
+        nsize = size(lhs, 1)
         allocate (lhs_loc(nsize, 3), zloc(nsize))
 
-        if (split%circulant) then
+        if (self%circulant) then
             m = nblocks             ! last block has the circulant coefficient
-            p = points(m)           ! index of splitting point
-            p_plus_1 = 1
 
-            call Splitting(L, U, p, p_plus_1, alpha_0, zloc)
-
-            if (split%block_id == m) then
-                split%alpha(1:2) = alpha_0(1:2)
+            call Splitting(L=lhs(:, 1:1), &
+                           U=lhs(:, 2:3), &
+                           p=points(m), &               ! index of splitting point
+                           p_plus_1=1, &
+                           alpha=alpha_0, &
+                           z=zloc)
+            if (self%block_id == m) then
+                self%alpha(1:2) = alpha_0(1:2)
             end if
-            split%y(:, m) = zloc(split%nmin:split%nmax)
+            self%y(:, m) = zloc(self%nmin:self%nmax)
 
             ! Calculate decay index
             do n = 2, nsize
@@ -108,31 +153,36 @@ contains
                 ! print *, n, abs(zloc(n)/zloc(1))
             end do
             write (str, *) n
-            call TLab_Write_ASCII(wfile, 'Decay to round-off in splitting algorithm in '//trim(adjustl(str))//' indexes.')
-            write (str, fmt_r) abs(zloc(split%nmax - split%nmin + 1)/zloc(1))
+            call TLab_Write_ASCII(wfile, 'Decay to round-off in selfting algorithm in '//trim(adjustl(str))//' indexes.')
+            write (str, fmt_r) abs(zloc(self%nmax - self%nmin + 1)/zloc(1))
             call TLab_Write_ASCII(wfile, 'Truncation error in splitting algorithm equal to '//trim(adjustl(str))//'.')
+
         end if
 
         do m = 1, nblocks - 1       ! loop over remaining coefficients
-            p = points(m)           ! index of splitting point
-            p_plus_1 = p + 1
+            call Splitting(L=lhs(:, 1:1), &
+                           U=lhs(:, 2:3), &
+                           p=points(m), &               ! index of splitting point
+                           p_plus_1=points(m) + 1, &
+                           alpha=alpha, &
+                           z=zloc)
 
-            call Splitting(L, U, p, p_plus_1, alpha, zloc)
-
-            if (split%block_id == m) then
-                split%alpha(1:2) = alpha(1:2)
+            if (self%block_id == m) then
+                self%alpha(1:2) = alpha(1:2)
             end if
 
-            split%y(:, m) = zloc(split%nmin:split%nmax)
-            if (split%circulant) then
+            self%y(:, m) = zloc(self%nmin:self%nmax)
+            if (self%circulant) then
                 gamma_loc = alpha_0(1)*zloc(nsize) + alpha_0(2)*zloc(1)
-                split%y(:, m) = split%y(:, m) + gamma_loc*split%y(:, nblocks)
+                self%y(:, m) = self%y(:, m) + gamma_loc*self%y(:, nblocks)
             end if
             if (m > 1) then
                 p = points(m - 1)
                 p_plus_1 = p + 1
-                beta_loc = alpha_previous(1)*zloc(p) + alpha_previous(2)*zloc(p_plus_1)
-                split%y(:, m) = split%y(:, m) + beta_loc*split%y(:, m - 1)
+                beta_loc = alpha_previous(1)*zloc(p) + &
+                           alpha_previous(2)*zloc(p_plus_1)
+                self%y(:, m) = self%y(:, m) + &
+                               beta_loc*self%y(:, m - 1)
             end if
             alpha_previous(:) = alpha(:)
 
@@ -140,9 +190,8 @@ contains
 
         ! -------------------------------------------------------------------
         ! block matrix Am and LU decomposition
-        split%lhs(:, 1) = lhs_loc(split%nmin:split%nmax, 1)
-        split%lhs(:, 2) = lhs_loc(split%nmin:split%nmax, 2)
-        split%lhs(:, 3) = lhs_loc(split%nmin:split%nmax, 3)
+        self%L(:, :) = lhs_loc(self%nmin:self%nmax, 1:1)
+        self%U(:, :) = lhs_loc(self%nmin:self%nmax, 2:3)
 
         deallocate (lhs_loc, zloc)
 
@@ -154,6 +203,10 @@ contains
             integer(wi), intent(in) :: p, p_plus_1
             real(wp), intent(inout) :: alpha(2)
             real(wp), intent(inout) :: z(1, size(L, 1))
+
+#define a(i) L(i,1)
+#define b(i) U(i,1)
+#define c(i) U(i,2)
 
             ! Start definition of alpha
             alpha(1) = a(p_plus_1)
@@ -190,12 +243,100 @@ contains
             return
         end subroutine Splitting
 
-    end subroutine Thomas_Split_3_Initialize
+    end subroutine ThomasSplit_3_Initialize
 
     !########################################################################
     !########################################################################
-    subroutine ThomasSplit_3_Reduce_Serial(split, f)
-        type(thomas3_split_dt), intent(in) :: split(:)
+    subroutine thomas_solveL_dt(self, f)
+        class(thomas_split_dt), intent(in) :: self
+        real(wp), intent(inout) :: f(:, :)
+
+        call self%ptr_solveL(self%L, f)
+
+        return
+    end subroutine
+
+    subroutine thomas_solveU_dt(self, f)
+        class(thomas_split_dt), intent(in) :: self
+        real(wp), intent(inout) :: f(:, :)
+
+        call self%ptr_solveU(self%U, f)
+
+        return
+    end subroutine
+
+#ifdef USE_MPI
+    !########################################################################
+    !########################################################################
+    subroutine thomas_reduce_mpi_dt(self, f, alpha, tmp)
+        use mpi_f08
+        class(thomas_split_dt), intent(in) :: self
+        real(wp), intent(inout) :: f(:, :)
+        real(wp), intent(inout) :: alpha(:)         ! auxiliary memory space for local alpha
+        real(wp), intent(inout) :: tmp(:)           ! auxiliary memory space
+        integer(wi) n, nsize, nlines
+        integer(wi) nblocks
+
+        integer ims_err
+        integer source, dest, tag
+
+        !########################################################################
+        ! Assume circulant matrix and need alpha_0
+
+        nblocks = self%mpi%num_processors
+        nlines = size(f, 1)
+        nsize = size(f, 2)              ! Assume all blocks have same size
+
+        ! -------------------------------------------------------------------
+        ! pass x(:,1) to previous block and calculate local coefficient
+#define xp(j) alpha(j)
+        dest = mod(self%mpi%rank - 1 + self%mpi%num_processors, self%mpi%num_processors)
+        source = mod(self%mpi%rank + 1, self%mpi%num_processors)
+        tag = 0
+        call MPI_Sendrecv(f(:, 1), nlines, MPI_REAL8, dest, tag, &
+                          xp(:), nlines, MPI_REAL8, source, tag, &
+                          self%mpi%comm, MPI_STATUS_IGNORE, ims_err)
+        alpha(:) = self%alpha(1)*f(:, nsize) + self%alpha(2)*xp(:)
+
+#undef xp
+
+        ! -------------------------------------------------------------------
+        ! Truncated algorithm
+        ! Pass alpha to following block
+        dest = mod(self%mpi%rank + 1, self%mpi%num_processors)
+        source = mod(self%mpi%rank - 1 + self%mpi%num_processors, self%mpi%num_processors)
+        tag = 1
+        call MPI_Sendrecv(alpha, nlines, MPI_REAL8, dest, tag, &
+                          tmp, nlines, MPI_REAL8, source, tag, &
+                          self%mpi%comm, MPI_STATUS_IGNORE, ims_err)
+
+        ! Update solution
+        do n = 1, nsize
+            f(:, n) = f(:, n) + alpha(:)*self%y(n, self%block_id) &
+                      + tmp(:)*self%y(n, source + 1)
+        end do
+
+        ! -------------------------------------------------------------------
+        ! Full algorithm
+        ! Distribute coefficients
+        ! call MPI_Allgather(alpha, nlines, MPI_REAL8, &
+        !                    tmp, nlines, MPI_REAL8, self%communicator, ims_err)
+
+        ! ! Update solution
+        ! do m = 1, nblocks
+        !     do n = 1, nsize
+        !         f(:, n) = f(:, n) + tmp(:, m)*self%y(n, m)
+        !     end do
+        ! end do
+
+        return
+    end subroutine thomas_reduce_mpi_dt
+#endif
+
+    !########################################################################
+    !########################################################################
+    subroutine ThomasSplit_3_Reduce_Serial(self, f)
+        type(thomas_split_dt), intent(in) :: self(:)
         type(data_dt), intent(inout) :: f(:)
 
         integer(wi) n, nsize, nlines
@@ -204,7 +345,7 @@ contains
         real(wp), allocatable :: xp(:, :), alpha(:, :)
 
         !########################################################################
-        nblocks = size(split)
+        nblocks = size(self)
         nlines = size(f(1)%p, 1)
 
         ! pass x(:,1) to previous block
@@ -218,7 +359,7 @@ contains
         allocate (alpha(nlines, nblocks))       ! the idea is that each block needs only one alpha
         do k = nblocks, 1, -1                   ! loop over blocks
             nsize = size(f(k)%p, 2)
-            alpha(:, k) = split(k)%alpha(1)*f(k)%p(:, nsize) + split(k)%alpha(2)*xp(:, k)
+            alpha(:, k) = self(k)%alpha(1)*f(k)%p(:, nsize) + self(k)%alpha(2)*xp(:, k)
         end do
 
         ! send alpha to all blocks
@@ -226,7 +367,7 @@ contains
         ! calculate solution
         do k = nblocks, 1, -1                   ! loop over blocks
             nsize = size(f(k)%p, 2)
-            if (split(k)%circulant) then
+            if (self(k)%circulant) then
                 mmax = nblocks
             else
                 mmax = nblocks - 1
@@ -235,17 +376,17 @@ contains
             ! Truncated
             m = k
             do n = 1, nsize
-                f(k)%p(:, n) = f(k)%p(:, n) + alpha(:, m)*split(k)%y(n, m)
+                f(k)%p(:, n) = f(k)%p(:, n) + alpha(:, m)*self(k)%y(n, m)
             end do
             m = mod(k - 2 + nblocks, nblocks) + 1
             do n = 1, nsize
-                f(k)%p(:, n) = f(k)%p(:, n) + alpha(:, m)*split(k)%y(n, m)
+                f(k)%p(:, n) = f(k)%p(:, n) + alpha(:, m)*self(k)%y(n, m)
             end do
 
             ! Full
             ! do m = 1, mmax
             !     do n = 1, nsize
-            !         f(k)%p(:, n) = f(k)%p(:, n) + alpha(:, m)*split(k)%y(n, m)
+            !         f(k)%p(:, n) = f(k)%p(:, n) + alpha(:, m)*self(k)%y(n, m)
             !     end do
             ! end do
 
@@ -255,82 +396,5 @@ contains
 
         return
     end subroutine ThomasSplit_3_Reduce_Serial
-
-#ifdef USE_MPI
-    !########################################################################
-    !########################################################################
-    subroutine ThomasSplit_3_Reduce_MPI(split, f, alpha, tmp)
-        use mpi_f08
-
-        type(thomas3_split_dt), intent(in) :: split
-        real(wp), intent(inout) :: f(:, :)
-        real(wp), intent(inout) :: alpha(:)         ! auxiliary memory space for local alpha
-        real(wp), intent(inout) :: tmp(:)           ! auxiliary memory space
-        integer(wi) n, nsize, nlines
-        integer(wi) nblocks
-
-        integer ims_err
-        integer source, dest, tag
-
-        !########################################################################
-        ! Assume circulant matrix and need alpha_0
-
-        ! nblocks = split%n_ranks
-        nblocks = split%mpi%num_processors
-        nlines = size(f, 1)
-        nsize = size(f, 2)              ! Assume all blocks have same size
-
-        ! -------------------------------------------------------------------
-        ! pass x(:,1) to previous block and calculate local coefficient
-#define xp(j) alpha(j)
-
-        ! dest = mod(split%rank - 1 + split%n_ranks, split%n_ranks)
-        ! source = mod(split%rank + 1, split%n_ranks)
-        dest = mod(split%mpi%rank - 1 + split%mpi%num_processors, split%mpi%num_processors)
-        source = mod(split%mpi%rank + 1, split%mpi%num_processors)
-        tag = 0
-        call MPI_Sendrecv(f(:, 1), nlines, MPI_REAL8, dest, tag, &
-                          xp(:), nlines, MPI_REAL8, source, tag, &
-                          split%mpi%comm, MPI_STATUS_IGNORE, ims_err)
-        !   split%communicator, MPI_STATUS_IGNORE, ims_err)
-        alpha(:) = split%alpha(1)*f(:, nsize) + split%alpha(2)*xp(:)
-
-#undef xp
-
-        ! -------------------------------------------------------------------
-        ! Truncated algorithm
-        ! Pass alpha to following block
-        ! dest = mod(split%rank + 1, split%n_ranks)
-        ! source = mod(split%rank - 1 + split%n_ranks, split%n_ranks)
-        dest = mod(split%mpi%rank + 1, split%mpi%num_processors)
-        source = mod(split%mpi%rank - 1 + split%mpi%num_processors, split%mpi%num_processors)
-        tag = 1
-        call MPI_Sendrecv(alpha, nlines, MPI_REAL8, dest, tag, &
-                          tmp, nlines, MPI_REAL8, source, tag, &
-                          split%mpi%comm, MPI_STATUS_IGNORE, ims_err)
-        !   split%communicator, MPI_STATUS_IGNORE, ims_err)
-
-        ! Update solution
-        do n = 1, nsize
-            f(:, n) = f(:, n) + alpha(:)*split%y(n, split%block_id) &
-                      + tmp(:)*split%y(n, source + 1)
-        end do
-
-        ! -------------------------------------------------------------------
-        ! Full algorithm
-        ! Distribute coefficients
-        ! call MPI_Allgather(alpha, nlines, MPI_REAL8, &
-        !                    tmp, nlines, MPI_REAL8, split%communicator, ims_err)
-
-        ! ! Update solution
-        ! do m = 1, nblocks
-        !     do n = 1, nsize
-        !         f(:, n) = f(:, n) + tmp(:, m)*split%y(n, m)
-        !     end do
-        ! end do
-
-        return
-    end subroutine ThomasSplit_3_Reduce_MPI
-#endif
 
 end module Thomas_Split

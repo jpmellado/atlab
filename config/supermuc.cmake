@@ -1,7 +1,7 @@
 if ( NOT BUILD_TYPE )
   set(BUILD_TYPE "PARALLEL")
 endif()
-message( STATUS  "Build type : " ${BUILD_TYPE} )
+message( STATUS  "Build Type: " ${BUILD_TYPE} )
 
 if ( NOT HYBRID )
   set(HYBRID FALSE)
@@ -9,10 +9,10 @@ else()
   message(WARNING "Compiling for hybrid openMP/MPI usage")
 endif()
 
-set(CMAKE_Fortran_FLAGS          " -fpp -nbs -save-temps -heap-arrays -unroll -vec-threshold50 " )
-set(CMAKE_Fortran_FLAGS_RELEASE  " -Ofast -march=skylake-avx512 -axcommon-avx512,SSE4.2 -qopt-streaming-stores=always -qopt-zmm-usage=high -qopt-prefetch")
+set(USER_Fortran_FLAGS          " -fpp -nbs -save-temps -heap-arrays -unroll -vec-threshold50 " )
+set(USER_Fortran_FLAGS_RELEASE  " -Ofast -march=skylake-avx512 -axcommon-avx512,SSE4.2 -qopt-streaming-stores=always -qopt-zmm-usage=high -qopt-prefetch")
 # -Ofast = -O3, -ipo, -no-prec-div, -static, -xHost; maybe check -axCORE-AVX2
-set(CMAKE_Fortran_FLAGS_DEBUG    " -g -traceback -debug all ")
+set(USER_Fortran_FLAGS_DEBUG    " -g -traceback -debug all ")
 
 set(CMAKE_Fortran_COMPILER ifx)
 

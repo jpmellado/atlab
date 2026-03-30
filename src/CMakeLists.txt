@@ -73,7 +73,7 @@ message(STATUS "Git branch " ${GITBRANCH})
 add_definitions(-DGITHASH="${GITHASH}")
 add_definitions(-DGITBRANCH="${GITBRANCH}")
 
-# Manage parallel compiling (used is supermuc so far)
+# Manage parallel compiling
 if(PARALLEL STREQUAL "MPI_ONLY" OR PARALLEL STREQUAL "HYBRID")
   find_package(MPI REQUIRED COMPONENTS Fortran)
   message(STATUS "MPI Fortran found: ${MPI_Fortran_COMPILER}")
@@ -87,7 +87,7 @@ if(PARALLEL STREQUAL "OPENMP_ONLY" OR PARALLEL STREQUAL "HYBRID")
   set(PARALLEL_DEPS ${PARALLEL_DEPS} OpenMP::OpenMP_Fortran)
 endif()
 
-#set libraries
+# set libraries
 set(LIBS ${LIBS} ${PARALLEL_DEPS})
 
 # set the include dirs

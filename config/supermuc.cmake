@@ -18,7 +18,7 @@ set(CMAKE_Fortran_COMPILER ifx)
 
 # compiler for parallel build and hybrid flags
 if (BUILD_TYPE STREQUAL "PARALLEL" )
-  set(MPI_Fortran_COMPILER mpiifx)
+#   set(MPI_Fortran_COMPILER mpiifx)
   set(PARALLEL MPI_ONLY)
   add_definitions(-DUSE_MPI -DUSE_MPI_IO -DUSE_ALLTOALL)
 

@@ -1,46 +1,39 @@
 if ( NOT BUILD_TYPE )
-    set(BUILD_TYPE BIG)
+    set(BUILD_TYPE LITTLE)
 endif()
 message( STATUS "Build Type: " ${BUILD_TYPE} )
 
-set(USER_Fortran_FLAGS "-cpp -ffree-form -ffree-line-length-none -fno-automatic -fallow-argument-mismatch")
+set(USER_Fortran_FLAGS "-fconvert=little-endian -cpp -ffree-form -ffree-line-length-none -fno-automatic -fallow-argument-mismatch")
 set(USER_Fortran_FLAGS_RELEASE "-O3 -ffpe-summary=none -ffast-math -mtune=native -march=native")
 set(USER_Fortran_FLAGS_DEBUG "-O0 -ggdb -Wall -fbacktrace -ffpe-trap=invalid,zero,overflow") # ,underflow,precision,denormal")
 
-if (BUILD_TYPE STREQUAL "PARALLEL" ) # compiler for parallel build
-    # set(ENV{FC} mpif90)
-    set(CMAKE_Fortran_COMPILER mpif90)
+set(CMAKE_Fortran_COMPILER gfortran)
 
-    set(USER_Fortran_FLAGS_RELEASE "-fconvert=little-endian ${USER_Fortran_FLAGS_RELEASE}")
-    set(USER_Fortran_FLAGS_DEBUG "-fconvert=little-endian ${USER_Fortran_FLAGS_DEBUG}")
-    # set(USER_Fortran_FLAGS_DEBUG "-fconvert=little-endian -pg ${USER_Fortran_FLAGS_DEBUG}")
+if (BUILD_TYPE STREQUAL "PARALLEL" )    # compiler for parallel build
+    set(PARALLEL MPI_ONLY)
     add_definitions(-DUSE_MPI -DUSE_MPI_IO)
-    set(CMAKE_BUILD_TYPE RELEASE)
     # set(CMAKE_BUILD_TYPE DEBUG)
     
-else() # compiler for serial build
-    # set(ENV{FC} gfortran)
-    set(CMAKE_Fortran_COMPILER gfortran)
-    
+else()                                  # compiler for serial build
     if    (BUILD_TYPE  STREQUAL "BIG" )
         set(USER_Fortran_FLAGS_RELEASE "-fconvert=big-endian ${USER_Fortran_FLAGS_RELEASE}")
-        set(CMAKE_BUILD_TYPE RELEASE)
         
     elseif(BUILD_TYPE  STREQUAL "LITTLE" )
-        set(USER_Fortran_FLAGS_RELEASE "-fconvert=little-endian ${USER_Fortran_FLAGS_RELEASE}")
-        set(CMAKE_BUILD_TYPE RELEASE)
         
     elseif(BUILD_TYPE  STREQUAL "PROFILE" )
-        set(USER_Fortran_FLAGS_DEBUG "-fconvert=little-endian -pg ${USER_Fortran_FLAGS_DEBUG}")
+        set(USER_Fortran_FLAGS_DEBUG "-pg ${USER_Fortran_FLAGS_DEBUG}")
         set(CMAKE_BUILD_TYPE DEBUG)
         
     else()
-        set(USER_Fortran_FLAGS_DEBUG "-fconvert=little-endian ${USER_Fortran_FLAGS_DEBUG}")
         add_definitions(-D_DEBUG)
         set(CMAKE_BUILD_TYPE DEBUG)
         
     endif()
     
+endif()
+
+if ( NOT CMAKE_BUILD_TYPE )
+  set(CMAKE_BUILD_TYPE RELEASE)
 endif()
 
 add_definitions(-DUSE_FFTW)

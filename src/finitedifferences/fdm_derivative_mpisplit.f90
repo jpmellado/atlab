@@ -52,7 +52,6 @@ contains
         type(mpi_axis_dt) mpiAxis
 
         integer nx, k, np
-        real(wp), allocatable :: lhs_loc(:, :)
 
         ! ###################################################################
         if (size(ref%lhs, 2) /= 3) then
@@ -66,16 +65,13 @@ contains
         self%rhs => ref%rhs
 
         nx = size(ref%lhs, 1)
-        allocate (lhs_loc, source=ref%lhs)
 
         np = mpiAxis%num_processors     ! for clarity below
-        call self%thomas3%initialize(lhs_loc, &
+        call self%thomas3%initialize(ref%lhs, &
                                      [(k, k=nx/np, nx, nx/np)], &
                                      block_id=mpiAxis%rank + 1, &
                                      circulant=.true.)
         self%thomas3%mpi = mpiAxis
-
-        deallocate (lhs_loc)
 
         return
     end subroutine

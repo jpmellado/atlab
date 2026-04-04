@@ -60,7 +60,7 @@ contains
     !########################################################################
     subroutine thomas_initialize_dt(self, lhs, points, block_id, circulant)
         class(thomas_split_dt), intent(out) :: self
-        real(wp), intent(inout) :: lhs(:, :)
+        real(wp), intent(in) :: lhs(:, :)
         integer(wi), intent(in) :: points(:)   ! sequence of splitting points in ascending order
         integer, intent(in) :: block_id
         logical, intent(in) :: circulant

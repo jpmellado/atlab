@@ -9,6 +9,7 @@ module Thomas_Circulant
     use TLab_Constants, only: efile
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
     use Thomas
+    use Thomas_Split, only: Thomas_3_Split_InPlace
     implicit none
     private
 
@@ -40,7 +41,8 @@ contains
         allocate (self%z(ndl/2, size(lhs, 1)))
         select case (ndl)
         case (3)
-            call ThomasCirculant_3_Initialize(self%L, self%U, self%z)
+            ! call ThomasCirculant_3_Initialize(self%L, self%U, self%z)
+            call Thomas_3_Split_InPlace(self%L, self%U, self%z, size(lhs, 1))
         case (5)
             call ThomasCirculant_5_Initialize(self%L, self%U, self%z)
         end select
@@ -69,65 +71,65 @@ contains
         return
     end subroutine
 
-    !########################################################################
-    !########################################################################
-    subroutine ThomasCirculant_3_Initialize(L, U, z_mem)
-        real(wp), intent(inout) :: L(:, :), U(:, :)
-        real(wp), intent(inout) :: z_mem(1, size(L, 1))
+!     !########################################################################
+!     !########################################################################
+!     subroutine ThomasCirculant_3_Initialize(L, U, z_mem)
+!         real(wp), intent(inout) :: L(:, :), U(:, :)
+!         real(wp), intent(inout) :: z_mem(1, size(L, 1))
 
-        ! -----------------------------------------------------------------------
-        integer nmax
-        real(wp) a1, cn, m
+!         ! -----------------------------------------------------------------------
+!         integer nmax
+!         real(wp) a1, cn, m
 
-        ! #######################################################################
-        nmax = size(L, 1)
+!         ! #######################################################################
+!         nmax = size(L, 1)
 
-        a1 = L(1, 1)
-        cn = U(nmax, 2)
+!         a1 = L(1, 1)
+!         cn = U(nmax, 2)
 
-        ! -------------------------------------------------------------------
-        ! Generate matrix A1
-        U(1, 1) = U(1, 1) - cn
+!         ! -------------------------------------------------------------------
+!         ! Generate matrix A1
+!         U(1, 1) = U(1, 1) - cn
 
-        U(nmax, 1) = U(nmax, 1) - a1
+!         U(nmax, 1) = U(nmax, 1) - a1
 
-        call Thomas3_FactorLU_InPlace(L, U)
+!         call Thomas3_FactorLU_InPlace(L, U)
 
-        ! -------------------------------------------------------------------
-        ! Generate vector z
-#define z(i) z_mem(1,i)
+!         ! -------------------------------------------------------------------
+!         ! Generate vector z
+! #define z(i) z_mem(1,i)
 
-        z(:) = 0.0_wp
-        z(1) = 1.0_wp
-        z(nmax) = 1.0_wp
+!         z(:) = 0.0_wp
+!         z(1) = 1.0_wp
+!         z(nmax) = 1.0_wp
 
-        call Thomas3_SolveL(L, z_mem)
-        call Thomas3_SolveU(U, z_mem)
+!         call Thomas3_SolveL(L, z_mem)
+!         call Thomas3_SolveU(U, z_mem)
 
-        ! -------------------------------------------------------------------
-        ! Calculate normalized coefficients a1 and cn
-        m = 1.0_wp + cn*z(1) + a1*z(nmax)
-        if (abs(m) < small_wp) then
-            call TLab_Write_ASCII(efile, __FILE__//'. Singular matrix M.')
-            call TLab_Stop(DNS_ERROR_THOMAS)
-        end if
+!         ! -------------------------------------------------------------------
+!         ! Calculate normalized coefficients a1 and cn
+!         m = 1.0_wp + cn*z(1) + a1*z(nmax)
+!         if (abs(m) < small_wp) then
+!             call TLab_Write_ASCII(efile, __FILE__//'. Singular matrix M.')
+!             call TLab_Stop(DNS_ERROR_THOMAS)
+!         end if
 
-        U(nmax, 2) = -cn/m
-        L(1, 1) = -a1/m
+!         U(nmax, 2) = -cn/m
+!         L(1, 1) = -a1/m
 
-        ! ! -------------------------------------------------------------------
-        ! ! Calculate decay index
-        ! do n_smw_decay = 2, nmax
-        !     if (abs(z(n_smw_decay)/z(1)) < roundoff_wp) exit
-        !     ! print *, abs(z(n_smw_decay)/z(1)
-        ! end do
-        ! write (str, *) n_smw_decay
-        ! call TLab_Write_ASCII(lfile, 'Decay to round-off in SMW algorithm in '//trim(adjustl(str))//' indexes.')
+!         ! ! -------------------------------------------------------------------
+!         ! ! Calculate decay index
+!         ! do n_smw_decay = 2, nmax
+!         !     if (abs(z(n_smw_decay)/z(1)) < roundoff_wp) exit
+!         !     ! print *, abs(z(n_smw_decay)/z(1)
+!         ! end do
+!         ! write (str, *) n_smw_decay
+!         ! call TLab_Write_ASCII(lfile, 'Decay to round-off in SMW algorithm in '//trim(adjustl(str))//' indexes.')
 
-#undef z
+! #undef z
 
-        return
-    end subroutine ThomasCirculant_3_Initialize
+!         return
+!     end subroutine ThomasCirculant_3_Initialize
 
     !########################################################################
     !########################################################################
@@ -142,11 +144,17 @@ contains
         ! ###################################################################
         if (size(f, 1) <= 0) return
 
+#define cn U(nmax, 2)
+#define a1 L(1, 1)
+
         nmax = size(f, 2)
-        wrk(:) = U(nmax, 2)*f(:, 1) + L(1, 1)*f(:, nmax)
+        wrk(:) = cn*f(:, 1) + a1*f(:, nmax)
         do n = 1, nmax
             f(:, n) = f(:, n) + wrk(:)*z(n)
         end do
+
+#undef cn
+#undef a1
 
         ! This would save time in the serial case, but we are interested in the parallel case
         ! n_smw_decay = 64

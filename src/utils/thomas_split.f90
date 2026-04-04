@@ -4,7 +4,7 @@
 
 module Thomas_Split
     use TLab_Constants, only: wp, wi, small_wp, roundoff_wp
-    use TLab_Constants, only: efile, wfile, fmt_r
+    use TLab_Constants, only: efile, wfile, lfile, fmt_r
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
 #ifdef USE_MPI
     use TLabMPI_VARS, only: mpi_axis_dt
@@ -14,6 +14,7 @@ module Thomas_Split
     private
 
     public :: thomas_split_dt
+    public :: Thomas_3_Split_InPlace
 
     public :: ThomasSplit_3_Reduce_Serial       ! For testing the algorithm in serial
     type, public :: data_dt
@@ -96,7 +97,8 @@ contains
 
         select case (ndl)
         case (3)
-            call ThomasSplit_3_Initialize(self, lhs, points)
+            ! call ThomasSplit_3_Initialize(self, lhs, points)
+            call ThomasSplit_3_Initialize_X(self, lhs, points)
         end select
 
         select case (ndl)
@@ -110,140 +112,341 @@ contains
 
     !########################################################################
     !########################################################################
-    subroutine ThomasSplit_3_Initialize(self, lhs, points)
+    subroutine ThomasSplit_3_Initialize_X(self, lhs, points)
         class(thomas_split_dt), intent(inout) :: self
-        real(wp), intent(inout) :: lhs(:, :)
+        real(wp), intent(in) :: lhs(:, :)
         integer(wi), intent(in) :: points(:)   ! sequence of splitting points in ascending order
 
         ! -------------------------------------------------------------------
         integer nblocks, m
-        integer(wi) n, nsize
-        integer(wi) p, p_plus_1
-        character(len=32) str
+        integer(wi) nsize
+        integer(wi) p, p_plus_1, p_loc
 
-        real(wp), allocatable :: lhs_loc(:, :), zloc(:)
-        real(wp) alpha_0(2), alpha(2)
-        real(wp) delta
+        real(wp), allocatable :: z_loc(:)
+        real(wp), allocatable :: lhs_loc(:, :)
+        real(wp), allocatable :: lu_loc(:, :)
+        real(wp) alpha_0(2)
         real(wp) alpha_previous(2), beta_loc, gamma_loc
+        character(len=32) str
 
         !########################################################################
         nblocks = size(points)
 
         ! temporary arrays to calculate z_j
         nsize = size(lhs, 1)
-        allocate (lhs_loc(nsize, 3), zloc(nsize))
+
+        if (allocated(lhs_loc)) deallocate (lhs_loc)    ! block diagonal matrix
+        allocate (lhs_loc, source=lhs)
+
+        if (allocated(lu_loc)) deallocate (lu_loc)      ! lu decompsition of block diagonal matrix
+        allocate (lu_loc, mold=lhs)
+
+        if (allocated(z_loc)) deallocate (z_loc)
+        allocate (z_loc(nsize))
 
         if (self%circulant) then
-            m = nblocks             ! last block has the circulant coefficient
+            m = nblocks                                 ! last block has the circulant coefficient
 
-            call Splitting(L=lhs(:, 1:1), &
-                           U=lhs(:, 2:3), &
-                           p=points(m), &               ! index of splitting point
-                           p_plus_1=1, &
-                           alpha=alpha_0, &
-                           z=zloc)
+            lu_loc(:, 1:1) = lhs_loc(:, 1:1)            ! recover original system for current block
+            lu_loc(:, 2:3) = lhs_loc(:, 2:3)
+            call Thomas_3_Split_InPlace(L=lu_loc(:, 1:1), &
+                                        U=lu_loc(:, 2:3), &
+                                        z=z_loc, &
+                                        index=points(m))
+
+            self%y(:, m) = z_loc(self%nmin:self%nmax)
+
+            alpha_0(1) = lu_loc(1, 1)            ! a1
+            alpha_0(2) = lu_loc(points(m), 3)    ! cn
             if (self%block_id == m) then
                 self%alpha(1:2) = alpha_0(1:2)
             end if
-            self%y(:, m) = zloc(self%nmin:self%nmax)
+
+            ! store block matrix A
+            lhs_loc(1, 2) = lhs_loc(1, 2) - lhs_loc(nsize, 3)
+            lhs_loc(nsize, 2) = lhs_loc(nsize, 2) - lhs_loc(1, 1)
 
             ! Calculate decay index
-            do n = 2, nsize
-                if (abs(zloc(n)/zloc(1)) < roundoff_wp) exit
-                ! print *, n, abs(zloc(n)/zloc(1))
-            end do
-            write (str, *) n
-            call TLab_Write_ASCII(wfile, 'Decay to round-off in selfting algorithm in '//trim(adjustl(str))//' indexes.')
-            write (str, fmt_r) abs(zloc(self%nmax - self%nmin + 1)/zloc(1))
+            call decay_index(z_loc)
+            write (str, fmt_r) abs(z_loc(self%nmax - self%nmin + 1)/z_loc(1))
             call TLab_Write_ASCII(wfile, 'Truncation error in splitting algorithm equal to '//trim(adjustl(str))//'.')
 
         end if
 
-        do m = 1, nblocks - 1       ! loop over remaining coefficients
-            call Splitting(L=lhs(:, 1:1), &
-                           U=lhs(:, 2:3), &
-                           p=points(m), &               ! index of splitting point
-                           p_plus_1=points(m) + 1, &
-                           alpha=alpha, &
-                           z=zloc)
+        p_loc = 1
+        do m = 1, nblocks - 1                               ! loop over remaining coefficients
+            lu_loc(p_loc:, 1:1) = lhs_loc(p_loc:, 1:1)      ! recover original system for current block
+            lu_loc(p_loc:, 2:3) = lhs_loc(p_loc:, 2:3)
+            if (m > 1) z_loc(:p_loc - 1) = 0.0_wp
+            call Thomas_3_Split_InPlace(L=lu_loc(p_loc:, 1:1), &
+                                        U=lu_loc(p_loc:, 2:3), &
+                                        z=z_loc(p_loc:), &
+                                        index=points(m) - p_loc + 1)
 
-            if (self%block_id == m) then
-                self%alpha(1:2) = alpha(1:2)
-            end if
+            self%y(:, m) = z_loc(self%nmin:self%nmax)
 
-            self%y(:, m) = zloc(self%nmin:self%nmax)
             if (self%circulant) then
-                gamma_loc = alpha_0(1)*zloc(nsize) + alpha_0(2)*zloc(1)
+                gamma_loc = alpha_0(1)*z_loc(nsize) + alpha_0(2)*z_loc(1)
                 self%y(:, m) = self%y(:, m) + gamma_loc*self%y(:, nblocks)
             end if
+
             if (m > 1) then
                 p = points(m - 1)
                 p_plus_1 = p + 1
-                beta_loc = alpha_previous(1)*zloc(p) + &
-                           alpha_previous(2)*zloc(p_plus_1)
+                beta_loc = alpha_previous(1)*z_loc(p) + &
+                           alpha_previous(2)*z_loc(p_plus_1)
                 self%y(:, m) = self%y(:, m) + &
                                beta_loc*self%y(:, m - 1)
             end if
-            alpha_previous(:) = alpha(:)
+
+            alpha_previous(1) = lu_loc(points(m) + 1, 1)    ! a_p_plus_1
+            alpha_previous(2) = lu_loc(points(m), 3)        ! c_p
+            if (self%block_id == m) then
+                self%alpha(:) = alpha_previous(:)
+            end if
+
+            ! store block matrix A
+            lhs_loc(points(m), 2) = lhs_loc(points(m), 2) - lhs_loc(points(m) + 1, 1)
+            lhs_loc(points(m) + 1, 2) = lhs_loc(points(m) + 1, 2) - lhs_loc(points(m), 3)
+
+            p_loc = points(m) + 1
 
         end do
 
         ! -------------------------------------------------------------------
         ! block matrix Am and LU decomposition
-        self%L(:, :) = lhs_loc(self%nmin:self%nmax, 1:1)
-        self%U(:, :) = lhs_loc(self%nmin:self%nmax, 2:3)
-
-        deallocate (lhs_loc, zloc)
+        self%L(:, :) = lu_loc(self%nmin:self%nmax, 1:1)
+        self%U(:, :) = lu_loc(self%nmin:self%nmax, 2:3)
 
         return
+    end subroutine ThomasSplit_3_Initialize_X
 
-    contains
-        subroutine Splitting(L, U, p, p_plus_1, alpha, z)
-            real(wp), intent(inout) :: L(:, :), U(:, :)
-            integer(wi), intent(in) :: p, p_plus_1
-            real(wp), intent(inout) :: alpha(2)
-            real(wp), intent(inout) :: z(1, size(L, 1))
+!     !########################################################################
+!     !########################################################################
+!     subroutine ThomasSplit_3_Initialize(self, lhs, points)
+!         class(thomas_split_dt), intent(inout) :: self
+!         real(wp), intent(inout) :: lhs(:, :)
+!         integer(wi), intent(in) :: points(:)   ! sequence of splitting points in ascending order
+
+!         ! -------------------------------------------------------------------
+!         integer nblocks, m
+!         integer(wi) n, nsize
+!         integer(wi) p, p_plus_1
+!         character(len=32) str
+
+!         real(wp), allocatable :: lhs_loc(:, :), zloc(:)
+!         real(wp), allocatable :: lu_loc(:, :)
+!         real(wp) alpha_0(2), alpha(2)
+!         real(wp) delta
+!         real(wp) alpha_previous(2), beta_loc, gamma_loc
+
+!         !########################################################################
+!         nblocks = size(points)
+
+!         ! temporary arrays to calculate z_j
+!         nsize = size(lhs, 1)
+!         allocate (lhs_loc(nsize, 3), zloc(nsize))
+
+!         if (allocated(lu_loc)) deallocate (lu_loc)
+!         allocate (lu_loc, source=lhs)!, zloc(nsize))
+
+!         if (self%circulant) then
+!             m = nblocks             ! last block has the circulant coefficient
+
+!             call Splitting(L=lhs(:, 1:1), &
+!                            U=lhs(:, 2:3), &
+!                            p=points(m), &               ! index of splitting point
+!                            p_plus_1=1, &
+!                            alpha=alpha_0, &
+!                            z=zloc)
+!             if (self%block_id == m) then
+!                 self%alpha(1:2) = alpha_0(1:2)
+!             end if
+!             self%y(:, m) = zloc(self%nmin:self%nmax)
+
+!             ! Calculate decay index
+!             do n = 2, nsize
+!                 if (abs(zloc(n)/zloc(1)) < roundoff_wp) exit
+!                 ! print *, n, abs(zloc(n)/zloc(1))
+!             end do
+!             write (str, *) n
+!             call TLab_Write_ASCII(wfile, 'Decay to round-off in splitting algorithm in '//trim(adjustl(str))//' indexes.')
+!             write (str, fmt_r) abs(zloc(self%nmax - self%nmin + 1)/zloc(1))
+!             call TLab_Write_ASCII(wfile, 'Truncation error in splitting algorithm equal to '//trim(adjustl(str))//'.')
+
+!         end if
+
+!         do m = 1, nblocks - 1       ! loop over remaining coefficients
+!             call Splitting(L=lhs(:, 1:1), &
+!                            U=lhs(:, 2:3), &
+!                            p=points(m), &               ! index of splitting point
+!                            p_plus_1=points(m) + 1, &
+!                            alpha=alpha, &
+!                            z=zloc)
+!             if (self%block_id == m) then
+!                 self%alpha(1:2) = alpha(1:2)
+!             end if
+
+!             self%y(:, m) = zloc(self%nmin:self%nmax)
+!             if (self%circulant) then
+!                 gamma_loc = alpha_0(1)*zloc(nsize) + alpha_0(2)*zloc(1)
+!                 self%y(:, m) = self%y(:, m) + gamma_loc*self%y(:, nblocks)
+!             end if
+
+!             if (m > 1) then
+!                 p = points(m - 1)
+!                 p_plus_1 = p + 1
+!                 beta_loc = alpha_previous(1)*zloc(p) + &
+!                            alpha_previous(2)*zloc(p_plus_1)
+!                 self%y(:, m) = self%y(:, m) + &
+!                                beta_loc*self%y(:, m - 1)
+!             end if
+!             alpha_previous(:) = alpha(:)
+
+!         end do
+
+!         ! -------------------------------------------------------------------
+!         ! block matrix Am and LU decomposition
+!         self%L(:, :) = lhs_loc(self%nmin:self%nmax, 1:1)
+!         self%U(:, :) = lhs_loc(self%nmin:self%nmax, 2:3)
+
+!         deallocate (lhs_loc, zloc)
+
+!         return
+
+!     contains
+!         subroutine Splitting(L, U, p, p_plus_1, alpha, z)
+!             real(wp), intent(inout) :: L(:, :), U(:, :)
+!             integer(wi), intent(in) :: p, p_plus_1
+!             real(wp), intent(inout) :: alpha(2)
+!             real(wp), intent(inout) :: z(1, size(L, 1))
+
+! #define a(i) L(i,1)
+! #define b(i) U(i,1)
+! #define c(i) U(i,2)
+
+!             ! Start definition of alpha
+!             alpha(1) = a(p_plus_1)
+!             alpha(2) = c(p)
+
+!             ! Generate matrix Ak
+!             b(p) = b(p) - a(p_plus_1)
+!             a(p_plus_1) = 0.0_wp
+!             b(p_plus_1) = b(p_plus_1) - c(p)
+!             c(p) = 0.0_wp
+
+!             ! Generate vector zk
+!             lhs_loc(:, 1) = a(:)
+!             lhs_loc(:, 2) = b(:)
+!             lhs_loc(:, 3) = c(:)
+!             call Thomas_FactorLU_InPlace(lhs_loc(:, 1:1), &
+!                                          lhs_loc(:, 2:3))
+
+!             z(1, :) = 0.0_wp
+!             z(1, p) = 1.0_wp
+!             z(1, p_plus_1) = 1.0_wp
+
+!             call Thomas3_SolveL(lhs_loc(:, 1:1), z)
+!             call Thomas3_SolveU(lhs_loc(:, 2:3), z)
+
+!             ! Complete definition of alpha
+!             delta = 1.0_wp + alpha(1)*z(1, p) + alpha(2)*z(1, p_plus_1)
+!             if (abs(delta) < small_wp) then
+!                 call TLab_Write_ASCII(efile, __FILE__//'. Singular matrix M.')
+!                 call TLab_Stop(DNS_ERROR_THOMAS)
+!             end if
+!             alpha(1) = -alpha(1)/delta
+!             alpha(2) = -alpha(2)/delta
+
+!             return
+!         end subroutine Splitting
+
+!     end subroutine ThomasSplit_3_Initialize
+
+    !########################################################################
+    !########################################################################
+    subroutine Thomas_3_Split_InPlace(L, U, z, index)
+        real(wp), intent(inout) :: L(:, :), U(:, :)
+        real(wp), intent(out) :: z(1, size(L, 1))
+        integer, intent(in) :: index
+
+        ! -----------------------------------------------------------------------
+        integer nmax, p, p_plus_1
+        real(wp) alpha(2), delta
+
+        ! #######################################################################
+        nmax = size(L, 1)
+
+        p = mod(index - 1, nmax) + 1                ! in circulant cases, this n
+        p_plus_1 = mod(p + 1 - 1, nmax) + 1         ! in circulant cases, this 1
 
 #define a(i) L(i,1)
 #define b(i) U(i,1)
 #define c(i) U(i,2)
 
-            ! Start definition of alpha
-            alpha(1) = a(p_plus_1)
-            alpha(2) = c(p)
+        ! Start definition of alpha; in circulant cases, this is a1 and cn
+        alpha(1) = a(p_plus_1)
+        alpha(2) = c(p)
 
-            ! Generate matrix Ak
-            b(p) = b(p) - a(p_plus_1)
-            a(p_plus_1) = 0.0_wp
-            b(p_plus_1) = b(p_plus_1) - c(p)
-            c(p) = 0.0_wp
+        ! Generate matrix A1
+        b(p) = b(p) - a(p_plus_1)
+        a(p_plus_1) = 0.0_wp
+        b(p_plus_1) = b(p_plus_1) - c(p)
+        c(p) = 0.0_wp
 
-            ! Generate vector zk
-            lhs_loc(:, 1) = a(:)
-            lhs_loc(:, 2) = b(:)
-            lhs_loc(:, 3) = c(:)
-            call Thomas_FactorLU_InPlace(lhs_loc(:, 1:1), &
-                                         lhs_loc(:, 2:3))
+        ! call Thomas3_FactorLU_InPlace(L, U)
+        call Thomas_FactorLU_InPlace(L, U)
 
-            z(1, :) = 0.0_wp
-            z(1, p) = 1.0_wp
-            z(1, p_plus_1) = 1.0_wp
-            call Thomas3_SolveL(lhs_loc(:, 1:1), z)
-            call Thomas3_SolveU(lhs_loc(:, 2:3), z)
+        ! Generate vector z1
+        z(1, :) = 0.0_wp
+        z(1, p) = 1.0_wp
+        z(1, p_plus_1) = 1.0_wp
 
-            ! Complete definition of alpha
-            delta = 1.0_wp + alpha(1)*z(1, p) + alpha(2)*z(1, p_plus_1)
-            if (abs(delta) < small_wp) then
-                call TLab_Write_ASCII(efile, __FILE__//'. Singular matrix M.')
-                call TLab_Stop(DNS_ERROR_THOMAS)
-            end if
-            alpha(1) = -alpha(1)/delta
-            alpha(2) = -alpha(2)/delta
+        call Thomas3_SolveL(L, z)
+        call Thomas3_SolveU(U, z)
 
-            return
-        end subroutine Splitting
+        ! Calculate normalized alpha coefficients
+        delta = 1.0_wp + alpha(1)*z(1, p) + alpha(2)*z(1, p_plus_1)
+        if (abs(delta) < small_wp) then
+            call TLab_Write_ASCII(efile, __FILE__//'. Singular matrix M.')
+            call TLab_Stop(DNS_ERROR_THOMAS)
+        end if
 
-    end subroutine ThomasSplit_3_Initialize
+        a(p_plus_1) = -alpha(1)/delta
+        c(p) = -alpha(2)/delta
+
+        ! -------------------------------------------------------------------
+        ! Calculate decay index
+        ! call decay_index(z(1, :), n_smw_decay)
+
+#undef a
+#undef b
+#undef c
+
+        return
+    end subroutine Thomas_3_Split_InPlace
+
+    !########################################################################
+    !########################################################################
+    subroutine decay_index(z, index)
+        use TLab_Constants, only: roundoff_wp
+        real(wp), intent(in) :: z(:)
+        integer, intent(out), optional :: index
+
+        integer n
+        character(len=32) str
+
+        do n = 2, size(z)
+            if (abs(z(n)/z(1)) < roundoff_wp) exit
+            ! print *, abs(z(n)/z(1)
+        end do
+        write (str, *) n
+        call TLab_Write_ASCII(lfile, 'Decay to round-off in SMW algorithm in '//trim(adjustl(str))//' indexes.')
+
+        if (present(index)) index = n
+
+        return
+    end subroutine
 
     !########################################################################
     !########################################################################

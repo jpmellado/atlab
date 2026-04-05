@@ -8,7 +8,7 @@ module Thomas_Circulant
     use TLab_Constants, only: wp, wi, small_wp
     use TLab_Constants, only: efile
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
-    use Thomas
+    use Thomas, only: thomas_base_dt, Thomas5_FactorLU_InPlace, Thomas5_SolveL, Thomas5_SolveU
     use Thomas_Split, only: Thomas_3_Split_InPlace
     implicit none
     private
@@ -16,11 +16,12 @@ module Thomas_Circulant
     public :: thomas_circulant_dt
 
     ! -----------------------------------------------------------------------
-    type, extends(thomas_dt) :: thomas_circulant_dt
+    type, extends(thomas_base_dt) :: thomas_circulant_dt
         real(wp), allocatable :: z(:, :)
     contains
         procedure :: initialize => thomas_initialize_dt
         procedure :: reduce => thomas_reduce_dt
+        procedure :: solve => thomas_solve_dt
     end type
 
 contains
@@ -32,7 +33,7 @@ contains
 
         integer ndl
 
-        call self%thomas_dt%initialize(lhs)
+        call self%initialize_base(lhs)
 
         ! corrections for circulant case
         ndl = size(lhs, 2)
@@ -66,6 +67,17 @@ contains
                                           self%z, &
                                           f)!, wrk2d)
         end select
+
+        return
+    end subroutine
+
+    subroutine thomas_solve_dt(self, f)
+        class(thomas_circulant_dt), intent(out) :: self
+        real(wp), intent(inout) :: f(:, :)
+
+        call self%solveL(f)
+        call self%solveU(f)
+        call self%reduce(f)
 
         return
     end subroutine

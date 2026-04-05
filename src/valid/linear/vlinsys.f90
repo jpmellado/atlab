@@ -4,8 +4,8 @@ program vLinSys
     use Matmul_Halo_Thomas
     use MatMul
     use MatMul_Thomas
-    use Thomas
-    use Thomas_Circulant
+    use Thomas, only: thomas_dt
+    use Thomas_Circulant, only: thomas_circulant_dt
     use TLab_Arrays, only: wrk2d
     implicit none
 

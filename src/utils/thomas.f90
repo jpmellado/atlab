@@ -5,6 +5,9 @@ module Thomas
     implicit none
     private
 
+    public :: thomas_base_dt
+    public :: thomas_dt
+
     public :: Thomas_FactorLU_InPlace
     public :: Thomas_SolveL, Thomas_SolveU
 
@@ -17,20 +20,17 @@ module Thomas
     public :: Thomas7_FactorLU_InPlace
     public :: Thomas7_SolveL, Thomas7_SolveU  ! Particularized for heptadiagonal systems
 
-    public :: thomas_dt
-
     ! -----------------------------------------------------------------------
-    type :: thomas_dt
+    type :: thomas_base_dt
         real(wp), allocatable :: L(:, :)
         real(wp), allocatable :: U(:, :)
         procedure(thomas_ice), pointer, nopass :: ptr_solveL
         procedure(thomas_ice), pointer, nopass :: ptr_solveU
     contains
-        procedure :: initialize => thomas_initialize_dt
+        procedure :: initialize_base => thomas_base_initialize_dt
         procedure :: solveL => thomas_solveL_dt
         procedure :: solveU => thomas_solveU_dt
     end type
-
     abstract interface
         subroutine thomas_ice(A, f)
             import wp
@@ -39,11 +39,38 @@ module Thomas
         end subroutine thomas_ice
     end interface
 
+    type, extends(thomas_base_dt) :: thomas_dt
+    contains
+        procedure :: initialize => thomas_initialize_dt
+        procedure :: solve => thomas_solve_dt
+    end type
+
 contains
     ! #######################################################################
     ! #######################################################################
     subroutine thomas_initialize_dt(self, lhs)
         class(thomas_dt), intent(out) :: self
+        real(wp), intent(in) :: lhs(:, :)
+
+        call self%initialize_base(lhs)
+
+        return
+    end subroutine
+
+    subroutine thomas_solve_dt(self, f)
+        class(thomas_dt), intent(in) :: self
+        real(wp), intent(inout) :: f(:, :)
+
+        call self%solveL(f)
+        call self%solveU(f)
+
+        return
+    end subroutine
+
+    ! #######################################################################
+    ! #######################################################################
+    subroutine thomas_base_initialize_dt(self, lhs)
+        class(thomas_base_dt), intent(out) :: self
         real(wp), intent(in) :: lhs(:, :)
 
         integer ndl
@@ -69,7 +96,7 @@ contains
     end subroutine
 
     subroutine thomas_solveL_dt(self, f)
-        class(thomas_dt), intent(in) :: self
+        class(thomas_base_dt), intent(in) :: self
         real(wp), intent(inout) :: f(:, :)
 
         call self%ptr_solveL(self%L, f)
@@ -78,7 +105,7 @@ contains
     end subroutine
 
     subroutine thomas_solveU_dt(self, f)
-        class(thomas_dt), intent(in) :: self
+        class(thomas_base_dt), intent(in) :: self
         real(wp), intent(inout) :: f(:, :)
 
         call self%ptr_solveU(self%U, f)

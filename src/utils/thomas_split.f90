@@ -14,7 +14,7 @@ module Thomas_Split
     private
 
     public :: thomas_split_dt
-    
+
     public :: Thomas_3_Split_InPlace
 
     public :: ThomasSplit_3_Reduce_Serial       ! For testing the algorithm in serial
@@ -23,13 +23,7 @@ module Thomas_Split
     end type data_dt
 
     ! -----------------------------------------------------------------------
-    ! type, extends(thomas_dt) :: thomas_split_dt
-    type :: thomas_split_dt
-        real(wp), allocatable :: L(:, :)
-        real(wp), allocatable :: U(:, :)
-        procedure(thomas_ice), pointer, nopass :: ptr_solveL
-        procedure(thomas_ice), pointer, nopass :: ptr_solveU
-        !
+    type, extends(thomas_base_dt) :: thomas_split_dt
         real(wp), allocatable :: y(:, :)
         !
         logical :: circulant = .true.
@@ -41,20 +35,10 @@ module Thomas_Split
 #endif
     contains
         procedure :: initialize => thomas_initialize_dt
-        procedure :: solveL => thomas_solveL_dt
-        procedure :: solveU => thomas_solveU_dt
 #ifdef USE_MPI
         procedure :: reduce => thomas_reduce_mpi_dt
 #endif
     end type thomas_split_dt
-
-    abstract interface
-        subroutine thomas_ice(A, f)
-            import wp
-            real(wp), intent(in) :: A(:, :)
-            real(wp), intent(inout) :: f(:, :)          ! RHS and solution
-        end subroutine thomas_ice
-    end interface
 
 contains
     !########################################################################
@@ -84,27 +68,21 @@ contains
         self%nmin = mod(self%nmin, nsize) + 1
         self%nmax = points(k)
 
-        ! -------------------------------------------------------------------
-        ! memory management
         nsize = self%nmax - self%nmin + 1
 
-        ndl = size(lhs, 2)
-        allocate (self%L(1:nsize, 1:ndl/2))
-        allocate (self%U(1:nsize, ndl/2 + 1:ndl))
+        call self%initialize_base(lhs(1:nsize, :))
 
         if (allocated(self%y)) deallocate (self%y)
-        allocate (self%y(1:nsize, nblocks))
-        self%y(:, :) = 0.0_wp
+        allocate (self%y(1:nsize, nblocks), source=0.0_wp)
 
-        select case (ndl)
+        select case (size(lhs, 2))
         case (3)
             call ThomasSplit_3_Initialize(self, lhs, points)
-        end select
 
-        select case (ndl)
-        case (3)
-            self%ptr_solveL => Thomas3_SolveL
-            self%ptr_solveU => Thomas3_SolveU
+        case default
+            call TLab_Write_ASCII(efile, __FILE__//'Only tridiagonal case implemented in splitting algorithm.')
+            call TLab_Stop(DNS_ERROR_THOMAS)
+
         end select
 
         return
@@ -302,26 +280,6 @@ contains
         call TLab_Write_ASCII(lfile, 'Decay to round-off in SMW algorithm in '//trim(adjustl(str))//' indexes.')
 
         if (present(index)) index = n
-
-        return
-    end subroutine
-
-    !########################################################################
-    !########################################################################
-    subroutine thomas_solveL_dt(self, f)
-        class(thomas_split_dt), intent(in) :: self
-        real(wp), intent(inout) :: f(:, :)
-
-        call self%ptr_solveL(self%L, f)
-
-        return
-    end subroutine
-
-    subroutine thomas_solveU_dt(self, f)
-        class(thomas_split_dt), intent(in) :: self
-        real(wp), intent(inout) :: f(:, :)
-
-        call self%ptr_solveU(self%U, f)
 
         return
     end subroutine

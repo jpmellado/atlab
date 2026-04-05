@@ -51,26 +51,25 @@ contains
         logical, intent(in) :: circulant
 
         ! -------------------------------------------------------------------
-        integer ndl, nblocks, nsize, k
+        integer nblocks, nsize, nmin, nmax
 
         !########################################################################
-        self%block_id = block_id
-        self%circulant = circulant
-
-        nblocks = size(points)
         ! Number of coefficients are nblocks-1 for the tridiagonal case
         ! and we add one for the circulant case, which is managed by last block
-
+        nblocks = size(points)
         nsize = size(lhs, 1)
 
-        k = self%block_id
-        self%nmin = points(mod(k - 2 + nblocks, nblocks) + 1)
-        self%nmin = mod(self%nmin, nsize) + 1
-        self%nmax = points(k)
-
-        nsize = self%nmax - self%nmin + 1
+        nmin = points(mod(block_id - 2 + nblocks, nblocks) + 1)
+        nmin = mod(nmin, nsize) + 1
+        nmax = points(block_id)
+        nsize = nmax - nmin + 1
 
         call self%initialize_base(lhs(1:nsize, :))
+
+        self%block_id = block_id
+        self%circulant = circulant
+        self%nmin = nmin
+        self%nmax = points(block_id)
 
         if (allocated(self%y)) deallocate (self%y)
         allocate (self%y(1:nsize, nblocks), source=0.0_wp)

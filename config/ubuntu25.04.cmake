@@ -11,7 +11,7 @@ if ( ${BUILD_TYPE} STREQUAL "PARALLEL" ) # compiler for parallel build
    set(CMAKE_Fortran_COMPILER mpifort)
    set(USER_Fortran_FLAGS_RELEASE "-cpp -O3 -fconvert=little-endian -ffast-math -mtune=native -march=native")
    #   set(USER_Fortran_FLAGS_RELEASE "-O0 -ggdb")
-   add_definitions(-DUSE_MPI -DUSE_MPI_IO)
+   add_definitions(-DUSE_MPI)
    set(CMAKE_BUILD_TYPE RELEASE)
 
 # Compiler for serial build

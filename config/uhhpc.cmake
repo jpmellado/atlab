@@ -13,7 +13,7 @@ if(${BUILD_TYPE} STREQUAL "PARALLEL")
 
     set(USER_Fortran_FLAGS_RELEASE "-fconvert=little-endian ${USER_Fortran_FLAGS_RELEASE}")
     set(USER_Fortran_FLAGS_DEBUG "-fconvert=little-endian ${USER_Fortran_FLAGS_DEBUG}")
-    add_definitions(-DUSE_MPI -DUSE_MPI_IO)
+    add_definitions(-DUSE_MPI)
     set(CMAKE_BUILD_TYPE RELEASE)
     # set(CMAKE_BUILD_TYPE DEBUG)
 

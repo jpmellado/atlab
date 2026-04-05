@@ -9,7 +9,7 @@ if ( ${BUILD_TYPE} STREQUAL "PARALLEL" ) # compiler for parallel build
     set(ENV{FC} mpif90)
     set(CMAKE_Fortran_COMPILER mpif90)
     set(USER_Fortran_FLAGS_RELEASE "-fconvert=little-endian -O3 -ffast-math -mtune=native -march=native")
-    add_definitions(-DUSE_MPI -DUSE_MPI_IO)
+    add_definitions(-DUSE_MPI)
     set(CMAKE_BUILD_TYPE RELEASE)
     
 else() # compiler for serial build

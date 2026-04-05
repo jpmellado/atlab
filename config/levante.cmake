@@ -4,15 +4,16 @@ endif()
 message( STATUS "Build Type: " ${BUILD_TYPE} )
 
 set(USER_Fortran_FLAGS  " -fpp ${USER_profile_FLAGS} -nbs -save-temps -heap-arrays -simd -vec-threshold50 -unroll-aggressive ${USER_omp_FLAGS} " )
+set(USER_Fortran_FLAGS_RELEASE  " -march=core-avx2 -mtune=core-avx2 -qopt-prefetch -O3 -ipo" )
+#set(USER_Fortran_FLAGS_RELEASE  " -march=skylake-avx512 -axcommon-avx512,SSE4.2 -qopt-prefetch -O3 -ipo" )
+#set(USER_Fortran_FLAGS_RELEASE  " -axCORE-AVX2 -qopt-prefetch -O3 -ipo" )
+set(USER_Fortran_FLAGS_DEBUG    " -g -traceback -debug all ")
+
+set(CMAKE_Fortran_COMPILER ifort)
 
 if ( ${BUILD_TYPE} STREQUAL "PARALLEL" ) # compiler for parallel build
-  set(ENV{FC} mpifort)
-  set(CMAKE_Fortran_COMPILER mpifort)
-  set(USER_Fortran_FLAGS_RELEASE  " -march=core-avx2 -mtune=core-avx2 -qopt-prefetch -O3 -ipo" )
-  #set(USER_Fortran_FLAGS_RELEASE  " -march=skylake-avx512 -axcommon-avx512,SSE4.2 -qopt-prefetch -O3 -ipo" )
-  #set(USER_Fortran_FLAGS_RELEASE  " -axCORE-AVX2 -qopt-prefetch -O3 -ipo" )
+  set(PARALLEL MPI_ONLY)
   add_definitions(-DUSE_MPI)
-  set(CMAKE_BUILD_TYPE RELEASE)
 
 elseif ( ${BUILD_TYPE} STREQUAL "GPU" ) # compiler for GPU build
   set(ENV{FC} nvfortran)
@@ -24,24 +25,23 @@ elseif ( ${BUILD_TYPE} STREQUAL "GPU" ) # compiler for GPU build
 
   add_definitions(-DNO_ASSUMED_RANKS)
   ##add_definitions(-D_DEBUG)
-  set(CMAKE_BUILD_TYPE RELEASE)
 
 else() # compiler for serial build
   set(ENV{FC} ifort)
   set(CMAKE_Fortran_COMPILER ifort)
 
   if    ( ${BUILD_TYPE} STREQUAL "SERIAL" )
-   set(USER_Fortran_FLAGS_RELEASE  " -march=core-avx2 -mtune=core-avx2 -qopt-prefetch -O3 -ipo" )
-   #set(USER_Fortran_FLAGS_RELEASE  " -march=skylake-avx512 -axcommon-avx512,SSE4.2 -qopt-prefetch -O3 -ipo" )
-   set(CMAKE_BUILD_TYPE RELEASE)
 
   else()
-    set(USER_Fortran_FLAGS_DEBUG    " -g -traceback -debug all ")
     add_definitions(-D_DEBUG)
     set(CMAKE_BUILD_TYPE DEBUG)
 
   endif()
 
+endif()
+
+if ( NOT CMAKE_BUILD_TYPE )
+  set(CMAKE_BUILD_TYPE RELEASE)
 endif()
 
 add_definitions(-DUSE_FFTW)

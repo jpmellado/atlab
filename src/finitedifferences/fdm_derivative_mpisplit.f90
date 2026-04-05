@@ -5,13 +5,11 @@ module FDM_Derivative_MPISplit
     use TLab_Constants, only: wp, wi
     use TLab_Constants, only: efile
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
-    use TLabMPI_VARS, only: mpi_axis_dt
     use FDM_Derivative_Base, only: der_periodic
     use FDM_Derivative_Base, only: matmul_halo_thomas_ice, matmul_halo_thomas_combined_ice
     use FDM_Derivative_1order, only: der1_periodic
     use FDM_Derivative_2order, only: der2_periodic
-    use Thomas
-    use Thomas_Split
+    use Thomas_Split, only: thomas_split_dt
     implicit none
     private
 
@@ -47,6 +45,7 @@ contains
     ! ###################################################################
     ! ###################################################################
     subroutine der_periodic_initialize(self, ref, mpiAxis)
+        use TLabMPI_VARS, only: mpi_axis_dt
         class(der_periodic_mpisplit), intent(out) :: self
         class(der_periodic), intent(in), target :: ref
         type(mpi_axis_dt) mpiAxis

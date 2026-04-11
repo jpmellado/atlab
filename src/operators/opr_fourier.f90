@@ -15,7 +15,8 @@ module OPR_Fourier
     use, intrinsic :: iso_c_binding
 #ifdef USE_MPI
     use TLabMPI_VARS, only: xMpi, yMpi
-    use TLabMPI_Transpose
+    ! use TLabMPI_Transpose
+    use TLabMPI_Transpose_X, only: tmpi_transpose_x_dt, tmpi_transpose_y_dt, tmpi_trp_X
 #endif
     implicit none
     private
@@ -38,8 +39,10 @@ module OPR_Fourier
     type(c_ptr) :: fft_plan_fy, fft_plan_by
     type(c_ptr) :: fft_plan_fz, fft_plan_bz
 #ifdef USE_MPI
-    type(tmpi_transpose_dt), public :: tmpi_plan_fftx
-    type(tmpi_transpose_dt), public :: tmpi_plan_ffty
+    ! type(tmpi_transpose_dt) :: tmpi_plan_fftx
+    ! type(tmpi_transpose_dt) :: tmpi_plan_ffty
+    type(tmpi_transpose_x_dt) :: tmpi_trp_fft_X
+    type(tmpi_transpose_y_dt) :: tmpi_trp_fft_Y
     real(wp), pointer :: r_out(:) => null()
     real(wp), pointer :: r_in(:) => null()
 #endif
@@ -129,11 +132,15 @@ contains
 #ifdef USE_MPI
             if (xMpi%num_processors > 1) then
                 ! Extended with the Nyquist frequency
-                tmpi_plan_fftx = TLabMPI_Trp_PlanI(imax/2 + 1, nlines, &
-                                                   locType=MPI_DOUBLE_COMPLEX, &
-                                                   message='extended Ox FFTW in Poisson solver.')
+                call tmpi_trp_fft_X%initialize(imax/2 + 1, nlines, &
+                                               locType=MPI_DOUBLE_COMPLEX, &
+                                               message='extended Ox FFTW in Poisson solver.')
 
-                nlines = tmpi_plan_dx%nlines
+                ! tmpi_plan_fftx = TLabMPI_Trp_PlanI(imax/2 + 1, nlines, &
+                !                                    locType=MPI_DOUBLE_COMPLEX, &
+                !                                    message='extended Ox FFTW in Poisson solver.')
+                nlines = tmpi_trp_X%nlines
+                ! nlines = tmpi_plan_dx%nlines
                 offset = (imax/2 + 1)*xMpi%num_processors
 
             end if
@@ -168,10 +175,14 @@ contains
 
 #ifdef USE_MPI
             if (yMpi%num_processors > 1) then
-                tmpi_plan_ffty = TLabMPI_Trp_PlanJ(jmax, nlines, &
-                                                   locType=MPI_DOUBLE_COMPLEX, &
-                                                   message='Oy FFTW in Poisson solver.')
-                nlines = tmpi_plan_ffty%nlines
+                call tmpi_trp_fft_Y%initialize(jmax, nlines, &
+                                               locType=MPI_DOUBLE_COMPLEX, &
+                                               message='Oy FFTW in Poisson solver.')
+                ! tmpi_plan_ffty = TLabMPI_Trp_PlanJ(jmax, nlines, &
+                !                                    locType=MPI_DOUBLE_COMPLEX, &
+                !                                    message='Oy FFTW in Poisson solver.')
+                nlines = tmpi_trp_fft_Y%nlines
+                ! nlines = tmpi_plan_ffty%nlines
 
             end if
 #endif
@@ -223,9 +234,11 @@ contains
         if (xMpi%num_processors > 1) then
             call c_f_pointer(c_loc(out), r_out, shape=[isize_txc_field])
 
-            call TLabMPI_Trp_ExecI_Forward(in, r_out, tmpi_plan_dx)
+            ! call TLabMPI_Trp_ExecI_Forward(in, r_out, tmpi_plan_dx)
+            call tmpi_trp_X%forward(in, r_out)
             call dfftw_execute_dft_r2c(fft_plan_fx, r_out, c_wrk3d)
-            call TLabMPI_Trp_ExecI_Backward(c_wrk3d, out, tmpi_plan_fftx)
+            ! call TLabMPI_Trp_ExecI_Backward(c_wrk3d, out, tmpi_plan_fftx)
+            call tmpi_trp_fft_X%backward(c_wrk3d, out)
 
             nullify (r_out)
 
@@ -260,10 +273,11 @@ contains
 
             call c_f_pointer(c_loc(in), r_in, shape=[isize_txc_field])
 
-            call TLabMPI_Trp_ExecI_Forward(in, c_wrk3d, tmpi_plan_fftx)
+            ! call TLabMPI_Trp_ExecI_Forward(in, c_wrk3d, tmpi_plan_fftx)
+            call tmpi_trp_fft_X%forward(in, c_wrk3d)
             call dfftw_execute_dft_c2r(fft_plan_bx, c_wrk3d, r_in)
-            call TLabMPI_Trp_ExecI_Backward(r_in, out, tmpi_plan_dx)
-
+            ! call TLabMPI_Trp_ExecI_Backward(r_in, out, tmpi_plan_dx)
+            call tmpi_trp_X%backward(r_in, out)
             nullify (r_in)
 
         else
@@ -287,10 +301,11 @@ contains
         ! #######################################################################
 #ifdef USE_MPI
         if (yMpi%num_processors > 1) then
-            call TLabMPI_Trp_ExecJ_Forward(in, out, tmpi_plan_ffty)
+            ! call TLabMPI_Trp_ExecJ_Forward(in, out, tmpi_plan_ffty)
+            call tmpi_trp_fft_Y%forward(in, out)
             call dfftw_execute_dft(fft_plan_fy, out, c_wrk3d)
-            call TLabMPI_Trp_ExecJ_Backward(c_wrk3d, out, tmpi_plan_ffty)
-
+            ! call TLabMPI_Trp_ExecJ_Backward(c_wrk3d, out, tmpi_plan_ffty)
+            call tmpi_trp_fft_Y%backward(c_wrk3d, out)
         else
 #endif
             call dfftw_execute_dft(fft_plan_fy, in, out)
@@ -312,11 +327,11 @@ contains
         ! #######################################################################
 #ifdef USE_MPI
         if (yMpi%num_processors > 1) then
-            call TLabMPI_Trp_ExecJ_Forward(in, out, tmpi_plan_ffty)
-            ! call dfftw_execute_dft(fft_plan_by, out, c_wrk3d)
-            ! call TLabMPI_Trp_ExecJ_Backward(c_wrk3d, out, tmpi_plan_ffty)
+            ! call TLabMPI_Trp_ExecJ_Forward(in, out, tmpi_plan_ffty)
+            call tmpi_trp_fft_Y%forward(in, out)
             call dfftw_execute_dft(fft_plan_by, out, in)
-            call TLabMPI_Trp_ExecJ_Backward(in, out, tmpi_plan_ffty)
+            ! call TLabMPI_Trp_ExecJ_Backward(in, out, tmpi_plan_ffty)
+            call tmpi_trp_fft_Y%backward(in, out)
         else
 #endif
             call dfftw_execute_dft(fft_plan_by, in, out)

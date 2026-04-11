@@ -9,7 +9,8 @@ subroutine OPR_Check()
     use mpi_f08
     use TLabMPI_VARS, only: ims_err
     use TLabMPI_VARS, only: xMpi, yMpi
-    use TLabMPI_Transpose
+    ! use TLabMPI_Transpose
+    use TLabMPI_Transpose_X, only: tmpi_trp_X, tmpi_trp_Y
 #endif
     use TLab_Grid, only: x, y, z
     use OPR_Fourier
@@ -41,8 +42,10 @@ subroutine OPR_Check()
 #ifdef USE_MPI
     if (xMpi%num_processors > 1) then            ! MPI transposition along OX
         call system_clock(t_srt, PROC_CYCLES, MAX_CYCLES)
-        call TLabMPI_Trp_ExecI_Forward(q(:, 1), wrk3d, tmpi_plan_dx)
-        call TLabMPI_Trp_ExecI_Backward(wrk3d, q(:, 2), tmpi_plan_dx)
+        ! call TLabMPI_Trp_ExecI_Forward(q(:, 1), wrk3d, tmpi_plan_dx)
+        call tmpi_trp_X%forward(q(:, 1), wrk3d)
+        ! call TLabMPI_Trp_ExecI_Backward(wrk3d, q(:, 2), tmpi_plan_dx)
+        call tmpi_trp_X%backward(wrk3d, q(:, 2))
         call system_clock(t_end, PROC_CYCLES, MAX_CYCLES)
 
         idummy = t_end - t_srt
@@ -62,9 +65,11 @@ subroutine OPR_Check()
     if (yMpi%num_processors > 1) then            ! MPI transposition along Oy
         call system_clock(t_srt, PROC_CYCLES, MAX_CYCLES)
         idummy = itime; itime = -1      ! set itime to -1 for this call to trigger interruption
-        call TLabMPI_Trp_ExecJ_Forward(q(:, 1), wrk3d, tmpi_plan_dy)
+        ! call TLabMPI_Trp_ExecJ_Forward(q(:, 1), wrk3d, tmpi_plan_dy)
+        call tmpi_trp_Y%forward(q(:, 1), wrk3d)
         itime = idummy
-        call TLabMPI_Trp_ExecJ_Backward(wrk3d, q(:, 2), tmpi_plan_dy)
+        ! call TLabMPI_Trp_ExecJ_Backward(wrk3d, q(:, 2), tmpi_plan_dy)
+        call tmpi_trp_Y%backward(wrk3d, q(:, 2))
         call system_clock(t_end, PROC_CYCLES, MAX_CYCLES)
 
         idummy = t_end - t_srt
@@ -107,7 +112,7 @@ subroutine OPR_Check()
     else
         norm = 1.0_wp/real(x%size, wp)
     end if
-    norm = norm/real(z%size,wp)
+    norm = norm/real(z%size, wp)
 
 #ifdef USE_MPI
     dummy = maxval(abs(norm*q(1:isize_field, 2) - q(1:isize_field, 1)))

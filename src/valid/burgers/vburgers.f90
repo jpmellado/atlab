@@ -12,6 +12,7 @@ program VBURGERS
     use TLabMPI_VARS
     use TLabMPI_PROCS, only: TLabMPI_Initialize
     use TLabMPI_Transpose, only: TLabMPI_Trp_Initialize
+    use TLabMPI_Transpose_X, only: TLabMPI_Trp_Initialize_X
 #endif
     use FDM, only: FDM_Initialize
     use NavierStokes !, only: NavierStokes_Initialize_Parameters, visc
@@ -43,6 +44,7 @@ program VBURGERS
 #ifdef USE_MPI
     call TLabMPI_Initialize(ifile)
     call TLabMPI_Trp_Initialize(ifile)
+    call TLabMPI_Trp_Initialize_X(ifile)
 #endif
 
     call FDM_Initialize(ifile)

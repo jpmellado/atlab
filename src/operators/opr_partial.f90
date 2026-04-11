@@ -102,9 +102,6 @@ contains
             call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Wrong DerivativeModeJ option.')
             call TLab_Stop(DNS_ERROR_OPTION)
         end if
-
-        der_mode_i = TYPE_TRANSPOSE
-        der_mode_j = TYPE_TRANSPOSE
 #endif
 
         ! ###################################################################

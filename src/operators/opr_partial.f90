@@ -6,7 +6,8 @@ module OPR_Partial
     use TLab_Transpose
 #ifdef USE_MPI
     use TLabMPI_VARS, only: xMpi, yMpi
-    use TLabMPI_Transpose
+    ! use TLabMPI_Transpose
+    use TLabMPI_Transpose_X, only: tmpi_trp_X, tmpi_trp_Y
     use FDM_Derivative_MPISplit
     use FDM_Derivative_1order
     use FDM_Derivative_2order
@@ -101,6 +102,9 @@ contains
             call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Wrong DerivativeModeJ option.')
             call TLab_Stop(DNS_ERROR_OPTION)
         end if
+
+        der_mode_i = TYPE_TRANSPOSE
+        der_mode_j = TYPE_TRANSPOSE
 #endif
 
         ! ###################################################################
@@ -250,10 +254,12 @@ contains
             return
         end if
 
-        nlines = tmpi_plan_dx%nlines
+        ! nlines = tmpi_plan_dx%nlines
+        nlines = tmpi_trp_X%nlines
 
         ! Transposition: make x-direction the last one
-        call TLabMPI_Trp_ExecI_Forward(u, result, tmpi_plan_dx)
+        ! call TLabMPI_Trp_ExecI_Forward(u, result, tmpi_plan_dx)
+        call tmpi_trp_X%forward(u, result)
 #ifdef USE_ESSL
         call DGETMO(result, x%size, x%size, nlines, wrk3d, nlines)
 #else
@@ -279,22 +285,27 @@ contains
         case (OPR_P2_P1)
             call TLab_Transpose_Real(tmp1, nlines, x%size, nlines, wrk3d, x%size)
             call TLab_Transpose_Real(result, nlines, x%size, nlines, tmp1, x%size)
-            call TLabMPI_Trp_ExecI_Backward(tmp1, result, tmpi_plan_dx)
-            call TLabMPI_Trp_ExecI_Backward(wrk3d, tmp1, tmpi_plan_dx)
+            ! call TLabMPI_Trp_ExecI_Backward(tmp1, result, tmpi_plan_dx)
+            ! call TLabMPI_Trp_ExecI_Backward(wrk3d, tmp1, tmpi_plan_dx)
+            call tmpi_trp_X%backward(tmp1, result)
+            call tmpi_trp_X%backward(wrk3d, tmp1)
 
         case (OPR_P1_ADD)
             call TLab_Transpose_Real(result, nlines, x%size, nlines, wrk3d, x%size)
-            call TLabMPI_Trp_ExecI_Backward(wrk3d, result, tmpi_plan_dx)
+            ! call TLabMPI_Trp_ExecI_Backward(wrk3d, result, tmpi_plan_dx)
+            call tmpi_trp_X%backward(wrk3d, result)
             tmp1 = tmp1 + result
 
         case (OPR_P1_SUBTRACT)
             call TLab_Transpose_Real(result, nlines, x%size, nlines, wrk3d, x%size)
-            call TLabMPI_Trp_ExecI_Backward(wrk3d, result, tmpi_plan_dx)
+            ! call TLabMPI_Trp_ExecI_Backward(wrk3d, result, tmpi_plan_dx)
+            call tmpi_trp_X%backward(wrk3d, result)
             tmp1 = tmp1 - result
 
         case default
             call TLab_Transpose_Real(result, nlines, x%size, nlines, wrk3d, x%size)
-            call TLabMPI_Trp_ExecI_Backward(wrk3d, result, tmpi_plan_dx)
+            ! call TLabMPI_Trp_ExecI_Backward(wrk3d, result, tmpi_plan_dx)
+            call tmpi_trp_X%backward(wrk3d, result)
 
         end select
 
@@ -455,8 +466,10 @@ contains
 #else
         call TLab_Transpose_Real(u, nx*ny, nz, nx*ny, result, nz)
 #endif
-        call TLabMPI_Trp_ExecJ_Forward(result, wrk3d, tmpi_plan_dy)
-        nlines = tmpi_plan_dy%nlines
+        ! call TLabMPI_Trp_ExecJ_Forward(result, wrk3d, tmpi_plan_dy)
+        ! nlines = tmpi_plan_dy%nlines
+        call tmpi_trp_Y%forward(result, wrk3d)
+        nlines = tmpi_trp_Y%nlines
 
         select case (type)
         case (OPR_P2)
@@ -475,21 +488,26 @@ contains
         ! Put arrays back in the order in which they came in
         select case (type)
         case (OPR_P2_P1)
-            call TLabMPI_Trp_ExecJ_Backward(tmp1, wrk3d, tmpi_plan_dy)
-            call TLabMPI_Trp_ExecJ_Backward(result, tmp1, tmpi_plan_dy)
+            ! call TLabMPI_Trp_ExecJ_Backward(tmp1, wrk3d, tmpi_plan_dy)
+            ! call TLabMPI_Trp_ExecJ_Backward(result, tmp1, tmpi_plan_dy)
+            call tmpi_trp_Y%backward(tmp1, wrk3d)
+            call tmpi_trp_Y%backward(result, tmp1)
             call TLab_Transpose_Real(tmp1, nz, nx*ny, nz, result, nx*ny)
             call TLab_Transpose_Real(wrk3d, nz, nx*ny, nz, tmp1, nx*ny)
 
         case (OPR_P1_ADD)
-            call TLabMPI_Trp_ExecJ_Backward(result, wrk3d, tmpi_plan_dy)
+            ! call TLabMPI_Trp_ExecJ_Backward(result, wrk3d, tmpi_plan_dy)
+            call tmpi_trp_Y%backward(result, wrk3d)
             call TLab_AddTranspose(wrk3d, nz, nx*ny, nz, tmp1, nx*ny)
 
         case (OPR_P1_SUBTRACT)
-            call TLabMPI_Trp_ExecJ_Backward(result, wrk3d, tmpi_plan_dy)
+            ! call TLabMPI_Trp_ExecJ_Backward(result, wrk3d, tmpi_plan_dy)
+            call tmpi_trp_Y%backward(result, wrk3d)
             call TLab_SubtractTranspose(wrk3d, nz, nx*ny, nz, tmp1, nx*ny)
 
         case default
-            call TLabMPI_Trp_ExecJ_Backward(result, wrk3d, tmpi_plan_dy)
+            ! call TLabMPI_Trp_ExecJ_Backward(result, wrk3d, tmpi_plan_dy)
+            call tmpi_trp_Y%backward(result, wrk3d)
             call TLab_Transpose_Real(wrk3d, nz, nx*ny, nz, result, nx*ny)
 
         end select

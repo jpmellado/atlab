@@ -9,7 +9,8 @@ module NSE_Burgers
     use TLab_Transpose
 #ifdef USE_MPI
     use TLabMPI_VARS, only: xMpi, yMpi
-    use TLabMPI_Transpose
+    ! use TLabMPI_Transpose
+    use TLabMPI_Transpose_X, only: tmpi_trp_X, tmpi_trp_Y
     use FDM_Derivative_MPISplit
 #endif
     use TLab_Grid, only: x, y, z
@@ -179,7 +180,8 @@ contains
         case ('x')
 #ifdef USE_MPI
             if (xMpi%num_processors > 1 .and. der_mode_i == TYPE_TRANSPOSE) then
-                nlines = tmpi_plan_dx%nlines
+                ! nlines = tmpi_plan_dx%nlines
+                nlines = tmpi_trp_X%nlines
                 offset = nlines*xMpi%rank
             else
 #endif
@@ -199,7 +201,8 @@ contains
         case ('y')
 #ifdef USE_MPI
             if (yMpi%num_processors > 1 .and. der_mode_j == TYPE_TRANSPOSE) then
-                nlines = tmpi_plan_dy%nlines
+                ! nlines = tmpi_plan_dy%nlines
+                nlines = tmpi_trp_Y%nlines
                 offset = nlines*yMpi%rank
             else
 #endif
@@ -396,10 +399,12 @@ contains
             return
         end if
 
-        nlines = tmpi_plan_dx%nlines
+        ! nlines = tmpi_plan_dx%nlines
+        nlines = tmpi_trp_X%nlines
 
         ! Transposition: make x-direction the last one
-        call TLabMPI_Trp_ExecI_Forward(s, result, tmpi_plan_dx)
+        ! call TLabMPI_Trp_ExecI_Forward(s, result, tmpi_plan_dx)
+        call tmpi_trp_X%forward(s, result)
 #ifdef USE_ESSL
         call DGETMO(result, x%size, x%size, nlines, tmp1, nlines)
 #else
@@ -421,7 +426,8 @@ contains
 #else
         call TLab_Transpose_Real(result, nlines, x%size, nlines, wrk3d, x%size)
 #endif
-        call TLabMPI_Trp_ExecI_Backward(wrk3d, result, tmpi_plan_dx)
+        ! call TLabMPI_Trp_ExecI_Backward(wrk3d, result, tmpi_plan_dx)
+        call tmpi_trp_X%backward(wrk3d, result)
         rhs = rhs + result
 
         return
@@ -564,8 +570,10 @@ contains
 #else
         call TLab_Transpose_Real(s, nx*ny, nz, nx*ny, wrk3d, nz)
 #endif
-        call TLabMPI_Trp_ExecJ_Forward(wrk3d, tmp1, tmpi_plan_dy)
-        nlines = tmpi_plan_dy%nlines
+        ! call TLabMPI_Trp_ExecJ_Forward(wrk3d, tmp1, tmpi_plan_dy)
+        ! nlines = tmpi_plan_dy%nlines
+        call tmpi_trp_Y%forward(wrk3d, tmp1)
+        nlines = tmpi_trp_Y%nlines
 
         call fdm_der1_Y%compute(nlines, tmp1, wrk3d)
         call fdm_der2_Y%compute(nlines, tmp1, result, wrk3d)
@@ -577,7 +585,8 @@ contains
         end if
 
         ! Put arrays back in the order in which they came in
-        call TLabMPI_Trp_ExecJ_Backward(result, wrk3d, tmpi_plan_dy)
+        ! call TLabMPI_Trp_ExecJ_Backward(result, wrk3d, tmpi_plan_dy)
+        call tmpi_trp_Y%backward(result, wrk3d)
 #ifdef USE_ESSL
         call DGETMO(wrk3d, nz, nz, nx*ny, result, nx*ny)
         rhs = rhs + result

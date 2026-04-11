@@ -16,16 +16,17 @@ module TLabMPI_Transpose
     public :: TLabMPI_Trp_PlanI, TLabMPI_Trp_PlanJ
     public :: TLabMPI_Trp_ExecJ_Forward, TLabMPI_Trp_ExecJ_Backward
     public :: TLabMPI_Trp_ExecI_Forward, TLabMPI_Trp_ExecI_Backward
+    public :: tmpi_transpose_dt, tmpi_plan_dx, tmpi_plan_dy
 
-    type, public :: tmpi_transpose_dt
+    type :: tmpi_transpose_dt
         ! sequence
         type(MPI_Datatype) :: type_s, type_r                        ! derived send/recv types
         integer(wi) :: nlines
         integer(wi) :: size3d
         integer(wi), allocatable :: disp_s(:), disp_r(:)            ! send/recv displacements
     end type tmpi_transpose_dt
-    type(tmpi_transpose_dt), public :: tmpi_plan_dx                 ! general plans used in derivatives and other operators
-    type(tmpi_transpose_dt), public :: tmpi_plan_dy
+    type(tmpi_transpose_dt) :: tmpi_plan_dx                 ! general plans used in derivatives and other operators
+    type(tmpi_transpose_dt) :: tmpi_plan_dy
 
     ! -----------------------------------------------------------------------
     integer :: trp_mode_i, trp_mode_j                               ! Mode of transposition

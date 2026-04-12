@@ -12,11 +12,11 @@ module TLabMPI_Transpose
     implicit none
     private
 
-    public :: TLabMPI_Trp_Initialize
-    public :: TLabMPI_Trp_PlanI, TLabMPI_Trp_PlanJ
-    public :: TLabMPI_Trp_ExecJ_Forward, TLabMPI_Trp_ExecJ_Backward
-    public :: TLabMPI_Trp_ExecI_Forward, TLabMPI_Trp_ExecI_Backward
-    public :: tmpi_transpose_dt, tmpi_plan_dx, tmpi_plan_dy
+    ! public :: TLabMPI_Trp_Initialize
+    ! public :: TLabMPI_Trp_PlanI, TLabMPI_Trp_PlanJ
+    ! public :: TLabMPI_Trp_ExecJ_Forward, TLabMPI_Trp_ExecJ_Backward
+    ! public :: TLabMPI_Trp_ExecI_Forward, TLabMPI_Trp_ExecI_Backward
+    ! public :: tmpi_transpose_dt, tmpi_plan_dx, tmpi_plan_dy
 
     type :: tmpi_transpose_dt
         ! sequence

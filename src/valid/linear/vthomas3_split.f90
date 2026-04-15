@@ -61,6 +61,12 @@ program vThomas3_Split
     ! -------------------------------------------------------------------
     ! generate random data for f = Au
     call random_number(rhs)     ! diagonals in matrix A
+    ! rhs(:,1) = 2.0_wp/11.0_wp   ! second order derivative
+    ! rhs(:,2) = 1.0_wp
+    ! rhs(:,3) = 2.0_wp/11.0_wp
+    ! rhs(:,1) = 1.0_wp/3.0_wp   ! first order derivative
+    ! rhs(:,2) = 1.0_wp
+    ! rhs(:,3) = 1.0_wp/3.0_wp
     call random_number(u)       ! solution u
 
     n = 1

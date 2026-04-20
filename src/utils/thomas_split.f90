@@ -252,7 +252,7 @@ contains
 
         ! -------------------------------------------------------------------
         ! Calculate decay index
-        ! call decay_index(z(1, :), n_smw_decay)
+        ! call decay_index(z(1, p_plus_1:))!, n_smw_decay)
 
 #undef a
 #undef b

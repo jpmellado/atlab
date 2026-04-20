@@ -8,6 +8,7 @@ program VISUALS
     use TLab_Arrays
     use TLab_WorkFlow
     use TLab_Memory, only: TLab_Initialize_Memory
+    use TLab_Pointers, only: pointers_dt
 #ifdef USE_MPI
     use TLabMPI_PROCS, only: TLabMPI_Initialize
     ! use TLabMPI_Transpose, only: TLabMPI_Trp_Initialize
@@ -35,6 +36,7 @@ program VISUALS
     use FI_GRADIENT_EQN
     use FI_VORTICITY_EQN
     use Tensor
+    use Diagnostics
 
     implicit none
 
@@ -67,7 +69,7 @@ program VISUALS
     integer(wi) ij, is
     integer(wi), parameter :: iscal_offset = 9 ! to be removed
     logical iread_flow, iread_scal
-    real(wp) diff, dummy
+    real(wp) dummy !diff, 
     real(wp) params(MAX_PARS)
 
     ! ! Gates for the definition of the intermittency function (partition of the fields)
@@ -76,6 +78,13 @@ program VISUALS
     ! integer(wi) igate_size, ig
     ! real(wp) gate_threshold(igate_size_max)
     ! integer(1), dimension(:), allocatable, save :: gate
+
+    type(pointers_dt), allocatable :: vars(:)
+    integer :: ifield
+
+    interface Write_Visuals
+        procedure Write_Visuals_Rank1, Write_Visuals_Rank2
+    end interface
 
     !########################################################################
     !########################################################################
@@ -336,24 +345,30 @@ program VISUALS
                 do is = 1, inb_scal_array
                     write (str, *) is; str = 'Scalar'//trim(adjustl(str))
 
-                    plot_file = trim(adjustl(str))//'Gradient'//time_str(1:MaskSize)
-                    call FI_GRADIENT(imax, jmax, kmax, s(1, is), txc(1, 1), txc(1, 2))
-                    call Write_Visuals(plot_file, txc(:, 1:1))
+                    ! plot_file = trim(adjustl(str))//'Gradient'//time_str(1:MaskSize)
+                    ! call FI_GRADIENT(imax, jmax, kmax, s(1, is), txc(1, 1), txc(1, 2))
+                    ! call Write_Visuals(plot_file, txc(:, 1:1))
 
-                    if (nse_diffusion == EQNS_NONE) then; diff = 0.0_wp
-                    else; diff = visc/schmidt(is)
-                    end if
+                    ! if (nse_diffusion == EQNS_NONE) then; diff = 0.0_wp
+                    ! else; diff = visc/schmidt(is)
+                    ! end if
 
-                    plot_file = 'ScalarGradientProduction'//time_str(1:MaskSize)
-                    call FI_GRADIENT_PRODUCTION(imax, jmax, kmax, s(1, is), q(1, 1), q(1, 2), q(1, 3), &
-                                                txc(1, 1), txc(1, 2), txc(1, 3), txc(1, 4), txc(1, 5), txc(1, 6))
-                    call Write_Visuals(plot_file, txc(:, 1:1))
+                    ! plot_file = 'ScalarGradientProduction'//time_str(1:MaskSize)
+                    ! call FI_GRADIENT_PRODUCTION(imax, jmax, kmax, s(1, is), q(1, 1), q(1, 2), q(1, 3), &
+                    !                             txc(1, 1), txc(1, 2), txc(1, 3), txc(1, 4), txc(1, 5), txc(1, 6))
+                    ! call Write_Visuals(plot_file, txc(:, 1:1))
 
-                    plot_file = trim(adjustl(str))//'GradientDiffusion'//time_str(1:MaskSize)
-                    call FI_GRADIENT_DIFFUSION(imax, jmax, kmax, s(1, is), &
-                                               txc(1, 1), txc(1, 2), txc(1, 3), txc(1, 4), txc(1, 5), txc(1, 6))
-                    txc(1:isize_field, 1) = diff*txc(1:isize_field, 1)
-                    call Write_Visuals(plot_file, txc(:, 1:1))
+                    ! plot_file = trim(adjustl(str))//'GradientDiffusion'//time_str(1:MaskSize)
+                    ! call FI_GRADIENT_DIFFUSION(imax, jmax, kmax, s(1, is), &
+                    !                            txc(1, 1), txc(1, 2), txc(1, 3), txc(1, 4), txc(1, 5), txc(1, 6))
+                    ! txc(1:isize_field, 1) = diff*txc(1:isize_field, 1)
+                    ! call Write_Visuals(plot_file, txc(:, 1:1))
+
+                    call Diagnose_ScalarGradientEquation(is, vars)
+                    do ifield = 1, size(vars)
+                        plot_file = trim(adjustl(str))//trim(adjustl(vars(ifield)%tag))//time_str(1:MaskSize)
+                        call Write_Visuals(plot_file, vars(ifield)%field(:))
+                    end do
 
                 end do
 
@@ -868,7 +883,7 @@ contains
 
 !########################################################################
 !########################################################################
-    subroutine Write_Visuals(fname, field)
+    subroutine Write_Visuals_Rank2(fname, field)
         use Reductions, only: Reduce_Block_InPlace
 
         character(len=*) fname
@@ -956,6 +971,20 @@ contains
         end select
 
         return
-    end subroutine Write_Visuals
+    end subroutine Write_Visuals_Rank2
+
+    subroutine Write_Visuals_Rank1(fname, field)
+        character(len=*) fname
+        real(wp), intent(inout) :: field(:)
+
+        target :: field
+        real(wp), pointer :: field_2r(:, :) => null()
+
+        field_2r(1:size(field), 1:1) => field(1:size(field))
+        call Write_Visuals_Rank2(fname, field_2r)
+        nullify (field_2r)
+
+        return
+    end subroutine
 
 end program VISUALS

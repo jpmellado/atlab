@@ -29,15 +29,15 @@ add_dependencies(diagnostics physics mappings base)
 
 FILE(GLOB sourcefiles "postprocessing/visuals.f90")
 add_executable(visuals.x ${sourcefiles})
-target_link_libraries(visuals.x physics mappings operators finitedifferences thermodynamics diagnostics ${LEVEL1_LIBS} ${LIBS})
+target_link_libraries(visuals.x diagnostics physics mappings operators finitedifferences thermodynamics ${LEVEL1_LIBS} ${LIBS})
 
 FILE(GLOB sourcefiles "postprocessing/averages*.f90")
 add_executable(averages.x ${sourcefiles})
-target_link_libraries(averages.x statistics physics mappings operators finitedifferences thermodynamics diagnostics  ${LEVEL1_LIBS} ${LIBS})
+target_link_libraries(averages.x diagnostics statistics physics mappings operators finitedifferences thermodynamics ${LEVEL1_LIBS} ${LIBS})
 
 FILE(GLOB sourcefiles "postprocessing/pdfs*.f90")
 add_executable(pdfs.x ${sourcefiles})
-target_link_libraries(pdfs.x statistics physics mappings operators finitedifferences thermodynamics diagnostics  ${LEVEL1_LIBS} ${LIBS})
+target_link_libraries(pdfs.x diagnostics statistics physics mappings operators finitedifferences thermodynamics ${LEVEL1_LIBS} ${LIBS})
 
 # FILE(GLOB sourcefiles "statistics/spectra*.f90")
 # add_executable(spectra.x ${sourcefiles})

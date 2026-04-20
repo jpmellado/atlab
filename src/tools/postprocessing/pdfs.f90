@@ -38,6 +38,7 @@ program PDFS
     use Tensor
     use Reductions, only: Reduce_Block_InPlace
     use StatsPDFs
+    use Diagnostics
 
     implicit none
 
@@ -57,7 +58,7 @@ program PDFS
     real(wp), allocatable :: pdf(:), z_aux(:)
 
     integer(1), allocatable :: gate(:)
-    type(pointers_dt) :: vars(16)
+    type(pointers_dt) :: vars_old(16)
 
     character*32 fname!, bakfile
     character*64 str
@@ -78,6 +79,9 @@ program PDFS
     ! integer(wi) igate_size
     ! real(wp) gate_threshold(igate_size_max)
     ! integer(1) gate_level
+
+    type(pointers_dt), allocatable :: vars(:)
+    ! integer :: ifield
 
     !########################################################################
     !########################################################################
@@ -203,25 +207,25 @@ program PDFS
         case (1)
             write (fname, *) itime; fname = 'pdf'//trim(adjustl(fname))
 
-            ifield = ifield + 1; vars(ifield)%field => q(:, 1); vars(ifield)%tag = 'u'
-            ifield = ifield + 1; vars(ifield)%field => q(:, 2); vars(ifield)%tag = 'v'
-            ifield = ifield + 1; vars(ifield)%field => q(:, 3); vars(ifield)%tag = 'w'
+            ifield = ifield + 1; vars_old(ifield)%field => q(:, 1); vars_old(ifield)%tag = 'u'
+            ifield = ifield + 1; vars_old(ifield)%field => q(:, 2); vars_old(ifield)%tag = 'v'
+            ifield = ifield + 1; vars_old(ifield)%field => q(:, 3); vars_old(ifield)%tag = 'w'
             if (any([DNS_EQNS_BOUSSINESQ, DNS_EQNS_ANELASTIC] == nse_eqns)) then
                 call NSE_Pressure_Incompressible(q, s, txc(:, 1), txc(:, 2), txc(:, 5), txc(:, 6))
-                ifield = ifield + 1; vars(ifield)%field => txc(:, 1); vars(ifield)%tag = 'p'
+                ifield = ifield + 1; vars_old(ifield)%field => txc(:, 1); vars_old(ifield)%tag = 'p'
             else
-                ifield = ifield + 1; vars(ifield)%field => q(:, 6); vars(ifield)%tag = 'p'
-                ifield = ifield + 1; vars(ifield)%field => q(:, 5); vars(ifield)%tag = 'r'
-                ifield = ifield + 1; vars(ifield)%field => q(:, 7); vars(ifield)%tag = 't'
+                ifield = ifield + 1; vars_old(ifield)%field => q(:, 6); vars_old(ifield)%tag = 'p'
+                ifield = ifield + 1; vars_old(ifield)%field => q(:, 5); vars_old(ifield)%tag = 'r'
+                ifield = ifield + 1; vars_old(ifield)%field => q(:, 7); vars_old(ifield)%tag = 't'
             end if
 
             do is = 1, inb_scal_array
-                ifield = ifield + 1; vars(ifield)%field => s(:, is); vars(ifield)%tag = 's'
-                write (str, *) is; vars(ifield)%tag = trim(adjustl(vars(ifield)%tag))//trim(adjustl(str))
+                ifield = ifield + 1; vars_old(ifield)%field => s(:, is); vars_old(ifield)%tag = 's'
+                write (str, *) is; vars_old(ifield)%tag = trim(adjustl(vars_old(ifield)%tag))//trim(adjustl(str))
             end do
 
             do is = 1, ifield ! In case we want same interval for all heights
-                if (ibc(is) == 0) call MINMAX(imax, jmax, kmax, vars(is)%field, vmin(is), vmax(is))
+                if (ibc(is) == 0) call MINMAX(imax, jmax, kmax, vars_old(is)%field, vmin(is), vmax(is))
             end do
 
             ! ###################################################################
@@ -231,20 +235,8 @@ program PDFS
             write (fname, *) itime; fname = 'pdfG2'//trim(adjustl(fname))
             call TLab_Write_ASCII(lfile, 'Computing scalar gradient equation...')
 
-            call FI_GRADIENT_PRODUCTION(imax, jmax, kmax, s, q(1, 1), q(1, 2), q(1, 3), &
-                                        txc(1, 1), txc(1, 2), txc(1, 3), txc(1, 4), txc(1, 5), txc(1, 6))
-            call FI_GRADIENT_DIFFUSION(imax, jmax, kmax, s, & ! array q used as auxiliar
-                                       txc(1, 2), txc(1, 3), txc(1, 4), txc(1, 5), txc(1, 6), q(1, 1))
-            txc(1:isize_field, 2) = txc(1:isize_field, 2)*visc/schmidt(inb_scal)
-            call FI_GRADIENT(imax, jmax, kmax, s, txc(1, 3), txc(1, 4))
-            txc(1:isize_field, 5) = txc(1:isize_field, 1)/txc(1:isize_field, 3)
-            txc(1:isize_field, 4) = log(txc(1:isize_field, 3))
-
-            ifield = ifield + 1; vars(ifield)%field => txc(:, 3); vars(ifield)%tag = 'GiGi'; ibc(ifield) = 2
-            ifield = ifield + 1; vars(ifield)%field => txc(:, 4); vars(ifield)%tag = 'LnGiGi'; ibc(ifield) = 2
-            ifield = ifield + 1; vars(ifield)%field => txc(:, 1); vars(ifield)%tag = 'ProductionMsGiGjSij'; ibc(ifield) = 2
-            ifield = ifield + 1; vars(ifield)%field => txc(:, 2); vars(ifield)%tag = 'DiffusionNuGiLapGi'; ibc(ifield) = 2
-            ifield = ifield + 1; vars(ifield)%field => txc(:, 5); vars(ifield)%tag = 'StrainAMsNiNjSij'; ibc(ifield) = 2
+            call Diagnose_ScalarGradientEquation(is=inb_scal, vars=vars)
+            ibc(1:size(vars)) = 2
 
             ! ###################################################################
             ! Enstrophy equation
@@ -253,58 +245,8 @@ program PDFS
             write (fname, *) itime; fname = 'pdfW2'//trim(adjustl(fname))
             call TLab_Write_ASCII(lfile, 'Computing enstrophy equation...')
 
-            if (any([DNS_EQNS_BOUSSINESQ, DNS_EQNS_ANELASTIC] == nse_eqns)) then
-                ! txc(:, 4) = 0.0_wp; txc(:, 5) = 0.0_wp; txc(:, 6) = 0.0_wp
-
-                select case (nse_eqns)
-                case (DNS_EQNS_ANELASTIC)
-                    ! call Thermo_Anelastic_BUOYANCY(imax, jmax, kmax, s, wrk3d)
-
-                case (DNS_EQNS_BOUSSINESQ)
-                    wrk1d(1:kmax, 1) = bbackground(1:kmax)
-                    bbackground(1:kmax) = 0.0_wp
-                    wrk3d(1:isize_field) = 0.0_wp
-                    call Gravity_AddSource(gravityProps, imax, jmax, kmax, s, wrk3d, gravityProps%vector(3))
-                    bbackground(1:kmax) = wrk1d(1:kmax, 1)
-                end select
-                s(1:isize_field, 1) = wrk3d(1:isize_field)
-
-                call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, s, txc(1, 4))
-                txc(:, 4) = -txc(:, 4)
-                txc(:, 5) = 0.0_wp
-                call OPR_Partial_X(OPR_P1, imax, jmax, kmax, s, txc(1, 6))
-
-            else
-                call FI_VORTICITY_BAROCLINIC(imax, jmax, kmax, q(1, 5), q(1, 6), txc(1, 4), txc(1, 3), txc(1, 7))
-            end if
-            ! result vector in txc1, txc2, txc3
-            call FI_CURL(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), txc(1, 1), txc(1, 2), txc(1, 3), txc(1, 7))
-            ! scalar product, store in txc8
-            txc(1:isize_field, 8) = txc(1:isize_field, 1)*txc(1:isize_field, 4) &
-                                    + txc(1:isize_field, 2)*txc(1:isize_field, 5) + txc(1:isize_field, 3)*txc(1:isize_field, 6)
-
-            call FI_VORTICITY_PRODUCTION(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), txc(1, 1), &
-                                         txc(1, 2), txc(1, 3), txc(1, 4), txc(1, 5), txc(1, 6))
-
-            call FI_VORTICITY_DIFFUSION(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), txc(1, 2), &
-                                        txc(1, 3), txc(1, 4), txc(1, 5), txc(1, 6), txc(1, 7))
-            txc(1:isize_field, 2) = visc*txc(1:isize_field, 2)
-
-            call FI_VORTICITY(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), txc(1, 3), txc(1, 4), txc(1, 5))
-
-            call FI_INVARIANT_P(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), txc(1, 4), txc(1, 5))
-
-            txc(1:isize_field, 5) = txc(1:isize_field, 4)*txc(1:isize_field, 3) ! -w^2 div(u)
-            txc(1:isize_field, 4) = txc(1:isize_field, 1)/txc(1:isize_field, 3) ! production rate
-            txc(1:isize_field, 6) = log(txc(1:isize_field, 3))                  ! ln(w^2)
-
-            ifield = ifield + 1; vars(ifield)%field => txc(:, 3); vars(ifield)%tag = 'WiWi'; ibc(ifield) = 2
-            ifield = ifield + 1; vars(ifield)%field => txc(:, 6); vars(ifield)%tag = 'LnWiWi'; ibc(ifield) = 2
-            ifield = ifield + 1; vars(ifield)%field => txc(:, 1); vars(ifield)%tag = 'ProductionWiWjSij'; ibc(ifield) = 2
-            ifield = ifield + 1; vars(ifield)%field => txc(:, 2); vars(ifield)%tag = 'DiffusionNuWiLapWi'; ibc(ifield) = 2
-            ifield = ifield + 1; vars(ifield)%field => txc(:, 5); vars(ifield)%tag = 'DilatationMsWiWiDivU'; ibc(ifield) = 2
-            ifield = ifield + 1; vars(ifield)%field => txc(:, 8); vars(ifield)%tag = 'Baroclinic'; ibc(ifield) = 2
-            ifield = ifield + 1; vars(ifield)%field => txc(:, 4); vars(ifield)%tag = 'RateANiNjSij'; ibc(ifield) = 2
+            call Diagnose_EnstrophyEquation(vars=vars)
+            ibc(1:size(vars)) = 2
 
             ! ###################################################################
             ! Strain equation
@@ -313,33 +255,8 @@ program PDFS
             write (fname, *) itime; fname = 'pdfS2'//trim(adjustl(fname))
             call TLab_Write_ASCII(lfile, 'Computing strain equation...')
 
-            if (any([DNS_EQNS_BOUSSINESQ, DNS_EQNS_ANELASTIC] == nse_eqns)) then
-                call NSE_Pressure_Incompressible(q, s, txc(:, 1), txc(:, 2), txc(:, 5), txc(:, 6))
-                call FI_STRAIN_PRESSURE(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), txc(1, 1), &
-                                        txc(1, 2), txc(1, 3), txc(1, 4), txc(1, 5), txc(1, 6))
-            else
-                call FI_STRAIN_PRESSURE(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), q(1, 6), &
-                                        txc(1, 2), txc(1, 3), txc(1, 4), txc(1, 5), txc(1, 6))
-            end if
-            txc(1:isize_field, 1) = 2.0_wp*txc(1:isize_field, 2)
-
-            call FI_STRAIN_PRODUCTION(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), &
-                                      txc(1, 2), txc(1, 3), txc(1, 4), txc(1, 5), txc(1, 6), txc(1, 7))
-            txc(1:isize_field, 2) = 2.0_wp*txc(1:isize_field, 2)
-
-            call FI_STRAIN_DIFFUSION(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), &
-                                     txc(1, 3), txc(1, 4), txc(1, 5), txc(1, 6), txc(1, 7), txc(1, 8))
-            txc(1:isize_field, 3) = 2.0_wp*visc*txc(1:isize_field, 3)
-
-            call FI_STRAIN(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), txc(1, 4), txc(1, 5), txc(1, 6))
-            txc(1:isize_field, 4) = 2.0_wp*txc(1:isize_field, 4)
-            txc(1:isize_field, 5) = log(txc(1:isize_field, 4))
-
-            ifield = ifield + 1; vars(1)%field => txc(:, 4); vars(ifield)%tag = '2SijSij'; ibc(ifield) = 2
-            ifield = ifield + 1; vars(2)%field => txc(:, 5); vars(ifield)%tag = 'Ln2SijSij'; ibc(ifield) = 2
-            ifield = ifield + 1; vars(3)%field => txc(:, 2); vars(ifield)%tag = 'ProductionMs2SijSjkS_ki'; ibc(ifield) = 2
-            ifield = ifield + 1; vars(4)%field => txc(:, 3); vars(ifield)%tag = 'DiffusionNuSijLapSij'; ibc(ifield) = 2
-            ifield = ifield + 1; vars(5)%field => txc(:, 1); vars(ifield)%tag = 'Pressure2SijPij'; ibc(ifield) = 2
+            call Diagnose_StrainEquation(vars=vars)
+            ibc(1:size(vars)) = 2
 
             ! ###################################################################
             ! Velocity gradient invariants
@@ -352,13 +269,13 @@ program PDFS
             call FI_INVARIANT_Q(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), txc(1, 2), txc(1, 3), txc(1, 4), txc(1, 5))
             call FI_INVARIANT_P(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), txc(1, 3), txc(1, 4))
 
-            ifield = ifield + 1; vars(ifield)%field => txc(:, 3); vars(ifield)%tag = 'InvP'; ibc(ifield) = 2
-            ifield = ifield + 1; vars(ifield)%field => txc(:, 2); vars(ifield)%tag = 'InvQ'; ibc(ifield) = 2
-            ifield = ifield + 1; vars(ifield)%field => txc(:, 1); vars(ifield)%tag = 'InvR'; ibc(ifield) = 2
+            ifield = ifield + 1; vars_old(ifield)%field => txc(:, 3); vars_old(ifield)%tag = 'InvP'; ibc(ifield) = 2
+            ifield = ifield + 1; vars_old(ifield)%field => txc(:, 2); vars_old(ifield)%tag = 'InvQ'; ibc(ifield) = 2
+            ifield = ifield + 1; vars_old(ifield)%field => txc(:, 1); vars_old(ifield)%tag = 'InvR'; ibc(ifield) = 2
 
             if (kmax_aux*opt_block /= z%size .and. reduce_data) then ! I already need it here
                 do is = 1, ifield
-                    call REDUCE_BLOCK_INPLACE(imax, jmax, kmax, 1, 1, 1, imax, jmax*opt_block, kmax_aux, vars(is)%field)
+                    call REDUCE_BLOCK_INPLACE(imax, jmax, kmax, 1, 1, 1, imax, jmax*opt_block, kmax_aux, vars_old(is)%field)
                 end do
                 reduce_data = .false.
             end if
@@ -379,7 +296,7 @@ program PDFS
 
             if (kmax_aux*opt_block /= z%size .and. reduce_data) then ! I already need it here
                 do is = 1, ifield
-                    call REDUCE_BLOCK_INPLACE(imax, jmax, kmax, 1, 1, 1, imax, jmax*opt_block, kmax_aux, vars(is)%field)
+                    call REDUCE_BLOCK_INPLACE(imax, jmax, kmax, 1, 1, 1, imax, jmax*opt_block, kmax_aux, vars_old(is)%field)
                 end do
                 reduce_data = .false.
             end if
@@ -397,13 +314,13 @@ program PDFS
             call FI_GRADIENT(imax, jmax, kmax, s, txc(1, 1), txc(1, 2))
             txc(1:isize_field, 2) = log(txc(1:isize_field, 1))
 
-            ifield = ifield + 1; vars(1)%field => s(:, 1); vars(ifield)%tag = 's'; ibc(ifield) = 1
-            ifield = ifield + 1; vars(2)%field => txc(:, 1); vars(ifield)%tag = 'GiGi'; ibc(ifield) = 2
-            ifield = ifield + 1; vars(3)%field => txc(:, 2); vars(ifield)%tag = 'LnGiGi'; ibc(ifield) = 3
+            ifield = ifield + 1; vars_old(1)%field => s(:, 1); vars_old(ifield)%tag = 's'; ibc(ifield) = 1
+            ifield = ifield + 1; vars_old(2)%field => txc(:, 1); vars_old(ifield)%tag = 'GiGi'; ibc(ifield) = 2
+            ifield = ifield + 1; vars_old(3)%field => txc(:, 2); vars_old(ifield)%tag = 'LnGiGi'; ibc(ifield) = 3
 
             if (kmax_aux*opt_block /= z%size .and. reduce_data) then ! I already need it here
                 do is = 1, ifield
-                    call REDUCE_BLOCK_INPLACE(imax, jmax, kmax, 1, 1, 1, imax, jmax*opt_block, kmax_aux, vars(is)%field)
+                    call REDUCE_BLOCK_INPLACE(imax, jmax, kmax, 1, 1, 1, imax, jmax*opt_block, kmax_aux, vars_old(is)%field)
                 end do
                 reduce_data = .false.
             end if
@@ -413,11 +330,11 @@ program PDFS
 
             ! write (fname, *) itime; fname = 'cavgGiGi'//trim(adjustl(fname))
             ! call CAVG1V_N(fname, rtime, imax*opt_block, kmax_aux, kmax, &
-            !               1, opt_bins(1), ibc, vmin, vmax, vars, gate_level, gate, txc(1, 1), z_aux, pdf)
+            !               1, opt_bins(1), ibc, vmin, vmax, vars_old, gate_level, gate, txc(1, 1), z_aux, pdf)
 
             ! write (fname, *) itime; fname = 'cavgLnGiGi'//trim(adjustl(fname))
             ! call CAVG1V_N(fname, rtime, imax*opt_block, kmax_aux, kmax, &
-            !               1, opt_bins(1), ibc, vmin, vmax, vars, gate_level, gate, txc(1, 2), z_aux, pdf)
+            !               1, opt_bins(1), ibc, vmin, vmax, vars_old, gate_level, gate, txc(1, 2), z_aux, pdf)
 
             ! ###################################################################
             ! Scalar gradient components
@@ -436,11 +353,11 @@ program PDFS
                 s(ij, 1) = atan2(txc(ij, 2), txc(ij, 1))    ! with Ox in plane xOy
             end do
 
-            ifield = ifield + 1; vars(ifield)%field => txc(:, 1); vars(ifield)%tag = 'Gx'; ibc(ifield) = 2
-            ifield = ifield + 1; vars(ifield)%field => txc(:, 2); vars(ifield)%tag = 'Gy'; ibc(ifield) = 2
-            ifield = ifield + 1; vars(ifield)%field => txc(:, 3); vars(ifield)%tag = 'Gz'; ibc(ifield) = 2
-            ifield = ifield + 1; vars(ifield)%field => s(:, 1); vars(ifield)%tag = 'Gtheta'; ibc(ifield) = 2
-            ifield = ifield + 1; vars(ifield)%field => txc(:, 4); vars(ifield)%tag = 'Gphi'; ibc(ifield) = 2
+            ifield = ifield + 1; vars_old(ifield)%field => txc(:, 1); vars_old(ifield)%tag = 'Gx'; ibc(ifield) = 2
+            ifield = ifield + 1; vars_old(ifield)%field => txc(:, 2); vars_old(ifield)%tag = 'Gy'; ibc(ifield) = 2
+            ifield = ifield + 1; vars_old(ifield)%field => txc(:, 3); vars_old(ifield)%tag = 'Gz'; ibc(ifield) = 2
+            ifield = ifield + 1; vars_old(ifield)%field => s(:, 1); vars_old(ifield)%tag = 'Gtheta'; ibc(ifield) = 2
+            ifield = ifield + 1; vars_old(ifield)%field => txc(:, 4); vars_old(ifield)%tag = 'Gphi'; ibc(ifield) = 2
 
             write (fname, *) itime; fname = 'pdf'//trim(adjustl(fname))//'.GphiS'
             call PDF2V(fname, imax, jmax*opt_block, kmax_aux, opt_bins, s(1, 1), txc(1, 4), z_aux, pdf)
@@ -455,9 +372,9 @@ program PDFS
             call FI_STRAIN_TENSOR(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), txc(1, 1), txc(1, 2), txc(1, 3), txc(1, 4), txc(1, 5), txc(1, 6))
             call TENSOR_EIGENVALUES(imax, jmax, kmax, txc(1, 1), txc(1, 7)) ! txc7-txc9
 
-            ifield = ifield + 1; vars(ifield)%field => txc(:, 7); vars(ifield)%tag = 'Lambda1'; ibc(ifield) = 2
-            ifield = ifield + 1; vars(ifield)%field => txc(:, 8); vars(ifield)%tag = 'Lambda2'; ibc(ifield) = 2
-            ifield = ifield + 1; vars(ifield)%field => txc(:, 9); vars(ifield)%tag = 'Lambda3'; ibc(ifield) = 2
+            ifield = ifield + 1; vars_old(ifield)%field => txc(:, 7); vars_old(ifield)%tag = 'Lambda1'; ibc(ifield) = 2
+            ifield = ifield + 1; vars_old(ifield)%field => txc(:, 8); vars_old(ifield)%tag = 'Lambda2'; ibc(ifield) = 2
+            ifield = ifield + 1; vars_old(ifield)%field => txc(:, 9); vars_old(ifield)%tag = 'Lambda3'; ibc(ifield) = 2
 
             ! ###################################################################
             ! eigenframe of rate-of-strain tensor
@@ -481,9 +398,9 @@ program PDFS
                 q(ij, 3) = (txc(ij, 7)*eloc1 + txc(ij, 8)*eloc2 + txc(ij, 9)*eloc3)/dummy
             end do
 
-            ifield = ifield + 1; vars(ifield)%field => q(:, 1); vars(ifield)%tag = 'cos(w,lambda1)'; ibc(ifield) = 2
-            ifield = ifield + 1; vars(ifield)%field => q(:, 2); vars(ifield)%tag = 'cos(w,lambda2)'; ibc(ifield) = 2
-            ifield = ifield + 1; vars(ifield)%field => q(:, 3); vars(ifield)%tag = 'cos(w,lambda3)'; ibc(ifield) = 2
+            ifield = ifield + 1; vars_old(ifield)%field => q(:, 1); vars_old(ifield)%tag = 'cos(w,lambda1)'; ibc(ifield) = 2
+            ifield = ifield + 1; vars_old(ifield)%field => q(:, 2); vars_old(ifield)%tag = 'cos(w,lambda2)'; ibc(ifield) = 2
+            ifield = ifield + 1; vars_old(ifield)%field => q(:, 3); vars_old(ifield)%tag = 'cos(w,lambda3)'; ibc(ifield) = 2
 
             call OPR_Partial_X(OPR_P1, imax, jmax, kmax, s, txc(1, 7))
             call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, s, txc(1, 8))
@@ -500,9 +417,9 @@ program PDFS
                 txc(ij, 7) = cos1; txc(ij, 8) = cos2; txc(ij, 9) = cos3
             end do
 
-            ifield = ifield + 1; vars(ifield)%field => txc(:, 7); vars(ifield)%tag = 'cos(G,lambda1)'; ibc(ifield) = 2
-            ifield = ifield + 1; vars(ifield)%field => txc(:, 8); vars(ifield)%tag = 'cos(G,lambda2)'; ibc(ifield) = 2
-            ifield = ifield + 1; vars(ifield)%field => txc(:, 9); vars(ifield)%tag = 'cos(G,lambda3)'; ibc(ifield) = 2
+            ifield = ifield + 1; vars_old(ifield)%field => txc(:, 7); vars_old(ifield)%tag = 'cos(G,lambda1)'; ibc(ifield) = 2
+            ifield = ifield + 1; vars_old(ifield)%field => txc(:, 8); vars_old(ifield)%tag = 'cos(G,lambda2)'; ibc(ifield) = 2
+            ifield = ifield + 1; vars_old(ifield)%field => txc(:, 9); vars_old(ifield)%tag = 'cos(G,lambda3)'; ibc(ifield) = 2
 
             ! ###################################################################
             ! Longitudinal velocity derivatives
@@ -515,9 +432,9 @@ program PDFS
             call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, q(1, 2), txc(1, 2))
             call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, q(1, 3), txc(1, 3))
 
-            ifield = ifield + 1; vars(ifield)%field => txc(:, 1); vars(ifield)%tag = 'Sxx'; ibc(ifield) = 2
-            ifield = ifield + 1; vars(ifield)%field => txc(:, 2); vars(ifield)%tag = 'Syy'; ibc(ifield) = 2
-            ifield = ifield + 1; vars(ifield)%field => txc(:, 3); vars(ifield)%tag = 'Szz'; ibc(ifield) = 2
+            ifield = ifield + 1; vars_old(ifield)%field => txc(:, 1); vars_old(ifield)%tag = 'Sxx'; ibc(ifield) = 2
+            ifield = ifield + 1; vars_old(ifield)%field => txc(:, 2); vars_old(ifield)%tag = 'Syy'; ibc(ifield) = 2
+            ifield = ifield + 1; vars_old(ifield)%field => txc(:, 3); vars_old(ifield)%tag = 'Szz'; ibc(ifield) = 2
 
             ! ###################################################################
             ! Potential vorticity
@@ -544,8 +461,8 @@ program PDFS
             txc(1:isize_field, 6) = sqrt(txc(1:isize_field, 6) + small_wp)
             txc(1:isize_field, 2) = txc(1:isize_field, 1)/(txc(1:isize_field, 5)*txc(1:isize_field, 6)) ! Cosine of angle between 2 vectors
 
-            ifield = ifield + 1; vars(ifield)%field => txc(:, 1); vars(ifield)%tag = 'PV'
-            ifield = ifield + 1; vars(ifield)%field => txc(:, 2); vars(ifield)%tag = 'Cos'
+            ifield = ifield + 1; vars_old(ifield)%field => txc(:, 1); vars_old(ifield)%tag = 'PV'
+            ifield = ifield + 1; vars_old(ifield)%field => txc(:, 2); vars_old(ifield)%tag = 'Cos'
 
         end select
 
@@ -558,13 +475,27 @@ program PDFS
 
             if (kmax_aux*opt_block /= z%size .and. reduce_data) then
                 do is = 1, ifield
-                    call REDUCE_BLOCK_INPLACE(imax, jmax, kmax, 1, 1, 1, imax, jmax*opt_block, kmax_aux, vars(is)%field)
+                    call REDUCE_BLOCK_INPLACE(imax, jmax, kmax, 1, 1, 1, imax, jmax*opt_block, kmax_aux, vars_old(is)%field)
                 end do
             end if
 
             call PDF1V_N(fname, imax, jmax*opt_block, kmax_aux, &
-                         ifield, opt_bins(1), ibc, vmin, vmax, vars, z_aux, pdf)
+                         ifield, opt_bins(1), ibc, vmin, vmax, vars_old, z_aux, pdf)
 
+        end if
+
+        if (allocated(vars)) then
+            if (size(vars) > 0) then
+
+                if (kmax_aux*opt_block /= z%size .and. reduce_data) then
+                    do is = 1, ifield
+                        call REDUCE_BLOCK_INPLACE(imax, jmax, kmax, 1, 1, 1, imax, jmax*opt_block, kmax_aux, vars(is)%field)
+                    end do
+                end if
+
+                call PDF1V_N(fname, imax, jmax*opt_block, kmax_aux, &
+                             ifield, opt_bins(1), ibc, vmin, vmax, vars, z_aux, pdf)
+            end if
         end if
 
     end do
@@ -694,7 +625,7 @@ contains
             nfield = 4 + inb_scal_array; isize_pdf = opt_bins(1) + 2
             if (nse_eqns == DNS_EQNS_COMPRESSIBLE) nfield = nfield + 2
         case (2) ! Scalar gradient equation
-            iread_scal = .true.; iread_flow = .true.; inb_txc = max(inb_txc, 6)
+            iread_scal = .true.; iread_flow = .true.; inb_txc = max(inb_txc, 7)
             nfield = 5; isize_pdf = opt_bins(1) + 2
         case (3) ! Enstrophy equation
             iread_scal = .true.; iread_flow = .true.; inb_txc = max(inb_txc, 8)

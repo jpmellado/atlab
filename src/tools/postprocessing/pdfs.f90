@@ -547,7 +547,7 @@ contains
 #endif
         else
             if (iopt_size >= 2) opt_block = opt_vec(2)
-            if (iopt_size >= 3) opt_bins = opt_vec(4:5)
+            if (iopt_size >= 3) opt_bins = opt_vec(3:4)
             ! if (iopt_size >= 3) gate_level = int(opt_vec(3), KIND=1)
 
         end if

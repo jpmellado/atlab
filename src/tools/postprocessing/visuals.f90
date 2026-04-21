@@ -64,7 +64,6 @@ program VISUALS
     type(io_subarray_dt) :: io_subarrays(3)
 
     integer(wi) ij, is
-    integer(wi), parameter :: iscal_offset = 9 ! to be removed
     logical iread_flow, iread_scal
     real(wp) params(MAX_PARS)
 

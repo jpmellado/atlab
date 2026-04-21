@@ -20,25 +20,24 @@ program PDFS
     use NavierStokes
     use Thermodynamics, only: Thermo_Initialize
     use TLab_Background, only: TLab_Initialize_Background
-    use Gravity, only: Gravity_Initialize, Gravity_AddSource
+    use Gravity, only: Gravity_Initialize
     use SpecialForcing, only: SpecialForcing_Initialize
     use Rotation, only: Rotation_Initialize
     use Microphysics, only: Microphysics_Initialize
     use Radiation, only: Radiation_Initialize
     use LargeScaleForcing, only: LargeScaleForcing_Initialize
     use OPR_Partial
-    use OPR_Fourier
-    use OPR_Elliptic
+    use OPR_Fourier, only: OPR_Fourier_Initialize
+    use OPR_Elliptic, only: OPR_Elliptic_Initialize
     use NSE_Burgers, only: NSE_Burgers_Initialize
     use NSE_Pressure
     use FI_VECTORCALCULUS
     use FI_STRAIN_EQN
-    use FI_GRADIENT_EQN
     use FI_VORTICITY_EQN
     use Tensor
+    use Diagnostics
     use Reductions, only: Reduce_Block_InPlace
     use StatsPDFs
-    use Diagnostics
 
     implicit none
 
@@ -47,11 +46,9 @@ program PDFS
     integer(wi) itime_vec(itime_size_max)
 
     integer(wi), parameter :: iopt_size_max = 30    ! options to be processed
-    integer(wi) iopt_size
+    integer(wi) iopt_size, iv
     integer(wi) opt_vec(iopt_size_max)
-    ! real(wp) opt_vec2(iopt_size_max)
-
-    integer(wi), parameter :: params_size_max = 2
+    character(len=64) opt_name(iopt_size_max)
 
     ! -------------------------------------------------------------------
     ! Additional local arrays
@@ -60,7 +57,7 @@ program PDFS
     integer(1), allocatable :: gate(:)
     type(pointers_dt) :: vars_old(16)
 
-    character*32 fname!, bakfile
+    character*32 fname
     character*64 str
 
     integer opt_main, opt_block, opt_bins(2)
@@ -124,10 +121,6 @@ program PDFS
 
     call TLab_Initialize_Background(ifile)  ! Initialize thermodynamic quantities
     call NSE_Burgers_Initialize(ifile)
-
-    ! do ig = 1, 3
-    !     call OPR_FILTER_INITIALIZE(g(ig), PressureFilter(ig))
-    ! end do
 
     allocate (gate(isize_field))
 
@@ -199,12 +192,9 @@ program PDFS
         ifield = 0
         reduce_data = .true.
 
-        select case (opt_main)
-
-            ! ###################################################################
-            ! Main variable 2D-PDF
-            ! ###################################################################
-        case (1)
+        iv = 1      ! We only process 1 type per run
+        select case (trim(adjustl(opt_name(opt_vec(iv)))))
+        case ('Main variables')
             write (fname, *) itime; fname = 'pdf'//trim(adjustl(fname))
 
             ifield = ifield + 1; vars_old(ifield)%field => q(:, 1); vars_old(ifield)%tag = 'u'
@@ -228,50 +218,35 @@ program PDFS
                 if (ibc(is) == 0) call MINMAX(imax, jmax, kmax, vars_old(is)%field, vmin(is), vmax(is))
             end do
 
-            ! ###################################################################
-            ! Scalar gradient equation
-            ! ###################################################################
-        case (2)
+        case ('Scalar gradient G_iG_i/2 equation')
             write (fname, *) itime; fname = 'pdfG2'//trim(adjustl(fname))
-            call TLab_Write_ASCII(lfile, 'Computing scalar gradient equation...')
 
             call Diagnose_ScalarGradientEquation(is=inb_scal, vars=vars)
             ibc(1:size(vars)) = 2
 
-            ! ###################################################################
-            ! Enstrophy equation
-            ! ###################################################################
-        case (3)
+        case ('Enstrophy W_iW_i/2 equation')
             write (fname, *) itime; fname = 'pdfW2'//trim(adjustl(fname))
-            call TLab_Write_ASCII(lfile, 'Computing enstrophy equation...')
 
             call Diagnose_EnstrophyEquation(vars=vars)
             ibc(1:size(vars)) = 2
 
-            ! ###################################################################
-            ! Strain equation
-            ! ###################################################################
-        case (4)
+        case ('Strain 2S_ijS_ij/2 equation')
             write (fname, *) itime; fname = 'pdfS2'//trim(adjustl(fname))
-            call TLab_Write_ASCII(lfile, 'Computing strain equation...')
 
             call Diagnose_StrainEquation(vars=vars)
             ibc(1:size(vars)) = 2
 
-            ! ###################################################################
-            ! Velocity gradient invariants
-            ! ###################################################################
-        case (5)
+        case ('Velocity gradient invariants')
             write (fname, *) itime; fname = 'pdfInv'//trim(adjustl(fname))
-            call TLab_Write_ASCII(lfile, 'Computing velocity gradient invariants...')
 
             call FI_INVARIANT_R(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), txc(1, 1), txc(1, 2), txc(1, 3), txc(1, 4), txc(1, 5), txc(1, 6))
             call FI_INVARIANT_Q(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), txc(1, 2), txc(1, 3), txc(1, 4), txc(1, 5))
             call FI_INVARIANT_P(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), txc(1, 3), txc(1, 4))
 
-            ifield = ifield + 1; vars_old(ifield)%field => txc(:, 3); vars_old(ifield)%tag = 'InvP'; ibc(ifield) = 2
-            ifield = ifield + 1; vars_old(ifield)%field => txc(:, 2); vars_old(ifield)%tag = 'InvQ'; ibc(ifield) = 2
-            ifield = ifield + 1; vars_old(ifield)%field => txc(:, 1); vars_old(ifield)%tag = 'InvR'; ibc(ifield) = 2
+            ifield = ifield + 1; vars_old(ifield)%field => txc(:, 3); vars_old(ifield)%tag = 'InvP'
+            ifield = ifield + 1; vars_old(ifield)%field => txc(:, 2); vars_old(ifield)%tag = 'InvQ'
+            ifield = ifield + 1; vars_old(ifield)%field => txc(:, 1); vars_old(ifield)%tag = 'InvR'
+            ibc(1:ifield) = 2
 
             if (kmax_aux*opt_block /= z%size .and. reduce_data) then ! I already need it here
                 do is = 1, ifield
@@ -286,7 +261,7 @@ program PDFS
             ! ###################################################################
             ! Joint PDF W^2 and 2S^2
             ! ###################################################################
-        case (6)
+        case ('Joint enstrophy and strain')
             write (fname, *) itime; fname = 'pdf'//trim(adjustl(fname))
             call TLab_Write_ASCII(lfile, 'Computing enstrophy-strain pdf...')
 
@@ -304,12 +279,8 @@ program PDFS
             write (fname, *) itime; fname = 'pdf'//trim(adjustl(fname))//'.WS'
             call PDF2V(fname, imax, jmax*opt_block, kmax_aux, opt_bins, z_aux, txc(1, 1), txc(1, 2), pdf)
 
-            ! ###################################################################
-            ! Joint PDF Scalar and Scalar Gradient
-            ! ###################################################################
-        case (7)
+        case ('Joint scalar and scalar gradient')
             write (fname, *) itime; fname = 'pdfSGi'//trim(adjustl(fname))
-            call TLab_Write_ASCII(lfile, 'Computing scalar-scalar--gradient pdf...')
 
             call FI_GRADIENT(imax, jmax, kmax, s, txc(1, 1), txc(1, 2))
             txc(1:isize_field, 2) = log(txc(1:isize_field, 1))
@@ -336,12 +307,8 @@ program PDFS
             ! call CAVG1V_N(fname, rtime, imax*opt_block, kmax_aux, kmax, &
             !               1, opt_bins(1), ibc, vmin, vmax, vars_old, gate_level, gate, txc(1, 2), z_aux, pdf)
 
-            ! ###################################################################
-            ! Scalar gradient components
-            ! ###################################################################
-        case (8)
+        case ('Scalar gradient components')
             write (fname, *) itime; fname = 'pdfGi'//trim(adjustl(fname))
-            call TLab_Write_ASCII(lfile, 'Computing scalar gradient components...')
 
             call OPR_Partial_X(OPR_P1, imax, jmax, kmax, s, txc(1, 1))
             call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, s, txc(1, 2))
@@ -362,12 +329,8 @@ program PDFS
             write (fname, *) itime; fname = 'pdf'//trim(adjustl(fname))//'.GphiS'
             call PDF2V(fname, imax, jmax*opt_block, kmax_aux, opt_bins, s(1, 1), txc(1, 4), z_aux, pdf)
 
-            ! ###################################################################
-            ! eigenvalues of rate-of-strain tensor
-            ! ###################################################################
-        case (9)
+        case ('Eigenvalues of rate-of-strain tensor')
             write (fname, *) itime; fname = 'pdfEig'//trim(adjustl(fname))
-            call TLab_Write_ASCII(lfile, 'Computing eigenvalues of Sij...')
 
             call FI_STRAIN_TENSOR(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), txc(1, 1), txc(1, 2), txc(1, 3), txc(1, 4), txc(1, 5), txc(1, 6))
             call TENSOR_EIGENVALUES(imax, jmax, kmax, txc(1, 1), txc(1, 7)) ! txc7-txc9
@@ -376,12 +339,8 @@ program PDFS
             ifield = ifield + 1; vars_old(ifield)%field => txc(:, 8); vars_old(ifield)%tag = 'Lambda2'; ibc(ifield) = 2
             ifield = ifield + 1; vars_old(ifield)%field => txc(:, 9); vars_old(ifield)%tag = 'Lambda3'; ibc(ifield) = 2
 
-            ! ###################################################################
-            ! eigenframe of rate-of-strain tensor
-            ! ###################################################################
-        case (10)
+        case ('Eigenframe of rate-of-strain tensor')
             write (fname, *) itime; fname = 'pdfCos'//trim(adjustl(fname))
-            call TLab_Write_ASCII(lfile, 'Computing eigenframe of Sij...')
 
             call FI_STRAIN_TENSOR(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), txc(1, 1), txc(1, 2), txc(1, 3), txc(1, 4), txc(1, 5), txc(1, 6))
             call TENSOR_EIGENVALUES(imax, jmax, kmax, txc(1, 1), txc(1, 7)) ! txc7-txc9
@@ -421,29 +380,23 @@ program PDFS
             ifield = ifield + 1; vars_old(ifield)%field => txc(:, 8); vars_old(ifield)%tag = 'cos(G,lambda2)'; ibc(ifield) = 2
             ifield = ifield + 1; vars_old(ifield)%field => txc(:, 9); vars_old(ifield)%tag = 'cos(G,lambda3)'; ibc(ifield) = 2
 
-            ! ###################################################################
-            ! Longitudinal velocity derivatives
-            ! ###################################################################
-        case (11)
+        case ('Longitudinal velocity derivatives')
             write (fname, *) itime; fname = 'pdfUDer'//trim(adjustl(fname))
-            call TLab_Write_ASCII(lfile, 'Computing longitudinal velocity derivatives...')
 
             call OPR_Partial_X(OPR_P1, imax, jmax, kmax, q(1, 1), txc(1, 1))
             call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, q(1, 2), txc(1, 2))
             call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, q(1, 3), txc(1, 3))
 
-            ifield = ifield + 1; vars_old(ifield)%field => txc(:, 1); vars_old(ifield)%tag = 'Sxx'; ibc(ifield) = 2
-            ifield = ifield + 1; vars_old(ifield)%field => txc(:, 2); vars_old(ifield)%tag = 'Syy'; ibc(ifield) = 2
-            ifield = ifield + 1; vars_old(ifield)%field => txc(:, 3); vars_old(ifield)%tag = 'Szz'; ibc(ifield) = 2
+            ifield = ifield + 1; vars_old(ifield)%field => txc(:, 1); vars_old(ifield)%tag = 'Sxx' 
+            ifield = ifield + 1; vars_old(ifield)%field => txc(:, 2); vars_old(ifield)%tag = 'Syy'
+            ifield = ifield + 1; vars_old(ifield)%field => txc(:, 3); vars_old(ifield)%tag = 'Szz'
+            ibc(1:ifield) = 2
 
-            ! ###################################################################
-            ! Potential vorticity
-            ! ###################################################################
-        case (12)
+        case ('Potential vorticity')
             write (fname, *) itime; fname = 'pdfPV'//trim(adjustl(fname))
-            call TLab_Write_ASCII(lfile, 'Computing potential vorticity...')
 
             call Diagnose_PotentialEnstrophy(vars=vars)
+            ibc(1:ifield) = 2
 
         end select
 
@@ -517,32 +470,53 @@ contains
         end if
 
         ! -------------------------------------------------------------------
-        opt_main = -1 ! default values
-        opt_block = 1
-        ! gate_level = 0
-        opt_bins = 16
+        iv = 0
+        iv = iv + 1; opt_name(iv) = 'Main variables'
+        iv = iv + 1; opt_name(iv) = 'Scalar gradient G_iG_i/2 equation'
+        iv = iv + 1; opt_name(iv) = 'Enstrophy W_iW_i/2 equation'
+        iv = iv + 1; opt_name(iv) = 'Strain 2S_ijS_ij/2 equation'
+        iv = iv + 1; opt_name(iv) = 'Velocity gradient invariants'
+        iv = iv + 1; opt_name(iv) = 'Joint enstrophy and strain'
+        iv = iv + 1; opt_name(iv) = 'Joint scalar and scalar gradient'
+        iv = iv + 1; opt_name(iv) = 'Scalar gradient components'
+        iv = iv + 1; opt_name(iv) = 'Eigenvalues of rate-of-strain tensor'
+        iv = iv + 1; opt_name(iv) = 'Eigenframe of rate-of-strain tensor'
+        iv = iv + 1; opt_name(iv) = 'Longitudinal velocity derivatives'
+        iv = iv + 1; opt_name(iv) = 'Potential vorticity'
+        if (iv > iopt_size_max) then ! Check
+            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Increase number of options.')
+            call TLab_Stop(DNS_ERROR_INVALOPT)
+        end if
 
         call ScanFile_Char(bakfile, ifile, 'PostProcessing', 'ParamPdfs', '-1', sRes)
-        iopt_size = iopt_size_max
-        call LIST_INTEGER(sRes, iopt_size, opt_vec)
         if (sRes == '-1') then
 #ifdef USE_MPI
 #else
-            write (*, *) 'Option ?'
-            write (*, *) ' 1. Main variables'
-            write (*, *) ' 2. Scalar gradient G_iG_i/2 equation'
-            write (*, *) ' 3. Enstrophy W_iW_i/2 equation'
-            write (*, *) ' 4. Strain 2S_ijS_ij/2 equation'
-            write (*, *) ' 5. Velocity gradient invariants'
-            write (*, *) ' 6. Joint enstrophy and strain'
-            write (*, *) ' 7. Joint scalar and scalar gradient'
-            write (*, *) ' 8. Scalar gradient components'
-            write (*, *) ' 9. Eigenvalues of rate-of-strain tensor'
-            write (*, *) '10. Eigenframe of rate-of-strain tensor'
-            write (*, *) '11. Longitudinal velocity derivatives'
-            write (*, *) '12. Potential vorticity'
-            read (*, *) opt_main
+            write (*, '(A)') 'Option?'
+            do is = 1, iv
+                write (*, '(I2,A)') is, '. '//trim(adjustl(opt_name(is)))
+            end do
+            read (*, '(A512)') sRes
+#endif
+        end if
+        opt_vec(:) = -1
+        iopt_size = iopt_size_max
+        call LIST_INTEGER(sRes, iopt_size, opt_vec)
 
+        if (opt_vec(1) < 0) then ! Check
+            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Missing ParamPdfs input.')
+            call TLab_Stop(DNS_ERROR_INVALOPT)
+        end if
+
+        ! -------------------------------------------------------------------
+        opt_main = opt_vec(1) ! default values
+        opt_block = 1
+        opt_bins = 16
+        ! gate_level = 0
+
+        if (sRes == '-1') then
+#ifdef USE_MPI
+#else
             write (*, *) 'Planes block size ?'
             read (*, *) opt_block
 
@@ -556,16 +530,10 @@ contains
 
 #endif
         else
-            opt_main = opt_vec(1)
             if (iopt_size >= 2) opt_block = opt_vec(2)
             if (iopt_size >= 3) opt_bins = opt_vec(4:5)
             ! if (iopt_size >= 3) gate_level = int(opt_vec(3), KIND=1)
 
-        end if
-
-        if (opt_main < 0) then ! Check
-            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Missing input [ParamPdfs] in tlab.ini.')
-            call TLab_Stop(DNS_ERROR_INVALOPT)
         end if
 
         if (opt_block < 1) then
@@ -600,47 +568,48 @@ contains
             inb_txc = max(inb_txc, 1)
         end if
 
-        select case (opt_main)
-        case (1)
+        iv = 1
+        select case (trim(adjustl(opt_name(opt_vec(iv)))))
+        case ('Main variables')
             iread_scal = .true.; iread_flow = .true.; inb_txc = max(inb_txc, 6)
             nfield = 4 + inb_scal_array; isize_pdf = opt_bins(1) + 2
             if (nse_eqns == DNS_EQNS_COMPRESSIBLE) nfield = nfield + 2
-        case (2) ! Scalar gradient equation
+        case ('Scalar gradient G_iG_i/2 equation')
             iread_scal = .true.; iread_flow = .true.; inb_txc = max(inb_txc, 7)
             nfield = 5; isize_pdf = opt_bins(1) + 2
-        case (3) ! Enstrophy equation
+        case ('Enstrophy W_iW_i/2 equation')
             iread_scal = .true.; iread_flow = .true.; inb_txc = max(inb_txc, 8)
             nfield = 7; isize_pdf = opt_bins(1) + 2
-        case (4) ! Strain equation
+        case ('Strain 2S_ijS_ij/2 equation')
             iread_scal = .true.; iread_flow = .true.; inb_txc = max(inb_txc, 8)
             nfield = 5; isize_pdf = opt_bins(1) + 2
-        case (5) ! Invariants
+        case ('Velocity gradient invariants')
             iread_flow = .true.; inb_txc = max(inb_txc, 6)
             nfield = 3; isize_pdf = opt_bins(1)*opt_bins(2) + 2 + 2*opt_bins(1)
-        case (6)
+        case ('Joint enstrophy and strain')
             iread_flow = .true.; inb_txc = max(inb_txc, 4)
             nfield = 2; isize_pdf = opt_bins(1)*opt_bins(2) + 2 + 2*opt_bins(1)
-        case (7)
+        case ('Joint scalar and scalar gradient')
             iread_scal = .true.; iread_flow = .true.; inb_txc = max(inb_txc, 3)
             nfield = 2; isize_pdf = opt_bins(1)*opt_bins(2) + 2 + 2*opt_bins(1)
-        case (8)
+        case ('Scalar gradient components')
             iread_scal = .true.; inb_txc = max(inb_txc, 4)
             nfield = 5; isize_pdf = opt_bins(1)*opt_bins(2) + 2 + 2*opt_bins(1)
-        case (9) ! eigenvalues
+        case ('Eigenvalues of rate-of-strain tensor')
             iread_flow = .true.; inb_txc = max(inb_txc, 9)
             nfield = 3; isize_pdf = opt_bins(1) + 2
-        case (10) ! eigenframe
+        case ('Eigenframe of rate-of-strain tensor')
             iread_scal = .true.; iread_flow = .true.; inb_txc = max(inb_txc, 9)
             nfield = 6; isize_pdf = opt_bins(1) + 2
-        case (11) ! longitudinal velocity derivatives
+        case ('Longitudinal velocity derivatives')
             iread_flow = .true.; inb_txc = max(inb_txc, 3)
             nfield = 3; isize_pdf = opt_bins(1) + 2
-        case (12) ! potential vorticity
+        case ('Potential vorticity')
             iread_scal = .true.; iread_flow = .true.; inb_txc = max(inb_txc, 6)
             nfield = 2; isize_pdf = opt_bins(1) + 2
-        case (13) ! joint s and v
-            iread_scal = .true.; iread_flow = .true.; inb_txc = max(inb_txc, 8)
-            nfield = 2; isize_pdf = opt_bins(1)*opt_bins(2) + 2 + 2*opt_bins(1)
+            ! case (13) ! joint s and v
+            !     iread_scal = .true.; iread_flow = .true.; inb_txc = max(inb_txc, 8)
+            !     nfield = 2; isize_pdf = opt_bins(1)*opt_bins(2) + 2 + 2*opt_bins(1)
         end select
 
         return

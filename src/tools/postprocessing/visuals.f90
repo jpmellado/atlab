@@ -333,9 +333,6 @@ program VISUALS
                 txc(1:isize_field, 1) = txc(1:isize_field, 1) + txc(1:isize_field, 2)
                 call Write_Visuals(plot_file, txc(:, 1:1))
 
-                ! ###################################################################
-                ! Turbulence Quantities
-                ! ###################################################################
             case ('Turbulent quantities')
                 plot_file = 'Tke'//time_str(1:MaskSize)
                 txc(1:isize_field, 1) = q(1:isize_field, 1); call FI_Fluctuation_InPlace(imax, jmax, kmax, txc(:, 1))
@@ -360,9 +357,6 @@ program VISUALS
                 ! txc(1:isize_field, 1) = log10(txc(1:isize_field, 1) + small_wp)
                 ! call Write_Visuals(plot_file, txc(:,1:1))
 
-                ! ###################################################################
-                ! AirWater Anelastic
-                ! ###################################################################
             case ('Atmospheric Thermodynamics')
                 select case (imode_thermo)
                 case (THERMO_TYPE_ANELASTIC)

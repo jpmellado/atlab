@@ -257,7 +257,7 @@ contains
         use TLab_Arrays, only: q, s, txc
         use NSE_Pressure
         use FI_VORTICITY_EQN
-        use FI_GRADIENT_EQN
+        use FI_VECTORCALCULUS
 
         ! -------------------------------------------------------------------
         integer, parameter :: NMAX_VARS = 16

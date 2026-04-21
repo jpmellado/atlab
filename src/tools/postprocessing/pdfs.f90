@@ -20,7 +20,7 @@ program PDFS
     use NavierStokes
     use Thermodynamics, only: Thermo_Initialize
     use TLab_Background, only: TLab_Initialize_Background
-    use Gravity, only: Gravity_Initialize, gravityProps, Gravity_AddSource, bbackground
+    use Gravity, only: Gravity_Initialize, Gravity_AddSource
     use SpecialForcing, only: SpecialForcing_Initialize
     use Rotation, only: Rotation_Initialize
     use Microphysics, only: Microphysics_Initialize
@@ -443,26 +443,7 @@ program PDFS
             write (fname, *) itime; fname = 'pdfPV'//trim(adjustl(fname))
             call TLab_Write_ASCII(lfile, 'Computing potential vorticity...')
 
-            call FI_CURL(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), txc(1, 1), txc(1, 2), txc(1, 3), txc(1, 4))
-            txc(1:isize_field, 6) = txc(1:isize_field, 1)*txc(1:isize_field, 1) &
-                                    + txc(1:isize_field, 2)*txc(1:isize_field, 2) &
-                                    + txc(1:isize_field, 3)*txc(1:isize_field, 3) ! Enstrophy
-            call OPR_Partial_X(OPR_P1, imax, jmax, kmax, s(1, 1), txc(1, 4))
-            txc(1:isize_field, 1) = txc(1:isize_field, 1)*txc(1:isize_field, 4)
-            txc(1:isize_field, 5) = txc(1:isize_field, 4)*txc(1:isize_field, 4) ! norm grad b
-            call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, s(1, 1), txc(1, 4))
-            txc(1:isize_field, 1) = txc(1:isize_field, 1) + txc(1:isize_field, 2)*txc(1:isize_field, 4)
-            txc(1:isize_field, 5) = txc(1:isize_field, 5) + txc(1:isize_field, 4)*txc(1:isize_field, 4) ! norm grad b
-            call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, s(1, 1), txc(1, 4))
-            txc(1:isize_field, 1) = txc(1:isize_field, 1) + txc(1:isize_field, 3)*txc(1:isize_field, 4)
-            txc(1:isize_field, 5) = txc(1:isize_field, 5) + txc(1:isize_field, 4)*txc(1:isize_field, 4) ! norm grad b
-
-            txc(1:isize_field, 5) = sqrt(txc(1:isize_field, 5) + small_wp)
-            txc(1:isize_field, 6) = sqrt(txc(1:isize_field, 6) + small_wp)
-            txc(1:isize_field, 2) = txc(1:isize_field, 1)/(txc(1:isize_field, 5)*txc(1:isize_field, 6)) ! Cosine of angle between 2 vectors
-
-            ifield = ifield + 1; vars_old(ifield)%field => txc(:, 1); vars_old(ifield)%tag = 'PV'
-            ifield = ifield + 1; vars_old(ifield)%field => txc(:, 2); vars_old(ifield)%tag = 'Cos'
+            call Diagnose_PotentialEnstrophy(vars=vars)
 
         end select
 

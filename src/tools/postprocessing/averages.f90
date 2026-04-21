@@ -555,8 +555,8 @@ program AVERAGES
             call TLab_Write_ASCII(lfile, 'Computing '//trim(adjustl(fname))//'...')
             ifield = 0
 
-            call FI_FLUCTUATION_INPLACE(imax, jmax, kmax, s(1, 1))
-            call FI_FLUCTUATION_INPLACE(imax, jmax, kmax, s(1, 2))
+            call FI_Fluctuation_InPlace(imax, jmax, kmax, s(1, 1))
+            call FI_Fluctuation_InPlace(imax, jmax, kmax, s(1, 2))
 
             txc(1:isize_field, 1) = s(1:isize_field, 1)*s(1:isize_field, 2)
             txc(1:isize_field, 2) = txc(1:isize_field, 1)*s(1:isize_field, 1)
@@ -573,31 +573,12 @@ program AVERAGES
         case (17)
             write (fname, *) itime; fname = 'avgPV'//trim(adjustl(fname))
             call TLab_Write_ASCII(lfile, 'Computing '//trim(adjustl(fname))//'...')
-            ifield = 0
 
-            call FI_CURL(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), txc(1, 1), txc(1, 2), txc(1, 3), txc(1, 4))
-            txc(1:isize_field, 6) = txc(1:isize_field, 1)*txc(1:isize_field, 1) &
-                                    + txc(1:isize_field, 2)*txc(1:isize_field, 2) &
-                                    + txc(1:isize_field, 3)*txc(1:isize_field, 3) ! Enstrophy
-            call OPR_Partial_X(OPR_P1, imax, jmax, kmax, s(1, 1), txc(1, 4))
-            txc(1:isize_field, 1) = txc(1:isize_field, 1)*txc(1:isize_field, 4)
-            txc(1:isize_field, 5) = txc(1:isize_field, 4)*txc(1:isize_field, 4) ! norm grad b
-            call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, s(1, 1), txc(1, 4))
-            txc(1:isize_field, 1) = txc(1:isize_field, 1) + txc(1:isize_field, 2)*txc(1:isize_field, 4)
-            txc(1:isize_field, 5) = txc(1:isize_field, 5) + txc(1:isize_field, 4)*txc(1:isize_field, 4) ! norm grad b
-            call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, s(1, 1), txc(1, 4))
-            txc(1:isize_field, 1) = txc(1:isize_field, 1) + txc(1:isize_field, 3)*txc(1:isize_field, 4)
-            txc(1:isize_field, 5) = txc(1:isize_field, 5) + txc(1:isize_field, 4)*txc(1:isize_field, 4) ! norm grad b
-
-            txc(1:isize_field, 5) = sqrt(txc(1:isize_field, 5) + small_wp)
-            txc(1:isize_field, 6) = sqrt(txc(1:isize_field, 6) + small_wp)
-            txc(1:isize_field, 2) = txc(1:isize_field, 1)/(txc(1:isize_field, 5)*txc(1:isize_field, 6)) ! Cosine of angle between 2 vectors
-
-            ifield = ifield + 1; vars_old(ifield)%field => txc(:, 1); vars_old(ifield)%tag = 'PV'
-            ifield = ifield + 1; vars_old(ifield)%field => txc(:, 2); vars_old(ifield)%tag = 'Cos'
+            call Diagnose_PotentialEnstrophy(vars=vars)
 
         end select
 
+        ! ###################################################################
         if (opt_main > 2) then
             if (nfield < ifield) then ! Check
                 call TLab_Write_ASCII(efile, __FILE__//'. Array space nfield incorrect.')
@@ -630,6 +611,7 @@ program AVERAGES
         end if
 
     end do
+
     call TLab_Stop(0)
 
 contains

@@ -20,21 +20,18 @@ program VISUALS
     use NavierStokes!, only: NavierStokes_Initialize_Parameters
     use Thermodynamics!, only: Thermo_Initialize
     use TLab_Background, only: TLab_Initialize_Background
-    use Gravity, only: Gravity_Initialize, froude, gravityProps, Gravity_AddSource, bbackground
+    use Gravity, only: Gravity_Initialize
     use Rotation, only: Rotation_Initialize
-    use Thermo_Anelastic
+    use Thermo_Anelastic, only: ribackground, Thermo_Anelastic_Weight_InPlace
     use Radiation !, only: Radiation_Initialize, infraredProps
     use Microphysics !, only: Microphysics_Initialize, sedimentationProps
     use LargeScaleForcing, only: LargeScaleForcing_Initialize
     use OPR_Partial
-    use OPR_Fourier
-    use OPR_Elliptic
+    use OPR_Fourier, only: OPR_Fourier_Initialize
+    use OPR_Elliptic, only: OPR_Elliptic_Initialize
     use NSE_Burgers, only: NSE_Burgers_Initialize
-    use NSE_Pressure
     use FI_VECTORCALCULUS
     use FI_STRAIN_EQN
-    use FI_GRADIENT_EQN
-    use FI_VORTICITY_EQN
     use Tensor
     use Diagnostics
 
@@ -69,7 +66,6 @@ program VISUALS
     integer(wi) ij, is
     integer(wi), parameter :: iscal_offset = 9 ! to be removed
     logical iread_flow, iread_scal
-    real(wp) dummy !diff,
     real(wp) params(MAX_PARS)
 
     ! ! Gates for the definition of the intermittency function (partition of the fields)
@@ -192,10 +188,6 @@ program VISUALS
             plot_file = trim(adjustl(opt_name(opt_vec(iv))))//time_str(1:MaskSize)
 
             select case (trim(adjustl(opt_name(opt_vec(iv)))))
-
-                ! ###################################################################
-                ! Velocities
-                ! ###################################################################
             case ('VelocityX')
                 txc(1:isize_field, 1) = q(1:isize_field, 1)
                 call Write_Visuals(plot_file, txc(:, 1:1))
@@ -216,96 +208,33 @@ program VISUALS
                 txc(1:isize_field, 1) = sqrt(Tensor_Dot(q(1:isize_field, 1:3), q(1:isize_field, 1:3)))
                 call Write_Visuals(plot_file, txc(:, 1:1))
 
-                ! ###################################################################
-                ! Thermodynamic state
-                ! ###################################################################
-            case ('Density')
-                select case (nse_eqns)
-                case (DNS_EQNS_COMPRESSIBLE)
-                    txc(1:isize_field, 1) = q(1:isize_field, 5)
+            case ('Thermodynamics')
+                call Diagnose_Thermodynamics(vars=vars)
+                do ifield = 1, size(vars)
+                    call Write_Visuals(trim(adjustl(vars(ifield)%tag))//time_str(1:MaskSize), &
+                                       vars(ifield)%field(:))
+                end do
 
-                case (DNS_EQNS_ANELASTIC)
-                    call Thermo_Anelastic_Rho(imax, jmax, kmax, s, txc(:, 1), wrk3d)
+            case ('PressureAnalysis')
+                call Diagnose_PressureForce(vars=vars)
+                do ifield = 1, size(vars)
+                    call Write_Visuals(trim(adjustl(vars(ifield)%tag))//time_str(1:MaskSize), &
+                                       vars(ifield)%field(:))
+                end do
 
-                case (DNS_EQNS_BOUSSINESQ)      ! Using buoyancy to calculate density; should be in buoyancy module
-                    wrk1d(1:kmax, 1) = bbackground(1:kmax)
-                    bbackground(1:kmax) = 0.0_wp
-                    dummy = 1.0_wp/froude
-                    txc(1:isize_field, 1) = 1.0_wp
-                    call Gravity_AddSource(gravityProps, imax, jmax, kmax, s, txc(:, 1), dummy)
-                    ! txc(1:isize_field, 1) = txc(1:isize_field, 1)/froude + 1.0_wp
-                    bbackground(1:kmax) = wrk1d(1:kmax, 1)
+                call Diagnose_PressurePartition(vars=vars)
+                do ifield = 1, size(vars)
+                    call Write_Visuals(trim(adjustl(vars(ifield)%tag))//time_str(1:MaskSize), &
+                                       vars(ifield)%field(:))
+                end do
 
-                end select
-                call Write_Visuals(plot_file, txc(:, 1:1))
+            case ('Buoyancy')
+                call Diagnose_Buoyancy(vars)
+                do ifield = 1, size(vars)
+                    call Write_Visuals(trim(adjustl(vars(ifield)%tag))//time_str(1:MaskSize), &
+                                       vars(ifield)%field(:))
+                end do
 
-            case ('Temperature')
-                select case (nse_eqns)
-                case (DNS_EQNS_COMPRESSIBLE)
-                    txc(1:isize_field, 1) = q(1:isize_field, 7)
-
-                case (DNS_EQNS_ANELASTIC)
-                    call Thermo_Anelastic_T(imax, jmax, kmax, s, txc(1, 1))
-
-                end select
-                call Write_Visuals(plot_file, txc(:, 1:1))
-
-            case ('Pressure')
-                select case (nse_eqns)
-                case (DNS_EQNS_COMPRESSIBLE)
-                    txc(1:isize_field, 2) = q(1:isize_field, 6)
-
-                case (DNS_EQNS_BOUSSINESQ, DNS_EQNS_ANELASTIC)      ! Although Pressure is not thermodynamic variable here...
-                    call NSE_Pressure_Incompressible(q, s, txc(:, 1), txc(:, 2), txc(:, 5), txc(:, 6))
-                    txc(1:isize_field, 2) = txc(1:isize_field, 1)   ! Save txc1 for later caculations
-
-                end select
-                call Write_Visuals(plot_file, txc(:, 2:2))
-
-                ! Additional pressure stuff... Call this dynamical pressure
-                plot_file = 'PressureGradientPower'//time_str(1:MaskSize)
-                call OPR_Partial_X(OPR_P1, imax, jmax, kmax, txc(1, 1), txc(1, 2))
-                call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, txc(1, 1), txc(1, 3))
-                call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, txc(1, 1), txc(1, 4))
-                txc(1:isize_field, 2) = -Tensor_Dot(q(:, 1:3), txc(:, 2:4))
-                call Write_Visuals(plot_file, txc(:, 2:2))
-
-                txc(1:isize_field, 2) = txc(1:isize_field, 1)
-                call FI_FLUCTUATION_INPLACE(imax, jmax, kmax, txc(1, 2))
-
-                plot_file = 'PressureStrainX'//time_str(1:MaskSize)
-                txc(1:isize_field, 3) = q(1:isize_field, 1)
-                call FI_FLUCTUATION_INPLACE(imax, jmax, kmax, txc(:, 3))
-                call OPR_Partial_X(OPR_P1, imax, jmax, kmax, txc(1, 3), txc(1, 4))
-                txc(1:isize_field, 3) = txc(1:isize_field, 2)*txc(1:isize_field, 4)
-                call Write_Visuals(plot_file, txc(:, 3:3))
-
-                plot_file = 'PressureStrainY'//time_str(1:MaskSize)
-                txc(1:isize_field, 3) = q(1:isize_field, 2)
-                call FI_FLUCTUATION_INPLACE(imax, jmax, kmax, txc(:, 3))
-                call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, txc(1, 3), txc(1, 4))
-                txc(1:isize_field, 3) = txc(1:isize_field, 2)*txc(1:isize_field, 4)
-                call Write_Visuals(plot_file, txc(:, 3:3))
-
-                plot_file = 'PressureStrainZ'//time_str(1:MaskSize)
-                txc(1:isize_field, 3) = q(1:isize_field, 3)
-                call FI_FLUCTUATION_INPLACE(imax, jmax, kmax, txc(:, 3))
-                call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, txc(1, 3), txc(1, 4))
-                txc(1:isize_field, 3) = txc(1:isize_field, 2)*txc(1:isize_field, 4)
-                call Write_Visuals(plot_file, txc(:, 3:3))
-
-                plot_file = 'PressureHydrostatic'//time_str(1:MaskSize)
-                q = 0.0_wp
-                call NSE_Pressure_Incompressible(q, s, txc(:, 2), txc(:, 3), txc(:, 6), txc(:, 7))
-                call Write_Visuals(plot_file, txc(:, 2:2))
-
-                plot_file = 'PressureHydrodynamic'//time_str(1:MaskSize)
-                txc(1:isize_field, 1) = txc(1:isize_field, 1) - txc(1:isize_field, 2)
-                call Write_Visuals(plot_file, txc(:, 1:1))
-
-                ! ###################################################################
-                ! Scalars
-                ! ###################################################################
             case ('Scalars')
                 do is = 1, inb_scal_array
                     write (str, *) is; plot_file = 'Scalar'//trim(adjustl(str))//time_str(1:MaskSize)
@@ -315,9 +244,6 @@ program VISUALS
 
                 end do
 
-                ! ###################################################################
-                ! Scalars Derivatives
-                ! ###################################################################
             case ('ScalarGradientVector')
                 do is = 1, inb_scal_array
                     write (str, *) is; str = 'Scalar'//trim(adjustl(str))
@@ -352,54 +278,24 @@ program VISUALS
 
                 end do
 
-                ! ###################################################################
-                ! Velocity Derivatives; Vorticity
-                ! ###################################################################
             case ('VorticityVector')
                 call FI_CURL(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), txc(1, 1), txc(1, 2), txc(1, 3), txc(1, 4))
                 call Write_Visuals(plot_file, txc(:, 1:3))
 
             case ('Enstrophy W_iW_i (Log)')
-                plot_file = 'Log'//'Enstrophy'//time_str(1:MaskSize)
-                call FI_VORTICITY(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), txc(1, 1), txc(1, 2), txc(1, 3))
-                txc(1:isize_field, 1) = log10(txc(1:isize_field, 1) + small_wp)
-                call Write_Visuals(plot_file, txc(:, 1:1))
-
-                plot_file = 'LogPotentialEnstrophy'//time_str(1:MaskSize)
-                dummy = 1.0_wp/froude
-                txc(1:isize_field, 4) = 0.0_wp
-                select case (nse_eqns)
-                case (DNS_EQNS_BOUSSINESQ)
-                    ! wrk1d(1:kmax, 1) = bbackground(1:kmax)
-                    ! bbackground(1:kmax) = 0.0_wp
-                    call Gravity_AddSource(gravityProps, imax, jmax, kmax, s, txc(:, 4), dummy)
-                    ! bbackground(1:kmax) = wrk1d(1:kmax, 1)
-
-                case (DNS_EQNS_ANELASTIC)
-                    call Thermo_Anelastic_AddBuoyancy(imax, jmax, kmax, s, txc(:, 4), dummy)
-
-                end select
-                call OPR_Partial_X(OPR_P1, imax, jmax, kmax, txc(1, 4), txc(1, 1))
-                call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, txc(1, 4), txc(1, 2))
-                call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, txc(1, 4), txc(1, 3))
-                call FI_CURL(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), txc(1, 4), txc(1, 5), txc(1, 6), txc(1, 7))
-                txc(:, 1) = Tensor_Dot(txc(:, 1:3), txc(:, 4:6))
-                txc(1:isize_field, 1) = log10(txc(1:isize_field, 1)*txc(1:isize_field, 1) + small_wp)
-                call Write_Visuals(plot_file, txc(:, 1:1))
+                call Diagnose_PotentialEnstrophy(vars=vars)
+                do ifield = 1, size(vars)
+                    call Write_Visuals(trim(adjustl(vars(ifield)%tag))//time_str(1:MaskSize), &
+                                       vars(ifield)%field(:))
+                end do
 
             case ('EnstrophyEquation')
-                str = 'EnstrophyEqn'
-
                 call Diagnose_EnstrophyEquation(vars=vars)
-
                 do ifield = 1, size(vars)
-                    plot_file = trim(adjustl(str))//trim(adjustl(vars(ifield)%tag))//time_str(1:MaskSize)
+                    plot_file = 'EnstrophyEqn'//trim(adjustl(vars(ifield)%tag))//time_str(1:MaskSize)
                     call Write_Visuals(plot_file, vars(ifield)%field(:))
                 end do
 
-                ! ###################################################################
-                ! Velocity Derivatives; Strain
-                ! ###################################################################
             case ('StrainTensor')
                 call FI_STRAIN_TENSOR(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), txc(1, 1), txc(1, 2), txc(1, 3), txc(1, 4), txc(1, 5), txc(1, 6))
                 call Write_Visuals(plot_file, txc(:, 1:6))
@@ -413,15 +309,11 @@ program VISUALS
 
             case ('StrainEquation')
                 call Diagnose_StrainEquation(vars=vars)
-
                 do ifield = 1, size(vars)
                     plot_file = 'StrainEqn'//trim(adjustl(vars(ifield)%tag))//time_str(1:MaskSize)
                     call Write_Visuals(plot_file, vars(ifield)%field(:))
                 end do
 
-                ! ###################################################################
-                ! Velocity Derivatives; Invariants
-                ! ###################################################################
             case ('VelocityGradientInvariants')
                 plot_file = 'InvariantP'//time_str(1:MaskSize)
                 call FI_INVARIANT_P(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), txc(1, 1), txc(1, 2))
@@ -447,9 +339,9 @@ program VISUALS
                 ! ###################################################################
             case ('Turbulent quantities')
                 plot_file = 'Tke'//time_str(1:MaskSize)
-                txc(1:isize_field, 1) = q(1:isize_field, 1); call FI_FLUCTUATION_INPLACE(imax, jmax, kmax, txc(:, 1))
-                txc(1:isize_field, 2) = q(1:isize_field, 2); call FI_FLUCTUATION_INPLACE(imax, jmax, kmax, txc(:, 2))
-                txc(1:isize_field, 3) = q(1:isize_field, 3); call FI_FLUCTUATION_INPLACE(imax, jmax, kmax, txc(:, 3))
+                txc(1:isize_field, 1) = q(1:isize_field, 1); call FI_Fluctuation_InPlace(imax, jmax, kmax, txc(:, 1))
+                txc(1:isize_field, 2) = q(1:isize_field, 2); call FI_Fluctuation_InPlace(imax, jmax, kmax, txc(:, 2))
+                txc(1:isize_field, 3) = q(1:isize_field, 3); call FI_Fluctuation_InPlace(imax, jmax, kmax, txc(:, 3))
                 txc(:, 4) = 0.5_wp*Tensor_Dot(txc(:, 1:3), txc(:, 1:3))
                 call Write_Visuals(plot_file, txc(:, 4:4))
 
@@ -470,60 +362,27 @@ program VISUALS
                 ! call Write_Visuals(plot_file, txc(:,1:1))
 
                 ! ###################################################################
-                ! Buoyancy
-                ! ###################################################################
-            case ('Buoyancy')
-                dummy = 1.0_wp/froude
-                txc(1:isize_field, 1) = 0.0_wp
-                select case (nse_eqns)
-                case (DNS_EQNS_BOUSSINESQ)
-                    wrk1d(1:kmax, 1) = bbackground(1:kmax)
-                    bbackground(1:kmax) = 0.0_wp
-                    call Gravity_AddSource(gravityProps, imax, jmax, kmax, s, txc(:, 1), dummy)
-                    bbackground(1:kmax) = wrk1d(1:kmax, 1)
-
-                case (DNS_EQNS_ANELASTIC)
-                    call Thermo_Anelastic_AddBuoyancy(imax, jmax, kmax, s, txc(:, 1), dummy)
-
-                end select
-                call Write_Visuals(plot_file, txc(:, 1:1))
-
-                plot_file = 'GradientRi'//time_str(1:MaskSize)
-                call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, txc(:, 1), txc(:, 2))
-                call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, q(:, 1), txc(:, 3))
-                call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, q(:, 2), txc(:, 4))
-                txc(1:isize_field, 2) = abs(txc(1:isize_field, 2))/(txc(1:isize_field, 3)**2 + txc(1:isize_field, 4)**2 + small_wp)
-                call Write_Visuals(plot_file, txc(:, 2:2))
-
-                plot_file = 'Fwb'//time_str(1:MaskSize)     ! buoyancy flux along Oy
-                txc(1:isize_field, 2) = txc(1:isize_field, 1)*q(1:isize_field, 3)
-                call Write_Visuals(plot_file, txc(:, 2:2))
-
-                plot_file = 'bPrime'//time_str(1:MaskSize)  ! buoyancy fluctuation
-                call FI_FLUCTUATION_INPLACE(imax, jmax, kmax, txc(1, 1))
-                call Write_Visuals(plot_file, txc(:, 1:1))
-
-                plot_file = 'Cwb'//time_str(1:MaskSize)     ! Covariance between b and w
-                txc(1:isize_field, 2) = q(1:isize_field, 3); call FI_FLUCTUATION_INPLACE(imax, jmax, kmax, txc(:, 2))
-                txc(1:isize_field, 2) = txc(1:isize_field, 1)*txc(1:isize_field, 2)
-                call Write_Visuals(plot_file, txc(:, 2:2))
-
-                ! ###################################################################
                 ! AirWater Anelastic
                 ! ###################################################################
-            case ('Anelastic', 'Atmospheric Thermodynamics')
+            case ('Atmospheric Thermodynamics')
                 select case (imode_thermo)
                 case (THERMO_TYPE_ANELASTIC)
+                    call Diagnose_Energies_Anelastic(vars)
+                    do ifield = 1, size(vars)
+                        call Write_Visuals(trim(adjustl(vars(ifield)%tag))//time_str(1:MaskSize), &
+                                           vars(ifield)%field(:))
+                    end do
+
                     call Diagnose_Thetas_Anelastic(vars)
                     do ifield = 1, size(vars)
-                        plot_file = trim(adjustl(vars(ifield)%tag))//time_str(1:MaskSize)
-                        call Write_Visuals(plot_file, vars(ifield)%field(:))
+                        call Write_Visuals(trim(adjustl(vars(ifield)%tag))//time_str(1:MaskSize), &
+                                           vars(ifield)%field(:))
                     end do
 
                     call Diagnose_Moisture_Anelastic(vars)
                     do ifield = 1, size(vars)
-                        plot_file = trim(adjustl(vars(ifield)%tag))//time_str(1:MaskSize)
-                        call Write_Visuals(plot_file, vars(ifield)%field(:))
+                        call Write_Visuals(trim(adjustl(vars(ifield)%tag))//time_str(1:MaskSize), &
+                                           vars(ifield)%field(:))
                     end do
 
                 case (THERMO_TYPE_COMPRESSIBLE)
@@ -629,9 +488,12 @@ contains
         iv = iv + 1; opt_name(iv) = 'VelocityZ'
         iv = iv + 1; opt_name(iv) = 'VelocityVector'
         iv = iv + 1; opt_name(iv) = 'VelocityMagnitude'
-        iv = iv + 1; opt_name(iv) = 'Density'   ! to be removed into thermodynamics
-        iv = iv + 1; opt_name(iv) = 'Temperature'  ! to be removed into thermodynamics
-        iv = iv + 1; opt_name(iv) = 'Pressure'
+        ! iv = iv + 1; opt_name(iv) = 'Density'   ! to be removed into thermodynamics
+        ! iv = iv + 1; opt_name(iv) = 'Temperature'  ! to be removed into thermodynamics
+        ! iv = iv + 1; opt_name(iv) = 'Pressure'
+        iv = iv + 1; opt_name(iv) = 'Thermodynamics'
+        iv = iv + 1; opt_name(iv) = 'Void'
+        iv = iv + 1; opt_name(iv) = 'PressureAnalysis'
         iv = iv + 1; opt_name(iv) = 'Scalars'
         iv = iv + 1; opt_name(iv) = 'ScalarGradientVector'
         iv = iv + 1; opt_name(iv) = 'ScalarGradient G_iG_i (Log)'
@@ -648,9 +510,7 @@ contains
         iv = iv + 1; opt_name(iv) = 'Buoyancy'
         iv = iv + 1; opt_name(iv) = 'Sedimentation'
         iv = iv + 1; opt_name(iv) = 'Infrared'
-        iv = iv + 1; opt_name(iv) = 'Anelastic' ! to be removed into atmospheric thermodynamics
         iv = iv + 1; opt_name(iv) = 'Atmospheric Thermodynamics'
-        iv = iv + 1; opt_name(iv) = 'Thermodynamics'
         iv = iv + 1; opt_name(iv) = 'Evaporation'
         if (iv > iopt_size_max) then ! Check
             call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Increase number of options.')
@@ -753,12 +613,14 @@ contains
                 iread_flow = .true.; inb_txc = max(inb_txc, 3)
             case ('VelocityMagnitude')
                 iread_flow = .true.; inb_txc = max(inb_txc, 1)
-            case ('Density')
-                iread_flow = .true.; iread_scal = .true.; inb_txc = max(inb_txc, 1)
-            case ('Temperature')
-                iread_flow = .true.; iread_scal = .true.; inb_txc = max(inb_txc, 1)
-            case ('Pressure')
-                iread_flow = .true.; iread_scal = .true.; inb_txc = max(inb_txc, 7)
+                ! case ('Density')
+                !     iread_flow = .true.; iread_scal = .true.; inb_txc = max(inb_txc, 1)
+                ! case ('Temperature')
+                !     iread_flow = .true.; iread_scal = .true.; inb_txc = max(inb_txc, 1)
+            case ('Thermodynamics')
+                iread_flow = .true.; iread_scal = .true.; inb_txc = max(inb_txc, 4)
+            case ('PressureAnalysis')
+                iread_flow = .true.; iread_scal = .true.; inb_txc = max(inb_txc, 9)
             case ('Scalars')
                 iread_scal = .true.; inb_txc = max(inb_txc, 1)
             case ('ScalarGradientVector')
@@ -786,9 +648,9 @@ contains
             case ('Turbulent quantities')
                 iread_flow = .true.; inb_txc = max(inb_txc, 6)
             case ('Buoyancy')
-                iread_flow = .true.; iread_scal = .true.; inb_txc = max(inb_txc, 4)
-            case ('Anelastic', 'Atmospheric Thermodynamics')
-                iread_scal = .true.; inb_txc = max(inb_txc, 4)
+                iread_flow = .true.; iread_scal = .true.; inb_txc = max(inb_txc, 5)
+            case ('Atmospheric Thermodynamics')
+                iread_scal = .true.; inb_txc = max(inb_txc, 3)
             case ('Infrared')
                 iread_scal = .true.; inb_txc = max(inb_txc, 6)
             case ('Sedimentation')

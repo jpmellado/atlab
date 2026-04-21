@@ -4,12 +4,32 @@ module FI_VECTORCALCULUS
     implicit none
     private
 
+    public :: FI_GRADIENT
     public :: FI_CURL
     public :: FI_SOLENOIDAL
     public :: FI_INVARIANT_P, FI_INVARIANT_Q, FI_INVARIANT_R!, FI_INVARIANT_P_STAG
     public :: FI_ISOSURFACE_ANGLE, FI_ISOSURFACE_CURVATURE
 
 contains
+!########################################################################
+! Calculate the magnitude of the scalar gradient
+!########################################################################
+    subroutine FI_GRADIENT(nx, ny, nz, s, result, tmp1)
+        integer(wi), intent(in) :: nx, ny, nz
+        real(wp), intent(in) :: s(nx*ny*nz)
+        real(wp), intent(out) :: result(nx*ny*nz)
+        real(wp), intent(inout) :: tmp1(nx*ny*nz)
+
+! ###################################################################
+        call OPR_Partial_X(OPR_P1, nx, ny, nz, s, result)
+        call OPR_Partial_Y(OPR_P1, nx, ny, nz, s, tmp1)
+        result = result*result + tmp1*tmp1
+        call OPR_Partial_Z(OPR_P1, nx, ny, nz, s, tmp1)
+        result = result + tmp1*tmp1
+
+        return
+    end subroutine FI_GRADIENT
+
 !########################################################################
 ! Calculate the curl of the vector (u,v,w) in Cartesian coordinates
 !########################################################################

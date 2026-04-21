@@ -35,7 +35,7 @@ subroutine FI_GATE(opt_cond, opt_cond_relative, opt_cond_scal, &
 
     else if (opt_cond == 6 .or. opt_cond == 7) then ! Based on scalar fluctuation
         txc(:, 1) = s(:, opt_cond_scal)
-        call FI_FLUCTUATION_INPLACE(nx, ny, nz, txc(1, 1))
+        call FI_Fluctuation_InPlace(nx, ny, nz, txc(1, 1))
 
     else if (opt_cond == 8) then ! Based on potential vorticity
         call FI_CURL(nx, ny, nz, q(1, 1), q(1, 2), q(1, 3), txc(1, 1), txc(1, 2), txc(1, 3), txc(1, 4))

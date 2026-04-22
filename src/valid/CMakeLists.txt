@@ -30,7 +30,6 @@ target_link_libraries(velliptic.x physics mappings operators finitedifferences $
 
 get_directory_property(defs COMPILE_DEFINITIONS)
 if ( "USE_MPI" IN_LIST defs )
-    message( STATUS "Hello33 " )
     FILE(GLOB sourcefiles "mpi/vmpi_thomas3_scaling.f90")
     add_executable(vmpi_thomas3_scaling.x ${sourcefiles})
     target_link_libraries(vmpi_thomas3_scaling.x ${LEVEL1_LIBS} ${LIBS})

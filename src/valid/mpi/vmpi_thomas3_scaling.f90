@@ -1,16 +1,16 @@
 program vMpi_Thomas3_Scaling
     use TLab_Constants, only: wp, wi
     use mpi_f08
-    use TLabMPI_VARS, only: mpiGrid, ims_err
+    use TLabMPI_VARS, only: mpiGrid, ims_err, ims_time_trans
     use Thomas_Split
     implicit none
 
     integer(wi), parameter :: nd = 3            ! number of diagonals
-    integer(wi), parameter :: nx = 4096         ! full size of each linear system
-    integer(wi), parameter :: nlines = 32768    ! number of linear systems to solve, 32*1024
+    ! integer(wi), parameter :: nx = 4096         ! full size of each linear system
+    ! integer(wi), parameter :: nlines = 32768    ! number of linear systems to solve, 32*1024
 
-    ! integer(wi), parameter :: nx = 8192         ! full size of each linear system
-    ! integer(wi), parameter :: nlines = 65536    ! number of linear systems to solve, 32*2048
+    integer(wi), parameter :: nx = 8192         ! full size of each linear system
+    integer(wi), parameter :: nlines = 65536    ! number of linear systems to solve, 32*2048
 
     ! integer(wi), parameter :: nx = 16382        ! full size of each linear system
     ! integer(wi), parameter :: nlines = 131072   ! number of linear systems to solve, 32*4096
@@ -76,9 +76,9 @@ program vMpi_Thomas3_Scaling
 
     ! call random_number(f)       ! forcing
     f(:, :) = 1.0_wp            ! forcing
-
     ! -------------------------------------------------------------------
     ! Solve and reduce
+    ims_time_trans = 0.0_wp
     time_loc_1 = MPI_WTIME()
     do it = 1, num_iterations
         u(:, :) = f(:, :)
@@ -91,6 +91,7 @@ program vMpi_Thomas3_Scaling
     if (mpiGrid%rank == 0) then
         print *, 'Solving ', nlines, ' systems of size ', nx, ' over ', mpiGrid%num_processors, ' processors.'
         print *, 'Elapsed time in processor with rank 0 (seconds): ', time_loc_2 - time_loc_1
+        ! print *, 'Communication time in processor with rank 0 (seconds): ', ims_time_trans
     end if
     ! call check(u_a, u)
 

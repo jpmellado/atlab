@@ -288,6 +288,9 @@ contains
     !########################################################################
     subroutine thomas_reduce_mpi_dt(self, f, alpha, tmp)
         use mpi_f08
+#ifdef PROFILE_ON
+        use TLabMPI_VARS, only: ims_time_trans
+#endif
         class(thomas_split_dt), intent(in) :: self
         real(wp), intent(inout) :: f(:, :)
         real(wp), intent(inout) :: alpha(:)         ! auxiliary memory space for local alpha
@@ -298,12 +301,20 @@ contains
         integer ims_err
         integer source, dest, tag
 
+#ifdef PROFILE_ON
+        real(wp) time_loc_1, time_loc_2
+#endif
+
         !########################################################################
         ! Assume circulant matrix and need alpha_0
 
         nblocks = self%mpi%num_processors
         nlines = size(f, 1)
         nsize = size(f, 2)              ! Assume all blocks have same size
+
+#ifdef PROFILE_ON
+        time_loc_1 = MPI_WTIME()
+#endif
 
         ! -------------------------------------------------------------------
         ! pass x(:,1) to previous block and calculate local coefficient
@@ -327,6 +338,11 @@ contains
         call MPI_Sendrecv(alpha, nlines, MPI_REAL8, dest, tag, &
                           tmp, nlines, MPI_REAL8, source, tag, &
                           self%mpi%comm, MPI_STATUS_IGNORE, ims_err)
+
+#ifdef PROFILE_ON
+        time_loc_2 = MPI_WTIME()
+        ims_time_trans = ims_time_trans + (time_loc_2 - time_loc_1)
+#endif
 
         ! Update solution
         do n = 1, nsize

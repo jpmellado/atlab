@@ -7,6 +7,9 @@ module TLabMPI_Transpose_X
     use TLab_Constants, only: lfile, efile
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
     use TLabMPI_VARS, only: ims_err
+#ifdef PROFILE_ON
+    use TLabMPI_VARS, only: ims_time_trans
+#endif
     implicit none
     private
 

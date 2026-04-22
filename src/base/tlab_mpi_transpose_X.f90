@@ -389,7 +389,14 @@ contains
         ! -----------------------------------------------------------------------
         integer(wi) size
 
+#ifdef PROFILE_ON
+        real(wp) time_loc_1, time_loc_2
+#endif
+
         ! #######################################################################
+#ifdef PROFILE_ON
+        time_loc_1 = MPI_WTIME()
+#endif
         if (trp_datatype_i == MPI_REAL4 .and. wp == dp) then
             size = self%size3d
             call c_f_pointer(c_loc(b), a_wrk, shape=[size])
@@ -403,6 +410,11 @@ contains
             call tmpi_trp_double(a, self%send, b, self%recv, &
                                  self%comm, self%size_block_processes, self%mode)
         end if
+
+#ifdef PROFILE_ON
+        time_loc_2 = MPI_WTIME()
+        ims_time_trans = ims_time_trans + (time_loc_2 - time_loc_1)
+#endif
 
         return
     end subroutine
@@ -420,7 +432,14 @@ contains
         ! -----------------------------------------------------------------------
         integer(wi) size
 
+#ifdef PROFILE_ON
+        real(wp) time_loc_1, time_loc_2
+#endif
+
         ! #######################################################################
+#ifdef PROFILE_ON
+        time_loc_1 = MPI_WTIME()
+#endif
         if (trp_datatype_i == MPI_REAL4 .and. wp == dp) then
             size = self%size3d
             call c_f_pointer(c_loc(b), a_wrk, shape=[size])
@@ -434,6 +453,11 @@ contains
             call tmpi_trp_double(a, self%recv, b, self%send, &
                                  self%comm, self%size_block_processes, self%mode)
         end if
+
+#ifdef PROFILE_ON
+        time_loc_2 = MPI_WTIME()
+        ims_time_trans = ims_time_trans + (time_loc_2 - time_loc_1)
+#endif
 
         return
     end subroutine

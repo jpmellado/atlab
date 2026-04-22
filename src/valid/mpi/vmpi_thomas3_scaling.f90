@@ -6,14 +6,14 @@ program vMpi_Thomas3_Scaling
     implicit none
 
     integer(wi), parameter :: nd = 3            ! number of diagonals
-    integer(wi), parameter :: nx = 3072         ! full size of each linear system
-    integer(wi), parameter :: nlines = 24576    ! number of linear systems to solve, 32*768
+    integer(wi), parameter :: nx = 4096         ! full size of each linear system
+    integer(wi), parameter :: nlines = 32768    ! number of linear systems to solve, 32*1024
 
-    ! integer(wi), parameter :: nx = 6144         ! full size of each linear system
-    ! integer(wi), parameter :: nlines = 49152    ! number of linear systems to solve, 32*1536
+    ! integer(wi), parameter :: nx = 8192         ! full size of each linear system
+    ! integer(wi), parameter :: nlines = 65536    ! number of linear systems to solve, 32*2048
 
-    ! integer(wi), parameter :: nx = 12288        ! full size of each linear system
-    ! integer(wi), parameter :: nlines = 98304    ! number of linear systems to solve, 32*3072
+    ! integer(wi), parameter :: nx = 16382        ! full size of each linear system
+    ! integer(wi), parameter :: nlines = 131072   ! number of linear systems to solve, 32*4096
 
     real(wp) :: lhs(nx, nd)                     ! Diagonals of system matrix A
     real(wp), allocatable :: u(:, :)            ! numerical solution of A u = f
@@ -23,7 +23,7 @@ program vMpi_Thomas3_Scaling
 
     type(thomas_split_dt) split_mpi
 
-    integer k, np, it
+    integer k, np, it, nxLoc
 
     ! integer :: nseed
     ! integer, allocatable :: seed(:)
@@ -69,9 +69,10 @@ program vMpi_Thomas3_Scaling
     split_mpi%mpi = mpiGrid%mpi_axis_dt
 
     ! -------------------------------------------------------------------
-    ! allocate(u_a(nlines, nx))
-    allocate (u(nlines, nx))
-    allocate (f(nlines, nx))
+    nxLoc = nx/mpiGrid%num_processors     ! task-local number of grid points along X
+    ! allocate(u_a(nlines, nxLoc))
+    allocate (u(nlines, nxLoc))
+    allocate (f(nlines, nxLoc))
 
     ! call random_number(f)       ! forcing
     f(:, :) = 1.0_wp            ! forcing

@@ -89,6 +89,7 @@ program vMpi_Thomas3_Scaling
     time_loc_2 = MPI_WTIME()
 
     if (mpiGrid%rank == 0) then
+        print *, 'Solving ', nlines, ' systems of size ', nx, ' over ', mpiGrid%num_processors, ' processors.'
         print *, 'Elapsed time in processor with rank 0 (seconds): ', time_loc_2 - time_loc_1
     end if
     ! call check(u_a, u)

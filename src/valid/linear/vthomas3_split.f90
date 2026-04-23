@@ -6,7 +6,7 @@ program vThomas3_Split
     use TLab_Arrays, only: wrk2d
 #ifdef USE_MPI
     use mpi_f08
-    use TLabMPI_VARS, only: mpiGrid
+    use TLabMPI_VARS, only: mpiGrid, ims_err
 #endif
     implicit none
 
@@ -27,22 +27,26 @@ program vThomas3_Split
     type(thomas_circulant_dt) :: thomas_circulant1
 #ifdef USE_MPI
     type(thomas_split_dt) split_mpi
-    integer ims_err
 #endif
-    integer, parameter :: nblocks = 4       ! number of blocks
-    type(thomas_split_dt) thomas_split1(nblocks)
-
-    integer(wi) k
-    integer, parameter :: points(1:nblocks) = [(k, k=nsize/nblocks, nsize, nsize/nblocks)]
-
-    type(data_dt) data(nblocks)
+    type(thomas_split_dt), allocatable :: thomas_split1(:)  ! for testing in serial
+    type(data_dt), allocatable :: data(:)
     target u_loc
+
+    integer(wi) k, kk, np
 
     ! -------------------------------------------------------------------
 #ifdef USE_MPI
     call MPI_INIT(ims_err)
-    call MPI_COMM_SIZE(MPI_COMM_WORLD, mpiGrid%num_processors, ims_err)
-    call MPI_COMM_RANK(MPI_COMM_WORLD, mpiGrid%rank, ims_err)
+
+    mpiGrid%comm = MPI_COMM_WORLD
+    call MPI_COMM_SIZE(mpiGrid%comm, mpiGrid%num_processors, ims_err)
+    call MPI_COMM_RANK(mpiGrid%comm, mpiGrid%rank, ims_err)
+#endif
+
+#ifdef USE_MPI
+    np = mpiGrid%num_processors     ! for clarity below
+#else
+    np = 4
 #endif
 
     ! -------------------------------------------------------------------
@@ -60,40 +64,34 @@ program vThomas3_Split
 
     ! -------------------------------------------------------------------
     ! generate random data for f = Au
-    call random_number(rhs)     ! diagonals in matrix A
-    ! rhs(:,1) = 2.0_wp/11.0_wp   ! second order derivative
-    ! rhs(:,2) = 1.0_wp
-    ! rhs(:,3) = 2.0_wp/11.0_wp
-    ! rhs(:,1) = 1.0_wp/3.0_wp   ! first order derivative
-    ! rhs(:,2) = 1.0_wp
-    ! rhs(:,3) = 1.0_wp/3.0_wp
+    call random_number(lhs)     ! diagonals in matrix A
+    ! lhs(:,1) = 2.0_wp/11.0_wp   ! second order derivative
+    ! lhs(:,2) = 1.0_wp
+    ! lhs(:,3) = 2.0_wp/11.0_wp
+    ! lhs(:,1) = 1.0_wp/3.0_wp   ! first order derivative
+    ! lhs(:,2) = 1.0_wp
+    ! lhs(:,3) = 1.0_wp/3.0_wp
     call random_number(u)       ! solution u
 
     n = 1
-    f(:, n) = rhs(n, 2)*u(:, n) + rhs(n, 3)*u(:, n + 1)
-    if (circulant) f(:, n) = f(:, n) + rhs(n, 1)*u(:, nsize)
+    f(:, n) = lhs(n, 2)*u(:, n) + lhs(n, 3)*u(:, n + 1)
+    if (circulant) f(:, n) = f(:, n) + lhs(n, 1)*u(:, nsize)
     do n = 2, nsize - 1
-        f(:, n) = rhs(n, 1)*u(:, n - 1) + rhs(n, 2)*u(:, n) + rhs(n, 3)*u(:, n + 1)
+        f(:, n) = lhs(n, 1)*u(:, n - 1) + lhs(n, 2)*u(:, n) + lhs(n, 3)*u(:, n + 1)
     end do
-    f(:, n) = rhs(n, 1)*u(:, n - 1) + rhs(n, 2)*u(:, n)
-    if (circulant) f(:, n) = f(:, n) + rhs(n, 3)*u(:, 1)
+    f(:, n) = lhs(n, 1)*u(:, n - 1) + lhs(n, 2)*u(:, n)
+    if (circulant) f(:, n) = f(:, n) + lhs(n, 3)*u(:, 1)
 
     ! -------------------------------------------------------------------
 #ifdef USE_MPI
     if (mpiGrid%rank == 0) then
         print *, new_line('a'), 'Running in parallel. Processor 0 doing the serial version.'
 
-        if (nblocks /= mpiGrid%num_processors) then
-            print *, 'Number of blocks must equal number of processors.'
-            call MPI_FINALIZE(ims_err)
-            stop
-        end if
 #endif
 
         ! -------------------------------------------------------------------
         print *, new_line('a'), 'Standard Thomas algorithm'
 
-        lhs(:, :) = rhs(:, :)
         u_loc(:, :) = f(:, :)   ! f = Au
         if (circulant) then
             call thomas_circulant1%initialize(lhs(:, 1:nd))
@@ -116,9 +114,11 @@ program vThomas3_Split
         ! -------------------------------------------------------------------
         print *, new_line('a'), 'Splitting Thomas algorithm'
 
-        do k = 1, nblocks
-            lhs(:, :) = rhs(:, :)
-            call thomas_split1(k)%initialize(lhs(:, 1:3), points, &
+        allocate (thomas_split1(np))
+        allocate (data(np))
+        do k = 1, np
+            call thomas_split1(k)%initialize(lhs(:, 1:3), &
+                                             [(kk, kk=nsize/np, nsize, nsize/np)], &
                                              block_id=k, &
                                              circulant=circulant)
 
@@ -127,7 +127,7 @@ program vThomas3_Split
 
         u_loc(:, :) = f(:, :)   ! f = Au
 
-        do k = 1, nblocks
+        do k = 1, np
             call thomas_split1(k)%solveL(data(k)%p(:, :))
             call thomas_split1(k)%solveU(data(k)%p(:, :))
         end do
@@ -144,11 +144,10 @@ program vThomas3_Split
         print *, new_line('a'), 'Splitting Thomas algorithm'
     end if
 
-    lhs(:, :) = rhs(:, :)
-
-    call split_mpi%initialize(lhs, points, &
-                                block_id=mpiGrid%rank + 1, &
-                                circulant=circulant)
+    call split_mpi%initialize(lhs, &
+                              [(kk, kk=nsize/np, nsize, nsize/np)], &
+                              block_id=mpiGrid%rank + 1, &
+                              circulant=circulant)
     split_mpi%mpi = mpiGrid%mpi_axis_dt
 
     u_loc(:, :) = f(:, :)   ! Each processor will only see its part of the array

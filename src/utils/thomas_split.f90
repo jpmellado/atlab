@@ -115,7 +115,7 @@ contains
         if (allocated(lhs_loc)) deallocate (lhs_loc)    ! block diagonal matrix
         allocate (lhs_loc, source=lhs)
 
-        if (allocated(lu_loc)) deallocate (lu_loc)      ! lu decompsition of block diagonal matrix
+        if (allocated(lu_loc)) deallocate (lu_loc)      ! lu decomposition of block diagonal matrix
         allocate (lu_loc, mold=lhs)
 
         if (allocated(z_loc)) deallocate (z_loc)
@@ -316,6 +316,13 @@ contains
         time_loc_1 = MPI_WTIME()
 #endif
 
+        ! if (self%mpi%num_processors == 0) then
+        !     call ThomasCirculant_3_Reduce(self%L, &
+        !                                   self%U, &
+        !                                   self%y(1, :), &
+        !                                   f, alpha)
+        ! end if
+
         ! -------------------------------------------------------------------
         ! pass x(:,1) to previous block and calculate local coefficient
 #define xp(j) alpha(j)
@@ -430,5 +437,40 @@ contains
 
         return
     end subroutine ThomasSplit_3_Reduce_Serial
+
+!     !########################################################################
+!     !########################################################################
+!     subroutine ThomasCirculant_3_Reduce(L, U, z, f, wrk)
+!         real(wp), intent(in) :: L(:, :), U(:, :), z(:)
+!         real(wp), intent(inout) :: f(:, :)          ! forcing and solution
+!         real(wp), intent(inout) :: wrk(size(f, 1))
+
+!         ! -------------------------------------------------------------------
+!         integer(wi) nmax, n
+
+!         ! ###################################################################
+!         if (size(f, 1) <= 0) return
+
+! #define cn U(nmax, 2)
+! #define a1 L(1, 1)
+
+!         nmax = size(f, 2)
+!         wrk(:) = cn*f(:, 1) + a1*f(:, nmax)
+!         do n = 1, nmax
+!             f(:, n) = f(:, n) + wrk(:)*z(n)
+!         end do
+
+! #undef cn
+! #undef a1
+
+!         ! This would save time in the serial case, but we are interested in the parallel case
+!         ! n_smw_decay = 64
+!         ! do n = 1, min(nmax/2, n_smw_decay)
+!         !     f(:, n) = f(:, n) + wrk(:)*z(n)
+!         !     f(:, nmax - n + 1) = f(:, nmax - n + 1) + wrk(:)*z(nmax - n + 1)
+!         ! end do
+
+!         return
+!     end subroutine ThomasCirculant_3_Reduce
 
 end module Thomas_Split

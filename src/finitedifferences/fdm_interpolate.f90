@@ -123,7 +123,7 @@ contains
             end select
             call Thomas3_SolveL(g%lu0i(:, 1:1), result)
             call Thomas3_SolveU(g%lu0i(:, 2:3), result)
-            call ThomasCirculant_3_Reduce(g%lu0i(:, 1:1), &
+            call Thomas_3_Split_Reduce(g%lu0i(:, 1:1), &
                                        g%lu0i(:, 2:3), &
                                        g%lu0i(:, 4), &
                                        result, wrk2d)
@@ -136,7 +136,7 @@ contains
             end select
             call Thomas3_SolveL(g%lu0i(:, 1:1), result)
             call Thomas3_SolveU(g%lu0i(:, 2:3), result)
-            call ThomasCirculant_3_Reduce(g%lu0i(:, 1:1), &
+            call Thomas_3_Split_Reduce(g%lu0i(:, 1:1), &
                                        g%lu0i(:, 2:3), &
                                        g%lu0i(:, 4), &
                                        result, wrk2d)
@@ -166,7 +166,7 @@ contains
             end select
             call Thomas3_SolveL(g%lu1i(:, 1:1), result)
             call Thomas3_SolveU(g%lu1i(:, 2:3), result)
-            call ThomasCirculant_3_Reduce(g%lu1i(:, 1:1), &
+            call Thomas_3_Split_Reduce(g%lu1i(:, 1:1), &
                                        g%lu1i(:, 2:3), &
                                        g%lu1i(:, 4), &
                                        result, wrk2d)
@@ -178,7 +178,7 @@ contains
             end select
             call Thomas3_SolveL(g%lu1i(:, 1:1), result)
             call Thomas3_SolveU(g%lu1i(:, 2:3), result)
-            call ThomasCirculant_3_Reduce(g%lu1i(:, 1:1), &
+            call Thomas_3_Split_Reduce(g%lu1i(:, 1:1), &
                                        g%lu1i(:, 2:3), &
                                        g%lu1i(:, 4), &
                                        result, wrk2d)

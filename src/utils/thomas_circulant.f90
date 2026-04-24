@@ -9,7 +9,7 @@ module Thomas_Circulant
     use TLab_Constants, only: efile
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
     use Thomas, only: thomas_base_dt, Thomas5_FactorLU_InPlace, Thomas5_SolveL, Thomas5_SolveU
-    use Thomas_Split, only: Thomas_3_Split_InPlace
+    use Thomas_Split, only: Thomas_3_Split_InPlace, Thomas_3_Split_Reduce
     implicit none
     private
 
@@ -57,10 +57,10 @@ contains
 
         select case (size(self%L, 2))
         case (1)
-            call ThomasCirculant_3_Reduce(self%L, &
-                                          self%U, &
-                                          self%z(1, :), &
-                                          f, wrk2d(:, 1))
+            call Thomas_3_Split_Reduce(self%L, &
+                                       self%U, &
+                                       self%z(1, :), &
+                                       f, wrk2d(:, 1))
         case (2)
             call ThomasCirculant_5_Reduce(self%L, &
                                           self%U, &
@@ -81,41 +81,6 @@ contains
 
         return
     end subroutine
-
-    !########################################################################
-    !########################################################################
-    subroutine ThomasCirculant_3_Reduce(L, U, z, f, wrk)
-        real(wp), intent(in) :: L(:, :), U(:, :), z(:)
-        real(wp), intent(inout) :: f(:, :)          ! forcing and solution
-        real(wp), intent(inout) :: wrk(size(f, 1))
-
-        ! -------------------------------------------------------------------
-        integer(wi) nmax, n
-
-        ! ###################################################################
-        if (size(f, 1) <= 0) return
-
-#define cn U(nmax, 2)
-#define a1 L(1, 1)
-
-        nmax = size(f, 2)
-        wrk(:) = cn*f(:, 1) + a1*f(:, nmax)
-        do n = 1, nmax
-            f(:, n) = f(:, n) + wrk(:)*z(n)
-        end do
-
-#undef cn
-#undef a1
-
-        ! This would save time in the serial case, but we are interested in the parallel case
-        ! n_smw_decay = 64
-        ! do n = 1, min(nmax/2, n_smw_decay)
-        !     f(:, n) = f(:, n) + wrk(:)*z(n)
-        !     f(:, nmax - n + 1) = f(:, nmax - n + 1) + wrk(:)*z(nmax - n + 1)
-        ! end do
-
-        return
-    end subroutine ThomasCirculant_3_Reduce
 
     ! #######################################################################
     ! #######################################################################

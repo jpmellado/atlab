@@ -91,7 +91,8 @@ program vMpi_Thomas3_Scaling
     if (mpiGrid%rank == 0) then
         print *, 'Solving ', nlines, ' systems of size ', nx, ' over ', mpiGrid%num_processors, ' processors.'
         print *, 'Elapsed time in processor with rank 0 (seconds): ', time_loc_2 - time_loc_1
-        ! print *, 'Communication time in processor with rank 0 (seconds): ', ims_time_trans
+        print *, 'Communication time in processor with rank 0 (seconds): ', ims_time_trans
+        print *, 'Serial time in processor with rank 0 (seconds): ', time_loc_2 - time_loc_1 - ims_time_trans
     end if
     ! call check(u_a, u)
 

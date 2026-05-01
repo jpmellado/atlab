@@ -9,14 +9,11 @@ module Thomas_Parallel
 #ifdef USE_MPI
     use TLabMPI_VARS, only: mpi_axis_dt
 #endif
-    use Thomas
+    use Thomas_Split
     implicit none
     private
 
     public :: thomas_parallel_dt
-
-    public :: Thomas_3_Split_InPlace
-    public :: Thomas_3_Split_Reduce
 
     public :: ThomasSplit_3_Reduce_Serial       ! For testing the algorithm in serial
     type, public :: data_dt
@@ -24,13 +21,12 @@ module Thomas_Parallel
     end type data_dt
 
     ! -----------------------------------------------------------------------
-    type, extends(thomas_base_dt) :: thomas_parallel_dt
+    type, extends(thomas_split_dt) :: thomas_parallel_dt
         real(wp), allocatable :: y(:, :)
         !
         logical :: circulant = .true.
         integer :: block_id
         integer(wi) :: nmin, nmax
-        real(wp) :: alpha(2) = [0.0_wp, 0.0_wp]
 #ifdef USE_MPI
         type(mpi_axis_dt) mpi
 #endif
@@ -200,125 +196,6 @@ contains
 
         return
     end subroutine ThomasSplit_3_Initialize
-
-    !########################################################################
-    !########################################################################
-    subroutine Thomas_3_Split_InPlace(L, U, z, index)
-        real(wp), intent(inout) :: L(:, :), U(:, :)
-        real(wp), intent(out) :: z(1, size(L, 1))
-        integer, intent(in) :: index
-
-        ! -----------------------------------------------------------------------
-        integer nmax, p, p_plus_1
-        real(wp) alpha(2), delta
-
-        ! #######################################################################
-        nmax = size(L, 1)
-
-        p = mod(index - 1, nmax) + 1                ! in circulant cases, this n
-        p_plus_1 = mod(p + 1 - 1, nmax) + 1         ! in circulant cases, this 1
-
-#define a(i) L(i,1)
-#define b(i) U(i,1)
-#define c(i) U(i,2)
-
-        ! Start definition of alpha; in circulant cases, this is a1 and cn
-        alpha(1) = a(p_plus_1)
-        alpha(2) = c(p)
-
-        ! Generate matrix A1
-        b(p) = b(p) - a(p_plus_1)
-        a(p_plus_1) = 0.0_wp
-        b(p_plus_1) = b(p_plus_1) - c(p)
-        c(p) = 0.0_wp
-
-        ! call Thomas3_FactorLU_InPlace(L, U)
-        call Thomas_FactorLU_InPlace(L, U)
-
-        ! Generate vector z1
-        z(1, :) = 0.0_wp
-        z(1, p) = 1.0_wp
-        z(1, p_plus_1) = 1.0_wp
-
-        call Thomas3_SolveL(L, z)
-        call Thomas3_SolveU(U, z)
-
-        ! Calculate normalized alpha coefficients
-        delta = 1.0_wp + alpha(1)*z(1, p) + alpha(2)*z(1, p_plus_1)
-        if (abs(delta) < small_wp) then
-            call TLab_Write_ASCII(efile, __FILE__//'. Singular matrix M.')
-            call TLab_Stop(DNS_ERROR_THOMAS)
-        end if
-
-        a(p_plus_1) = -alpha(1)/delta
-        c(p) = -alpha(2)/delta
-
-        ! -------------------------------------------------------------------
-        ! Calculate decay index
-        ! call decay_index(z(1, p_plus_1:))!, n_smw_decay)
-
-#undef a
-#undef b
-#undef c
-
-        return
-    end subroutine Thomas_3_Split_InPlace
-
-    !########################################################################
-    !########################################################################
-    subroutine Thomas_3_Split_Reduce(L, U, z, f, wrk)
-        real(wp), intent(in) :: L(:, :), U(:, :), z(:)
-        real(wp), intent(inout) :: f(:, :)          ! forcing and solution
-        real(wp), intent(inout) :: wrk(size(f, 1))
-
-        ! -------------------------------------------------------------------
-        integer(wi) nmax, n
-
-        ! ###################################################################
-        if (size(f, 1) <= 0) return
-
-#define cn U(nmax, 2)
-#define a1 L(1, 1)
-        nmax = size(f, 2)
-        wrk(:) = cn*f(:, 1) + a1*f(:, nmax)
-        do n = 1, nmax
-            f(:, n) = f(:, n) + wrk(:)*z(n)
-        end do
-
-#undef cn
-#undef a1
-
-        ! This would save time in the serial case, but we are interested in the parallel case
-        ! n_smw_decay = 64
-        ! do n = 1, min(nmax/2, n_smw_decay)
-        !     f(:, n) = f(:, n) + wrk(:)*z(n)
-        !     f(:, nmax - n + 1) = f(:, nmax - n + 1) + wrk(:)*z(nmax - n + 1)
-        ! end do
-
-        return
-    end subroutine Thomas_3_Split_Reduce
-
-    !########################################################################
-    !########################################################################
-    subroutine decay_index(z, index)
-        use TLab_Constants, only: roundoff_wp
-        real(wp), intent(in) :: z(:)
-        integer, intent(out), optional :: index
-
-        integer n
-        character(len=32) str
-
-        do n = 2, size(z)
-            if (abs(z(n)/z(1)) < roundoff_wp) exit
-            ! print *, abs(z(n)/z(1)
-        end do
-        write (str, *) n
-        call TLab_Write_ASCII(lfile, 'Decay to round-off in SMW algorithm in '//trim(adjustl(str))//' indexes.')
-
-        if (present(index)) index = n
-
-        return
-    end subroutine
 
 #ifdef USE_MPI
     !########################################################################

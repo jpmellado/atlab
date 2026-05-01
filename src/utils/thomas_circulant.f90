@@ -4,24 +4,22 @@
 ! Adapted from 10.1016/j.camwa.2011.12.044
 ! Marginally slower because one more call to memory for array f, but clearer
 
+! Written in terms of generic splitting algorithm
+
 module Thomas_Circulant
-    use TLab_Constants, only: wp, wi, small_wp
-    use TLab_Constants, only: efile
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
-    use Thomas, only: thomas_base_dt, Thomas5_FactorLU_InPlace, Thomas5_SolveL, Thomas5_SolveU
-    use Thomas_Parallel, only: Thomas_3_Split_InPlace, Thomas_3_Split_Reduce
+    use TLab_Constants, only: wp, wi
+    use Thomas_Split, only: thomas_split_dt
     implicit none
     private
 
     public :: thomas_circulant_dt
 
     ! -----------------------------------------------------------------------
-    type, extends(thomas_base_dt) :: thomas_circulant_dt
-        real(wp), allocatable :: z(:, :)
+    type, extends(thomas_split_dt) :: thomas_circulant_dt
     contains
         procedure :: initialize => thomas_initialize_dt
+        ! the next is needed because pentadiagonal case not yet in generic form
         procedure :: reduce => thomas_reduce_dt
-        procedure :: solve => thomas_solve_dt
     end type
 
 contains
@@ -31,18 +29,11 @@ contains
         class(thomas_circulant_dt), intent(out) :: self
         real(wp), intent(in) :: lhs(:, :)
 
-        integer ndl
+        ! split at the end of the array
+        call self%initialize_split(lhs, index=size(lhs, 1))
 
-        call self%initialize_base(lhs)
-
-        ! corrections for circulant case
-        ndl = size(lhs, 2)
-        self%L(:, :) = lhs(:, 1:ndl/2)
-        self%U(:, :) = lhs(:, ndl/2 + 1:ndl)
-        allocate (self%z(ndl/2, size(lhs, 1)))
-        select case (ndl)
-        case (3)
-            call Thomas_3_Split_InPlace(self%L, self%U, self%z, size(lhs, 1))
+        ! this case is not yet in split format, only here for circulant cases
+        select case (size(lhs, 2))
         case (5)
             call ThomasCirculant_5_Initialize(self%L, self%U, self%z)
         end select
@@ -55,29 +46,16 @@ contains
         class(thomas_circulant_dt), intent(in) :: self
         real(wp), intent(inout) :: f(:, :)
 
+        call self%reduce_split(f)
+
+        ! this case is not yet in split format, only here for circulant cases
         select case (size(self%L, 2))
-        case (1)
-            call Thomas_3_Split_Reduce(self%L, &
-                                       self%U, &
-                                       self%z(1, :), &
-                                       f, wrk2d(:, 1))
         case (2)
             call ThomasCirculant_5_Reduce(self%L, &
                                           self%U, &
                                           self%z, &
                                           f)!, wrk2d)
         end select
-
-        return
-    end subroutine
-
-    subroutine thomas_solve_dt(self, f)
-        class(thomas_circulant_dt), intent(out) :: self
-        real(wp), intent(inout) :: f(:, :)
-
-        call self%solveL(f)
-        call self%solveU(f)
-        call self%reduce(f)
 
         return
     end subroutine
@@ -94,6 +72,10 @@ contains
 #define z2(i) z_mem(2,i)
 
     subroutine ThomasCirculant_5_Initialize(L, U, z_mem)
+        use TLab_Constants, only: small_wp
+        use Thomas, only: Thomas5_FactorLU_InPlace, Thomas5_SolveL, Thomas5_SolveU
+        use TLab_Constants, only: efile
+        use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
         real(wp), intent(inout) :: L(:, :), U(:, :)
         real(wp), intent(inout) :: z_mem(2, size(L, 1))
 

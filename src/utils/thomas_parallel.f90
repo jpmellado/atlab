@@ -2,7 +2,7 @@
 
 ! Splitting algorithm of linear solver
 
-module Thomas_Split
+module Thomas_Parallel
     use TLab_Constants, only: wp, wi, small_wp, roundoff_wp
     use TLab_Constants, only: efile, wfile, lfile, fmt_r
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
@@ -13,7 +13,7 @@ module Thomas_Split
     implicit none
     private
 
-    public :: thomas_split_dt
+    public :: thomas_parallel_dt
 
     public :: Thomas_3_Split_InPlace
     public :: Thomas_3_Split_Reduce
@@ -24,7 +24,7 @@ module Thomas_Split
     end type data_dt
 
     ! -----------------------------------------------------------------------
-    type, extends(thomas_base_dt) :: thomas_split_dt
+    type, extends(thomas_base_dt) :: thomas_parallel_dt
         real(wp), allocatable :: y(:, :)
         !
         logical :: circulant = .true.
@@ -39,13 +39,13 @@ module Thomas_Split
 #ifdef USE_MPI
         procedure :: reduce => thomas_reduce_mpi_dt
 #endif
-    end type thomas_split_dt
+    end type thomas_parallel_dt
 
 contains
     !########################################################################
     !########################################################################
     subroutine thomas_initialize_dt(self, lhs, points, block_id, circulant)
-        class(thomas_split_dt), intent(out) :: self
+        class(thomas_parallel_dt), intent(out) :: self
         real(wp), intent(in) :: lhs(:, :)
         integer(wi), intent(in) :: points(:)   ! sequence of splitting points in ascending order
         integer, intent(in) :: block_id
@@ -91,7 +91,7 @@ contains
     !########################################################################
     !########################################################################
     subroutine ThomasSplit_3_Initialize(self, lhs, points)
-        class(thomas_split_dt), intent(inout) :: self
+        class(thomas_parallel_dt), intent(inout) :: self
         real(wp), intent(in) :: lhs(:, :)
         integer(wi), intent(in) :: points(:)   ! sequence of splitting points in ascending order
 
@@ -328,7 +328,7 @@ contains
 #ifdef PROFILE_ON
         use TLabMPI_VARS, only: ims_time_trans
 #endif
-        class(thomas_split_dt), intent(in) :: self
+        class(thomas_parallel_dt), intent(in) :: self
         real(wp), intent(inout) :: f(:, :)
         real(wp), intent(inout) :: alpha(:)         ! auxiliary memory space for local alpha
         real(wp), intent(inout) :: tmp(:)           ! auxiliary memory space
@@ -415,7 +415,7 @@ contains
     !########################################################################
     !########################################################################
     subroutine ThomasSplit_3_Reduce_Serial(self, f)
-        type(thomas_split_dt), intent(in) :: self(:)
+        type(thomas_parallel_dt), intent(in) :: self(:)
         type(data_dt), intent(inout) :: f(:)
 
         integer(wi) n, nsize, nlines
@@ -484,4 +484,4 @@ contains
         return
     end subroutine ThomasSplit_3_Reduce_Serial
 
-end module Thomas_Split
+end module Thomas_Parallel

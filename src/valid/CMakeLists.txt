@@ -4,9 +4,9 @@ FILE(GLOB sourcefiles "linear/vlinsys.f90")
 add_executable(vlinsys.x ${sourcefiles})
 target_link_libraries(vlinsys.x finitedifferences ${LEVEL1_LIBS} ${LIBS})
 
-FILE(GLOB sourcefiles "linear/vthomas3_split.f90")
-add_executable(vthomas3_split.x ${sourcefiles})
-target_link_libraries(vthomas3_split.x finitedifferences ${LEVEL1_LIBS} ${LIBS})
+FILE(GLOB sourcefiles "linear/vthomas3_parallel.f90")
+add_executable(vthomas3_parallel.x ${sourcefiles})
+target_link_libraries(vthomas3_parallel.x finitedifferences ${LEVEL1_LIBS} ${LIBS})
 
 FILE(GLOB sourcefiles "fdm/vpartial.f90")
 add_executable(vpartial.x ${sourcefiles})

@@ -2,7 +2,7 @@ program vMpi_Thomas3_Scaling
     use TLab_Constants, only: wp, wi
     use mpi_f08
     use TLabMPI_VARS, only: mpiGrid, ims_err, ims_time_trans
-    use Thomas_Split
+    use Thomas_Parallel
     implicit none
 
     integer(wi), parameter :: nd = 3            ! number of diagonals
@@ -21,7 +21,7 @@ program vMpi_Thomas3_Scaling
     ! real(wp), allocatable :: u_a(:, :)          ! analytical solution
     real(wp) :: wrk2d(nlines, 2)
 
-    type(thomas_split_dt) split_mpi
+    type(thomas_parallel_dt) split_mpi
 
     integer k, np, it, nxLoc
 

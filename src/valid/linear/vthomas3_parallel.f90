@@ -1,8 +1,8 @@
-program vThomas3_Split
+program vThomas3_Parallel
     use TLab_Constants, only: wp, wi, BCS_NONE
     use Thomas
     use Thomas_Circulant
-    use Thomas_Split
+    use Thomas_Parallel
     use TLab_Arrays, only: wrk2d
 #ifdef USE_MPI
     use mpi_f08
@@ -26,9 +26,9 @@ program vThomas3_Split
     type(thomas_dt) :: thomas1
     type(thomas_circulant_dt) :: thomas_circulant1
 #ifdef USE_MPI
-    type(thomas_split_dt) split_mpi
+    type(thomas_parallel_dt) split_mpi
 #endif
-    type(thomas_split_dt), allocatable :: thomas_split1(:)  ! for testing in serial
+    type(thomas_parallel_dt), allocatable :: thomas_parallel1(:)  ! for testing in serial
     type(data_dt), allocatable :: data(:)
     target u_loc
 
@@ -114,24 +114,24 @@ program vThomas3_Split
         ! -------------------------------------------------------------------
         print *, new_line('a'), 'Splitting Thomas algorithm'
 
-        allocate (thomas_split1(np))
+        allocate (thomas_parallel1(np))
         allocate (data(np))
         do k = 1, np
-            call thomas_split1(k)%initialize(lhs(:, 1:3), &
+            call thomas_parallel1(k)%initialize(lhs(:, 1:3), &
                                              [(kk, kk=nsize/np, nsize, nsize/np)], &
                                              block_id=k, &
                                              circulant=circulant)
 
-            data(k)%p => u_loc(1:nlines, thomas_split1(k)%nmin:thomas_split1(k)%nmax)
+            data(k)%p => u_loc(1:nlines, thomas_parallel1(k)%nmin:thomas_parallel1(k)%nmax)
         end do
 
         u_loc(:, :) = f(:, :)   ! f = Au
 
         do k = 1, np
-            call thomas_split1(k)%solveL(data(k)%p(:, :))
-            call thomas_split1(k)%solveU(data(k)%p(:, :))
+            call thomas_parallel1(k)%solveL(data(k)%p(:, :))
+            call thomas_parallel1(k)%solveU(data(k)%p(:, :))
         end do
-        call ThomasSplit_3_Reduce_Serial(thomas_split1, data)
+        call ThomasSplit_3_Reduce_Serial(thomas_parallel1, data)
 
         call check(u_loc, u, 'linear.dat')
 
@@ -207,4 +207,4 @@ contains
 1000    format(5(1x, e12.5))
     end subroutine check
 
-end program vThomas3_Split
+end program vThomas3_Parallel

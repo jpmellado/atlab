@@ -9,7 +9,7 @@ module Thomas_Circulant
     use TLab_Constants, only: efile
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
     use Thomas, only: thomas_base_dt, Thomas5_FactorLU_InPlace, Thomas5_SolveL, Thomas5_SolveU
-    use Thomas_Split, only: Thomas_3_Split_InPlace, Thomas_3_Split_Reduce
+    use Thomas_Parallel, only: Thomas_3_Split_InPlace, Thomas_3_Split_Reduce
     implicit none
     private
 

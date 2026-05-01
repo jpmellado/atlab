@@ -9,7 +9,7 @@ module FDM_Derivative_MPISplit
     use FDM_Derivative_Base, only: matmul_halo_thomas_ice, matmul_halo_thomas_combined_ice
     use FDM_Derivative_1order, only: der1_periodic
     use FDM_Derivative_2order, only: der2_periodic
-    use Thomas_Split, only: thomas_split_dt
+    use Thomas_Parallel, only: thomas_parallel_dt
     implicit none
     private
 
@@ -26,7 +26,7 @@ module FDM_Derivative_MPISplit
     type, extends(der_mpisplit) :: der_periodic_mpisplit
         ! procedure(matmul_halo_ice), pointer, nopass :: matmul => null()
         procedure(matmul_halo_thomas_ice), pointer, nopass :: matmul => null()
-        type(thomas_split_dt) thomas3
+        type(thomas_parallel_dt) thomas3
     contains
         procedure :: initialize => der_periodic_initialize
         procedure :: compute => der_periodic_compute

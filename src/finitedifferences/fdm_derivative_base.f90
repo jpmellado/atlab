@@ -115,6 +115,7 @@ contains
     ! ###################################################################
     ! ###################################################################
     subroutine der_periodic_compute(self, nlines, u, result)
+        use TLab_Arrays, only: wrk2d
         class(der_periodic), intent(in) :: self
         integer(wi), intent(in) :: nlines
         real(wp), intent(in) :: u(nlines, size(self%lhs, 1))
@@ -142,7 +143,7 @@ contains
         ! Solve for u' in system of equations A u' = B u
         ! call self%thomas%solveL(result)
         call self%thomas%solveU(result)
-        call self%thomas%reduce(result)
+        call self%thomas%reduce(result, wrk2d(:, 1))
 
         return
     end subroutine der_periodic_compute

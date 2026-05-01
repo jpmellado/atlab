@@ -53,34 +53,35 @@ contains
         return
     end subroutine
 
-    subroutine thomas_reduce_dt(self, f)
-        use TLab_Arrays, only: wrk2d
+    subroutine thomas_reduce_dt(self, f, alpha)
         class(thomas_split_dt), intent(in) :: self
         real(wp), intent(inout) :: f(:, :)
+        real(wp), intent(inout) :: alpha(:)         ! auxiliary memory space for local alpha
 
         select case (size(self%L, 2))
         case (1)
             call Thomas_3_Split_Reduce(self%L, &
                                        self%U, &
                                        self%z(1, :), &
-                                       f, wrk2d(:, 1))
+                                       f, alpha)
             ! case (2)
             !     call ThomasCirculant_5_Reduce(self%L, &
             !                                   self%U, &
             !                                   self%z, &
-            !                                   f)!, wrk2d)
+            !                                   f)
         end select
 
         return
     end subroutine
 
-    subroutine thomas_solve_dt(self, f)
+    subroutine thomas_solve_dt(self, f, alpha)
         class(thomas_split_dt), intent(in) :: self
         real(wp), intent(inout) :: f(:, :)
+        real(wp), intent(inout) :: alpha(:)         ! auxiliary memory space for local alpha
 
         call self%solveL(f)
         call self%solveU(f)
-        call self%reduce_split(f)
+        call self%reduce_split(f, alpha)
 
         return
     end subroutine

@@ -50,7 +50,7 @@ contains
     ! ###################################################################
     ! ###################################################################
     subroutine der_burgers_periodic_compute(self, nlines, u, du1, du2)
-        use Thomas_Circulant
+        use TLab_Arrays, only: wrk2d
         class(der_burgers), intent(in) :: self
         integer(wi), intent(in) :: nlines
         real(wp), intent(in) :: u(nlines, size(self%der1%rhs, 1))
@@ -91,9 +91,9 @@ contains
 
         ! Solve for u' in system of equations A u' = B u1
         call self%der1%thomas%solveU(du1)
-        call self%der1%thomas%reduce(du1)
+        call self%der1%thomas%reduce(du1, wrk2d(:, 1))
         call self%der2%thomas%solveU(du2)
-        call self%der2%thomas%reduce(du2)     
+        call self%der2%thomas%reduce(du2, wrk2d(:, 1))
 
         return
     end subroutine der_burgers_periodic_compute

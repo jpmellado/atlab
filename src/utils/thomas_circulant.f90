@@ -41,12 +41,12 @@ contains
         return
     end subroutine
 
-    subroutine thomas_reduce_dt(self, f)
-        use TLab_Arrays, only: wrk2d
+    subroutine thomas_reduce_dt(self, f, alpha)
         class(thomas_circulant_dt), intent(in) :: self
         real(wp), intent(inout) :: f(:, :)
+        real(wp), intent(inout) :: alpha(:)         ! auxiliary memory space for local alpha
 
-        call self%reduce_split(f)
+        call self%reduce_split(f, alpha)
 
         ! this case is not yet in split format, only here for circulant cases
         select case (size(self%L, 2))
@@ -54,7 +54,7 @@ contains
             call ThomasCirculant_5_Reduce(self%L, &
                                           self%U, &
                                           self%z, &
-                                          f)!, wrk2d)
+                                          f)
         end select
 
         return
@@ -73,9 +73,9 @@ contains
 
     subroutine ThomasCirculant_5_Initialize(L, U, z_mem)
         use TLab_Constants, only: small_wp
-        use Thomas, only: Thomas5_FactorLU_InPlace, Thomas5_SolveL, Thomas5_SolveU
         use TLab_Constants, only: efile
         use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
+        use Thomas, only: Thomas5_FactorLU_InPlace, Thomas5_SolveL, Thomas5_SolveU
         real(wp), intent(inout) :: L(:, :), U(:, :)
         real(wp), intent(inout) :: z_mem(2, size(L, 1))
 

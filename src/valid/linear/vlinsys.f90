@@ -103,7 +103,7 @@ program vLinSys
 
         ! call thomas_circulant1%solveL(f)
         call thomas_circulant1%solveU(f)
-        call thomas_circulant1%reduce(f)
+        call thomas_circulant1%reduce(f, wrk2d(:, 1))
 
         write (str, *) nd
         call check(f, u, 'linsys-'//trim(adjustl(str))//'.dat')

@@ -99,7 +99,7 @@ program vThomas3_Parallel
             allocate (wrk2d(nlines, 1))     ! needed in thomas_circulant
             call thomas_circulant1%solveL(u_loc)
             call thomas_circulant1%solveU(u_loc)
-            call thomas_circulant1%reduce(u_loc)
+            call thomas_circulant1%reduce(u_loc, wrk2d(:, 1))
 
         else
             call thomas1%initialize(lhs(:, 1:nd))
@@ -118,9 +118,9 @@ program vThomas3_Parallel
         allocate (data(np))
         do k = 1, np
             call thomas_parallel1(k)%initialize(lhs(:, 1:3), &
-                                             [(kk, kk=nsize/np, nsize, nsize/np)], &
-                                             block_id=k, &
-                                             circulant=circulant)
+                                                [(kk, kk=nsize/np, nsize, nsize/np)], &
+                                                block_id=k, &
+                                                circulant=circulant)
 
             data(k)%p => u_loc(1:nlines, thomas_parallel1(k)%nmin:thomas_parallel1(k)%nmax)
         end do

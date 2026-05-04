@@ -105,6 +105,7 @@ contains
         case (FDM_COM6_JACOBIAN)
             call FDM_C1N6_Jacobian(size(x), self%lhs, self%rhs, periodic=.true.)
             self%matmul => MatMul_Halo_5_antisym_ThomasL_3   ! MatMul_Halo_5_antisym + Thomas3_SolveL
+            ! self%matmul => MatMul_Halo_5_antisym_ThomasL_3_Cache
 
         case (FDM_COM6_JACOBIAN_PENTA)
             call FDM_C1N6_Jacobian_Penta(size(x), self%lhs, self%rhs, periodic=.true.)

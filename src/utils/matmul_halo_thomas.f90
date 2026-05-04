@@ -12,6 +12,7 @@ module Matmul_Halo_Thomas
     public :: MatMul_Halo_3_sym_ThomasL_3           ! Check normalization below
     !                                                 The first upper diagonal is normalized to 1
     public :: MatMul_Halo_5_antisym_ThomasL_3
+    public :: MatMul_Halo_5_antisym_ThomasL_3_Cache
     public :: MatMul_Halo_5_sym_ThomasL_3
     public :: MatMul_Halo_5_antisym_ThomasL_5
     public :: MatMul_Halo_5_sym_ThomasL_5
@@ -22,6 +23,8 @@ module Matmul_Halo_Thomas
     public :: MatMul_Halo_7_sym_ThomasL_5
 
     public :: MatMul_Halo_5_antisym_7_sym_ThomasL_3
+
+    integer :: CacheBlock = 256 ! In units of double precision. 32kiB of Cache means 4096 double precision numbers
 
 contains
     ! ###################################################################
@@ -230,6 +233,101 @@ contains
 
         return
     end subroutine MatMul_Halo_5_antisym_ThomasL_3
+
+    subroutine MatMul_Halo_5_antisym_ThomasL_3_Cache(rhs, u, u_halo_m, u_halo_p, f, L)
+        real(wp), intent(in) :: rhs(:)              ! diagonals of B
+        real(wp), intent(in) :: u(:, :)             ! vector u
+        real(wp), intent(in) :: u_halo_m(:, :)      ! minus, coming from left
+        real(wp), intent(in) :: u_halo_p(:, :)      ! plus, coming from right
+        real(wp), intent(out) :: f(:, :)            ! vector f = B u
+        real(wp), intent(in) :: L(:, :)
+
+        ! -------------------------------------------------------------------
+        integer(wi) n, nx
+        real(wp) r5_loc     ! 2. upper-diagonal
+        integer ic, ic1, ic_max
+
+        ! #######################################################################
+        nx = size(f, 2)
+        r5_loc = rhs(5)
+
+        ic_max = (size(f, 1)/CacheBlock)*CacheBlock
+
+        do ic = 1, ic_max, CacheBlock
+            ic1 = ic + CacheBlock - 1
+
+            ! -------------------------------------------------------------------
+            ! Halo left
+            n = 1
+            f(ic:ic1, n) = u(ic:ic1, n + 1) - u_halo_m(ic:ic1, 2) &
+                           + r5_loc*(u(ic:ic1, n + 2) - u_halo_m(ic:ic1, 1))
+
+            n = 2
+            f(ic:ic1, n) = u(ic:ic1, n + 1) - u(ic:ic1, n - 1) &
+                           + r5_loc*(u(ic:ic1, n + 2) - u_halo_m(ic:ic1, 2))
+            f(ic:ic1, n) = f(ic:ic1, n) + f(ic:ic1, n - 1)*L(n, 1)  ! solve L
+
+            ! -------------------------------------------------------------------
+            ! Interior points
+            do n = 3, nx - 2
+                f(ic:ic1, n) = u(ic:ic1, n + 1) - u(ic:ic1, n - 1) &
+                               + r5_loc*(u(ic:ic1, n + 2) - u(ic:ic1, n - 2))
+                f(ic:ic1, n) = f(ic:ic1, n) + f(ic:ic1, n - 1)*L(n, 1)  ! solve L
+            end do
+
+            ! -------------------------------------------------------------------
+            ! Halo right
+            n = nx - 1
+            f(ic:ic1, n) = u(ic:ic1, n + 1) - u(ic:ic1, n - 1) &
+                           + r5_loc*(u_halo_p(ic:ic1, 1) - u(ic:ic1, n - 2))
+            f(ic:ic1, n) = f(ic:ic1, n) + f(ic:ic1, n - 1)*L(n, 1)  ! solve L
+
+            n = nx
+            f(ic:ic1, n) = u_halo_p(ic:ic1, 1) - u(ic:ic1, n - 1) &
+                           + r5_loc*(u_halo_p(ic:ic1, 2) - u(ic:ic1, n - 2))
+            f(ic:ic1, n) = f(ic:ic1, n) + f(ic:ic1, n - 1)*L(n, 1)  ! solve L
+
+        end do
+
+        if (ic_max < size(f, 1)) then
+            ic = ic_max + 1
+            ic1 = size(f, 1)
+
+            ! -------------------------------------------------------------------
+            ! Halo left
+            n = 1
+            f(ic:ic1, n) = u(ic:ic1, n + 1) - u_halo_m(ic:ic1, 2) &
+                           + r5_loc*(u(ic:ic1, n + 2) - u_halo_m(ic:ic1, 1))
+
+            n = 2
+            f(ic:ic1, n) = u(ic:ic1, n + 1) - u(ic:ic1, n - 1) &
+                           + r5_loc*(u(ic:ic1, n + 2) - u_halo_m(ic:ic1, 2))
+            f(ic:ic1, n) = f(ic:ic1, n) + f(ic:ic1, n - 1)*L(n, 1)  ! solve L
+
+            ! -------------------------------------------------------------------
+            ! Interior points
+            do n = 3, nx - 2
+                f(ic:ic1, n) = u(ic:ic1, n + 1) - u(ic:ic1, n - 1) &
+                               + r5_loc*(u(ic:ic1, n + 2) - u(ic:ic1, n - 2))
+                f(ic:ic1, n) = f(ic:ic1, n) + f(ic:ic1, n - 1)*L(n, 1)  ! solve L
+            end do
+
+            ! -------------------------------------------------------------------
+            ! Halo right
+            n = nx - 1
+            f(ic:ic1, n) = u(ic:ic1, n + 1) - u(ic:ic1, n - 1) &
+                           + r5_loc*(u_halo_p(ic:ic1, 1) - u(ic:ic1, n - 2))
+            f(ic:ic1, n) = f(ic:ic1, n) + f(ic:ic1, n - 1)*L(n, 1)  ! solve L
+
+            n = nx
+            f(ic:ic1, n) = u_halo_p(ic:ic1, 1) - u(ic:ic1, n - 1) &
+                           + r5_loc*(u_halo_p(ic:ic1, 2) - u(ic:ic1, n - 2))
+            f(ic:ic1, n) = f(ic:ic1, n) + f(ic:ic1, n - 1)*L(n, 1)  ! solve L
+
+        end if
+
+        return
+    end subroutine MatMul_Halo_5_antisym_ThomasL_3_Cache
 
     !########################################################################
     !########################################################################

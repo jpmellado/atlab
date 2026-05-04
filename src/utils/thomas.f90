@@ -45,6 +45,12 @@ module Thomas
         procedure :: solve => thomas_solve_dt
     end type
 
+    integer :: CacheBlock = 512 ! In units of double precision. 32kiB of Cache means 4096 double precision numbers
+
+    ! interface Thomas3_SolveU
+    !     procedure Thomas3_SolveU_Cache
+    ! end interface
+
 contains
     ! #######################################################################
     ! #######################################################################
@@ -84,6 +90,7 @@ contains
         case (3)
             self%ptr_solveL => Thomas3_SolveL
             self%ptr_solveU => Thomas3_SolveU
+            ! self%ptr_solveU => Thomas3_SolveU_Cache
         case (5)
             self%ptr_solveL => Thomas5_SolveL
             self%ptr_solveU => Thomas5_SolveU
@@ -254,6 +261,65 @@ contains
         return
     end subroutine Thomas_SolveU
 
+    subroutine Thomas_SolveU_Cache(U, f)
+        real(wp), intent(in) :: U(:, :)
+        real(wp), intent(inout) :: f(:, :)      ! RHS and solution
+
+        ! -----------------------------------------------------------------------
+        integer n, nmax
+        integer nd, id
+        integer ic, ic1, ic_max
+
+        ! #######################################################################
+        if (size(f, 1) <= 0) return
+
+        nd = size(U, 2)
+        nmax = size(U, 1)
+
+        ic_max = (size(f, 1)/CacheBlock)*CacheBlock
+
+        do ic = 1, ic_max, CacheBlock
+            ic1 = ic + CacheBlock - 1
+
+            do n = 0, nd - 1
+                f(ic:ic1, nmax - n) = U(nmax - n, 1)*f(ic:ic1, nmax - n)
+                do id = 2, n + 1
+                    f(ic:ic1, nmax - n) = f(ic:ic1, nmax - n) + U(nmax - n, id)*f(ic:ic1, nmax - n + id - 1)
+                end do
+            end do
+
+            do n = nmax - nd, 1, -1
+                f(ic:ic1, n) = U(n, 1)*f(ic:ic1, n)
+                do id = 2, nd
+                    f(ic:ic1, n) = f(ic:ic1, n) + U(n, id)*f(ic:ic1, n + id - 1)
+                end do
+            end do
+
+        end do
+
+        if (ic_max < size(f, 1)) then
+            ic = ic_max + 1
+            ic1 = size(f, 1)
+
+            do n = 0, nd - 1
+                f(ic:ic1, nmax - n) = U(nmax - n, 1)*f(ic:ic1, nmax - n)
+                do id = 2, n + 1
+                    f(ic:ic1, nmax - n) = f(ic:ic1, nmax - n) + U(nmax - n, id)*f(ic:ic1, nmax - n + id - 1)
+                end do
+            end do
+
+            do n = nmax - nd, 1, -1
+                f(ic:ic1, n) = U(n, 1)*f(ic:ic1, n)
+                do id = 2, nd
+                    f(ic:ic1, n) = f(ic:ic1, n) + U(n, id)*f(ic:ic1, n + id - 1)
+                end do
+            end do
+
+        end if
+
+        return
+    end subroutine Thomas_SolveU_Cache
+
     ! #######################################################################
     ! #######################################################################
     ! LU factorization stage; L has diagonal 1
@@ -324,6 +390,47 @@ contains
 
         return
     end subroutine Thomas3_SolveU
+
+    subroutine Thomas3_SolveU_Cache(U, f)
+        real(wp), intent(in) :: U(:, :)
+        real(wp), intent(inout) :: f(:, :)      ! RHS and solution
+
+        ! -------------------------------------------------------------------
+        integer :: n, nmax
+        integer ic, ic1, ic_max
+
+        ! ###################################################################
+        if (size(f, 1) <= 0) return
+
+        nmax = size(U, 1)
+
+        ic_max = (size(f, 1)/CacheBlock)*CacheBlock
+        do ic = 1, ic_max, CacheBlock
+            ic1 = ic + CacheBlock - 1
+
+            n = nmax
+            f(ic:ic1, n) = f(ic:ic1, n)*U(n, 1)
+
+            do n = nmax - 1, 1, -1
+                f(ic:ic1, n) = U(n, 1)*f(ic:ic1, n) + U(n, 2)*f(ic:ic1, n + 1)
+            end do
+
+        end do
+
+        if (ic_max < size(f, 1)) then
+            ic = ic_max + 1
+            ic1 = size(f, 1)
+
+            n = nmax
+            f(ic:ic1, n) = f(ic:ic1, n)*U(n, 1)
+
+            do n = nmax - 1, 1, -1
+                f(ic:ic1, n) = U(n, 1)*f(ic:ic1, n) + U(n, 2)*f(ic:ic1, n + 1)
+            end do
+        end if
+
+        return
+    end subroutine Thomas3_SolveU_Cache
 
     ! #######################################################################
     ! #######################################################################

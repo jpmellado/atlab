@@ -19,7 +19,7 @@ module Thomas_Split
     ! -----------------------------------------------------------------------
     type, extends(thomas_base_dt) :: thomas_split_dt
         real(wp), allocatable :: z(:, :)
-        ! real(wp) :: alpha(2) = [0.0_wp, 0.0_wp]
+        integer :: index
     contains
         procedure :: initialize_split => thomas_initialize_dt
         procedure :: reduce_split => thomas_reduce_dt
@@ -40,12 +40,13 @@ contains
 
         ! corrections for splitting case
         ndl = size(lhs, 2)
+        self%index = index
         self%L(:, :) = lhs(:, 1:ndl/2)
         self%U(:, :) = lhs(:, ndl/2 + 1:ndl)
         allocate (self%z(ndl/2, size(lhs, 1)))
         select case (ndl)
         case (3)
-            call Thomas_3_Split_InPlace(self%L, self%U, self%z, index)
+            call Thomas_3_Split_InPlace(self%L, self%U, self%z, self%index)
             ! case (5)
             !     call ThomasCirculant_5_Initialize(self%L, self%U, self%z)
         end select
@@ -63,7 +64,7 @@ contains
             call Thomas_3_Split_Reduce(self%L, &
                                        self%U, &
                                        self%z(1, :), &
-                                       f, alpha)
+                                       f, alpha, self%index)
             ! case (2)
             !     call ThomasCirculant_5_Reduce(self%L, &
             !                                   self%U, &
@@ -96,8 +97,7 @@ contains
 
         ! -----------------------------------------------------------------------
         integer nmax, p, p_plus_1
-        real(wp) alpha(2), delta
-        real(wp) c_p, a_p_plus_1
+        real(wp) c_p, a_p_plus_1, delta
 
         ! #######################################################################
         nmax = size(L, 1)
@@ -110,8 +110,6 @@ contains
 #define c(i) U(i,2)
 
         ! Start definition of alpha; in circulant cases, this is a1 and cn
-        ! alpha(1) = a(p_plus_1)
-        ! alpha(2) = c(p)
         c_p = c(p)
         a_p_plus_1 = a(p_plus_1)
 
@@ -141,9 +139,6 @@ contains
 
         z(1, :) = -z(1, :)/delta
 
-        ! a(p_plus_1) = -alpha(1)/delta
-        ! c(p) = -alpha(2)/delta
-
         ! -------------------------------------------------------------------
         ! Calculate decay index
         ! call decay_index(z(1, p_plus_1:))!, n_smw_decay)
@@ -157,34 +152,33 @@ contains
 
     !########################################################################
     !########################################################################
-    subroutine Thomas_3_Split_Reduce(L, U, z, f, wrk)
+    subroutine Thomas_3_Split_Reduce(L, U, z, f, alpha, index)
         real(wp), intent(in) :: L(:, :), U(:, :), z(:)
         real(wp), intent(inout) :: f(:, :)          ! forcing and solution
-        real(wp), intent(inout) :: wrk(size(f, 1))
+        real(wp), intent(inout) :: alpha(size(f, 1))
+        integer, intent(in) :: index
 
         ! -------------------------------------------------------------------
-        integer(wi) nmax, n
+        integer(wi) nmax, n, p, p_plus_1
 
         ! ###################################################################
         if (size(f, 1) <= 0) return
 
-#define cn U(nmax, 2)
-#define a1 L(1, 1)
         nmax = size(f, 2)
-        ! wrk(:) = cn*f(:, 1) + a1*f(:, nmax)
-        wrk(:) = f(:, 1) + f(:, nmax)
-        do n = 1, nmax
-            f(:, n) = f(:, n) + wrk(:)*z(n)
-        end do
 
-#undef cn
-#undef a1
+        p = mod(index - 1, nmax) + 1                ! in circulant cases, this n
+        p_plus_1 = mod(p + 1 - 1, nmax) + 1         ! in circulant cases, this 1
+
+        alpha(:) = f(:, p) + f(:, p_plus_1)
+        do n = 1, nmax
+            f(:, n) = f(:, n) + alpha(:)*z(n)
+        end do
 
         ! This would save time in the serial case, but we are interested in the parallel case
         ! n_smw_decay = 64
         ! do n = 1, min(nmax/2, n_smw_decay)
-        !     f(:, n) = f(:, n) + wrk(:)*z(n)
-        !     f(:, nmax - n + 1) = f(:, nmax - n + 1) + wrk(:)*z(nmax - n + 1)
+        !     f(:, n) = f(:, n) + alpha(:)*z(n)
+        !     f(:, nmax - n + 1) = f(:, nmax - n + 1) + alpha(:)*z(nmax - n + 1)
         ! end do
 
         return

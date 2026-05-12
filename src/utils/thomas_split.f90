@@ -19,7 +19,7 @@ module Thomas_Split
     ! -----------------------------------------------------------------------
     type, extends(thomas_base_dt) :: thomas_split_dt
         real(wp), allocatable :: z(:, :)
-        real(wp) :: alpha(2) = [0.0_wp, 0.0_wp]
+        ! real(wp) :: alpha(2) = [0.0_wp, 0.0_wp]
     contains
         procedure :: initialize_split => thomas_initialize_dt
         procedure :: reduce_split => thomas_reduce_dt
@@ -97,6 +97,7 @@ contains
         ! -----------------------------------------------------------------------
         integer nmax, p, p_plus_1
         real(wp) alpha(2), delta
+        real(wp) c_p, a_p_plus_1
 
         ! #######################################################################
         nmax = size(L, 1)
@@ -109,35 +110,39 @@ contains
 #define c(i) U(i,2)
 
         ! Start definition of alpha; in circulant cases, this is a1 and cn
-        alpha(1) = a(p_plus_1)
-        alpha(2) = c(p)
+        ! alpha(1) = a(p_plus_1)
+        ! alpha(2) = c(p)
+        c_p = c(p)
+        a_p_plus_1 = a(p_plus_1)
 
         ! Generate matrix A1
-        b(p) = b(p) - a(p_plus_1)
-        a(p_plus_1) = 0.0_wp
-        b(p_plus_1) = b(p_plus_1) - c(p)
+        b(p) = b(p) - c(p)
+        b(p_plus_1) = b(p_plus_1) - a(p_plus_1)
         c(p) = 0.0_wp
+        a(p_plus_1) = 0.0_wp
 
         ! call Thomas3_FactorLU_InPlace(L, U)
         call Thomas_FactorLU_InPlace(L, U)
 
         ! Generate vector z1
         z(1, :) = 0.0_wp
-        z(1, p) = 1.0_wp
-        z(1, p_plus_1) = 1.0_wp
+        z(1, p) = c_p
+        z(1, p_plus_1) = a_p_plus_1
 
         call Thomas3_SolveL(L, z)
         call Thomas3_SolveU(U, z)
 
         ! Calculate normalized alpha coefficients
-        delta = 1.0_wp + alpha(1)*z(1, p) + alpha(2)*z(1, p_plus_1)
+        delta = 1.0_wp + z(1, p) + z(1, p_plus_1)
         if (abs(delta) < small_wp) then
             call TLab_Write_ASCII(efile, __FILE__//'. Singular matrix M.')
             call TLab_Stop(DNS_ERROR_THOMAS)
         end if
 
-        a(p_plus_1) = -alpha(1)/delta
-        c(p) = -alpha(2)/delta
+        z(1, :) = -z(1, :)/delta
+
+        ! a(p_plus_1) = -alpha(1)/delta
+        ! c(p) = -alpha(2)/delta
 
         ! -------------------------------------------------------------------
         ! Calculate decay index
@@ -166,7 +171,8 @@ contains
 #define cn U(nmax, 2)
 #define a1 L(1, 1)
         nmax = size(f, 2)
-        wrk(:) = cn*f(:, 1) + a1*f(:, nmax)
+        ! wrk(:) = cn*f(:, 1) + a1*f(:, nmax)
+        wrk(:) = f(:, 1) + f(:, nmax)
         do n = 1, nmax
             f(:, n) = f(:, n) + wrk(:)*z(n)
         end do

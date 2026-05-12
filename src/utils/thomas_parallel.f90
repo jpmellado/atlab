@@ -130,15 +130,17 @@ contains
 
             self%y(:, m) = z_loc(self%nmin:self%nmax)
 
-            alpha_0(1) = lu_loc(1, 1)            ! a1
-            alpha_0(2) = lu_loc(points(m), 3)    ! cn
-            if (self%block_id == m) then
-                self%alpha(1:2) = alpha_0(1:2)
-            end if
+            ! alpha_0(1) = lu_loc(1, 1)            ! a1
+            ! alpha_0(2) = lu_loc(points(m), 3)    ! cn
+            ! if (self%block_id == m) then
+            !     self%alpha(1:2) = alpha_0(1:2)
+            ! end if
 
             ! store block matrix A
-            lhs_loc(1, 2) = lhs_loc(1, 2) - lhs_loc(nsize, 3)
-            lhs_loc(nsize, 2) = lhs_loc(nsize, 2) - lhs_loc(1, 1)
+            ! lhs_loc(1, 2) = lhs_loc(1, 2) - lhs_loc(nsize, 3)
+            ! lhs_loc(nsize, 2) = lhs_loc(nsize, 2) - lhs_loc(1, 1)
+            lhs_loc(1, 2) = lhs_loc(1, 2) - lhs_loc(1, 1)
+            lhs_loc(nsize, 2) = lhs_loc(nsize, 2) - lhs_loc(nsize, 3)
 
             ! Calculate decay index
             call decay_index(z_loc)
@@ -160,28 +162,33 @@ contains
             self%y(:, m) = z_loc(self%nmin:self%nmax)
 
             if (self%circulant) then
-                gamma_loc = alpha_0(1)*z_loc(nsize) + alpha_0(2)*z_loc(1)
+                ! gamma_loc = alpha_0(1)*z_loc(nsize) + alpha_0(2)*z_loc(1)
+                gamma_loc = z_loc(nsize) + z_loc(1)
                 self%y(:, m) = self%y(:, m) + gamma_loc*self%y(:, nblocks)
             end if
 
             if (m > 1) then
                 p = points(m - 1)
                 p_plus_1 = p + 1
-                beta_loc = alpha_previous(1)*z_loc(p) + &
-                           alpha_previous(2)*z_loc(p_plus_1)
+                ! beta_loc = alpha_previous(1)*z_loc(p) + &
+                !            alpha_previous(2)*z_loc(p_plus_1)
+                beta_loc = z_loc(p) + &
+                           z_loc(p_plus_1)
                 self%y(:, m) = self%y(:, m) + &
                                beta_loc*self%y(:, m - 1)
             end if
 
-            alpha_previous(1) = lu_loc(points(m) + 1, 1)    ! a_p_plus_1
-            alpha_previous(2) = lu_loc(points(m), 3)        ! c_p
-            if (self%block_id == m) then
-                self%alpha(:) = alpha_previous(:)
-            end if
+            ! alpha_previous(1) = lu_loc(points(m) + 1, 1)    ! a_p_plus_1
+            ! alpha_previous(2) = lu_loc(points(m), 3)        ! c_p
+            ! if (self%block_id == m) then
+            !     self%alpha(:) = alpha_previous(:)
+            ! end if
 
             ! store block matrix A
-            lhs_loc(points(m), 2) = lhs_loc(points(m), 2) - lhs_loc(points(m) + 1, 1)
-            lhs_loc(points(m) + 1, 2) = lhs_loc(points(m) + 1, 2) - lhs_loc(points(m), 3)
+            ! lhs_loc(points(m), 2) = lhs_loc(points(m), 2) - lhs_loc(points(m) + 1, 1)
+            ! lhs_loc(points(m) + 1, 2) = lhs_loc(points(m) + 1, 2) - lhs_loc(points(m), 3)
+            lhs_loc(points(m), 2) = lhs_loc(points(m), 2) - lhs_loc(points(m), 3)
+            lhs_loc(points(m) + 1, 2) = lhs_loc(points(m) + 1, 2) - lhs_loc(points(m) + 1, 1)
 
             p_loc = points(m) + 1
 
@@ -191,8 +198,8 @@ contains
         ! block matrix Am and LU decomposition
         self%L(:, :) = lu_loc(self%nmin:self%nmax, 1:1)
         self%U(:, :) = lu_loc(self%nmin:self%nmax, 2:3)
-        self%L(1, 1) = self%alpha(1)                        ! a_p_plus_1
-        self%U(size(self%U, 1), 2) = self%alpha(2)          ! c_p
+        ! self%L(1, 1) = self%alpha(1)                        ! a_p_plus_1
+        ! self%U(size(self%U, 1), 2) = self%alpha(2)          ! c_p
 
         return
     end subroutine ThomasSplit_3_Initialize
@@ -247,8 +254,9 @@ contains
         call MPI_Sendrecv(f(:, 1), nlines, MPI_REAL8, dest, tag, &
                           xp(:), nlines, MPI_REAL8, source, tag, &
                           self%mpi%comm, MPI_STATUS_IGNORE, ims_err)
-        alpha(:) = self%alpha(1)*f(:, nsize) + self%alpha(2)*xp(:)
-
+        ! alpha(:) = self%alpha(1)*f(:, nsize) + self%alpha(2)*xp(:)
+        alpha(:) = f(:, nsize) + xp(:)
+! 
 #undef xp
 
         ! -------------------------------------------------------------------
@@ -323,7 +331,8 @@ contains
         allocate (alpha(nlines, nblocks))       ! the idea is that each block needs only one alpha
         do k = nblocks, 1, -1                   ! loop over blocks
             nsize = size(f(k)%p, 2)
-            alpha(:, k) = self(k)%alpha(1)*f(k)%p(:, nsize) + self(k)%alpha(2)*xp(:, k)
+            ! alpha(:, k) = self(k)%alpha(1)*f(k)%p(:, nsize) + self(k)%alpha(2)*xp(:, k)
+            alpha(:, k) = f(k)%p(:, nsize) + xp(:, k)
         end do
 
         ! send alpha to all blocks

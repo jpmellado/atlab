@@ -1,6 +1,6 @@
 #include "tlab_error.h"
 
-! Splitting algorithm of linear solver
+! Parallel diagonal dominant algorithm based on splitting recurrence
 
 module Thomas_Parallel
     use TLab_Constants, only: wp, wi, small_wp, roundoff_wp
@@ -66,7 +66,7 @@ contains
         self%block_id = block_id
         self%circulant = circulant
         self%nmin = nmin
-        self%nmax = points(block_id)
+        self%nmax = nmax
 
         if (allocated(self%y)) deallocate (self%y)
         allocate (self%y(1:nsize, nblocks), source=0.0_wp)
@@ -117,34 +117,13 @@ contains
         if (allocated(z_loc)) deallocate (z_loc)
         allocate (z_loc(nsize))
 
+        p_loc = 1                                           ! index of starting subarray
+
         if (self%circulant) then
-            m = nblocks                                 ! last block has the circulant coefficient
+            m = nblocks                                     ! last block has the circulant coefficient
 
-            lu_loc(:, 1:1) = lhs_loc(:, 1:1)            ! recover original system for current block
-            lu_loc(:, 2:3) = lhs_loc(:, 2:3)
-            call Thomas_3_Split_InPlace(L=lu_loc(:, 1:1), &
-                                        U=lu_loc(:, 2:3), &
-                                        z=z_loc, &
-                                        index=points(m))
-
-            self%y(:, m) = z_loc(self%nmin:self%nmax)
-
-            ! store block matrix A
-            lhs_loc(1, 2) = lhs_loc(1, 2) - lhs_loc(1, 1)               ! b_1 - a_1
-            lhs_loc(nsize, 2) = lhs_loc(nsize, 2) - lhs_loc(nsize, 3)   ! b_n - c_n
-
-            ! Calculate decay index
-            call decay_index(z_loc)
-            write (str, fmt_r) abs(z_loc(self%nmax - self%nmin + 1)/z_loc(1))
-            call TLab_Write_ASCII(wfile, 'Truncation error in splitting algorithm equal to '//trim(adjustl(str))//'.')
-
-        end if
-
-        p_loc = 1
-        do m = 1, nblocks - 1                               ! loop over remaining coefficients
             lu_loc(p_loc:, 1:1) = lhs_loc(p_loc:, 1:1)      ! recover original system for current block
             lu_loc(p_loc:, 2:3) = lhs_loc(p_loc:, 2:3)
-            if (m > 1) z_loc(:p_loc - 1) = 0.0_wp
             call Thomas_3_Split_InPlace(L=lu_loc(p_loc:, 1:1), &
                                         U=lu_loc(p_loc:, 2:3), &
                                         z=z_loc(p_loc:), &
@@ -152,24 +131,46 @@ contains
 
             self%y(:, m) = z_loc(self%nmin:self%nmax)
 
+            ! store block matrix A for next splitting
+            p = mod(points(m) - 1, nsize) + 1                       ! in circulant cases, this n
+            p_plus_1 = mod(p + 1 - 1, nsize) + 1                    ! in circulant cases, this 1
+            lhs_loc(p, 2) = lhs_loc(p, 2) - lhs_loc(p, 3)                           ! b_n - c_n
+            lhs_loc(p_plus_1, 2) = lhs_loc(p_plus_1, 2) - lhs_loc(p_plus_1, 1)      ! b_1 - a_1
+
+            ! Calculate decay index
+            call decay_index(z_loc)
+
+        end if
+
+        do m = 1, nblocks - 1                               ! loop over remaining coefficients
+
+            lu_loc(p_loc:, 1:1) = lhs_loc(p_loc:, 1:1)      ! recover original system for current block
+            lu_loc(p_loc:, 2:3) = lhs_loc(p_loc:, 2:3)
+            call Thomas_3_Split_InPlace(L=lu_loc(p_loc:, 1:1), &
+                                        U=lu_loc(p_loc:, 2:3), &
+                                        z=z_loc(p_loc:), &
+                                        index=points(m) - p_loc + 1)
+
+            self%y(:, m) = z_loc(self%nmin:self%nmax)
+
+            if (m > 1) then
+                beta_loc = z_loc(p_loc)
+                self%y(:, m) = self%y(:, m) + beta_loc*self%y(:, m - 1)
+            end if
+
             if (self%circulant) then
-                gamma_loc = z_loc(nsize) + z_loc(1)
+                gamma_loc = z_loc(nsize)
+                if (m == 1) gamma_loc = gamma_loc + z_loc(1)
                 self%y(:, m) = self%y(:, m) + gamma_loc*self%y(:, nblocks)
             end if
 
-            if (m > 1) then
-                p = points(m - 1)
-                p_plus_1 = p + 1
-                beta_loc = z_loc(p) + z_loc(p_plus_1)
-                self%y(:, m) = self%y(:, m) + &
-                               beta_loc*self%y(:, m - 1)
-            end if
+            ! store block matrix A for next splitting
+            p = mod(points(m) - 1, nsize) + 1                       ! in circulant cases, this n
+            p_plus_1 = mod(p + 1 - 1, nsize) + 1                    ! in circulant cases, this 1
+            lhs_loc(p, 2) = lhs_loc(p, 2) - lhs_loc(p, 3)                           ! b_n - c_n
+            lhs_loc(p_plus_1, 2) = lhs_loc(p_plus_1, 2) - lhs_loc(p_plus_1, 1)      ! b_1 - a_1
 
-            ! store block matrix A
-            lhs_loc(points(m), 2) = lhs_loc(points(m), 2) - lhs_loc(points(m), 3)               ! b_n - c_n
-            lhs_loc(points(m) + 1, 2) = lhs_loc(points(m) + 1, 2) - lhs_loc(points(m) + 1, 1)   ! b_1 - a_1
-
-            p_loc = points(m) + 1
+            p_loc = p_plus_1
 
         end do
 
@@ -177,6 +178,13 @@ contains
         ! block matrix Am and LU decomposition
         self%L(:, :) = lu_loc(self%nmin:self%nmax, 1:1)
         self%U(:, :) = lu_loc(self%nmin:self%nmax, 2:3)
+
+        ! Calculate truncation error
+        if (nblocks > 1) then
+            m = self%block_id
+            write (str, fmt_r) abs(self%y(1, m)/self%y(self%nmax - self%nmin + 1, m))
+            call TLab_Write_ASCII(wfile, 'Truncation error in splitting algorithm equal to '//trim(adjustl(str))//'.')
+        end if
 
         return
     end subroutine ThomasSplit_3_Initialize

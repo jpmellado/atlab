@@ -41,6 +41,15 @@ program vThomas3_Parallel
     mpiGrid%comm = MPI_COMM_WORLD
     call MPI_COMM_SIZE(mpiGrid%comm, mpiGrid%num_processors, ims_err)
     call MPI_COMM_RANK(mpiGrid%comm, mpiGrid%rank, ims_err)
+
+    if (mod(nsize, mpiGrid%num_processors) /= 0) then
+        if (mpiGrid%rank == 0) then
+            print *, new_line('a'), 'System size needs to be multiple of number of ranks.'
+        end if
+        call MPI_FINALIZE(ims_err)
+        stop
+    end if
+
 #endif
 
 #ifdef USE_MPI

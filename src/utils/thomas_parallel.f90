@@ -153,14 +153,15 @@ contains
 
             self%y(:, m) = z_loc(self%nmin:self%nmax)
 
-            if (m > 1) then
-                beta_loc = z_loc(p_loc)
+            beta_loc = z_loc(p_loc)
+            if (m == 1 .and. self%circulant) then
+                self%y(:, m) = self%y(:, m) + beta_loc*self%y(:, nblocks)
+            else
                 self%y(:, m) = self%y(:, m) + beta_loc*self%y(:, m - 1)
             end if
 
             if (self%circulant) then
                 gamma_loc = z_loc(nsize)
-                if (m == 1) gamma_loc = gamma_loc + z_loc(1)
                 self%y(:, m) = self%y(:, m) + gamma_loc*self%y(:, nblocks)
             end if
 

@@ -63,7 +63,7 @@ program vMpi_Thomas3_Scaling
 
     np = mpiGrid%num_processors     ! for clarity below
     call split_mpi%initialize(lhs, &
-                              [(k, k=nx/np, nx, nx/np)], &
+                              [(k, k=nx/np, nx - nx/np, nx/np)], &
                               block_id=mpiGrid%rank + 1, &
                               circulant=.true.)
     split_mpi%mpi = mpiGrid%mpi_axis_dt

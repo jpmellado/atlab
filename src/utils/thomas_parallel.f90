@@ -48,17 +48,25 @@ contains
         logical, intent(in) :: circulant
 
         ! -------------------------------------------------------------------
-        integer nblocks, nsize, nmin, nmax
+        integer nblocks, npoints
+        integer nsize, nmin, nmax, j
+        character(len=32) str
 
         !########################################################################
-        ! Number of coefficients are nblocks-1 for the tridiagonal case
-        ! and we add one for the circulant case, which is managed by last block
-        nblocks = size(points)
+        npoints = size(points)
+        nblocks = npoints + 1
         nsize = size(lhs, 1)
 
-        nmin = points(mod(block_id - 2 + nblocks, nblocks) + 1)
-        nmin = mod(nmin, nsize) + 1
-        nmax = points(block_id)
+        ! define block in global grid
+        !
+        !           point=1     point=2                 point=m
+        !  +-----------+-----------+-----------+-----------+-----------+
+        !     block=1     block=2                            block=m+1
+        !
+        nmin = 1
+        nmax = nsize
+        if (block_id > 1) nmin = points(block_id - 1) + 1
+        if (block_id < nblocks) nmax = points(block_id)
         nsize = nmax - nmin + 1
 
         call self%initialize_base(lhs(1:nsize, :))
@@ -69,11 +77,22 @@ contains
         self%nmax = nmax
 
         if (allocated(self%y)) deallocate (self%y)
-        allocate (self%y(1:nsize, nblocks), source=0.0_wp)
+        if (self%circulant) then
+            allocate (self%y(1:nsize, 0:npoints), source=0.0_wp)
+        else
+            allocate (self%y(1:nsize, 1:npoints), source=0.0_wp)
+        end if
 
         select case (size(lhs, 2))
         case (3)
             call ThomasSplit_3_Initialize(self, lhs, points)
+
+            ! Calculate truncation error; using 1. block as reference
+            if (self%block_id == 1) then
+                j = self%block_id
+                write (str, fmt_r) abs(self%y(1, j)/self%y(self%nmax - self%nmin + 1, j))
+                call TLab_Write_ASCII(wfile, 'Truncation error in splitting algorithm equal to '//trim(adjustl(str))//'.')
+            end if
 
         case default
             call TLab_Write_ASCII(efile, __FILE__//'Only tridiagonal case implemented in splitting algorithm.')
@@ -92,18 +111,19 @@ contains
         integer(wi), intent(in) :: points(:)   ! sequence of splitting points in ascending order
 
         ! -------------------------------------------------------------------
-        integer nblocks, m
+        integer j_min, j, npoints, nblocks
         integer(wi) nsize
         integer(wi) p, p_plus_1, p_loc
 
         real(wp), allocatable :: z_loc(:)
         real(wp), allocatable :: lhs_loc(:, :)
         real(wp), allocatable :: lu_loc(:, :)
+        integer, allocatable :: points_extended(:)
         real(wp) beta_loc, gamma_loc
-        character(len=32) str
 
         !########################################################################
-        nblocks = size(points)
+        npoints = size(points)
+        nblocks = npoints + 1
 
         ! temporary arrays to calculate z_j
         nsize = size(lhs, 1)
@@ -117,61 +137,46 @@ contains
         if (allocated(z_loc)) deallocate (z_loc)
         allocate (z_loc(nsize))
 
-        p_loc = 1                                           ! index of starting subarray
+        ! -------------------------------------------------------------------
+        j_min = 1
+        if (self%circulant) j_min = 0   ! handling of circulant case
 
-        if (self%circulant) then
-            m = nblocks                                     ! last block has the circulant coefficient
-
-            lu_loc(p_loc:, 1:1) = lhs_loc(p_loc:, 1:1)      ! recover original system for current block
-            lu_loc(p_loc:, 2:3) = lhs_loc(p_loc:, 2:3)
-            call Thomas_3_Split_InPlace(L=lu_loc(p_loc:, 1:1), &
-                                        U=lu_loc(p_loc:, 2:3), &
-                                        z=z_loc(p_loc:), &
-                                        index=points(m) - p_loc + 1)
-
-            self%y(:, m) = z_loc(self%nmin:self%nmax)
-
-            ! store block matrix A for next splitting
-            p = mod(points(m) - 1, nsize) + 1                       ! in circulant cases, this n
-            p_plus_1 = mod(p + 1 - 1, nsize) + 1                    ! in circulant cases, this 1
-            lhs_loc(p, 2) = lhs_loc(p, 2) - lhs_loc(p, 3)                           ! b_n - c_n
-            lhs_loc(p_plus_1, 2) = lhs_loc(p_plus_1, 2) - lhs_loc(p_plus_1, 1)      ! b_1 - a_1
-
-            ! Calculate decay index
-            call decay_index(z_loc)
-
-        end if
-
-        do m = 1, nblocks - 1                               ! loop over remaining coefficients
-
-            lu_loc(p_loc:, 1:1) = lhs_loc(p_loc:, 1:1)      ! recover original system for current block
-            lu_loc(p_loc:, 2:3) = lhs_loc(p_loc:, 2:3)
-            call Thomas_3_Split_InPlace(L=lu_loc(p_loc:, 1:1), &
-                                        U=lu_loc(p_loc:, 2:3), &
-                                        z=z_loc(p_loc:), &
-                                        index=points(m) - p_loc + 1)
-
-            self%y(:, m) = z_loc(self%nmin:self%nmax)
-
-            beta_loc = z_loc(p_loc)
-            if (m == 1 .and. self%circulant) then
-                self%y(:, m) = self%y(:, m) + beta_loc*self%y(:, nblocks)
+        p_loc = 1                       ! index of starting subarray
+        do j = j_min, npoints
+            if (j == 0) then            ! handling of circulant case
+                p = nsize
             else
-                self%y(:, m) = self%y(:, m) + beta_loc*self%y(:, m - 1)
+                p = points(j)
             end if
+            p_plus_1 = mod(p, nsize) + 1
 
-            if (self%circulant) then
-                gamma_loc = z_loc(nsize)
-                self%y(:, m) = self%y(:, m) + gamma_loc*self%y(:, nblocks)
-            end if
+            lu_loc(p_loc:, 1:1) = lhs_loc(p_loc:, 1:1)      ! recover original system for current block
+            lu_loc(p_loc:, 2:3) = lhs_loc(p_loc:, 2:3)
+            call Thomas_3_Split_InPlace(L=lu_loc(p_loc:, 1:1), &
+                                        U=lu_loc(p_loc:, 2:3), &
+                                        z=z_loc(p_loc:), &
+                                        index=p - p_loc + 1)
+
+            self%y(:, j) = z_loc(self%nmin:self%nmax)
 
             ! store block matrix A for next splitting
-            p = mod(points(m) - 1, nsize) + 1                       ! in circulant cases, this n
-            p_plus_1 = mod(p + 1 - 1, nsize) + 1                    ! in circulant cases, this 1
             lhs_loc(p, 2) = lhs_loc(p, 2) - lhs_loc(p, 3)                           ! b_n - c_n
             lhs_loc(p_plus_1, 2) = lhs_loc(p_plus_1, 2) - lhs_loc(p_plus_1, 1)      ! b_1 - a_1
+
+            if (j > j_min) then
+                beta_loc = z_loc(p_loc)
+                self%y(:, j) = self%y(:, j) + beta_loc*self%y(:, j - 1)
+
+                if (self%circulant) then
+                    gamma_loc = z_loc(nsize)
+                    self%y(:, j) = self%y(:, j) + gamma_loc*self%y(:, 0)
+                end if
+
+            end if
 
             p_loc = p_plus_1
+
+            if (j == 0) call decay_index(z_loc)
 
         end do
 
@@ -179,13 +184,6 @@ contains
         ! block matrix Am and LU decomposition
         self%L(:, :) = lu_loc(self%nmin:self%nmax, 1:1)
         self%U(:, :) = lu_loc(self%nmin:self%nmax, 2:3)
-
-        ! Calculate truncation error
-        if (nblocks > 1) then
-            m = self%block_id
-            write (str, fmt_r) abs(self%y(1, m)/self%y(self%nmax - self%nmin + 1, m))
-            call TLab_Write_ASCII(wfile, 'Truncation error in splitting algorithm equal to '//trim(adjustl(str))//'.')
-        end if
 
         return
     end subroutine ThomasSplit_3_Initialize
@@ -201,7 +199,7 @@ contains
         class(thomas_parallel_dt), intent(in) :: self
         real(wp), intent(inout) :: f(:, :)
         real(wp), intent(inout) :: alpha(:)         ! auxiliary memory space for local alpha
-        real(wp), intent(inout) :: tmp(:)           ! auxiliary memory space
+        real(wp), intent(inout) :: tmp(:)           ! auxiliary memory space for all alphas
         integer(wi) n, nsize, nlines
         integer(wi) nblocks
 
@@ -226,7 +224,7 @@ contains
         if (self%mpi%num_processors == 1 .and. self%circulant) then
             call Thomas_3_Split_Reduce(self%L, &
                                        self%U, &
-                                       self%y(:, 1), &
+                                       self%y(:, 0), &
                                        f, alpha, size(self%L, 1))
             return
         end if
@@ -261,8 +259,8 @@ contains
 
         ! Update solution
         do n = 1, nsize
-            f(:, n) = f(:, n) + alpha(:)*self%y(n, self%block_id) &
-                      + tmp(:)*self%y(n, source + 1)
+            f(:, n) = f(:, n) + alpha(:)*self%y(n, dest) &
+                      + tmp(:)*self%y(n, self%block_id - 1)
         end do
 
         ! -------------------------------------------------------------------
@@ -273,8 +271,9 @@ contains
 
         ! ! Update solution
         ! do m = 1, nblocks
+        !     mm = mod(m, nblocks)
         !     do n = 1, nsize
-        !         f(:, n) = f(:, n) + tmp(:, m)*self%y(n, m)
+        !         f(:, n) = f(:, n) + tmp(:, m)*self%y(n, mm)
         !     end do
         ! end do
 
@@ -300,8 +299,8 @@ contains
         ! if (nblocks == 1) then
         !     call Thomas_3_Split_Reduce(self(1)%L, &
         !                                self(1)%U, &
-        !                                self(1)%y(:, 1), &
-        !                                f(1)%p(:, :), alpha)
+        !                                self(1)%y(:, 0), &
+        !                                f(1)%p(:, :), alpha, size(self(1)%L, 1))
         !     return
         ! end if
 
@@ -316,39 +315,44 @@ contains
         allocate (alpha(nlines, nblocks))       ! the idea is that each block needs only one alpha
         do k = nblocks, 1, -1                   ! loop over blocks
             nsize = size(f(k)%p, 2)
-            ! alpha(:, k) = self(k)%alpha(1)*f(k)%p(:, nsize) + self(k)%alpha(2)*xp(:, k)
             alpha(:, k) = f(k)%p(:, nsize) + xp(:, k)
         end do
 
         ! send alpha to all blocks
 
-        ! calculate solution
+        ! calculate truncated solution
         do k = nblocks, 1, -1                   ! loop over blocks
             nsize = size(f(k)%p, 2)
-            if (self(k)%circulant) then
-                mmax = nblocks
-            else
-                mmax = nblocks - 1
-            end if
 
             ! Truncated
-            m = k
+            ! m = k
+            m = mod(k, nblocks)
             do n = 1, nsize
-                f(k)%p(:, n) = f(k)%p(:, n) + alpha(:, m)*self(k)%y(n, m)
+                f(k)%p(:, n) = f(k)%p(:, n) + alpha(:, k)*self(k)%y(n, m)
             end do
             m = mod(k - 2 + nblocks, nblocks) + 1
             do n = 1, nsize
-                f(k)%p(:, n) = f(k)%p(:, n) + alpha(:, m)*self(k)%y(n, m)
+                f(k)%p(:, n) = f(k)%p(:, n) + alpha(:, m)*self(k)%y(n, k - 1)
             end do
 
-            ! Full
-            ! do m = 1, mmax
-            !     do n = 1, nsize
-            !         f(k)%p(:, n) = f(k)%p(:, n) + alpha(:, m)*self(k)%y(n, m)
-            !     end do
-            ! end do
-
         end do
+
+        ! calculate full solution
+        ! do k = nblocks, 1, -1                   ! loop over blocks
+        !     nsize = size(f(k)%p, 2)
+
+        !     if (self(k)%circulant) then
+        !         mmax = nblocks
+        !     else
+        !         mmax = nblocks - 1
+        !     end if
+        !     do m = 1, mmax
+        !         do n = 1, nsize
+        !             f(k)%p(:, n) = f(k)%p(:, n) + alpha(:, m)*self(k)%y(n, m)
+        !         end do
+        !     end do
+
+        ! end do
 
         deallocate (xp, alpha)
 

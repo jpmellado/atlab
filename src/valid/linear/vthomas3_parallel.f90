@@ -127,7 +127,7 @@ program vThomas3_Parallel
         allocate (data(np))
         do k = 1, np
             call thomas_parallel1(k)%initialize(lhs(:, 1:3), &
-                                                [(kk, kk=nsize/np, nsize, nsize/np)], &
+                                                [(kk, kk=nsize/np, nsize - nsize/np, nsize/np)], &
                                                 block_id=k, &
                                                 circulant=circulant)
 
@@ -154,7 +154,7 @@ program vThomas3_Parallel
     end if
 
     call split_mpi%initialize(lhs, &
-                              [(kk, kk=nsize/np, nsize, nsize/np)], &
+                              [(kk, kk=nsize/np, nsize - nsize/np, nsize/np)], &
                               block_id=mpiGrid%rank + 1, &
                               circulant=circulant)
     split_mpi%mpi = mpiGrid%mpi_axis_dt

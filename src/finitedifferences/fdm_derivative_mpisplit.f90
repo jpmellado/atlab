@@ -67,7 +67,7 @@ contains
 
         np = mpiAxis%num_processors     ! for clarity below
         call self%thomas3%initialize(ref%lhs, &
-                                     [(k, k=nx/np, nx, nx/np)], &
+                                     [(k, k=nx/np, nx - nx/np, nx/np)], &
                                      block_id=mpiAxis%rank + 1, &
                                      circulant=.true.)
         self%thomas3%mpi = mpiAxis

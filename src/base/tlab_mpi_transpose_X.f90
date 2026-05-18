@@ -175,7 +175,7 @@ contains
         ! to use single transposition when running in double precision
         ! call TLab_Allocate_Real(__FILE__, wrk_mpi, [isize_wrk3d], 'wrk-mpi')
         ! isize_wrk3d is not yet defined; see if you need to move this somewhere else
-        if (any([trp_datatype_j, trp_datatype_j] == MPI_REAL4)) then
+        if (trp_datatype_i == MPI_REAL4 .or. trp_datatype_j == MPI_REAL4) then
             call TLab_Allocate_Real(__FILE__, wrk_mpi, [imax*jmax*kmax], 'wrk-mpi')
         end if
 

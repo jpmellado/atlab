@@ -22,7 +22,7 @@ module TimeMarching
     public :: TMarch_Advance_Step
     public :: TMarch_Compute_Step
 
-    public :: hq        ! needed in statistics; to be removed from public
+    public :: hq        ! needed in statistics and planes; to be removed from public
 
     ! -----------------------------------------------------------------------
     class(rungekutta_lowstorage_dt), allocatable, protected :: TMarchScheme

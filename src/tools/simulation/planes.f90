@@ -5,7 +5,7 @@ module Planes
     use TLab_Constants, only: efile, lfile
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
     use TLab_Memory, only: imax, jmax, kmax
-    use TLab_Memory, only: inb_flow_array, inb_scal_array
+    use TLab_Memory, only: inb_flow_array, inb_scal_array, inb_txc
     use TLab_Arrays, only: txc
     use TLab_Pointers_3D, only: pointers3d_dt
     use IO_Fields, only: io_subarray_dt, IO_Open_File
@@ -73,7 +73,7 @@ contains
 
         if (self%type == TYPE_NONE) return
 
-        self%data(1:jmax, 1:kmax, 1:self%size) => txc(1:jmax*self%size*kmax, 1)
+        self%data(1:jmax, 1:kmax, 1:self%size) => txc(1:jmax*self%size*kmax, 1) ! space to reduce data when saving
         self%io = [size(self%data), 1, size(self%data), 1, 1]
 
         self%io_subarray%offset = sizeofint + sizeofint + sizeofreal + sizeofint*size(self%nodes)
@@ -213,6 +213,13 @@ contains
 
         end if
 
+        if (self%type == TYPE_DERIVATIVES) then
+            if (3 + inb_scal_array > inb_txc) then
+                call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Not enough memory space to save derivative planes.')
+                call TLab_Stop(DNS_ERROR_OPTION)
+            end if
+        end if
+
         ! Limit planes to those inside the local grid of the first planes
         nodes_size_global = nodes_size
         nodes_size = 0
@@ -255,6 +262,7 @@ contains
     subroutine Planes_Save()
         use TLab_Constants, only: small_wp
         use TLab_Arrays, only: q, s, txc
+        use TimeMarching, only: hq
         use NSE_Pressure
         use FI_VORTICITY_EQN
         use FI_VECTORCALCULUS
@@ -280,16 +288,16 @@ contains
             nvars = nvars + 1; vars(nvars)%field(1:imax, 1:jmax, 1:kmax) => s(1:imax*jmax*kmax, iv)
         end do
 
-        call NSE_Pressure_Incompressible(q, s, txc(:, 2), txc(:, 3), txc(:, 6), txc(:, 1))
+        call NSE_Pressure_Incompressible(q, s, txc(:, 2), hq, txc(:, 3), txc(:, 1))
         nvars = nvars + 1; vars(nvars)%field(1:imax, 1:jmax, 1:kmax) => txc(1:imax*jmax*kmax, 2)
 
         if (any([planesX%type, planesY%type, planesZ%type] == TYPE_DERIVATIVES)) then
-            call FI_VORTICITY(imax, jmax, kmax, q(:, 1), q(:, 2), q(:, 3), txc(:, 3), txc(:, 4), txc(:, 5))
+            call FI_VORTICITY(imax, jmax, kmax, q(:, 1), q(:, 2), q(:, 3), txc(:, 3), txc(:, 4), txc(:, 1))
             txc(1:imax*jmax*kmax, 3) = log10(txc(1:imax*jmax*kmax, 3) + small_wp)
             nvars = nvars + 1; vars(nvars)%field(1:imax, 1:jmax, 1:kmax) => txc(1:imax*jmax*kmax, 3)
 
             do iv = 1, inb_scal_array
-                call FI_GRADIENT(imax, jmax, kmax, s(:, iv), txc(:, iv + 3), txc(:, iv + 4))
+                call FI_GRADIENT(imax, jmax, kmax, s(:, iv), txc(:, iv + 3), txc(:, 1))
                 txc(1:imax*jmax*kmax, iv + 3) = log10(txc(1:imax*jmax*kmax, iv + 3) + small_wp)
                 nvars = nvars + 1; vars(nvars)%field(1:imax, 1:jmax, 1:kmax) => txc(1:imax*jmax*kmax, iv + 3)
             end do

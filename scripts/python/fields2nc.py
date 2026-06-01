@@ -8,11 +8,11 @@ import sys
 # etype = ">" # big-endian
 etype = "<" # little-endian
 
-# dtype = "d" # floating-point number
-# sizeofdata = 8 # in bytes
+dtype = "d" # floating-point number
+sizeofdata = 8 # in bytes
 
-dtype = "f" # floating-point number
-sizeofdata = 4 # in bytes
+# dtype = "f" # floating-point number
+# sizeofdata = 4 # in bytes
 
 # dtype = 'B' # unsigned character, for gate files
 # sizeofdata = 1 # in bytes
@@ -46,11 +46,12 @@ print("Grid size is {}x{}x{}.".format(nx,ny,nz))
 
 # getting data from stdin
 if ( len(sys.argv) <= 2 ):
-    print("Usage: python $0 [3d,xy,xz,yz] list-of-files.")
+    print("Usage: python $0 [3d,xy,xz,yz] varname list-of-files.")
     quit()
 
 datatype  = sys.argv[1]
-setoffiles = sorted(sys.argv[2:])
+varname = sys.argv[2]
+setoffiles = sorted(sys.argv[3:])
 
 if   ( datatype == '3d' ):          # full 3d field
     sizeofmask = 0
@@ -97,7 +98,10 @@ for file in setoffiles:
     # reading data
     print("Processing file %s ..." % file)
     fin = open(file, 'rb')
-    fin.seek(-nx*ny*nz*sizeofdata, 2)
+    fin.seek(5*4) # read the time
+    raw = fin.read(8)
+    time = struct.unpack(etype+'{}d'.format(1), raw)
+    fin.seek(-nx*ny*nz*sizeofdata, 2) # read the field
     raw = fin.read()
     a = np.array(struct.unpack((etype+'{}'+dtype).format(int(nx*ny*nz)), raw))
     a = a.reshape((nz,ny,nx))
@@ -107,19 +111,22 @@ for file in setoffiles:
     file_dst = nc.Dataset(file+'.nc', 'w')
 
     # create dimensions for destiny nc-file
+    file_dst.createDimension("t", None)
     file_dst.createDimension('x',len(x))
     file_dst.createDimension('y',len(y))
     file_dst.createDimension('z',len(z))
 
     # create and write independent variables in destiny nc-file using single precision
+    t_dst = file_dst.createVariable("t", "f4", ("t",))
     x_dst = file_dst.createVariable('x', 'f4', ('x',))
     y_dst = file_dst.createVariable('y', 'f4', ('y',))
     z_dst = file_dst.createVariable('z', 'f4', ('z',))
+    t_dst[:] = np.array([time])
     x_dst[:] = x[:]
     y_dst[:] = y[:]
     z_dst[:] = z[:]
 
-    var_dst = file_dst.createVariable(file, 'f4', ('z','y','x',))
-    var_dst[:] = a[:]
+    var_dst = file_dst.createVariable(varname, 'f4', ('t','z','y','x'))
+    var_dst[0,:,:,:] = a[:,:,:]
 
     file_dst.close()

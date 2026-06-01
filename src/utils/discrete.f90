@@ -11,6 +11,7 @@ module Discrete
         integer, dimension(MAX_MODES) :: modex, modey
         real(wp), dimension(MAX_MODES) :: amplitude, phasex, phasey
         real(wp), dimension(MAX_PARS) :: parameters
+        real(wp), dimension(3) :: origin
     end type discrete_dt
 
     public :: Discrete_ReadBlock
@@ -108,6 +109,11 @@ contains
         call ScanFile_Char(bakfile, inifile, 'Discrete', 'Parameters', '-1.0,-1.0', sRes)
         idummy = MAX_PARS
         call LIST_REAL(sRes, idummy, var%parameters)
+
+        var%origin(:) = 0.0_wp
+        call ScanFile_Char(bakfile, inifile, 'Discrete', 'Origin', '0.0,0.0,0.0', sRes)
+        idummy = MAX_PARS
+        call LIST_REAL(sRes, idummy, var%origin)
 
         return
     end subroutine Discrete_ReadBlock

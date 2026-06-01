@@ -31,6 +31,7 @@ module SCAL_LOCAL
     integer, parameter, public :: PERT_DELTA_DISCRETE = 7
     integer, parameter, public :: PERT_FLUX_BROADBAND = 8
     integer, parameter, public :: PERT_FLUX_DISCRETE = 9
+    integer, parameter, public :: PERT_VOLUME_DISCRETE = 10
 
     type(profiles_dt), public :: IniS(MAX_VARS)                 ! Geometry of perturbation of initial boundary condition
 
@@ -82,6 +83,7 @@ contains
         else if (trim(adjustl(sRes)) == 'deltadiscrete') then; flag_s = PERT_DELTA_DISCRETE
         else if (trim(adjustl(sRes)) == 'fluxbroadband') then; flag_s = PERT_FLUX_BROADBAND
         else if (trim(adjustl(sRes)) == 'fluxdiscrete') then; flag_s = PERT_FLUX_DISCRETE
+        else if (trim(adjustl(sRes)) == 'volumediscrete') then; flag_s = PERT_VOLUME_DISCRETE
         else
             call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Scalar forcing type unknown')
             call TLab_Stop(DNS_ERROR_OPTION)
@@ -140,8 +142,10 @@ contains
 
         call Discrete_ReadBlock(bakfile, inifile, block, fp) ! Modulation type in fp%type
 !   specific for this tool
-        call ScanFile_Real(bakfile, inifile, block, 'Broadening', '-1.0', fp%parameters(1))
-        call ScanFile_Real(bakfile, inifile, block, 'ThickStep', '-1.0', fp%parameters(2))
+        if (flag_s /= PERT_VOLUME_DISCRETE) then
+            call ScanFile_Real(bakfile, inifile, block, 'Broadening', '-1.0', fp%parameters(1))
+            call ScanFile_Real(bakfile, inifile, block, 'ThickStep', '-1.0', fp%parameters(2))
+        end if
 
         ! ###################################################################
         ! Initialization of array sizes
@@ -197,13 +201,14 @@ contains
         real(wp), intent(inout) :: tmp(imax, jmax, kmax)
 
         ! -------------------------------------------------------------------
-        real(wp) dummy, params(0)
+        real(wp) dummy, params(0), r2
 
         ! ###################################################################
         idsp = xSubgrid%offset
         jdsp = ySubgrid%offset
 #define xn(i) x%nodes(i)
 #define yn(j) y%nodes(j)
+#define zn(j) z%nodes(k)
 
         call SCAL_SHAPE(is, wrk1d(1:kmax, 1))
 
@@ -234,6 +239,20 @@ contains
                 p_wrk3d(:, :, k) = p_wrk2d(:, :, 1)*wrk1d(k, 1)
             end do
 
+        case (PERT_VOLUME_DISCRETE) ! Bubble case
+            do k = 1, kmax
+                do j = 1, jmax
+                    do i = 1, imax
+                        r2 = (xn(idsp + i) - fp%origin(1))**2
+                        r2 = r2 + (yn(jdsp + j) - fp%origin(2))**2
+                        r2 = r2 + (zn(k) - fp%origin(3))**2
+                        r2 = 2.0_wp*pi_wp*sqrt(r2)/fp%parameters(1)
+                        p_wrk3d(i, j, k) = 0.0_wp
+                        if (r2 <= 0.5_wp*pi_wp) p_wrk3d(i, j, k) = cos(r2)**2
+                        ! p_wrk3d(i, j, k) = fp%amplitude(1)*exp(-0.5_wp*r2/fp%parameters(1))
+                    end do
+                end do
+            end do
         end select
 
         if (norm_ini_s(is) > 0.0_wp) call SCAL_NORMALIZE(is, p_wrk3d)
@@ -242,6 +261,7 @@ contains
 
 #undef xn
 #undef yn
+#undef zn
 
         return
     end subroutine SCAL_FLUCTUATION_VOLUME

@@ -76,7 +76,7 @@ program IniScal
 
         ! Fluctuation
         select case (flag_s)
-        case (PERT_LAYER_BROADBAND, PERT_LAYER_DISCRETE)
+        case (PERT_LAYER_BROADBAND, PERT_LAYER_DISCRETE, PERT_VOLUME_DISCRETE)
             call SCAL_FLUCTUATION_VOLUME(is, s(:, is), txc)
 
         case (PERT_PLANE_BROADBAND, PERT_PLANE_DISCRETE, &

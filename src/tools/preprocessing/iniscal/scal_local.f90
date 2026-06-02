@@ -201,7 +201,7 @@ contains
         real(wp), intent(inout) :: tmp(imax, jmax, kmax)
 
         ! -------------------------------------------------------------------
-        real(wp) dummy, params(0), r2
+        real(wp) dummy, params(0)
 
         ! ###################################################################
         idsp = xSubgrid%offset
@@ -243,13 +243,7 @@ contains
             do k = 1, kmax
                 do j = 1, jmax
                     do i = 1, imax
-                        r2 = (xn(idsp + i) - fp%origin(1))**2
-                        r2 = r2 + (yn(jdsp + j) - fp%origin(2))**2
-                        r2 = r2 + (zn(k) - fp%origin(3))**2
-                        r2 = 2.0_wp*pi_wp*sqrt(r2)/fp%parameters(1)
-                        p_wrk3d(i, j, k) = 0.0_wp
-                        if (r2 <= 0.5_wp*pi_wp) p_wrk3d(i, j, k) = cos(r2)**2
-                        ! p_wrk3d(i, j, k) = fp%amplitude(1)*exp(-0.5_wp*r2/fp%parameters(1))
+                        p_wrk3d(i, j, k) = set_bubble(xn(idsp + i), yn(jdsp + j), zn(k))
                     end do
                 end do
             end do
@@ -264,6 +258,36 @@ contains
 #undef zn
 
         return
+
+    contains
+        function set_bubble(x, y, z) result(f)
+            real(wp), intent(in) :: x, y, z
+            real(wp) :: f
+
+            real(wp) xp, yp, zp
+
+            xp = x - fp%origin(1)
+            yp = y - fp%origin(2)
+            zp = z - fp%origin(3)
+
+            ! Cosine, square ball
+            xp = 2.0_wp*pi_wp/fp%parameters(1)*xp
+            yp = 2.0_wp*pi_wp/fp%parameters(1)*yp
+            zp = 2.0_wp*pi_wp/fp%parameters(1)*zp
+            f = 0.0_wp
+            if (all([abs(xp), abs(yp), abs(zp)] <= 0.5_wp*pi_wp)) f = fp%amplitude(1)*cos(xp)**2*cos(yp)**2*cos(zp)**2
+
+            ! Cosine, spherical ball
+            ! r = 2.0_wp*pi_wp/fp%parameters(1)*sqrt(x**2 + y**2 + z**2)
+            ! p_wrk3d(i, j, k) = 0.0_wp
+            ! if (r <= 0.5_wp*pi_wp) p_wrk3d(i, j, k) = fp%amplitude(1)*cos(r)**2
+
+            ! Gaussian, spherical ball
+            ! r2 = x**2 + y**2 + z**2
+            ! p_wrk3d(i, j, k) = fp%amplitude(1)*exp(-0.5_wp*r2/fp%parameters(1))
+
+            return
+        end function
     end subroutine SCAL_FLUCTUATION_VOLUME
 
     ! ###################################################################

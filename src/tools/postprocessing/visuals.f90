@@ -49,6 +49,7 @@ program VISUALS
     integer :: opt_format                           ! File format
     integer, parameter :: FORMAT_SINGLE = 1         ! Single precision, no headers
     integer, parameter :: FORMAT_GENERAL = 2        ! General IO format
+    integer, parameter :: FORMAT_NETCDF = 3         ! netCDF (only in serial mode)
 
     integer(wi) subdomain(6)                        ! Subdomain to be saved
 
@@ -559,12 +560,14 @@ contains
             write (*, *) 'File Format ?'
             write (*, *) ' 1. Raw, single precision, no header (default)'
             write (*, *) ' 2. General restart format'
+            write (*, *) ' 3. netCDF format'
             read (*, '(A64)') sRes
 #endif
         end if
         if (len_trim(adjustl(sRes)) > 0) then
             if (trim(adjustl(sRes)) == 'single') then; opt_format = FORMAT_SINGLE
             else if (trim(adjustl(sRes)) == 'general') then; opt_format = FORMAT_GENERAL
+            else if (trim(adjustl(sRes)) == 'netcdf') then; opt_format = FORMAT_NETCDF
             else
                 read (sRes, *) opt_format
             end if
@@ -771,6 +774,27 @@ contains
                 end do
             end if
             call IO_Write_Subarray(io_subarrays(subarray_plan), fname, varname, field, sizes)
+
+        case (FORMAT_NETCDF)
+            varname(:) = trim(adjustl(fname))
+            do ifield = 1, nfield
+                call Reduce_Block_InPlace(imax, jmax, kmax, &
+                                          mod(subdomain(1) - 1, imax) + 1, &    ! starting node
+                                          mod(subdomain(3) - 1, jmax) + 1, &    ! starting node
+                                          subdomain(5), &                       ! starting node
+                                          nx, ny, nz, field(:, ifield))
+                if (nfield > 1) then
+                    write (varname(ifield), *) ifield
+                    varname(ifield) = trim(adjustl(fname))//trim(adjustl(varname(ifield)))
+                end if
+
+                call IO_WRITE_NETCDF(varname(ifield), &
+                                     itime, rtime, &
+                                     x%nodes(subdomain(1):subdomain(2)), &
+                                     y%nodes(subdomain(3):subdomain(4)), &
+                                     z%nodes(subdomain(5):subdomain(6)), &
+                                     field(:, ifield), varname(ifield))
+            end do
 
         end select
 

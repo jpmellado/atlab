@@ -29,6 +29,8 @@ module IO_Fields
     public :: IO_Read_Fields, IO_Write_Fields
     public :: IO_Read_Field_INT1, IO_Write_Field_INT1
     public :: IO_Read_Subarray, IO_Write_Subarray
+    public :: IO_Write_NETCDF
+
     public :: IO_Open_File
 
     public :: IO_TYPE_DOUBLE, IO_TYPE_SINGLE
@@ -872,5 +874,71 @@ contains
 
         return
     end subroutine
+
+    !########################################################################
+    !########################################################################
+#ifdef USE_NETCDF
+    subroutine IO_WRITE_NETCDF(fname, itime, rtime, x, y, z, var, varname)
+        use NETCDF
+
+        character(len=*), intent(in) :: fname, varname
+        integer(wi), intent(in) :: itime
+        real(wp), intent(in) :: rtime
+        real(wp), intent(in) :: x(:), y(:), z(:)
+        real(wp), intent(in) :: var(size(x), size(y), size(z))
+
+        ! -------------------------------------------------------------------
+        integer fid, dtid, dxid, dyid, dzid, tid, xid, yid, zid, itid, vid
+
+        ! ###################################################################
+#ifdef USE_MPI
+        call TLab_Write_ASCII(efile, __FILE__//'NETCDF IO not implemented in parallel mode.')
+        call TLab_Stop(DNS_ERROR_UNDEVELOP)
+#endif
+
+        call TLab_Write_ASCII(lfile, 'Writing '//trim(adjustl(fname))//'...')
+
+        call NC_CHECK(NF90_CREATE(trim(adjustl(fname))//'.nc', NF90_NETCDF4, fid))
+
+        call NC_CHECK(NF90_DEF_DIM(fid, "t", NF90_UNLIMITED, dtid))
+        call NC_CHECK(NF90_DEF_DIM(fid, "x", size(x), dxid))
+        call NC_CHECK(NF90_DEF_DIM(fid, "y", size(y), dyid))
+        call NC_CHECK(NF90_DEF_DIM(fid, "z", size(z), dzid))
+
+        call NC_CHECK(Nf90_DEF_VAR(fid, "t", NF90_FLOAT, (/dtid/), tid))
+        call NC_CHECK(Nf90_DEF_VAR(fid, "x", NF90_FLOAT, (/dxid/), xid))
+        call NC_CHECK(Nf90_DEF_VAR(fid, "y", NF90_FLOAT, (/dyid/), yid))
+        call NC_CHECK(Nf90_DEF_VAR(fid, "z", NF90_FLOAT, (/dzid/), zid))
+        call NC_CHECK(Nf90_DEF_VAR(fid, "it", NF90_INT, (/dtid/), itid))
+
+        call NC_CHECK(Nf90_DEF_VAR(fid, trim(adjustl(varname)), NF90_FLOAT, (/dxid, dyid, dzid, dtid/), vid))
+
+        call NC_CHECK(NF90_ENDDEF(fid))
+
+        call NC_CHECK(NF90_PUT_VAR(fid, tid, SNGL(rtime)))
+        call NC_CHECK(NF90_PUT_VAR(fid, itid, itime))
+        call NC_CHECK(NF90_PUT_VAR(fid, xid, SNGL(x)))
+        call NC_CHECK(NF90_PUT_VAR(fid, yid, SNGL(y)))
+        call NC_CHECK(NF90_PUT_VAR(fid, zid, SNGL(z)))
+        call NC_CHECK(NF90_PUT_VAR(fid, vid, SNGL(var)))
+
+        call NC_CHECK(NF90_CLOSE(fid))
+
+        return
+    contains
+! ###################################################################
+        subroutine NC_CHECK(status)
+            integer, intent(in) :: status
+
+            if (status /= nf90_noerr) then
+                call TLab_Write_ASCII(efile, 'NETCDF error signal '//trim(adjustl(NF90_STRERROR(status))))
+                call TLab_Stop(DNS_ERROR_UNDEVELOP)
+            end if
+
+            return
+        end subroutine NC_CHECK
+
+    end subroutine IO_WRITE_NETCDF
+#endif
 
 end module IO_Fields

@@ -789,14 +789,15 @@ contains
                     write (varname(ifield), *) ifield
                     varname(ifield) = trim(adjustl(fname))//trim(adjustl(varname(ifield)))
                 end if
-
-                call IO_WRITE_NETCDF(trim(adjustl(fname))//time_str(1:MaskSize), &
-                                     itime, rtime, &
-                                     x%nodes(subdomain(1):subdomain(2)), &
-                                     y%nodes(subdomain(3):subdomain(4)), &
-                                     z%nodes(subdomain(5):subdomain(6)), &
-                                     field(:, ifield), varname(ifield))
             end do
+
+
+            call IO_WRITE_NETCDF(trim(adjustl(fname))//time_str(1:MaskSize), &
+                                 itime, rtime, &
+                                 x%nodes(subdomain(1):subdomain(2)), &
+                                 y%nodes(subdomain(3):subdomain(4)), &
+                                 z%nodes(subdomain(5):subdomain(6)), &
+                                 field(1:nx*ny*nz, 1:nfield), varname(1:nfield))
 
         end select
 

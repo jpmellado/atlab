@@ -72,9 +72,9 @@ program AVERAGES
     ! integer, parameter :: igate_size_max = 8
     ! integer(wi) igate_size
     ! real(wp) gate_threshold(igate_size_max)
-    ! integer(1) gate_level
+    integer(1) gate_level
     ! real(wp), allocatable, save :: surface(:, :, :)       ! Gate envelopes
-    ! integer(1), allocatable, save :: gate(:)
+    integer(1), allocatable, save :: gate(:)
 
     type(pointers_dt), allocatable :: vars(:)
 
@@ -120,7 +120,7 @@ program AVERAGES
     call SpecialForcing_Initialize(ifile)
     call NSE_Burgers_Initialize(ifile)
 
-    ! allocate (gate(isize_field))
+    allocate (gate(isize_field))
 
     ! in case z%size is not divisible by opt_block, drop the upper most planes
     kmax_aux = z%size/opt_block
@@ -489,6 +489,8 @@ program AVERAGES
 
         ! ###################################################################
         if (opt_main > 2) then
+            if (ifield == 0) ifield = size(vars)
+
             if (nfield < ifield) then ! Check
                 call TLab_Write_ASCII(efile, __FILE__//'. Array space nfield incorrect.')
                 call TLab_Stop(DNS_ERROR_WRKSIZE)
@@ -500,22 +502,8 @@ program AVERAGES
                 end do
             end if
 
-            ! call AVG_N_XZ(fname, itime, rtime, imax*opt_block, kmax_aux, kmax, &
-            !               ifield, opt_order, vars, gate_level, gate, z_aux, mean)
-
-            if (allocated(vars)) then
-                if (size(vars) > 0) then
-
-                    if (kmax_aux*opt_block /= z%size) then
-                        do is = 1, ifield
-                            call REDUCE_BLOCK_INPLACE(imax, jmax, kmax, 1, 1, 1, imax, jmax, kmax_aux*opt_block, vars(is)%field)
-                        end do
-                    end if
-
-                    ! call AVG_N_XZ(fname, itime, rtime, imax*opt_block, kmax_aux, kmax, &
-                    !               ifield, opt_order, vars, gate_level, gate, z_aux, mean)
-                end if
-            end if
+            call AVG_N_XZ(fname, itime, rtime, imax, jmax*opt_block, kmax_aux, &
+                          ifield, opt_order, vars, gate_level, gate, z_aux, mean)
 
         end if
 
@@ -626,8 +614,10 @@ contains
             call TLab_Stop(DNS_ERROR_INVALOPT)
         end if
 
-!         ! -------------------------------------------------------------------
-!         if (sRes == '-1') then
+        ! -------------------------------------------------------------------
+        gate_level = 0
+
+        !         if (sRes == '-1') then
 ! #ifdef USE_MPI
 ! #else
 !             if (opt_main > 2) then

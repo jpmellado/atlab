@@ -16,6 +16,7 @@ module Diagnostics
     public :: Diagnose_PressureForce
     public :: Diagnose_PressurePartition
     public :: Diagnose_ScalarGradientEquation
+    public :: Diagnose_ScalarGradientComponents
     public :: Diagnose_StrainEquation
     public :: Diagnose_EnstrophyEquation
     public :: Diagnose_PotentialEnstrophy
@@ -291,6 +292,44 @@ contains
             call TLab_Write_ASCII(efile, __FILE__//'. Array space nfield incorrect.')
             call TLab_Stop(DNS_ERROR_WRKSIZE)
         end if
+
+        return
+    end subroutine
+
+    !########################################################################
+    !########################################################################
+    subroutine Diagnose_ScalarGradientComponents(is, vars)
+        use TLab_Memory, only: isize_field
+        use TLab_Arrays, only: s
+        use FI_VECTORCALCULUS
+        use FI_GRADIENT_EQN
+        integer, intent(in) :: is
+        type(pointers_dt), allocatable, intent(out) :: vars(:)
+
+        integer ifield, nfield, ij
+        real(wp) dummy
+
+        ! #######################################################################
+        nfield = 5
+        allocate (vars(nfield))
+
+        call OPR_Partial_X(OPR_P1, imax, jmax, kmax, s, tmp1)
+        call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, s, tmp2)
+        call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, s, tmp3)
+        do ij = 1, isize_field                       ! Angles; s array is overwritten to save space
+            dummy = tmp3(ij)/sqrt(tmp1(ij)*tmp1(ij) + tmp2(ij)*tmp2(ij) + tmp3(ij)*tmp3(ij))
+            tmp4(ij) = asin(dummy)                  ! with Oz
+            s(ij, is) = atan2(tmp2(ij), tmp1(ij))    ! with Ox in plane xOy
+        end do
+
+        ! Accumulate vars
+        ifield = 0
+
+        ifield = ifield + 1; vars(ifield)%field => tmp1(:); vars(ifield)%tag = 'GradientX'
+        ifield = ifield + 1; vars(ifield)%field => tmp2(:); vars(ifield)%tag = 'GradientY'
+        ifield = ifield + 1; vars(ifield)%field => tmp3(:); vars(ifield)%tag = 'GradientZ'
+        ifield = ifield + 1; vars(ifield)%field => s(:, is); vars(ifield)%tag = 'Theta'
+        ifield = ifield + 1; vars(ifield)%field => tmp4(:); vars(ifield)%tag = 'Phi'
 
         return
     end subroutine

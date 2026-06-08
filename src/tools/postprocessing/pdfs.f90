@@ -35,8 +35,8 @@ program PDFS
     use FI_STRAIN_EQN
     use FI_VORTICITY_EQN
     use Tensor
-    use Diagnostics
     use Reductions, only: Reduce_Block_InPlace
+    use Diagnostics
     use StatsPDFs
 
     implicit none
@@ -54,17 +54,17 @@ program PDFS
     ! Additional local arrays
     real(wp), allocatable :: pdf(:), z_aux(:)
 
-    integer(1), allocatable :: gate(:)
-
     character*32 fname
     character*64 str
 
-    integer opt_main, opt_block, opt_bins(2)
+    integer opt_main, opt_block
     integer nfield, ifield, is, ij, kmax_aux
     integer isize_pdf
     real(wp) dummy, eloc1, eloc2, eloc3, cos1, cos2, cos3
     logical iread_flow, iread_scal
     real(wp) params(2)
+
+    integer opt_bins(2)
     integer(wi) ibc(16)
     real(wp) vmin(16), vmax(16)
     logical reduce_data
@@ -75,9 +75,9 @@ program PDFS
     ! integer(wi) igate_size
     ! real(wp) gate_threshold(igate_size_max)
     ! integer(1) gate_level
+    integer(1), allocatable :: gate(:)
 
     type(pointers_dt), allocatable :: vars(:)
-    ! integer :: ifield
 
     !########################################################################
     !########################################################################
@@ -99,7 +99,6 @@ program PDFS
 
     call Gravity_Initialize(ifile)
     call Rotation_Initialize(ifile)
-    call SpecialForcing_Initialize(ifile)
     call Microphysics_Initialize(ifile)
     call Radiation_Initialize(ifile)
     call LargeScaleForcing_Initialize(ifile)
@@ -119,6 +118,7 @@ program PDFS
     call OPR_Check()
 
     call TLab_Initialize_Background(ifile)  ! Initialize thermodynamic quantities
+    call SpecialForcing_Initialize(ifile)
     call NSE_Burgers_Initialize(ifile)
 
     allocate (gate(isize_field))
@@ -139,7 +139,7 @@ program PDFS
     ! ###################################################################
     ! Postprocess given list of files
     ! ###################################################################
-    ibc(:) = 2                  ! default is to consider local interval, with analysis; see pdf1v_n
+    ibc(:) = 2          ! default is to use local interval, with analysis; see pdf1v_n
     allocate (vars(nfield))
 
     do it = 1, itime_size
@@ -302,23 +302,7 @@ program PDFS
 
         case ('Scalar gradient components')
             write (fname, *) itime; fname = 'pdfGi'//trim(adjustl(fname))
-
-            call OPR_Partial_X(OPR_P1, imax, jmax, kmax, s, txc(1, 1))
-            call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, s, txc(1, 2))
-            call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, s, txc(1, 3))
-            ! Angles; s array is overwritten to save space
-            do ij = 1, isize_field
-                dummy = txc(ij, 3)/sqrt(txc(ij, 1)*txc(ij, 1) + txc(ij, 2)*txc(ij, 2) + txc(ij, 3)*txc(ij, 3))
-                txc(ij, 4) = asin(dummy)                    ! with Oz
-                s(ij, 1) = atan2(txc(ij, 2), txc(ij, 1))    ! with Ox in plane xOy
-            end do
-
-            ifield = ifield + 1; vars(ifield)%field => txc(:, 1); vars(ifield)%tag = 'Gx'
-            ifield = ifield + 1; vars(ifield)%field => txc(:, 2); vars(ifield)%tag = 'Gy'
-            ifield = ifield + 1; vars(ifield)%field => txc(:, 3); vars(ifield)%tag = 'Gz'
-            ifield = ifield + 1; vars(ifield)%field => s(:, 1); vars(ifield)%tag = 'Gtheta'
-            ifield = ifield + 1; vars(ifield)%field => txc(:, 4); vars(ifield)%tag = 'Gphi'
-            ibc(1:ifield) = 2
+            call Diagnose_ScalarGradientEquation(is=inb_scal, vars=vars)
 
             write (fname, *) itime; fname = 'pdf'//trim(adjustl(fname))//'.GphiS'
             call PDF2V(fname, imax, jmax*opt_block, kmax_aux, opt_bins, s(1, 1), txc(1, 4), z_aux, pdf)
@@ -503,7 +487,7 @@ contains
             call TLab_Stop(DNS_ERROR_INVALOPT)
         end if
 
-        call ScanFile_Char(bakfile, ifile, 'PostProcessing', 'ParamPdfs', '-1', sRes)
+        call ScanFile_Char(bakfile, ifile, block, 'ParamPdfs', '-1', sRes)
         if (sRes == '-1') then
 #ifdef USE_MPI
 #else
@@ -529,7 +513,7 @@ contains
         opt_bins = 16
         ! gate_level = 0
 
-        call ScanFile_Char(bakfile, ifile, 'PostProcessing', 'ParamPdfs', '-1', sRes)
+        call ScanFile_Char(bakfile, ifile, block, 'ParamPdfs', '-1', sRes)
         if (sRes == '-1') then
 #ifdef USE_MPI
 #else

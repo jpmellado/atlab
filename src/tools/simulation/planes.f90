@@ -297,7 +297,7 @@ contains
             nvars = nvars + 1; vars(nvars)%field(1:imax, 1:jmax, 1:kmax) => txc(1:imax*jmax*kmax, 3)
 
             do iv = 1, inb_scal_array
-                call FI_GRADIENT(imax, jmax, kmax, s(:, iv), txc(:, iv + 3), txc(:, 1))
+                call FI_GRAD_MAGNITUDE(imax, jmax, kmax, s(:, iv), txc(:, iv + 3), txc(:, 1))
                 txc(1:imax*jmax*kmax, iv + 3) = log10(txc(1:imax*jmax*kmax, iv + 3) + small_wp)
                 nvars = nvars + 1; vars(nvars)%field(1:imax, 1:jmax, 1:kmax) => txc(1:imax*jmax*kmax, iv + 3)
             end do

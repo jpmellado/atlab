@@ -7,6 +7,7 @@ module Tensor
 
     public :: Tensor_Dot, Tensor_Cross
     public :: Tensor_Eigenvalues, Tensor_Eigenframe
+    public :: Tensor_DirectionCosines
 
 contains
     !########################################################################
@@ -14,7 +15,7 @@ contains
     function Tensor_Dot(a, b) result(c)
         real(wp), intent(in) :: a(:, :), b(:, :)
         real(wp) c(size(a, 1))
-        
+
         integer i
 
         c(:) = 0.0_wp
@@ -108,7 +109,8 @@ contains
     end subroutine Tensor_Eigenvalues
 
     !########################################################################
-    ! Calculate two first eigenvectors; the third can be computed a posteriori with cross product and it is not done here to save space.
+    ! Calculate two first eigenvectors; the third can be computed 
+    ! a posteriori with cross product and it is not done here to save space.
     ! Global orientation is positive Ox for the first one, positive Oy for the second one.
     !########################################################################
     subroutine Tensor_Eigenframe(nx, ny, nz, tensor, lambda)
@@ -156,5 +158,33 @@ contains
 
         return
     end subroutine Tensor_Eigenframe
+
+    !########################################################################
+    ! Direction cosines of vector v with frame (e1, e2, e3)
+    ! where e3 = e1 x e2
+
+    subroutine Tensor_DirectionCosines(nx, ny, nz, e1, e2, v)
+        integer(wi) nx, ny, nz
+        real(wp), intent(in) :: e1(nx*ny*nz, 3), e2(nx*ny*nz, 3)
+        real(wp), intent(inout) :: v(nx*ny*nz, 3)
+
+        integer(wi) ij
+        real(wp) cos1, cos2, cos3, e3_1, e3_2, e3_3, dummy
+
+        do ij = 1, nx*ny*nz
+            dummy = 1.0_wp/sqrt(v(ij, 1)**2 + v(ij, 2)**2 + v(ij, 3)**2)
+            cos1 = (v(ij, 1)*e1(ij, 1) + v(ij, 2)*e1(ij, 2) + v(ij, 3)*e1(ij, 3))*dummy
+            cos2 = (v(ij, 1)*e2(ij, 1) + v(ij, 2)*e2(ij, 2) + v(ij, 3)*e2(ij, 3))*dummy
+            e3_1 = e1(ij, 2)*e2(ij, 3) - e2(ij, 2)*e1(ij, 3)
+            e3_2 = e1(ij, 3)*e2(ij, 1) - e2(ij, 3)*e1(ij, 1)
+            e3_3 = e1(ij, 1)*e2(ij, 2) - e2(ij, 1)*e1(ij, 2)
+            cos3 = (v(ij, 1)*e3_1 + v(ij, 2)*e3_2 + v(ij, 3)*e3_3)*dummy
+            v(ij, 1) = cos1
+            v(ij, 2) = cos2
+            v(ij, 3) = cos3
+        end do
+
+        return
+    end subroutine Tensor_DirectionCosines
 
 end module Tensor

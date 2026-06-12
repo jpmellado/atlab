@@ -60,7 +60,6 @@ program PDFS
     integer opt_main, opt_block
     integer nfield, ifield, is, ij, kmax_aux
     integer isize_pdf
-    real(wp) dummy, eloc1, eloc2, eloc3, cos1, cos2, cos3
     logical iread_flow, iread_scal
     real(wp) params(2)
 
@@ -275,7 +274,7 @@ program PDFS
         case ('Joint scalar and scalar gradient')
             write (fname, *) itime; fname = 'pdfSGi'//trim(adjustl(fname))
 
-            call FI_GRADIENT(imax, jmax, kmax, s, txc(1, 1), txc(1, 2))
+            call FI_GRAD_MAGNITUDE(imax, jmax, kmax, s, txc(1, 1), txc(1, 2))
             txc(1:isize_field, 2) = log(txc(1:isize_field, 1))
 
             ifield = ifield + 1; vars(1)%field => s(:, 1); vars(ifield)%tag = 's'; ibc(ifield) = 1
@@ -323,37 +322,18 @@ program PDFS
             call FI_STRAIN_TENSOR(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), txc(1, 1), txc(1, 2), txc(1, 3), txc(1, 4), txc(1, 5), txc(1, 6))
             call TENSOR_EIGENVALUES(imax, jmax, kmax, txc(1, 1), txc(1, 7)) ! txc7-txc9
             call TENSOR_EIGENFRAME(imax, jmax, kmax, txc(1, 1), txc(1, 7)) ! txc1-txc6
+
             call FI_CURL(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), txc(1, 7), txc(1, 8), txc(1, 9), txc(1, 10))
-
-            do ij = 1, isize_field ! local direction cosines of vorticity vector
-                dummy = sqrt(txc(ij, 7)*txc(ij, 7) + txc(ij, 8)*txc(ij, 8) + txc(ij, 9)*txc(ij, 9))
-                q(ij, 1) = (txc(ij, 7)*txc(ij, 1) + txc(ij, 8)*txc(ij, 2) + txc(ij, 9)*txc(ij, 3))/dummy
-                q(ij, 2) = (txc(ij, 7)*txc(ij, 4) + txc(ij, 8)*txc(ij, 5) + txc(ij, 9)*txc(ij, 6))/dummy
-                eloc1 = txc(ij, 2)*txc(ij, 6) - txc(ij, 5)*txc(ij, 3)
-                eloc2 = txc(ij, 3)*txc(ij, 4) - txc(ij, 6)*txc(ij, 1)
-                eloc3 = txc(ij, 1)*txc(ij, 5) - txc(ij, 4)*txc(ij, 2)
-                q(ij, 3) = (txc(ij, 7)*eloc1 + txc(ij, 8)*eloc2 + txc(ij, 9)*eloc3)/dummy
-            end do
-
+            q(:, 1) = txc(1:isize_field, 7)
+            q(:, 2) = txc(1:isize_field, 8)
+            q(:, 3) = txc(1:isize_field, 9)
+            call Tensor_DirectionCosines(imax, jmax, kmax, txc(:, 1), txc(:, 4), q(:, 1))
             ifield = ifield + 1; vars(ifield)%field => q(:, 1); vars(ifield)%tag = 'cos(w,lambda1)'
             ifield = ifield + 1; vars(ifield)%field => q(:, 2); vars(ifield)%tag = 'cos(w,lambda2)'
             ifield = ifield + 1; vars(ifield)%field => q(:, 3); vars(ifield)%tag = 'cos(w,lambda3)'
 
-            call OPR_Partial_X(OPR_P1, imax, jmax, kmax, s, txc(1, 7))
-            call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, s, txc(1, 8))
-            call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, s, txc(1, 9))
-
-            do ij = 1, isize_field ! local direction cosines of scalar gradient vector
-                dummy = sqrt(txc(ij, 7)*txc(ij, 7) + txc(ij, 8)*txc(ij, 8) + txc(ij, 9)*txc(ij, 9))
-                cos1 = (txc(ij, 7)*txc(ij, 1) + txc(ij, 8)*txc(ij, 2) + txc(ij, 9)*txc(ij, 3))/dummy
-                cos2 = (txc(ij, 7)*txc(ij, 4) + txc(ij, 8)*txc(ij, 5) + txc(ij, 9)*txc(ij, 6))/dummy
-                eloc1 = txc(ij, 2)*txc(ij, 6) - txc(ij, 5)*txc(ij, 3)
-                eloc2 = txc(ij, 3)*txc(ij, 4) - txc(ij, 6)*txc(ij, 1)
-                eloc3 = txc(ij, 1)*txc(ij, 5) - txc(ij, 4)*txc(ij, 2)
-                cos3 = (txc(ij, 7)*eloc1 + txc(ij, 8)*eloc2 + txc(ij, 9)*eloc3)/dummy
-                txc(ij, 7) = cos1; txc(ij, 8) = cos2; txc(ij, 9) = cos3
-            end do
-
+            call FI_GRAD(imax, jmax, kmax, s, txc(:, 7))
+            call Tensor_DirectionCosines(imax, jmax, kmax, txc(:, 1), txc(:, 4), txc(:, 7))
             ifield = ifield + 1; vars(ifield)%field => txc(:, 7); vars(ifield)%tag = 'cos(G,lambda1)'
             ifield = ifield + 1; vars(ifield)%field => txc(:, 8); vars(ifield)%tag = 'cos(G,lambda2)'
             ifield = ifield + 1; vars(ifield)%field => txc(:, 9); vars(ifield)%tag = 'cos(G,lambda3)'

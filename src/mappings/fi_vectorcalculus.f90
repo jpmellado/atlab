@@ -4,7 +4,7 @@ module FI_VECTORCALCULUS
     implicit none
     private
 
-    public :: FI_GRADIENT
+    public :: FI_GRAD, FI_GRAD_MAGNITUDE
     public :: FI_CURL
     public :: FI_SOLENOIDAL
     public :: FI_INVARIANT_P, FI_INVARIANT_Q, FI_INVARIANT_R!, FI_INVARIANT_P_STAG
@@ -14,7 +14,7 @@ contains
 !########################################################################
 ! Calculate the magnitude of the scalar gradient
 !########################################################################
-    subroutine FI_GRADIENT(nx, ny, nz, s, result, tmp1)
+    subroutine FI_GRAD_MAGNITUDE(nx, ny, nz, s, result, tmp1)
         integer(wi), intent(in) :: nx, ny, nz
         real(wp), intent(in) :: s(nx*ny*nz)
         real(wp), intent(out) :: result(nx*ny*nz)
@@ -28,11 +28,25 @@ contains
         result = result + tmp1*tmp1
 
         return
-    end subroutine FI_GRADIENT
+    end subroutine FI_GRAD_MAGNITUDE
 
-!########################################################################
-! Calculate the curl of the vector (u,v,w) in Cartesian coordinates
-!########################################################################
+    ! ###################################################################
+    ! ###################################################################
+    subroutine FI_GRAD(nx, ny, nz, s, result)
+        integer(wi), intent(in) :: nx, ny, nz
+        real(wp), intent(in) :: s(nx*ny*nz)
+        real(wp), intent(out) :: result(nx*ny*nz, 3)
+
+        call OPR_Partial_X(OPR_P1, nx, ny, nz, s, result(:, 1))
+        call OPR_Partial_Y(OPR_P1, nx, ny, nz, s, result(:, 2))
+        call OPR_Partial_Z(OPR_P1, nx, ny, nz, s, result(:, 3))
+
+        return
+    end subroutine FI_GRAD
+
+    !########################################################################
+    ! Calculate the curl of the vector (u,v,w) in Cartesian coordinates
+    !########################################################################
     subroutine FI_CURL(nx, ny, nz, u, v, w, wx, wy, wz, tmp)
         integer(wi), intent(in) :: nx, ny, nz
         real(wp), intent(in) :: u(nx*ny*nz), v(nx*ny*nz), w(nx*ny*nz)

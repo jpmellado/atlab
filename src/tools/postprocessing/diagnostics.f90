@@ -279,7 +279,7 @@ contains
         tmp2(:) = tmp2(:)*diff
         ifield = ifield + 1; vars(ifield)%field => tmp2; vars(ifield)%tag = 'DiffusionNuGiLapGi'
 
-        call FI_GRADIENT(imax, jmax, kmax, s(:, is), tmp3, tmp4)
+        call FI_GRAD_MAGNITUDE(imax, jmax, kmax, s(:, is), tmp3, tmp4)
         ifield = ifield + 1; vars(ifield)%field => tmp3; vars(ifield)%tag = 'GiGi'
 
         tmp4(:) = log(tmp3(:))

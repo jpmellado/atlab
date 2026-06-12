@@ -28,7 +28,7 @@ subroutine FI_GATE(opt_cond, opt_cond_relative, opt_cond_scal, &
         call FI_VORTICITY(nx, ny, nz, q(1, 1), q(1, 2), q(1, 3), txc(1, 1), txc(1, 2), txc(1, 3))
 
     else if (opt_cond == 4) then ! Based on scalar gradient
-        call FI_GRADIENT(nx, ny, nz, s, txc(1, 1), txc(1, 2))
+        call FI_GRAD_MAGNITUDE(nx, ny, nz, s, txc(1, 1), txc(1, 2))
 
     else if (opt_cond == 5) then ! Based on vertical velocity
         txc(:, 1) = q(:, 2)

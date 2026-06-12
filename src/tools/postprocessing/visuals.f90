@@ -260,7 +260,7 @@ program VISUALS
                     write (str, *) is; str = 'Scalar'//trim(adjustl(str))
 
                     plot_file = 'Log'//trim(adjustl(str))//'Gradient' !//time_str(1:MaskSize)
-                    call FI_GRADIENT(imax, jmax, kmax, s(1, is), txc(1, 1), txc(1, 2))
+                    call FI_GRAD_MAGNITUDE(imax, jmax, kmax, s(1, is), txc(1, 1), txc(1, 2))
                     txc(1:isize_field, 1) = log10(txc(1:isize_field, 1) + small_wp)
                     call Write_Visuals(plot_file, txc(:, 1:1))
 

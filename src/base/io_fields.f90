@@ -878,14 +878,15 @@ contains
     !########################################################################
     !########################################################################
 #ifdef USE_NETCDF
-    subroutine IO_WRITE_NETCDF(fname, itime, rtime, x, y, z, var, varname)
+    subroutine IO_WRITE_NETCDF(fname, itime, rtime, x, y, z, vars)
+        use TLab_Pointers_3D, only: pointers3d_dt
         use NETCDF
 
-        character(len=*), intent(in) :: fname, varname(:)
+        character(len=*), intent(in) :: fname
         integer(wi), intent(in) :: itime
         real(wp), intent(in) :: rtime
         real(wp), intent(in) :: x(:), y(:), z(:)
-        real(wp), intent(in) :: var(size(x), size(y), size(z), size(varname))
+        type(pointers3d_dt), intent(in) :: vars(:)
 
         ! -------------------------------------------------------------------
         integer fid, dtid, dxid, dyid, dzid, tid, xid, yid, zid, itid
@@ -914,9 +915,9 @@ contains
         call NC_CHECK(Nf90_DEF_VAR(fid, "it", NF90_INT, (/dtid/), itid))
 
         if (allocated(vid)) deallocate (vid)
-        allocate (vid(size(varname)))
-        do iv = 1, size(varname)
-            call NC_CHECK(Nf90_DEF_VAR(fid, trim(adjustl(varname(iv))), NF90_FLOAT, (/dxid, dyid, dzid, dtid/), vid(iv)))
+        allocate (vid(size(vars)))
+        do iv = 1, size(vars)
+            call NC_CHECK(Nf90_DEF_VAR(fid, trim(adjustl(vars(iv)%tag)), NF90_FLOAT, (/dxid, dyid, dzid, dtid/), vid(iv)))
         end do
 
         call NC_CHECK(NF90_ENDDEF(fid))
@@ -926,8 +927,8 @@ contains
         call NC_CHECK(NF90_PUT_VAR(fid, xid, SNGL(x)))
         call NC_CHECK(NF90_PUT_VAR(fid, yid, SNGL(y)))
         call NC_CHECK(NF90_PUT_VAR(fid, zid, SNGL(z)))
-        do iv = 1, size(varname)
-            call NC_CHECK(NF90_PUT_VAR(fid, vid(iv), SNGL(var(:, :, :, iv))))
+        do iv = 1, size(vars)
+            call NC_CHECK(NF90_PUT_VAR(fid, vid(iv), SNGL(vars(iv)%field(1:size(x), 1:size(y), 1:size(z)))))
         end do
         call NC_CHECK(NF90_CLOSE(fid))
 

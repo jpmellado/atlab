@@ -691,6 +691,7 @@ contains
 !########################################################################
 !########################################################################
     subroutine Write_Visuals_Rank2(fname, field)
+        use TLab_Pointers_3D, only: pointers3d_dt
         use Reductions, only: Reduce_Block_InPlace
 
         character(len=*) fname
@@ -702,6 +703,10 @@ contains
         character*32 varname(16)
         integer subarray_plan
         integer nfield
+        !
+        type(pointers3d_dt), allocatable :: vars(:)
+        target field
+        integer iv
 
         ! ###################################################################
         ! I think this first block should go into Visuals_Initialize
@@ -757,7 +762,6 @@ contains
                     end do
                 end do
             end if
-            ! call IO_Write_Fields(fname, imax, jmax, kmax, itime, nfield, field)
             call IO_Write_Fields(trim(adjustl(fname))//time_str(1:MaskSize), imax, jmax, kmax, itime, nfield, field)
 
         case (FORMAT_SINGLE)
@@ -774,30 +778,36 @@ contains
                 do ifield = 1, nfield; write (varname(ifield), *) ifield; varname(ifield) = trim(adjustl(varname(ifield)))
                 end do
             end if
-            ! call IO_Write_Subarray(io_subarrays(subarray_plan), fname, varname, field, sizes)
             call IO_Write_Subarray(io_subarrays(subarray_plan), trim(adjustl(fname))//time_str(1:MaskSize), varname, field, sizes)
 
         case (FORMAT_NETCDF)
-            varname(:) = trim(adjustl(fname))
-            do ifield = 1, nfield
+            if (allocated(vars)) deallocate (vars)
+            allocate (vars(nfield))
+
+            if (size(vars) > 1) then
+                do iv = 1, size(vars)
+                    write (vars(iv)%tag, *) iv
+                    vars(iv)%tag = trim(adjustl(fname))//trim(adjustl(vars(iv)%tag))
+                end do
+            else
+                vars(:)%tag = trim(adjustl(fname))
+            end if
+
+            do iv = 1, size(vars)
                 call Reduce_Block_InPlace(imax, jmax, kmax, &
                                           mod(subdomain(1) - 1, imax) + 1, &    ! starting node
                                           mod(subdomain(3) - 1, jmax) + 1, &    ! starting node
                                           subdomain(5), &                       ! starting node
-                                          nx, ny, nz, field(:, ifield))
-                if (nfield > 1) then
-                    write (varname(ifield), *) ifield
-                    varname(ifield) = trim(adjustl(fname))//trim(adjustl(varname(ifield)))
-                end if
+                                          nx, ny, nz, field(:, iv))
+                vars(iv)%field(1:nx, 1:ny, 1:nz) => field(1:nx*ny*nz, iv)
             end do
-
 
             call IO_WRITE_NETCDF(trim(adjustl(fname))//time_str(1:MaskSize), &
                                  itime, rtime, &
                                  x%nodes(subdomain(1):subdomain(2)), &
                                  y%nodes(subdomain(3):subdomain(4)), &
                                  z%nodes(subdomain(5):subdomain(6)), &
-                                 field(1:nx*ny*nz, 1:nfield), varname(1:nfield))
+                                 vars)
 
         end select
 

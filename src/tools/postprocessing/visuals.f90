@@ -553,8 +553,8 @@ contains
         end if
 
         ! -------------------------------------------------------------------
-        call ScanFile_Int(bakfile, ifile, block, 'Format', '-1', opt_format)
-        if (opt_format == -1) then
+        call ScanFile_Char(bakfile, ifile, block, 'Format', '-1', sRes)
+        if (sRes == '-1') then
 #ifdef USE_MPI
 #else
             write (*, *) 'File Format ?'

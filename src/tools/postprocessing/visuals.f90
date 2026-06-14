@@ -762,7 +762,8 @@ contains
                     end do
                 end do
             end if
-            call IO_Write_Fields(trim(adjustl(fname))//time_str(1:MaskSize), imax, jmax, kmax, itime, nfield, field)
+            io_header_q(1)%params(1) = rtime
+            call IO_Write_Fields(trim(adjustl(fname))//time_str(1:MaskSize), imax, jmax, kmax, itime, nfield, field, io_header_q(1:1))
 
         case (FORMAT_SINGLE)
             do ifield = 1, nfield

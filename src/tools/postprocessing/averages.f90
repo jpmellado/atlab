@@ -566,34 +566,47 @@ contains
             call TLab_Stop(DNS_ERROR_INVALOPT)
         end if
 
-        ! -------------------------------------------------------------------
-        opt_main = opt_vec(1) ! default values
-        opt_block = 1
-        opt_order = 1
+        opt_main = opt_vec(1)
 
-        call ScanFile_Char(bakfile, ifile, block, 'ParamAverages', '-1', sRes)
-        if (sRes == '-1') then
+        ! -------------------------------------------------------------------
+        opt_order = 1 ! default values
+        opt_block = 1
+
+        select case (trim(adjustl(opt_name(opt_vec(1)))))
+        case ('Conventional averages')
+        case default    ! additional information
+
+            call ScanFile_Char(bakfile, ifile, block, 'ParamAverages', '-1', sRes)
+            if (sRes == '-1') then
 #ifdef USE_MPI
 #else
-            write (*, *) 'Planes block size ?'
-            read (*, *) opt_block
-
-            if (opt_main > 2) then
-                write (*, *) 'Number of moments ?'
-                read (*, *) opt_order
-            end if
+                if (opt_main > 2) then
+                    write (*, *) 'Number of moments ?'
+                    read (*, *) opt_order
+                end if
 
 #endif
-        else
-            if (iopt_size >= 2) opt_block = int(opt_vec(2))
-            if (iopt_size >= 3) opt_order = int(opt_vec(4))
+            else
+                if (iopt_size >= 2) opt_order = int(opt_vec(2))
 
-        end if
+            end if
 
-        if (opt_block < 1) then
-            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Invalid value of opt_block.')
-            call TLab_Stop(DNS_ERROR_INVALOPT)
-        end if
+            ! -------------------------------------------------------------------
+            call ScanFile_Char(bakfile, ifile, block, 'Block', '-1', sRes)
+            if (sRes == '-1') then
+#ifdef USE_MPI
+#else
+                write (*, *) 'Planes block size ?'
+                read (*, '(A64)') sRes
+#endif
+            end if
+            read (sRes, *) opt_block
+
+            if (opt_block < 1) then ! default
+                opt_block = 1
+            end if
+
+        end select
 
         ! -------------------------------------------------------------------
         gate_level = 0

@@ -487,22 +487,15 @@ contains
             call TLab_Stop(DNS_ERROR_INVALOPT)
         end if
 
+        opt_main = opt_vec(1)
+
         ! -------------------------------------------------------------------
-        opt_main = opt_vec(1) ! default values
-        opt_block = 1
-        opt_bins = 16
-        ! gate_level = 0
+        opt_bins = 16 ! default values
 
         call ScanFile_Char(bakfile, ifile, block, 'ParamPdfs', '-1', sRes)
         if (sRes == '-1') then
 #ifdef USE_MPI
 #else
-            write (*, *) 'Planes block size ?'
-            read (*, *) opt_block
-
-            ! write (*, *) 'Gate level to be used ?'
-            ! read (*, *) gate_level
-
             write (*, *) 'Number of PDF bins ?'
             read (*, '(A)') sRes
             idummy = 2
@@ -510,17 +503,40 @@ contains
 
 #endif
         else
-            if (iopt_size >= 2) opt_block = opt_vec(2)
-            if (iopt_size >= 3) opt_bins = opt_vec(3:4)
-            ! if (iopt_size >= 3) gate_level = int(opt_vec(3), KIND=1)
+            if (iopt_size >= 2) opt_bins = opt_vec(2:3)
 
         end if
 
-        if (opt_block < 1) then
-            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Invalid value of opt_block.')
-            call TLab_Stop(DNS_ERROR_INVALOPT)
+        ! -------------------------------------------------------------------
+        call ScanFile_Char(bakfile, ifile, block, 'Block', '-1', sRes)
+        if (sRes == '-1') then
+#ifdef USE_MPI
+#else
+            write (*, *) 'Planes block size ?'
+            read (*, '(A64)') sRes
+#endif
+        end if
+        read (sRes, *) opt_block
+
+        if (opt_block < 1) then ! default
+            opt_block = 1
         end if
 
+        ! ! -------------------------------------------------------------------
+        ! gate_level = 0
+
+        !         if (sRes == '-1') then
+! #ifdef USE_MPI
+! #else
+!             if (opt_main > 2) then
+!                 write (*, *) 'Gate level to be used ?'
+!                 read (*, *) gate_level
+!             end if
+! #endif
+!         else
+!             if (iopt_size >= 3) gate_level = int(opt_vec(3), KIND=1)
+
+!         end if
 !         ! -------------------------------------------------------------------
 !         ! Defining gate levels for conditioning
 !         ! -------------------------------------------------------------------

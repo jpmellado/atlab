@@ -116,7 +116,7 @@ for file in setoffiles:
                                     xa = np.array([x[plane-1]])
                                     nx = len(xa)
                             a = np.array(struct.unpack((etype+'{}'+dtype).format(int(nx*ny*nz)), raw))
-                            atlab.writeNetCfd(dst_file, 'Var'+str(var), time, xa, ya, za, a)
+                            atlab.writeNetCDF(dst_file, 'Var'+str(var), time, xa, ya, za, a)
 
                         case "raw":
                             fout = open(dst_file,'wb')

@@ -83,7 +83,7 @@ class Field:
         etype="<",  # little-endian
         # etype=">",  # big endian
         dtype="f",  # floating-point number, single precision
-        # dtype="f",  # floating-point number, double precision
+        # dtype="d",  # floating-point number, double precision
         # dtype="B",  # unsigned character, for gate files
     ):
 

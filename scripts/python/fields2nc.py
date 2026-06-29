@@ -4,6 +4,10 @@ import sys
 import numpy as np
 import atlab
 
+dtype = "d"  # floating-point number, double precision
+# dtype = "f"  # floating-point number, single precision
+# dtype = "B"  # unsigned character, for gate files
+
 # getting data from stdin
 if len(sys.argv) <= 3:
     print("Usage: python $0 [3d,xy,xz,yz] varname list-of-files.")
@@ -23,7 +27,7 @@ grid = atlab.Grid()
 grid.read()
 
 x, y, z = np.copy(grid.x), np.copy(grid.y), np.copy(grid.z)
-nx = np.size(x), np.size(y), np.size(z)
+nx, ny, nz = np.size(x), np.size(y), np.size(z)
 
 # handle grid data in case of planes
 match datatype:
@@ -42,7 +46,7 @@ match datatype:
 for file in files:
     print("Processing file %s ..." % file)
 
-    field = atlab.Field(file, dtype="d")
+    field = atlab.Field(file, dtype=dtype)
     # print(field.nx, field.ny, field.nz, field.nt, field.time)
     a = field.read()
 

@@ -6,6 +6,10 @@ import atlab
 
 planes = [1, 2, 3, 4, 5]
 
+dtype = "d"  # floating-point number, double precision
+# dtype = "f"  # floating-point number, single precision
+# dtype = "B"  # unsigned character, for gate files
+
 # getting data from stdin
 if len(sys.argv) <= 2:
     print("Usage: python $0 [xy,xz,yz] list-of-files.")
@@ -43,7 +47,7 @@ def tag(sizeofmask, number):
 for file in files:
     print("Processing file %s ..." % file)
 
-    field = atlab.Field(file, dtype="d")
+    field = atlab.Field(file, dtype=dtype)
     for plane in planes:
         fout = open(file + "." + planetype + tag(sizeofmask, plane), "wb")
 

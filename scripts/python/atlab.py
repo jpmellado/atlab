@@ -37,8 +37,26 @@ class Grid:
 
         fin.close()
 
-    def writeNetCDF(filename):
-        print("to be done.")
+    def writeNetCDF(self, filename="grid"):
+        import netCDF4 as nc
+
+        # creating netcdf
+        file_dst = nc.Dataset(filename + ".nc", "w")
+
+        # create dimensions
+        file_dst.createDimension("x", len(self.x))
+        file_dst.createDimension("y", len(self.y))
+        file_dst.createDimension("z", len(self.z))
+
+        # create and write independent variables
+        x_dst = file_dst.createVariable("x", "f4", ("x",))
+        y_dst = file_dst.createVariable("y", "f4", ("y",))
+        z_dst = file_dst.createVariable("z", "f4", ("z",))
+        x_dst[:] = self.x[:]
+        y_dst[:] = self.y[:]
+        z_dst[:] = self.z[:]
+
+        file_dst.close()
 
 
 # getting grid size from tlab.ini in case grid file is not available

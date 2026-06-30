@@ -50,7 +50,7 @@ module Thermo_Base
     !                                                     Reference density results from rho_0=p_0/(T_0R_0)
 
     ! -------------------------------------------------------------------
-    real(wp), parameter :: RGAS = 8314_wp               ! J /kg /K, universal gas constant,
+    real(wp), parameter :: RGAS = 8314_wp               ! J /mol /K, universal gas constant,
 
 contains
     ! ###################################################################

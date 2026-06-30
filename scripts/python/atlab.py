@@ -179,7 +179,7 @@ class Field:
 
     def readXZ(self, plane):
         a = struct.unpack(
-            (self.etype + "{}" + self.dtype).format(int(self.nx * self.nz)), self.readXYRaw(plane)
+            (self.etype + "{}" + self.dtype).format(int(self.nx * self.nz)), self.readXZRaw(plane)
         )
 
         return np.array(a).reshape((self.nz, self.nx))

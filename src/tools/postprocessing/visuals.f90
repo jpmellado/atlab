@@ -283,7 +283,7 @@ program VISUALS
                 call Write_Visuals('Vorticity', txc(:, 1:3))
 
             case ('Enstrophy W_iW_i (Log)')
-                call Diagnose_PotentialEnstrophy(vars=vars)
+                call Diagnose_Enstrophy(vars=vars)
                 do ifield = 1, size(vars)
                     call Write_Visuals(trim(adjustl(vars(ifield)%tag)), &!//time_str(1:MaskSize), &
                                        vars(ifield)%field(:))

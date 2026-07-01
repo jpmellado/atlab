@@ -221,6 +221,10 @@ program PDFS
             write (fname, *) itime; fname = 'pdfG2'//trim(adjustl(fname))
             call Diagnose_ScalarGradientEquation(is=inb_scal, vars=vars)
 
+        case ('Enstrophy W_iW_i (Log)')
+            write (fname, *) itime; fname = 'pdfPV'//trim(adjustl(fname))
+            call Diagnose_Enstrophy(vars=vars)
+
         case ('Enstrophy W_iW_i/2 equation')
             write (fname, *) itime; fname = 'pdfW2'//trim(adjustl(fname))
             call Diagnose_EnstrophyEquation(vars=vars)
@@ -249,6 +253,83 @@ program PDFS
 
             write (fname, *) itime; fname = 'pdf'//trim(adjustl(fname))//'.RQ'
             call PDF2V(fname, imax, jmax*opt_block, kmax_aux, opt_bins, z_aux, txc(1, 1), txc(1, 2), pdf)
+
+        case ('Eigenvalues of rate-of-strain tensor')
+            write (fname, *) itime; fname = 'pdfEig'//trim(adjustl(fname))
+
+            call FI_STRAIN_TENSOR(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), txc(1, 1), txc(1, 2), txc(1, 3), txc(1, 4), txc(1, 5), txc(1, 6))
+            call TENSOR_EIGENVALUES(imax, jmax, kmax, txc(1, 1), txc(1, 7)) ! txc7-txc9
+
+            ifield = ifield + 1; vars(ifield)%field => txc(:, 7); vars(ifield)%tag = 'Lambda1'
+            ifield = ifield + 1; vars(ifield)%field => txc(:, 8); vars(ifield)%tag = 'Lambda2'
+            ifield = ifield + 1; vars(ifield)%field => txc(:, 9); vars(ifield)%tag = 'Lambda3'
+
+        case ('Eigenframe of rate-of-strain tensor')
+            write (fname, *) itime; fname = 'pdfCos'//trim(adjustl(fname))
+
+            call FI_STRAIN_TENSOR(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), txc(1, 1), txc(1, 2), txc(1, 3), txc(1, 4), txc(1, 5), txc(1, 6))
+            call TENSOR_EIGENVALUES(imax, jmax, kmax, txc(1, 1), txc(1, 7)) ! txc7-txc9
+            call TENSOR_EIGENFRAME(imax, jmax, kmax, txc(1, 1), txc(1, 7)) ! txc1-txc6
+
+            call FI_CURL(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), txc(1, 7), txc(1, 8), txc(1, 9), txc(1, 10))
+            q(:, 1) = txc(1:isize_field, 7)
+            q(:, 2) = txc(1:isize_field, 8)
+            q(:, 3) = txc(1:isize_field, 9)
+            call Tensor_DirectionCosines(imax, jmax, kmax, txc(:, 1), txc(:, 4), q(:, 1))
+            ifield = ifield + 1; vars(ifield)%field => q(:, 1); vars(ifield)%tag = 'cos(w,lambda1)'
+            ifield = ifield + 1; vars(ifield)%field => q(:, 2); vars(ifield)%tag = 'cos(w,lambda2)'
+            ifield = ifield + 1; vars(ifield)%field => q(:, 3); vars(ifield)%tag = 'cos(w,lambda3)'
+
+            call FI_GRAD(imax, jmax, kmax, s, txc(:, 7))
+            call Tensor_DirectionCosines(imax, jmax, kmax, txc(:, 1), txc(:, 4), txc(:, 7))
+            ifield = ifield + 1; vars(ifield)%field => txc(:, 7); vars(ifield)%tag = 'cos(G,lambda1)'
+            ifield = ifield + 1; vars(ifield)%field => txc(:, 8); vars(ifield)%tag = 'cos(G,lambda2)'
+            ifield = ifield + 1; vars(ifield)%field => txc(:, 9); vars(ifield)%tag = 'cos(G,lambda3)'
+
+        case ('Longitudinal velocity derivatives')
+            write (fname, *) itime; fname = 'pdfUDer'//trim(adjustl(fname))
+
+            call OPR_Partial_X(OPR_P1, imax, jmax, kmax, q(1, 1), txc(1, 1))
+            call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, q(1, 2), txc(1, 2))
+            call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, q(1, 3), txc(1, 3))
+
+            ifield = ifield + 1; vars(ifield)%field => txc(:, 1); vars(ifield)%tag = 'Sxx'
+            ifield = ifield + 1; vars(ifield)%field => txc(:, 2); vars(ifield)%tag = 'Syy'
+            ifield = ifield + 1; vars(ifield)%field => txc(:, 3); vars(ifield)%tag = 'Szz'
+
+        case ('Thermodynamics')
+            write (fname, *) itime; fname = 'pdfThermo'//trim(adjustl(fname))
+            call Diagnose_Thermodynamics(vars=vars)
+
+        case ('Atmospheric Thermodynamics')
+            select case (imode_thermo)
+            case (THERMO_TYPE_ANELASTIC)
+                ! need to construct pdf here to save memory
+                write (fname, *) itime; fname = 'pdfThermoEnergies'//trim(adjustl(fname))
+                call Diagnose_Energies_Anelastic(vars)
+                if (kmax_aux*opt_block /= z%size .and. reduce_data) then
+                    do is = 1, size(vars)
+                        call REDUCE_BLOCK_INPLACE(imax, jmax, kmax, 1, 1, 1, imax, jmax*opt_block, kmax_aux, vars(is)%field)
+                    end do
+                end if
+                call PDF1V_N(fname, imax, jmax*opt_block, kmax_aux, &
+                             size(vars), opt_bins(1), ibc, vmin, vmax, vars, z_aux, pdf)
+
+                write (fname, *) itime; fname = 'pdfThermoThetas'//trim(adjustl(fname))
+                call Diagnose_Thetas_Anelastic(vars)
+                if (kmax_aux*opt_block /= z%size .and. reduce_data) then
+                    do is = 1, size(vars)
+                        call REDUCE_BLOCK_INPLACE(imax, jmax, kmax, 1, 1, 1, imax, jmax*opt_block, kmax_aux, vars(is)%field)
+                    end do
+                end if
+                call PDF1V_N(fname, imax, jmax*opt_block, kmax_aux, &
+                             size(vars), opt_bins(1), ibc, vmin, vmax, vars, z_aux, pdf)
+
+                write (fname, *) itime; fname = 'pdfThermoMoist'//trim(adjustl(fname))
+                call Diagnose_Moisture_Anelastic(vars)
+
+            case (THERMO_TYPE_COMPRESSIBLE)
+            end select
 
             ! ###################################################################
             ! Joint PDF W^2 and 2S^2
@@ -298,93 +379,6 @@ program PDFS
             ! write (fname, *) itime; fname = 'cavgLnGiGi'//trim(adjustl(fname))
             ! call CAVG1V_N(fname, rtime, imax*opt_block, kmax_aux, kmax, &
             !               1, opt_bins(1), ibc, vmin, vmax, vars, gate_level, gate, txc(1, 2), z_aux, pdf)
-
-        case ('Scalar gradient components')
-            write (fname, *) itime; fname = 'pdfGi'//trim(adjustl(fname))
-            call Diagnose_ScalarGradientEquation(is=inb_scal, vars=vars)
-
-            write (fname, *) itime; fname = 'pdf'//trim(adjustl(fname))//'.GphiS'
-            call PDF2V(fname, imax, jmax*opt_block, kmax_aux, opt_bins, s(1, 1), txc(1, 4), z_aux, pdf)
-
-        case ('Eigenvalues of rate-of-strain tensor')
-            write (fname, *) itime; fname = 'pdfEig'//trim(adjustl(fname))
-
-            call FI_STRAIN_TENSOR(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), txc(1, 1), txc(1, 2), txc(1, 3), txc(1, 4), txc(1, 5), txc(1, 6))
-            call TENSOR_EIGENVALUES(imax, jmax, kmax, txc(1, 1), txc(1, 7)) ! txc7-txc9
-
-            ifield = ifield + 1; vars(ifield)%field => txc(:, 7); vars(ifield)%tag = 'Lambda1'
-            ifield = ifield + 1; vars(ifield)%field => txc(:, 8); vars(ifield)%tag = 'Lambda2'
-            ifield = ifield + 1; vars(ifield)%field => txc(:, 9); vars(ifield)%tag = 'Lambda3'
-
-        case ('Eigenframe of rate-of-strain tensor')
-            write (fname, *) itime; fname = 'pdfCos'//trim(adjustl(fname))
-
-            call FI_STRAIN_TENSOR(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), txc(1, 1), txc(1, 2), txc(1, 3), txc(1, 4), txc(1, 5), txc(1, 6))
-            call TENSOR_EIGENVALUES(imax, jmax, kmax, txc(1, 1), txc(1, 7)) ! txc7-txc9
-            call TENSOR_EIGENFRAME(imax, jmax, kmax, txc(1, 1), txc(1, 7)) ! txc1-txc6
-
-            call FI_CURL(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), txc(1, 7), txc(1, 8), txc(1, 9), txc(1, 10))
-            q(:, 1) = txc(1:isize_field, 7)
-            q(:, 2) = txc(1:isize_field, 8)
-            q(:, 3) = txc(1:isize_field, 9)
-            call Tensor_DirectionCosines(imax, jmax, kmax, txc(:, 1), txc(:, 4), q(:, 1))
-            ifield = ifield + 1; vars(ifield)%field => q(:, 1); vars(ifield)%tag = 'cos(w,lambda1)'
-            ifield = ifield + 1; vars(ifield)%field => q(:, 2); vars(ifield)%tag = 'cos(w,lambda2)'
-            ifield = ifield + 1; vars(ifield)%field => q(:, 3); vars(ifield)%tag = 'cos(w,lambda3)'
-
-            call FI_GRAD(imax, jmax, kmax, s, txc(:, 7))
-            call Tensor_DirectionCosines(imax, jmax, kmax, txc(:, 1), txc(:, 4), txc(:, 7))
-            ifield = ifield + 1; vars(ifield)%field => txc(:, 7); vars(ifield)%tag = 'cos(G,lambda1)'
-            ifield = ifield + 1; vars(ifield)%field => txc(:, 8); vars(ifield)%tag = 'cos(G,lambda2)'
-            ifield = ifield + 1; vars(ifield)%field => txc(:, 9); vars(ifield)%tag = 'cos(G,lambda3)'
-
-        case ('Longitudinal velocity derivatives')
-            write (fname, *) itime; fname = 'pdfUDer'//trim(adjustl(fname))
-
-            call OPR_Partial_X(OPR_P1, imax, jmax, kmax, q(1, 1), txc(1, 1))
-            call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, q(1, 2), txc(1, 2))
-            call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, q(1, 3), txc(1, 3))
-
-            ifield = ifield + 1; vars(ifield)%field => txc(:, 1); vars(ifield)%tag = 'Sxx'
-            ifield = ifield + 1; vars(ifield)%field => txc(:, 2); vars(ifield)%tag = 'Syy'
-            ifield = ifield + 1; vars(ifield)%field => txc(:, 3); vars(ifield)%tag = 'Szz'
-
-        case ('Potential vorticity')
-            write (fname, *) itime; fname = 'pdfPV'//trim(adjustl(fname))
-            call Diagnose_PotentialEnstrophy(vars=vars)
-
-        case ('Thermodynamics')
-            write (fname, *) itime; fname = 'pdfThermo'//trim(adjustl(fname))
-            call Diagnose_Thermodynamics(vars=vars)
-
-        case ('Atmospheric Thermodynamics')
-            select case (imode_thermo)
-            case (THERMO_TYPE_ANELASTIC)
-                write (fname, *) itime; fname = 'pdfThermoEnergies'//trim(adjustl(fname))
-                call Diagnose_Energies_Anelastic(vars)
-                if (kmax_aux*opt_block /= z%size .and. reduce_data) then
-                    do is = 1, size(vars)
-                        call REDUCE_BLOCK_INPLACE(imax, jmax, kmax, 1, 1, 1, imax, jmax*opt_block, kmax_aux, vars(is)%field)
-                    end do
-                end if
-                call PDF1V_N(fname, imax, jmax*opt_block, kmax_aux, &
-                             size(vars), opt_bins(1), ibc, vmin, vmax, vars, z_aux, pdf)
-
-                write (fname, *) itime; fname = 'pdfThermoThetas'//trim(adjustl(fname))
-                call Diagnose_Thetas_Anelastic(vars)
-                if (kmax_aux*opt_block /= z%size .and. reduce_data) then
-                    do is = 1, size(vars)
-                        call REDUCE_BLOCK_INPLACE(imax, jmax, kmax, 1, 1, 1, imax, jmax*opt_block, kmax_aux, vars(is)%field)
-                    end do
-                end if
-                call PDF1V_N(fname, imax, jmax*opt_block, kmax_aux, &
-                             size(vars), opt_bins(1), ibc, vmin, vmax, vars, z_aux, pdf)
-
-                write (fname, *) itime; fname = 'pdfThermoMoist'//trim(adjustl(fname))
-                call Diagnose_Moisture_Anelastic(vars)
-
-            case (THERMO_TYPE_COMPRESSIBLE)
-            end select
 
         end select
 
@@ -450,18 +444,19 @@ contains
         iv = 0
         iv = iv + 1; opt_name(iv) = 'Main variables'
         iv = iv + 1; opt_name(iv) = 'Scalar gradient G_iG_i/2 equation'
+        iv = iv + 1; opt_name(iv) = 'Enstrophy W_iW_i (Log)'
         iv = iv + 1; opt_name(iv) = 'Enstrophy W_iW_i/2 equation'
         iv = iv + 1; opt_name(iv) = 'Strain 2S_ijS_ij/2 equation'
         iv = iv + 1; opt_name(iv) = 'Velocity gradient invariants'
-        iv = iv + 1; opt_name(iv) = 'Joint enstrophy and strain'
-        iv = iv + 1; opt_name(iv) = 'Joint scalar and scalar gradient'
-        iv = iv + 1; opt_name(iv) = 'Scalar gradient components'
         iv = iv + 1; opt_name(iv) = 'Eigenvalues of rate-of-strain tensor'
         iv = iv + 1; opt_name(iv) = 'Eigenframe of rate-of-strain tensor'
         iv = iv + 1; opt_name(iv) = 'Longitudinal velocity derivatives'
-        iv = iv + 1; opt_name(iv) = 'Potential vorticity'
+        !
         iv = iv + 1; opt_name(iv) = 'Thermodynamics'
         iv = iv + 1; opt_name(iv) = 'Atmospheric Thermodynamics'
+        !
+        iv = iv + 1; opt_name(iv) = 'Joint enstrophy and strain'
+        iv = iv + 1; opt_name(iv) = 'Joint scalar and scalar gradient'
         if (iv > iopt_size_max) then ! Check
             call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Increase number of options.')
             call TLab_Stop(DNS_ERROR_INVALOPT)
@@ -574,6 +569,9 @@ contains
         case ('Scalar gradient G_iG_i/2 equation')
             iread_scal = .true.; iread_flow = .true.; inb_txc = max(inb_txc, 7)
             nfield = 5; isize_pdf = opt_bins(1) + 2
+        case ('Enstrophy W_iW_i (Log)')
+            iread_scal = .true.; iread_flow = .true.; inb_txc = max(inb_txc, 6)
+            nfield = 2
         case ('Enstrophy W_iW_i/2 equation')
             iread_scal = .true.; iread_flow = .true.; inb_txc = max(inb_txc, 8)
             nfield = 7; isize_pdf = opt_bins(1) + 2
@@ -583,15 +581,6 @@ contains
         case ('Velocity gradient invariants')
             iread_flow = .true.; inb_txc = max(inb_txc, 6)
             nfield = 3; isize_pdf = opt_bins(1)*opt_bins(2) + 2 + 2*opt_bins(1)
-        case ('Joint enstrophy and strain')
-            iread_flow = .true.; inb_txc = max(inb_txc, 4)
-            nfield = 2; isize_pdf = opt_bins(1)*opt_bins(2) + 2 + 2*opt_bins(1)
-        case ('Joint scalar and scalar gradient')
-            iread_scal = .true.; iread_flow = .true.; inb_txc = max(inb_txc, 3)
-            nfield = 2; isize_pdf = opt_bins(1)*opt_bins(2) + 2 + 2*opt_bins(1)
-        case ('Scalar gradient components')
-            iread_scal = .true.; inb_txc = max(inb_txc, 4)
-            nfield = 5; isize_pdf = opt_bins(1)*opt_bins(2) + 2 + 2*opt_bins(1)
         case ('Eigenvalues of rate-of-strain tensor')
             iread_flow = .true.; inb_txc = max(inb_txc, 9)
             nfield = 3; isize_pdf = opt_bins(1) + 2
@@ -601,15 +590,18 @@ contains
         case ('Longitudinal velocity derivatives')
             iread_flow = .true.; inb_txc = max(inb_txc, 3)
             nfield = 3; isize_pdf = opt_bins(1) + 2
-        case ('Potential vorticity')
-            iread_scal = .true.; iread_flow = .true.; inb_txc = max(inb_txc, 6)
-            nfield = 2
         case ('Thermodynamics')
             iread_flow = .true.; iread_scal = .true.; inb_txc = max(inb_txc, 4)
             nfield = 2
         case ('Atmospheric Thermodynamics')
             iread_scal = .true.; inb_txc = max(inb_txc, 3)
             nfield = 3
+        case ('Joint enstrophy and strain')
+            iread_flow = .true.; inb_txc = max(inb_txc, 4)
+            nfield = 2; isize_pdf = opt_bins(1)*opt_bins(2) + 2 + 2*opt_bins(1)
+        case ('Joint scalar and scalar gradient')
+            iread_scal = .true.; iread_flow = .true.; inb_txc = max(inb_txc, 3)
+            nfield = 2; isize_pdf = opt_bins(1)*opt_bins(2) + 2 + 2*opt_bins(1)
         end select
 
         return

@@ -19,7 +19,7 @@ module Diagnostics
     public :: Diagnose_ScalarGradientComponents
     public :: Diagnose_StrainEquation
     public :: Diagnose_EnstrophyEquation
-    public :: Diagnose_PotentialEnstrophy
+    public :: Diagnose_Enstrophy
     public :: Diagnose_Thetas_Anelastic
     public :: Diagnose_Energies_Anelastic
     public :: Diagnose_Moisture_Anelastic
@@ -417,7 +417,7 @@ contains
 
     !########################################################################
     !########################################################################
-    subroutine Diagnose_PotentialEnstrophy(vars)
+    subroutine Diagnose_Enstrophy(vars)
         use TLab_Arrays, only: s
         use Gravity
         use Thermo_Anelastic

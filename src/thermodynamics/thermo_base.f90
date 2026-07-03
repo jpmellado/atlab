@@ -73,7 +73,7 @@ contains
             ! Iribarne and Godson, 1981
         case (MIXT_TYPE_AIR, MIXT_TYPE_AIRVAPOR, MIXT_TYPE_AIRWATER)
             NSP = NSP + 1; THERMO_SPNAME(NSP) = 'H2Ov'; WGHT(NSP) = 18.015_wp
-            NSP = NSP + 1; THERMO_SPNAME(NSP) = 'Air'; WGHT(NSP) = 28.9644_wp
+            NSP = NSP + 1; THERMO_SPNAME(NSP) = 'Air'; WGHT(NSP) = 28.9664_wp
             NSP = NSP + 1; THERMO_SPNAME(NSP) = 'H2Ol'; WGHT(NSP) = 18.015_wp
             ISPREF = 2
 
@@ -98,7 +98,7 @@ contains
         ! related to the formation enthalpy, and a_7 to the formation entropy.
         ! HREF_LOC and SREF_LOC (at TREF_LOC) are used to fix last Cpi 6-7 coefficients.
         !
-        ! Note that Burcat&Ruscic give values devided by R^0
+        ! Note that Burcat&Ruscic give values divided by R^0
         !
         ! NCP gives the number of coefficients a_i.
         ! The simplified situation NCP=1 assumes also only one range, which then gives C_p constant.
@@ -118,11 +118,10 @@ contains
         NCP = 1                         ! Default order of heat capacity polynomial
 
         select case (imixture)
-            ! Iribarne and Godson, 1981
         case (MIXT_TYPE_AIR, MIXT_TYPE_AIRVAPOR, MIXT_TYPE_AIRWATER)
             TREF_LOC = 273.15_wp
 
-            molar_data = .false. ! this block gives data already in mass spefic values
+            molar_data = .false. ! this block gives data already in mass specific values
 
             ! Enthalpy of Formation in J /kg
             HREF_LOC(1) = 1870.0_wp*TREF_LOC                 ! values s.t. THERMO_CP(6,im,1:2) = 0, i.e., liquid-water enthalpy

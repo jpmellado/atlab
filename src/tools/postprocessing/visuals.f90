@@ -185,7 +185,7 @@ program VISUALS
         ! Loop over options
         ! -------------------------------------------------------------------
         do iv = 1, iopt_size
-            plot_file = trim(adjustl(opt_name(opt_vec(iv)))) !//time_str(1:MaskSize)
+            plot_file = trim(adjustl(opt_name(opt_vec(iv))))
 
             select case (trim(adjustl(opt_name(opt_vec(iv)))))
             case ('VelocityX')
@@ -211,33 +211,33 @@ program VISUALS
             case ('Thermodynamics')
                 call Diagnose_Thermodynamics(vars=vars)
                 do ifield = 1, size(vars)
-                    call Write_Visuals(trim(adjustl(vars(ifield)%tag))//time_str(1:MaskSize), &
+                    call Write_Visuals(trim(adjustl(vars(ifield)%tag)), &
                                        vars(ifield)%field(:))
                 end do
 
             case ('PressureAnalysis')
                 call Diagnose_PressureForce(vars=vars)
                 do ifield = 1, size(vars)
-                    call Write_Visuals(trim(adjustl(vars(ifield)%tag))//time_str(1:MaskSize), &
+                    call Write_Visuals(trim(adjustl(vars(ifield)%tag)), &
                                        vars(ifield)%field(:))
                 end do
 
                 call Diagnose_PressurePartition(vars=vars)
                 do ifield = 1, size(vars)
-                    call Write_Visuals(trim(adjustl(vars(ifield)%tag))//time_str(1:MaskSize), &
+                    call Write_Visuals(trim(adjustl(vars(ifield)%tag)), &
                                        vars(ifield)%field(:))
                 end do
 
             case ('Buoyancy')
                 call Diagnose_Buoyancy(vars)
                 do ifield = 1, size(vars)
-                    call Write_Visuals(trim(adjustl(vars(ifield)%tag))//time_str(1:MaskSize), &
+                    call Write_Visuals(trim(adjustl(vars(ifield)%tag)), &
                                        vars(ifield)%field(:))
                 end do
 
             case ('Scalars')
                 do is = 1, inb_scal_array
-                    write (str, *) is; plot_file = 'Scalar'//trim(adjustl(str)) !//time_str(1:MaskSize)
+                    write (str, *) is; plot_file = 'Scalar'//trim(adjustl(str))
 
                     txc(1:isize_field, 1) = s(1:isize_field, is)
                     call Write_Visuals(plot_file, txc(:, 1:1))
@@ -248,7 +248,7 @@ program VISUALS
                 do is = 1, inb_scal_array
                     write (str, *) is; str = 'Scalar'//trim(adjustl(str))
 
-                    plot_file = trim(adjustl(str))//'GradientVector' !//time_str(1:MaskSize)
+                    plot_file = trim(adjustl(str))//'GradientVector'
                     call OPR_Partial_X(OPR_P1, imax, jmax, kmax, s(1, is), txc(1, 1))
                     call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, s(1, is), txc(1, 2))
                     call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, s(1, is), txc(1, 3))
@@ -259,7 +259,7 @@ program VISUALS
                 do is = 1, inb_scal_array
                     write (str, *) is; str = 'Scalar'//trim(adjustl(str))
 
-                    plot_file = 'Log'//trim(adjustl(str))//'Gradient' !//time_str(1:MaskSize)
+                    plot_file = 'Log'//trim(adjustl(str))//'Gradient'
                     call FI_GRAD_MAGNITUDE(imax, jmax, kmax, s(1, is), txc(1, 1), txc(1, 2))
                     txc(1:isize_field, 1) = log10(txc(1:isize_field, 1) + small_wp)
                     call Write_Visuals(plot_file, txc(:, 1:1))
@@ -272,7 +272,7 @@ program VISUALS
 
                     call Diagnose_ScalarGradientEquation(is, vars)
                     do ifield = 1, size(vars)
-                        plot_file = trim(adjustl(str))//trim(adjustl(vars(ifield)%tag)) !//time_str(1:MaskSize)
+                        plot_file = trim(adjustl(str))//trim(adjustl(vars(ifield)%tag))
                         call Write_Visuals(plot_file, vars(ifield)%field(:))
                     end do
 
@@ -285,14 +285,14 @@ program VISUALS
             case ('Enstrophy W_iW_i (Log)')
                 call Diagnose_Enstrophy(vars=vars)
                 do ifield = 1, size(vars)
-                    call Write_Visuals(trim(adjustl(vars(ifield)%tag)), &!//time_str(1:MaskSize), &
+                    call Write_Visuals(trim(adjustl(vars(ifield)%tag)), &
                                        vars(ifield)%field(:))
                 end do
 
             case ('EnstrophyEquation')
                 call Diagnose_EnstrophyEquation(vars=vars)
                 do ifield = 1, size(vars)
-                    plot_file = 'EnstrophyEqn'//trim(adjustl(vars(ifield)%tag)) !//time_str(1:MaskSize)
+                    plot_file = 'EnstrophyEqn'//trim(adjustl(vars(ifield)%tag))
                     call Write_Visuals(plot_file, vars(ifield)%field(:))
                 end do
 
@@ -301,7 +301,7 @@ program VISUALS
                 call Write_Visuals(plot_file, txc(:, 1:6))
 
             case ('Strain 2S_ijS_ij (Log)')
-                plot_file = 'LogStrain' !//time_str(1:MaskSize)
+                plot_file = 'LogStrain'
                 call FI_STRAIN(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), txc(1, 1), txc(1, 2), txc(1, 3))
                 txc(1:isize_field, 1) = 2.0_wp*txc(1:isize_field, 1)
                 txc(1:isize_field, 1) = log10(txc(1:isize_field, 1) + small_wp)
@@ -310,20 +310,20 @@ program VISUALS
             case ('StrainEquation')
                 call Diagnose_StrainEquation(vars=vars)
                 do ifield = 1, size(vars)
-                    plot_file = 'StrainEqn'//trim(adjustl(vars(ifield)%tag)) !//time_str(1:MaskSize)
+                    plot_file = 'StrainEqn'//trim(adjustl(vars(ifield)%tag))
                     call Write_Visuals(plot_file, vars(ifield)%field(:))
                 end do
 
             case ('VelocityGradientInvariants')
-                plot_file = 'InvariantP' !//time_str(1:MaskSize)
+                plot_file = 'InvariantP'
                 call FI_INVARIANT_P(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), txc(1, 1), txc(1, 2))
                 call Write_Visuals(plot_file, txc(:, 1:1))
 
-                plot_file = 'InvariantQ' !//time_str(1:MaskSize)
+                plot_file = 'InvariantQ'
                 call FI_INVARIANT_Q(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), txc(1, 1), txc(1, 2), txc(1, 3), txc(1, 4))
                 call Write_Visuals(plot_file, txc(:, 1:1))
 
-                plot_file = 'InvariantR' !//time_str(1:MaskSize)
+                plot_file = 'InvariantR'
                 call FI_INVARIANT_R(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), txc(1, 1), &
                                     txc(1, 2), txc(1, 3), txc(1, 4), txc(1, 5), txc(1, 6))
                 call Write_Visuals(plot_file, txc(:, 1:1))
@@ -335,14 +335,14 @@ program VISUALS
                 call Write_Visuals(plot_file, txc(:, 1:1))
 
             case ('Turbulent quantities')
-                plot_file = 'Tke' !//time_str(1:MaskSize)
+                plot_file = 'Tke'
                 txc(1:isize_field, 1) = q(1:isize_field, 1); call FI_Fluctuation_InPlace(imax, jmax, kmax, txc(:, 1))
                 txc(1:isize_field, 2) = q(1:isize_field, 2); call FI_Fluctuation_InPlace(imax, jmax, kmax, txc(:, 2))
                 txc(1:isize_field, 3) = q(1:isize_field, 3); call FI_Fluctuation_InPlace(imax, jmax, kmax, txc(:, 3))
                 txc(:, 4) = 0.5_wp*Tensor_Dot(txc(:, 1:3), txc(:, 1:3))
                 call Write_Visuals(plot_file, txc(:, 4:4))
 
-                plot_file = 'ReynoldsTensor' !//time_str(1:MaskSize)
+                plot_file = 'ReynoldsTensor'
                 txc(1:isize_field, 4) = txc(1:isize_field, 1)*txc(1:isize_field, 2)
                 txc(1:isize_field, 5) = txc(1:isize_field, 1)*txc(1:isize_field, 3)
                 txc(1:isize_field, 6) = txc(1:isize_field, 2)*txc(1:isize_field, 3)
@@ -363,20 +363,17 @@ program VISUALS
                 case (THERMO_TYPE_ANELASTIC)
                     call Diagnose_Energies_Anelastic(vars)
                     do ifield = 1, size(vars)
-                        call Write_Visuals(trim(adjustl(vars(ifield)%tag))//time_str(1:MaskSize), &
-                                           vars(ifield)%field(:))
+                        call Write_Visuals(trim(adjustl(vars(ifield)%tag)), vars(ifield)%field(:))
                     end do
 
                     call Diagnose_Thetas_Anelastic(vars)
                     do ifield = 1, size(vars)
-                        call Write_Visuals(trim(adjustl(vars(ifield)%tag))//time_str(1:MaskSize), &
-                                           vars(ifield)%field(:))
+                        call Write_Visuals(trim(adjustl(vars(ifield)%tag)), vars(ifield)%field(:))
                     end do
 
                     call Diagnose_Moisture_Anelastic(vars)
                     do ifield = 1, size(vars)
-                        call Write_Visuals(trim(adjustl(vars(ifield)%tag))//time_str(1:MaskSize), &
-                                           vars(ifield)%field(:))
+                        call Write_Visuals(trim(adjustl(vars(ifield)%tag)), vars(ifield)%field(:))
                     end do
 
                 case (THERMO_TYPE_COMPRESSIBLE)
@@ -388,7 +385,7 @@ program VISUALS
             case ('Infrared')
                 do is = 1, inb_scal
                     if (infraredProps%active(is)) then
-                        write (str, *) is; plot_file = 'Infrared'//trim(adjustl(str)) !//time_str(1:MaskSize)
+                        write (str, *) is; plot_file = 'Infrared'//trim(adjustl(str))
                         call Radiation_Infrared_Z(infraredProps, imax, jmax, kmax, s, &
                                                   txc(:, 1), txc(:, 2), txc(:, 3), txc(:, 4), txc(:, 5), txc(:, 6))
                         if (nse_eqns == DNS_EQNS_ANELASTIC) then
@@ -396,11 +393,11 @@ program VISUALS
                         end if
                         call Write_Visuals(plot_file, txc(:, 1:1))
 
-                        write (str, *) is; plot_file = 'InfraredFlux'//trim(adjustl(str)) !//time_str(1:MaskSize)
+                        write (str, *) is; plot_file = 'InfraredFlux'//trim(adjustl(str))
                         txc(1:isize_field, 5) = txc(1:isize_field, 6) - txc(1:isize_field, 5)
                         call Write_Visuals(plot_file, txc(:, 5:5))
 
-                        write (str, *) is; plot_file = 'InfraredFluxUp'//trim(adjustl(str)) !//time_str(1:MaskSize)
+                        write (str, *) is; plot_file = 'InfraredFluxUp'//trim(adjustl(str))
                         call Write_Visuals(plot_file, txc(:, 6:6))
                     end if
 
@@ -412,7 +409,7 @@ program VISUALS
             case ('Sedimentation')
                 do is = 1, inb_scal
                     if (infraredProps%active(is)) then
-                        write (str, *) is; plot_file = 'Sedimentation'//trim(adjustl(str))!//time_str(1:MaskSize)
+                        write (str, *) is; plot_file = 'Sedimentation'//trim(adjustl(str))
                         call Microphysics_Sedimentation_Z(sedimentationProps, imax, jmax, kmax, is, s, &
                                                           txc(:, 1), txc(:, 2), txc(:, 3))
                         if (nse_eqns == DNS_EQNS_ANELASTIC) then
@@ -420,7 +417,7 @@ program VISUALS
                         end if
                         call Write_Visuals(plot_file, txc(:, 1:1))
 
-                        write (str, *) is; plot_file = 'SedimentationFlux'//trim(adjustl(str)) !//time_str(1:MaskSize)
+                        write (str, *) is; plot_file = 'SedimentationFlux'//trim(adjustl(str))
                         call Write_Visuals(plot_file, txc(:, 1:3))
 
                     end if
@@ -553,6 +550,8 @@ contains
         end if
 
         ! -------------------------------------------------------------------
+        opt_format = FORMAT_SINGLE ! default is single precission, no header
+
         call ScanFile_Char(bakfile, ifile, block, 'Format', '-1', sRes)
         if (sRes == '-1') then
 #ifdef USE_MPI

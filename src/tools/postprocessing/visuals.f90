@@ -699,7 +699,8 @@ contains
         ! -------------------------------------------------------------------
         integer(wi) nx, ny, nz, ifield, i
         integer(wi) sizes(5)
-        character*32 varname(16)
+        character(len=64) locName
+        character(len=32) varname(16)
         integer subarray_plan
         integer nfield
         !
@@ -752,6 +753,8 @@ contains
         end if
 
         ! ###################################################################
+        locName = trim(adjustl(fname))//'.'//time_str(1:MaskSize)
+
         select case (opt_format)
         case (FORMAT_GENERAL)
             if (nfield > 1) then ! IO_Write_Fields expects field to be aligned by isize_field (instead of isize_txc_field)
@@ -762,7 +765,7 @@ contains
                 end do
             end if
             io_header_q(1)%params(1) = rtime
-            call IO_Write_Fields(trim(adjustl(fname))//time_str(1:MaskSize), imax, jmax, kmax, itime, nfield, field, io_header_q(1:1))
+            call IO_Write_Fields(locName, imax, jmax, kmax, itime, nfield, field, io_header_q(1:1))
 
         case (FORMAT_SINGLE)
             do ifield = 1, nfield
@@ -778,7 +781,7 @@ contains
                 do ifield = 1, nfield; write (varname(ifield), *) ifield; varname(ifield) = trim(adjustl(varname(ifield)))
                 end do
             end if
-            call IO_Write_Subarray(io_subarrays(subarray_plan), trim(adjustl(fname))//time_str(1:MaskSize), varname, field, sizes)
+            call IO_Write_Subarray(io_subarrays(subarray_plan), locName, varname, field, sizes)
 
         case (FORMAT_NETCDF)
             if (allocated(vars)) deallocate (vars)
@@ -802,7 +805,7 @@ contains
                 vars(iv)%field(1:nx, 1:ny, 1:nz) => field(1:nx*ny*nz, iv)
             end do
 
-            call IO_WRITE_NETCDF(trim(adjustl(fname))//time_str(1:MaskSize), &
+            call IO_WRITE_NETCDF(locName, &
                                  itime, rtime, &
                                  x%nodes(subdomain(1):subdomain(2)), &
                                  y%nodes(subdomain(3):subdomain(4)), &

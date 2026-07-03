@@ -1,7 +1,7 @@
 #include "tlab_error.h"
 
 program AVERAGES
-    use TLab_Constants, only: wp, wi, small_wp, MAX_AVG_TEMPORAL
+    use TLab_Constants, only: wp, wi, small_wp, MAX_PARS, MAX_AVG_TEMPORAL
     use TLab_Constants, only: ifile, gfile, lfile, efile, wfile, tag_flow, tag_scal
     use TLab_Memory, only: imax, jmax, kmax, inb_scal_array, inb_txc, isize_wrk3d, inb_flow, inb_scal, isize_field
     use TLab_Time, only: itime, rtime
@@ -49,19 +49,23 @@ program AVERAGES
     integer(wi) opt_vec(iopt_size_max)
     character(len=64) opt_name(iopt_size_max)
 
+    character(len=32) time_str                      ! Time stamp
+
+    character*32 fname
+    ! character*64 str
+
+    integer is, ij
+    logical iread_flow, iread_scal
+    real(wp) params(MAX_PARS)
+
+    integer opt_main, opt_block
+    integer nfield, ifield, kmax_aux
+
+    integer opt_order
+
     ! -------------------------------------------------------------------
     ! Additional local arrays
     real(wp), allocatable, save :: mean(:), z_aux(:)
-
-    character*32 fname
-    character*64 str
-
-    integer opt_main, opt_block
-    integer nfield, ifield, is, ij, kmax_aux
-    logical iread_flow, iread_scal
-    real(wp) params(2)
-
-    integer opt_order
 
     ! integer(wi) io_sizes(5)
     ! type(io_subarray_dt) io_envelopes
@@ -146,17 +150,18 @@ program AVERAGES
     do it = 1, itime_size
         itime = itime_vec(it)
 
-        write (str, *) itime; str = 'Processing iteration It'//trim(adjustl(str))
-        call TLab_Write_ASCII(lfile, str)
+        write (time_str, *) itime
+
+        call TLab_Write_ASCII(lfile, 'Processing iteration It'//trim(adjustl(time_str)))
 
         if (iread_scal) then
-            write (fname, *) itime; fname = trim(adjustl(tag_scal))//trim(adjustl(fname))
+            fname = trim(adjustl(tag_scal))//trim(adjustl(time_str))
             call IO_Read_Fields(fname, imax, jmax, kmax, itime, inb_scal, 0, s, params(1:1))
             rtime = params(1)
         end if
 
         if (iread_flow) then
-            write (fname, *) itime; fname = trim(adjustl(tag_flow))//trim(adjustl(fname))
+            fname = trim(adjustl(tag_flow))//trim(adjustl(time_str))
             call IO_Read_Fields(fname, imax, jmax, kmax, itime, inb_flow, 0, q, params(1:1))
             rtime = params(1)
         end if
@@ -221,8 +226,9 @@ program AVERAGES
             ! Partition of field
             ! ###################################################################
         case ('Intermittency or gate function')
-            write (fname, *) itime; fname = 'int'//trim(adjustl(fname))
-            call TLab_Write_ASCII(lfile, 'Computing '//trim(adjustl(fname))//'...')
+            fname = 'int'
+            ! write (fname, *) itime; fname = 'int'//trim(adjustl(fname))
+            ! call TLab_Write_ASCII(lfile, 'Computing '//trim(adjustl(fname))//'...')
 
             ! do is = 1, igate_size
             !     write (varname(is), *) is; varname(is) = 'Partition'//trim(adjustl(varname(is)))
@@ -254,7 +260,8 @@ program AVERAGES
             ! end if
 
         case ('Main variables')
-            write (fname, *) itime; fname = 'avgMain'//trim(adjustl(fname))
+            fname = 'avgMain'
+            ! write (fname, *) itime; fname = 'avgMain'//trim(adjustl(fname))
 
             ifield = ifield + 1; vars(ifield)%field => u(:); vars(ifield)%tag = 'U'
             ifield = ifield + 1; vars(ifield)%field => v(:); vars(ifield)%tag = 'V'
@@ -276,23 +283,28 @@ program AVERAGES
             end if
 
         case ('Scalar gradient G_iG_i/2 equation')
-            write (fname, *) itime; fname = 'avgG2'//trim(adjustl(fname))
+            fname = 'avgG2'
+            ! write (fname, *) itime; fname = 'avgG2'//trim(adjustl(fname))
             call Diagnose_ScalarGradientEquation(is=inb_scal, vars=vars)
 
         case ('Enstrophy W_iW_i (Log)')
-            write (fname, *) itime; fname = 'avgPV'//trim(adjustl(fname))
+            fname = 'avgPV'
+            ! write (fname, *) itime; fname = 'avgPV'//trim(adjustl(fname))
             call Diagnose_Enstrophy(vars=vars)
 
         case ('Enstrophy W_iW_i/2 equation')
-            write (fname, *) itime; fname = 'avgW2'//trim(adjustl(fname))
+            fname = 'avgW2'
+            ! write (fname, *) itime; fname = 'avgW2'//trim(adjustl(fname))
             call Diagnose_EnstrophyEquation(vars=vars)
 
         case ('Strain 2S_ijS_ij/2 equation')
-            write (fname, *) itime; fname = 'avgS2'//trim(adjustl(fname))
+            fname = 'avgS2'
+            ! write (fname, *) itime; fname = 'avgS2'//trim(adjustl(fname))
             call Diagnose_StrainEquation(vars=vars)
 
         case ('Velocity gradient invariants')
-            write (fname, *) itime; fname = 'avgInv'//trim(adjustl(fname))
+            fname = 'avgInv'
+            ! write (fname, *) itime; fname = 'avgInv'//trim(adjustl(fname))
 
             call FI_INVARIANT_R(imax, jmax, kmax, u, v, w, txc(1, 1), txc(1, 2), txc(1, 3), txc(1, 4), txc(1, 5), txc(1, 6))
             call FI_INVARIANT_Q(imax, jmax, kmax, u, v, w, txc(1, 2), txc(1, 3), txc(1, 4), txc(1, 5))
@@ -303,7 +315,8 @@ program AVERAGES
             ifield = ifield + 1; vars(ifield)%field => txc(:, 1); vars(ifield)%tag = 'InvariantR'
 
         case ('Eigenvalues of rate-of-strain tensor')
-            write (fname, *) itime; fname = 'avgEig'//trim(adjustl(fname))
+            fname = 'avgEig'
+            ! write (fname, *) itime; fname = 'avgEig'//trim(adjustl(fname))
 
             call FI_STRAIN_TENSOR(imax, jmax, kmax, u, v, w, txc(1, 1), txc(1, 2), txc(1, 3), txc(1, 4), txc(1, 5), txc(1, 6))
             call TENSOR_EIGENVALUES(imax, jmax, kmax, txc(1, 1), txc(1, 7)) ! txc7-txc9
@@ -313,7 +326,8 @@ program AVERAGES
             ifield = ifield + 1; vars(ifield)%field => txc(:, 9); vars(ifield)%tag = 'Lambda3'
 
         case ('Eigenframe of rate-of-strain tensor')
-            write (fname, *) itime; fname = 'avgCos'//trim(adjustl(fname))
+            fname = 'avgCos'
+            ! write (fname, *) itime; fname = 'avgCos'//trim(adjustl(fname))
 
             call FI_STRAIN_TENSOR(imax, jmax, kmax, u, v, w, txc(1, 1), txc(1, 2), txc(1, 3), txc(1, 4), txc(1, 5), txc(1, 6))
             call TENSOR_EIGENVALUES(imax, jmax, kmax, txc(1, 1), txc(1, 7))  ! txc7-txc9
@@ -335,7 +349,8 @@ program AVERAGES
             ifield = ifield + 1; vars(ifield)%field => txc(:, 9); vars(ifield)%tag = 'cos(G,lambda3)'
 
         case ('Longitudinal velocity derivatives')
-            write (fname, *) itime; fname = 'avgUDer'//trim(adjustl(fname))
+            fname = 'avgUDer'
+            ! write (fname, *) itime; fname = 'avgUDer'//trim(adjustl(fname))
 
             call OPR_Partial_X(OPR_P1, imax, jmax, kmax, u, txc(1, 1))
             call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, v, txc(1, 2))
@@ -346,34 +361,40 @@ program AVERAGES
             ifield = ifield + 1; vars(ifield)%field => txc(:, 3); vars(ifield)%tag = 'dwdz'
 
         case ('Thermodynamics')
-            write (fname, *) itime; fname = 'avgThermo'//trim(adjustl(fname))
+            fname = 'avgThermo'
+            ! write (fname, *) itime; fname = 'avgThermo'//trim(adjustl(fname))
             call Diagnose_Thermodynamics(vars=vars)
 
         case ('Atmospheric Thermodynamics')
             select case (imode_thermo)
             case (THERMO_TYPE_ANELASTIC)
                 ! need to construct avg here to save memory
-                write (fname, *) itime; fname = 'avgThermoEnergies'//trim(adjustl(fname))
+                fname = 'avgThermoEnergies'
+                ! write (fname, *) itime; fname = 'avgThermoEnergies'//trim(adjustl(fname))
                 call Diagnose_Energies_Anelastic(vars)
-                if (kmax_aux*opt_block /= z%size) then
-                    do is = 1, size(vars)
-                        call REDUCE_BLOCK_INPLACE(imax, jmax, kmax, 1, 1, 1, imax, jmax, kmax_aux*opt_block, vars(is)%field)
-                    end do
-                end if
-                call AVG_N_XZ(fname, itime, rtime, imax, jmax*opt_block, kmax_aux, &
+                ! if (kmax_aux*opt_block /= z%size) then
+                !     do is = 1, size(vars)
+                !         call REDUCE_BLOCK_INPLACE(imax, jmax, kmax, 1, 1, 1, imax, jmax, kmax_aux*opt_block, vars(is)%field)
+                !     end do
+                ! end if
+                call AVG_N_XZ(trim(adjustl(fname))//'.'//trim(adjustl(time_str)), &
+                              itime, rtime, imax, jmax*opt_block, kmax_aux, &
                               size(vars), opt_order, vars, gate_level, gate, z_aux, mean)
 
-                write (fname, *) itime; fname = 'avgThermoThetas'//trim(adjustl(fname))
+                fname = 'avgThermoThetas'
+                ! write (fname, *) itime; fname = 'avgThermoThetas'//trim(adjustl(fname))
                 call Diagnose_Thetas_Anelastic(vars)
-                if (kmax_aux*opt_block /= z%size) then
-                    do is = 1, size(vars)
-                        call REDUCE_BLOCK_INPLACE(imax, jmax, kmax, 1, 1, 1, imax, jmax, kmax_aux*opt_block, vars(is)%field)
-                    end do
-                end if
-                call AVG_N_XZ(fname, itime, rtime, imax, jmax*opt_block, kmax_aux, &
+                ! if (kmax_aux*opt_block /= z%size) then
+                !     do is = 1, size(vars)
+                !         call REDUCE_BLOCK_INPLACE(imax, jmax, kmax, 1, 1, 1, imax, jmax, kmax_aux*opt_block, vars(is)%field)
+                !     end do
+                ! end if
+                call AVG_N_XZ(trim(adjustl(fname))//'.'//trim(adjustl(time_str)), &
+                              itime, rtime, imax, jmax*opt_block, kmax_aux, &
                               size(vars), opt_order, vars, gate_level, gate, z_aux, mean)
 
-                write (fname, *) itime; fname = 'avgThermoMoist'//trim(adjustl(fname))
+                fname = 'avgThermoMoist'
+                ! write (fname, *) itime; fname = 'avgThermoMoist'//trim(adjustl(fname))
                 call Diagnose_Moisture_Anelastic(vars)
 
             case (THERMO_TYPE_COMPRESSIBLE)
@@ -383,8 +404,9 @@ program AVERAGES
             ! Momentum equation
             ! ###################################################################
         case ('Momentum equation')    ! To be checked
-            write (fname, *) itime; fname = 'avgMom'//trim(adjustl(fname))
-            call TLab_Write_ASCII(lfile, 'Computing '//trim(adjustl(fname))//'...')
+            fname = 'avgMom'
+            ! write (fname, *) itime; fname = 'avgMom'//trim(adjustl(fname))
+            ! call TLab_Write_ASCII(lfile, 'Computing '//trim(adjustl(fname))//'...')
 
             ifield = ifield + 1; vars(ifield)%field => q(:, 1); vars(ifield)%tag = 'U'
             ifield = ifield + 1; vars(ifield)%field => q(:, 2); vars(ifield)%tag = 'V'
@@ -423,10 +445,9 @@ program AVERAGES
             txc(1:isize_field, 12) = q(1:isize_field, 3)*txc(1:isize_field, 12)
 
         case ('Vertical fluxes')
-            ifield = 0
-            write (fname, *) itime; fname = 'avgFluxZ'//trim(adjustl(fname))
-            call TLab_Write_ASCII(lfile, 'Computing '//trim(adjustl(fname))//'...')
-            ifield = 0
+            fname = 'avgFluxZ'
+            ! write (fname, *) itime; fname = 'avgFluxZ'//trim(adjustl(fname))
+            ! call TLab_Write_ASCII(lfile, 'Computing '//trim(adjustl(fname))//'...')
 
             call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, u, txc(:, 1))
             call OPR_Partial_X(OPR_P1, imax, jmax, kmax, v, txc(:, 2))
@@ -461,7 +482,8 @@ program AVERAGES
             w = w*w ! I need w above for the scalar fluxes
 
         case ('Pressure partition')
-            write (fname, *) itime; fname = 'avgP'//trim(adjustl(fname))
+            fname = 'avgP'
+            ! write (fname, *) itime; fname = 'avgP'//trim(adjustl(fname))
 
             call NSE_Pressure_Incompressible(q, s, txc(:, 1), txc(:, 2), txc(:, 5), txc(:, 6))
             ifield = ifield + 1; vars(ifield)%field => txc(:, 1); vars(ifield)%tag = 'P'
@@ -474,7 +496,8 @@ program AVERAGES
             ifield = ifield + 1; vars(ifield)%field => txc(:, 3); vars(ifield)%tag = 'Pdyn'
 
         case ('Dissipation')
-            write (fname, *) itime; fname = 'avgEps'//trim(adjustl(fname))
+            fname = 'avgEps'
+            ! write (fname, *) itime; fname = 'avgEps'//trim(adjustl(fname))
 
             ! call FI_DISSIPATION(i1, imax, jmax, kmax, u, v, w, txc(1, 1), txc(1, 2), txc(1, 3), txc(1, 4), txc(1, 5))
             ! txc(1:isize_field, 1) = txc(1:isize_field, 1)*visc
@@ -482,7 +505,8 @@ program AVERAGES
             ifield = ifield + 1; vars(ifield)%field => txc(:, 1); vars(ifield)%tag = 'Eps'
 
         case ('Third-order scalar covariances') ! Covariances among scalars
-            write (fname, *) itime; fname = 'avgSiCov'//trim(adjustl(fname))
+            fname = 'avgSiCov'
+            ! write (fname, *) itime; fname = 'avgSiCov'//trim(adjustl(fname))
 
             call FI_Fluctuation_InPlace(imax, jmax, kmax, s(1, 1))
             call FI_Fluctuation_InPlace(imax, jmax, kmax, s(1, 2))
@@ -507,13 +531,15 @@ program AVERAGES
                 call TLab_Stop(DNS_ERROR_WRKSIZE)
             end if
 
-            if (kmax_aux*opt_block /= z%size) then
-                do is = 1, ifield
-                    call REDUCE_BLOCK_INPLACE(imax, jmax, kmax, 1, 1, 1, imax, jmax, kmax_aux*opt_block, vars(is)%field)
-                end do
-            end if
+            ! I think I do not need this anymore with the new data format
+            ! if (kmax_aux*opt_block /= z%size) then
+            !     do is = 1, ifield
+            !         call REDUCE_BLOCK_INPLACE(imax, jmax, kmax, 1, 1, 1, imax, jmax, kmax_aux*opt_block, vars(is)%field)
+            !     end do
+            ! end if
 
-            call AVG_N_XZ(fname, itime, rtime, imax, jmax*opt_block, kmax_aux, &
+            call AVG_N_XZ(trim(adjustl(fname))//'.'//trim(adjustl(time_str)), &
+                          itime, rtime, imax, jmax*opt_block, kmax_aux, &
                           ifield, opt_order, vars, gate_level, gate, z_aux, mean)
 
         end if
@@ -635,7 +661,9 @@ contains
                 read (*, '(A64)') sRes
 #endif
             end if
-            read (sRes, *) opt_block
+            if (len_trim(adjustl(sRes)) > 0) then
+                read (sRes, *) opt_block
+            end if
 
             if (opt_block < 1) then ! default
                 opt_block = 1

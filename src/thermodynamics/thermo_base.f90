@@ -73,7 +73,7 @@ contains
             ! Iribarne and Godson, 1981
         case (MIXT_TYPE_AIR, MIXT_TYPE_AIRVAPOR, MIXT_TYPE_AIRWATER)
             NSP = NSP + 1; THERMO_SPNAME(NSP) = 'H2Ov'; WGHT(NSP) = 18.015_wp
-            NSP = NSP + 1; THERMO_SPNAME(NSP) = 'Air'; WGHT(NSP) = 28.9664_wp
+            NSP = NSP + 1; THERMO_SPNAME(NSP) = 'Air'; WGHT(NSP) = 28.9644_wp
             NSP = NSP + 1; THERMO_SPNAME(NSP) = 'H2Ol'; WGHT(NSP) = 18.015_wp
             ISPREF = 2
 

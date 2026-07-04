@@ -10,7 +10,7 @@ program IniFlow
 #ifdef USE_MPI
     use TLabMPI_PROCS, only: TLabMPI_Initialize
     ! use TLabMPI_Transpose, only: TLabMPI_Trp_Initialize
-    use TLabMPI_Transpose_X, only: TLabMPI_Trp_Initialize_X
+    use TLabMPI_Transpose, only: TLabMPI_Trp_Initialize
 #endif
     use IO_Fields
     use TLab_Grid
@@ -39,7 +39,7 @@ program IniFlow
 #ifdef USE_MPI
     call TLabMPI_Initialize(ifile)
     ! call TLabMPI_Trp_Initialize(ifile)
-    call TLabMPI_Trp_Initialize_X(ifile)
+    call TLabMPI_Trp_Initialize(ifile)
 #endif
 
     call NavierStokes_Initialize_Parameters(ifile)

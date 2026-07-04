@@ -10,7 +10,7 @@ module NSE_Burgers
 #ifdef USE_MPI
     use TLabMPI_VARS, only: xMpi, yMpi
     ! use TLabMPI_Transpose
-    use TLabMPI_Transpose_X, only: tmpi_trp_X, tmpi_trp_Y
+    use TLabMPI_Transpose, only: tmpi_trp_X, tmpi_trp_Y
     use FDM_Derivative_MPISplit
 #endif
     use TLab_Grid, only: x, y, z
@@ -403,7 +403,6 @@ contains
         nlines = tmpi_trp_X%nlines
 
         ! Transposition: make x-direction the last one
-        ! call TLabMPI_Trp_ExecI_Forward(s, result, tmpi_plan_dx)
         call tmpi_trp_X%forward(s, result)
 #ifdef USE_ESSL
         call DGETMO(result, x%size, x%size, nlines, tmp1, nlines)
@@ -426,7 +425,6 @@ contains
 #else
         call TLab_Transpose_Real(result, nlines, x%size, nlines, wrk3d, x%size)
 #endif
-        ! call TLabMPI_Trp_ExecI_Backward(wrk3d, result, tmpi_plan_dx)
         call tmpi_trp_X%backward(wrk3d, result)
         rhs = rhs + result
 
@@ -570,8 +568,6 @@ contains
 #else
         call TLab_Transpose_Real(s, nx*ny, nz, nx*ny, wrk3d, nz)
 #endif
-        ! call TLabMPI_Trp_ExecJ_Forward(wrk3d, tmp1, tmpi_plan_dy)
-        ! nlines = tmpi_plan_dy%nlines
         call tmpi_trp_Y%forward(wrk3d, tmp1)
         nlines = tmpi_trp_Y%nlines
 
@@ -585,7 +581,6 @@ contains
         end if
 
         ! Put arrays back in the order in which they came in
-        ! call TLabMPI_Trp_ExecJ_Backward(result, wrk3d, tmpi_plan_dy)
         call tmpi_trp_Y%backward(result, wrk3d)
 #ifdef USE_ESSL
         call DGETMO(wrk3d, nz, nz, nx*ny, result, nx*ny)

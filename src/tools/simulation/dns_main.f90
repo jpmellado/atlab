@@ -2,7 +2,7 @@
 
 program DNS
     use TLab_Constants, only: ifile, efile, wfile, lfile, tag_flow, tag_scal
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Start
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Start, runtime
     use TLab_WorkFlow, only: scal_on, flow_on
     use TLab_Time, only: itime, rtime
     use TLab_Arrays
@@ -46,7 +46,6 @@ program DNS
     real(wp) params(2)
 
     ! ###################################################################
-    call system_clock(start_clock)
     call TLab_Start()
 
     call TLab_Initialize_Parameters(ifile)
@@ -56,7 +55,6 @@ program DNS
 
 #ifdef USE_MPI
     call TLabMPI_Initialize(ifile)
-    ! call TLabMPI_Trp_Initialize(ifile)
     call TLabMPI_Trp_Initialize(ifile)
 #endif
 
@@ -191,7 +189,7 @@ program DNS
 
         if (mod(itime - nitera_first, nitera_save) == 0 .or. &      ! Check-pointing: Save restart files
             itime == nitera_last .or. int(logs_data(1)) /= 0 .or. & ! Secure that one restart file is saved
-            wall_time > nruntime_sec) then                          ! If max runtime of the code is reached
+            runtime > runtime_max) then                          ! If max runtime of the code is reached
 
             if (flow_on) then
                 write (fname, *) itime; fname = trim(adjustl(tag_flow))//trim(adjustl(fname))
@@ -211,8 +209,8 @@ program DNS
             call Planes_Save()
         end if
 
-        if (wall_time > nruntime_sec) then
-            write (str, *) wall_time
+        if (runtime > runtime_max) then
+            write (str, *) runtime
             ! write to efile so that job is not resubmitted
             call TLab_Write_ASCII(efile, 'Maximum walltime of '//trim(adjustl(str))//' seconds is reached.')
             exit

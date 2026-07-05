@@ -18,10 +18,10 @@ module TLabMPI_VARS
     type(mpi_axis_dt), pointer :: yMpi => null()
     type(mpi_axis_dt), pointer :: zMpi => null()
 
+    type(MPI_Datatype) :: TLAB_MPI_REAL_TYPE        ! MPI Type control
+
     integer :: ims_err
 
-    real(wp) :: ims_time_min, ims_time_max, ims_time_trans      ! Profiling
-
-    type(MPI_Datatype) :: TLAB_MPI_REAL_TYPE                    ! MPI Type control
+    real(wp) :: ims_time_trans      ! Profiling
 
 end module TLabMPI_VARS

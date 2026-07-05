@@ -12,9 +12,7 @@ module DNS_Local
     integer :: nitera_filter    ! Iteration step for domain filter, if any
     integer :: nitera_log       ! Iteration step for data logger with simulation information
 
-    real(wp) :: nruntime_sec    ! Maximum runtime of the simulation in seconds
-    real(wp) :: wall_time       ! Actual elapsed time during the simulation in seconds
-    integer :: start_clock      ! Starting time of the simulation on the system
+    real(wp) :: runtime_max     ! Maximum runtime of the simulation in seconds
 
     ! Variable viscosity
     logical :: flag_viscosity
@@ -58,7 +56,7 @@ contains
         call ScanFile_Int(bakfile, inifile, block, 'Statistics', '50', nitera_stats)
         call ScanFile_Int(bakfile, inifile, block, 'Planes', '-1', nitera_pln)
         call ScanFile_Int(bakfile, inifile, block, 'Logs', '10', nitera_log)
-        call ScanFile_Real(bakfile, inifile, block, 'Runtime', '10000000', nruntime_sec)
+        call ScanFile_Real(bakfile, inifile, block, 'Runtime', '10000000', runtime_max)
 
         ! ! Domain Filter (Should we move it to Iteration?)
         ! call ScanFile_Int(bakfile, inifile, 'Filter', 'Step', '0', nitera_filter)

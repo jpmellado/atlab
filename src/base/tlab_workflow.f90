@@ -8,14 +8,16 @@ module TLab_WorkFlow
 #ifdef USE_MPI
     use mpi_f08
     use TLabMPI_VARS, only: mpiGrid
-    use TLabMPI_VARS, only: ims_time_max, ims_time_min, ims_time_trans
+    use TLabMPI_VARS, only: ims_time_trans
     use TLabMPI_VARS, only: ims_err
 #endif
     implicit none
     private
-    save
 
-    character*128 :: line
+    public :: TLab_Start
+    public :: TLab_Stop
+    public :: TLab_Write_ASCII
+    public :: TLab_Runtime
 
     integer, public :: imode_verbosity = 1      ! level of verbosity used in log files
 
@@ -23,22 +25,26 @@ module TLab_WorkFlow
     logical, public :: scal_on = .true.         ! calculate scal parts of the code
     logical, public :: stagger_on = .false.     ! horizontal staggering of pressure
 
-    public :: TLab_Start
-    public :: TLab_Stop
-    public :: TLab_Write_ASCII
+    real(wp), public :: runtime                 ! Execution elapsed time in seconds
+
+    ! -------------------------------------------------------------------
+    real(wp) :: walltime_ref                    ! reference time in seconds
+    integer :: clock_ref                        ! reference time in clock cycles
+
+    character(len=128) :: line
 
 contains
 
     ! ###################################################################
     ! ###################################################################
     subroutine TLab_Start()
-        character*10 clock(2)
+        character(len=10) clock(2)
 
         !#####################################################################
-        ! Inititalize MPI parallel mode
+        ! Initialize MPI parallel mode
 #ifdef USE_MPI
         call MPI_INIT(ims_err)
-        
+
         mpiGrid%comm = MPI_COMM_WORLD
         call MPI_COMM_SIZE(mpiGrid%comm, mpiGrid%num_processors, ims_err)
         call MPI_COMM_RANK(mpiGrid%comm, mpiGrid%rank, ims_err)
@@ -52,10 +58,19 @@ contains
             call TLab_Stop(DNS_ERROR_MINPROC)
         end if
 
-        ims_time_min = MPI_WTIME()
-        ims_time_trans = 0.0_wp
-
 #endif
+
+        !#####################################################################
+        ! Initialize calculation of running time
+#ifdef USE_MPI
+        walltime_ref = MPI_WTIME()
+#ifdef PROFILE_ON
+        ims_time_trans = 0.0_wp
+#endif
+#else
+        call system_clock(clock_ref)
+#endif
+
         !########################################################################
         ! First output
         call date_and_time(clock(1), clock(2))
@@ -92,20 +107,20 @@ contains
         end if
         call TLab_Write_ASCII(lfile, line)
 
-#ifdef USE_MPI
-        ims_time_max = MPI_WTIME()
-        write (line, fmt_r) ims_time_max - ims_time_min
+        !#####################################################################
+        call TLab_Runtime()
+        write (line, fmt_r) runtime
         line = 'Time elapse ....................: '//trim(adjustl(line))
         call TLab_Write_ASCII(lfile, line)
 
+#ifdef USE_MPI
 #ifdef PROFILE_ON
         write (line, fmt_r) ims_time_trans
         line = 'Time in array transposition ....: '//trim(ADJUST(line))
         call TLab_Write_ASCII(lfile, line)
 #endif
-
 #endif
-
+        !#####################################################################
         call TLab_Write_ASCII(lfile, '########################################')
 
 #ifdef USE_MPI
@@ -120,6 +135,26 @@ contains
 
         return
     end subroutine TLab_Stop
+
+    ! ###################################################################
+    ! ###################################################################
+    subroutine TLab_Runtime()
+
+#ifdef USE_MPI
+#else
+        integer clock_loc, int_dummy
+#endif
+
+#ifdef USE_MPI
+        runtime = MPI_WTIME() - walltime_ref
+        call MPI_BCast(runtime, 1, MPI_REAL8, 0, MPI_COMM_WORLD, ims_err)
+#else
+        ! call ETIME(tdummy, clock_loc)
+        call system_clock(clock_loc, int_dummy)
+        runtime = real(clock_loc - clock_ref)/int_dummy
+#endif
+        return
+    end subroutine
 
     ! ###################################################################
     ! ###################################################################

@@ -7,8 +7,6 @@ module DNS_Control
     use TLab_WorkFlow, only: scal_on, flow_on, TLab_Stop, TLab_Write_ASCII
     use TLab_Time
     use NavierStokes
-    ! use TLab_Constants, only: MAX_PATH_LENGTH
-    use DNS_Local, only: wall_time, start_clock
     implicit none
     private
 
@@ -208,34 +206,24 @@ contains
         use NavierStokes, only: nse_eqns, DNS_EQNS_COMPRESSIBLE, DNS_EQNS_ANELASTIC, DNS_EQNS_BOUSSINESQ
         use TLab_Memory, only: imax, jmax, kmax
         use TLab_Pointers_3D, only: u, v, w, tmp1, tmp2, tmp3
-        use TLab_WorkFlow, only: TLab_Write_ASCII
+        use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Runtime
         use Thermo_Anelastic, only: rbackground, Thermo_Anelastic_Weight_OutPlace
 #ifdef USE_MPI
         use mpi_f08
-        use TLabMPI_VARS, only: ims_time_min, ims_err
+        use TLabMPI_VARS, only: ims_err
 #endif
         use OPR_Partial
 
         ! -------------------------------------------------------------------
         integer(wi) idummy(3)
         real(wp) dummy
-#ifdef USE_MPI
-#else
-        integer wall_time_loc, int_dummy
-#endif
         character*128 line
         character*32 str
 
         ! ###################################################################
-        ! Check wall time bounds - maximum runtime
-#ifdef USE_MPI
-        wall_time = MPI_WTIME() - ims_time_min
-        call MPI_BCast(wall_time, 1, MPI_REAL8, 0, MPI_COMM_WORLD, ims_err)
-#else
-        ! call ETIME(tdummy, wall_time_loc)
-        call system_clock(wall_time_loc, int_dummy)
-        wall_time = real(wall_time_loc - start_clock)/int_dummy
-#endif
+        ! To check wall time bounds in dns_main
+        call TLab_Runtime()
+
         ! ###################################################################
         ! Compressible flow
         ! ###################################################################

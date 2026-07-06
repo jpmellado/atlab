@@ -15,7 +15,6 @@ module OPR_Fourier
     use, intrinsic :: iso_c_binding
 #ifdef USE_MPI
     use TLabMPI_VARS, only: xMpi, yMpi
-    ! use TLabMPI_Transpose
     use TLabMPI_Transpose, only: tmpi_transpose_x_dt, tmpi_transpose_y_dt, tmpi_trp_X
 #endif
     implicit none

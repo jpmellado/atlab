@@ -6,7 +6,8 @@ program vThomas3_Parallel
     use TLab_Arrays, only: wrk2d
 #ifdef USE_MPI
     use mpi_f08
-    use TLabMPI_VARS, only: mpiGrid, ims_err
+    use TLabMPI_VARS, only: mpiGrid, yMpi, xMpi, ims_err
+    use TLabMPI_Transpose
 #endif
     implicit none
 
@@ -15,7 +16,7 @@ program vThomas3_Parallel
     integer(wi), parameter :: nd = 3
     integer(wi) n
 
-    real(wp) :: rhs(nsize, nd), lhs(nsize, nd)
+    real(wp) :: lhs(nsize, nd)
     real(wp) :: u(nlines, nsize), u_loc(nlines, nsize), f(nlines, nsize)
 
     integer :: nseed
@@ -27,6 +28,10 @@ program vThomas3_Parallel
     type(thomas_circulant_dt) :: thomas_circulant1
 #ifdef USE_MPI
     type(thomas_parallel_dt) split_mpi
+    !
+    integer nsize_loc, nlines_loc
+    type(tmpi_transpose_y_dt) :: tmpi_trp
+    real(wp), allocatable :: v(:, :), v_transposed(:, :)
 #endif
     type(thomas_parallel_dt), allocatable :: thomas_parallel1(:)  ! for testing in serial
     type(data_dt), allocatable :: data(:)
@@ -34,7 +39,7 @@ program vThomas3_Parallel
 
     integer(wi) k, kk, np
 
-    ! -------------------------------------------------------------------
+    ! ###################################################################
 #ifdef USE_MPI
     call MPI_INIT(ims_err)
 
@@ -91,10 +96,11 @@ program vThomas3_Parallel
     f(:, n) = lhs(n, 1)*u(:, n - 1) + lhs(n, 2)*u(:, n)
     if (circulant) f(:, n) = f(:, n) + lhs(n, 3)*u(:, 1)
 
-    ! -------------------------------------------------------------------
+    ! ###################################################################
+    ! Serial
 #ifdef USE_MPI
     if (mpiGrid%rank == 0) then
-        print *, new_line('a'), 'Running in parallel. Processor 0 doing the serial version.'
+        print *, new_line('a'), 'Running in parallel. Processor 0 doing the serial version...'
 
 #endif
 
@@ -147,9 +153,13 @@ program vThomas3_Parallel
 #ifdef USE_MPI
     end if
     call MPI_BARRIER(MPI_COMM_WORLD, ims_err)
+#endif
 
+    ! ###################################################################
+    ! Parallel
+#ifdef USE_MPI
     if (mpiGrid%rank == 0) then
-        print *, new_line('a'), 'Parallel version.'
+        print *, new_line('a'), 'Parallel version...'
         print *, new_line('a'), 'Splitting Thomas algorithm'
     end if
 
@@ -172,6 +182,42 @@ program vThomas3_Parallel
     call check(u_loc(1:nlines, split_mpi%nmin:split_mpi%nmax), &
                u(1:nlines, split_mpi%nmin:split_mpi%nmax))
 
+    call MPI_BARRIER(MPI_COMM_WORLD, ims_err)
+
+    ! -------------------------------------------------------------------
+    if (mpiGrid%rank == 0) then
+        print *, new_line('a'), 'Transposed Thomas algorithm'
+    end if
+
+    nlines_loc = nlines/mpiGrid%num_processors
+    nsize_loc = nsize/mpiGrid%num_processors
+
+    u_loc(:, :) = f(:, :)   ! Each processor will only see its part of the array
+    allocate (v(nlines, nsize_loc))
+    v(:, :) = u_loc(1:nlines, split_mpi%nmin:split_mpi%nmax)
+
+    allocate (v_transposed(nlines_loc, nsize))
+    yMpi => mpiGrid%mpi_axis_dt
+    xMpi => mpiGrid%mpi_axis_dt ! I need it for the initialization
+    call TLabMPI_Trp_Initialize()
+
+    call tmpi_trp%initialize(nsize_loc, nlines)
+    call tmpi_trp%forward(v(:, 1), v_transposed(:, 1))
+
+    call thomas_circulant1%initialize(lhs(:, 1:nd))
+
+    call thomas_circulant1%solveL(v_transposed)
+    call thomas_circulant1%solveU(v_transposed)
+    call thomas_circulant1%reduce(v_transposed, wrk2d(:, 1))
+
+    call tmpi_trp%backward(v_transposed(:, 1), v(:, 1))
+    u_loc(1:nlines, split_mpi%nmin:split_mpi%nmax) = v(:, :)
+
+    ! each processor checks its part
+    call check(u_loc(1:nlines, split_mpi%nmin:split_mpi%nmax), &
+               u(1:nlines, split_mpi%nmin:split_mpi%nmax))
+
+    ! -------------------------------------------------------------------
     call MPI_FINALIZE(ims_err)
 
 #endif
@@ -207,10 +253,10 @@ contains
             close (20)
         end if
 
-        write (*, *) 'Solution L2-norm ...........:', sqrt(dummy)/real(nlines, wp)
+        print *, 'Solution L2-norm ...........:', sqrt(dummy)/real(nlines, wp)
         if (dummy == 0.0_wp) return
-        write (*, *) 'Relative Error L2-norm .....:', sqrt(error_l2)/sqrt(dummy)
-        write (*, *) 'Relative Error Linf-norm ...:', error_max/abs(maxval(u_ref))
+        print *, 'Relative Error L2-norm .....:', sqrt(error_l2)/sqrt(dummy)
+        print *, 'Relative Error Linf-norm ...:', error_max/abs(maxval(u_ref))
 
         return
 1000    format(5(1x, e12.5))

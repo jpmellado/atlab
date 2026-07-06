@@ -36,7 +36,7 @@ module TLabMPI_Transpose
         integer(wi) :: nlines
         integer(wi) :: size3d
     contains
-        private
+        ! private
         procedure :: tmpi_trp_forward_real
         procedure :: tmpi_trp_forward_complex
         procedure :: tmpi_trp_backward_real
@@ -59,19 +59,34 @@ module TLabMPI_Transpose
     type(tmpi_transpose_y_dt) :: tmpi_trp_Y
 
     ! -----------------------------------------------------------------------
-    integer :: trp_mode_i, trp_mode_j                               ! Mode of transposition
     integer, parameter :: TLAB_MPI_TRP_NONE = 0
     integer, parameter :: TLAB_MPI_TRP_ASYNCHRONOUS = 1
     integer, parameter :: TLAB_MPI_TRP_SENDRECV = 2
     integer, parameter :: TLAB_MPI_TRP_ALLTOALL = 3
+    integer :: trp_mode_i = TLAB_MPI_TRP_ASYNCHRONOUS               ! Mode of transposition (asynchronous default)
+    integer :: trp_mode_j = TLAB_MPI_TRP_ASYNCHRONOUS
 
-    type(MPI_Datatype) :: trp_datatype_i, trp_datatype_j            ! Transposition in double or single precision
+    type(MPI_Datatype) :: trp_datatype_i = MPI_REAL8                ! Transposition in double (default) or single precision
+    type(MPI_Datatype) :: trp_datatype_j = MPI_REAL8
     real(wp), allocatable, target :: wrk_mpi(:)                     ! 3D work array for datatype conversion
     real(sp), pointer :: a_wrk(:) => null(), b_wrk(:) => null()
 
     ! -----------------------------------------------------------------------
-    integer(wi) :: trp_sizBlock_i, trp_sizBlock_j                   ! explicit sed/recv: group sizes of rend/recv messages
+    ! Size of communication in explicit send/recv
+    ! We assume that this will help to release some of the very heavy
+    ! network load in transpositions on most systems
+#ifdef HLRS_HAWK
+    ! On hawk, we tested that 192 yields optimum performance;
+    ! Blocking will thus only take effect in very large cases
+    integer(wi) :: trp_sizBlock_j = 192
+    integer(wi) :: trp_sizBlock_i = 384
+#else
+    integer(wi) :: trp_sizBlock_j = 64
+    integer(wi) :: trp_sizBlock_i = 128
+    ! integer(wi) :: trp_sizBlock_j=1e5   -- would essentially switch off the blocking
+#endif
 
+    ! -----------------------------------------------------------------------
     type(MPI_Datatype), allocatable :: types_send(:), types_recv(:) ! alltoallw
     integer, allocatable :: counts(:)
 
@@ -85,86 +100,72 @@ contains
     ! ######################################################################
     subroutine TLabMPI_Trp_Initialize(inifile)
         use TLabMPI_VARS, only: xMpi, yMpi
-        use TLab_Memory, only: isize_wrk3d, imax, jmax, kmax
+        use TLab_Memory, only: imax, jmax, kmax
         use TLab_Memory, only: TLab_Allocate_Real
-        character(len=*), intent(in) :: inifile
+        character(len=*), intent(in), optional :: inifile
 
         ! -----------------------------------------------------------------------
-        integer(wi) ip
-
         character(len=32) bakfile, block
         character(len=128) eStr
         character(len=512) sRes, line
 
         ! #######################################################################
         ! Read data
-        bakfile = trim(adjustl(inifile))//'.bak'
+        if (present(inifile)) then
+            bakfile = trim(adjustl(inifile))//'.bak'
 
-        block = 'Parallel'
-        eStr = __FILE__//'. '//trim(adjustl(block))//'. '
+            block = 'Parallel'
+            eStr = __FILE__//'. '//trim(adjustl(block))//'. '
 
-        call ScanFile_Char(bakfile, inifile, block, 'TransposeModeI', 'asynchronous', sRes)
-        if (trim(adjustl(sRes)) == 'none') then; trp_mode_i = TLAB_MPI_TRP_NONE
-        elseif (trim(adjustl(sRes)) == 'asynchronous') then; trp_mode_i = TLAB_MPI_TRP_ASYNCHRONOUS
-        elseif (trim(adjustl(sRes)) == 'sendrecv') then; trp_mode_i = TLAB_MPI_TRP_SENDRECV
-        elseif (trim(adjustl(sRes)) == 'alltoall') then; trp_mode_i = TLAB_MPI_TRP_ALLTOALL
-        else
-            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Wrong TransposeModeI option.')
-            call TLab_Stop(DNS_ERROR_OPTION)
+            call ScanFile_Char(bakfile, inifile, block, 'TransposeModeI', 'asynchronous', sRes)
+            if (trim(adjustl(sRes)) == 'none') then; trp_mode_i = TLAB_MPI_TRP_NONE
+            elseif (trim(adjustl(sRes)) == 'asynchronous') then; trp_mode_i = TLAB_MPI_TRP_ASYNCHRONOUS
+            elseif (trim(adjustl(sRes)) == 'sendrecv') then; trp_mode_i = TLAB_MPI_TRP_SENDRECV
+            elseif (trim(adjustl(sRes)) == 'alltoall') then; trp_mode_i = TLAB_MPI_TRP_ALLTOALL
+            else
+                call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Wrong TransposeModeI option.')
+                call TLab_Stop(DNS_ERROR_OPTION)
+            end if
+
+            call ScanFile_Char(bakfile, inifile, block, 'TransposeModeJ', 'asynchronous', sRes)
+            if (trim(adjustl(sRes)) == 'none') then; trp_mode_j = TLAB_MPI_TRP_NONE
+            elseif (trim(adjustl(sRes)) == 'asynchronous') then; trp_mode_j = TLAB_MPI_TRP_ASYNCHRONOUS
+            elseif (trim(adjustl(sRes)) == 'sendrecv') then; trp_mode_j = TLAB_MPI_TRP_SENDRECV
+            elseif (trim(adjustl(sRes)) == 'alltoall') then; trp_mode_j = TLAB_MPI_TRP_ALLTOALL
+            else
+                call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Wrong TransposeModeJ option.')
+                call TLab_Stop(DNS_ERROR_OPTION)
+            end if
+
+            call ScanFile_Char(bakfile, inifile, block, 'TransposeTypeI', 'Double', sRes)
+            if (trim(adjustl(sRes)) == 'double') then; trp_datatype_i = MPI_REAL8
+            elseif (trim(adjustl(sRes)) == 'single') then; trp_datatype_i = MPI_REAL4
+            else
+                call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Wrong TransposeTypeI.')
+                call TLab_Stop(DNS_ERROR_UNDEVELOP)
+            end if
+
+            call ScanFile_Char(bakfile, inifile, block, 'TransposeTypeJ', 'Double', sRes)
+            if (trim(adjustl(sRes)) == 'double') then; trp_datatype_j = MPI_REAL8
+            elseif (trim(adjustl(sRes)) == 'single') then; trp_datatype_j = MPI_REAL4
+            else
+                call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Wrong TransposeTypeJ.')
+                call TLab_Stop(DNS_ERROR_UNDEVELOP)
+            end if
+
         end if
-
-        call ScanFile_Char(bakfile, inifile, block, 'TransposeModeJ', 'asynchronous', sRes)
-        if (trim(adjustl(sRes)) == 'none') then; trp_mode_j = TLAB_MPI_TRP_NONE
-        elseif (trim(adjustl(sRes)) == 'asynchronous') then; trp_mode_j = TLAB_MPI_TRP_ASYNCHRONOUS
-        elseif (trim(adjustl(sRes)) == 'sendrecv') then; trp_mode_j = TLAB_MPI_TRP_SENDRECV
-        elseif (trim(adjustl(sRes)) == 'alltoall') then; trp_mode_j = TLAB_MPI_TRP_ALLTOALL
-        else
-            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Wrong TransposeModeJ option.')
-            call TLab_Stop(DNS_ERROR_OPTION)
-        end if
-
-        call ScanFile_Char(bakfile, inifile, block, 'TransposeTypeI', 'Double', sRes)
-        if (trim(adjustl(sRes)) == 'double') then; trp_datatype_i = MPI_REAL8
-        elseif (trim(adjustl(sRes)) == 'single') then; trp_datatype_i = MPI_REAL4
-        else
-            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Wrong TransposeTypeI.')
-            call TLab_Stop(DNS_ERROR_UNDEVELOP)
-        end if
-
-        call ScanFile_Char(bakfile, inifile, block, 'TransposeTypeJ', 'Double', sRes)
-        if (trim(adjustl(sRes)) == 'double') then; trp_datatype_j = MPI_REAL8
-        elseif (trim(adjustl(sRes)) == 'single') then; trp_datatype_j = MPI_REAL4
-        else
-            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Wrong TransposeTypeJ.')
-            call TLab_Stop(DNS_ERROR_UNDEVELOP)
-        end if
-
+        
         ! #######################################################################
         ! Initialize
-
-        ! Size of communication in explicit send/recv
-#ifdef HLRS_HAWK
-        ! On hawk, we tested that 192 yields optimum performance;
-        ! Blocking will thus only take effect in very large cases
-        trp_sizBlock_j = 192
-        trp_sizBlock_i = 384
-#else
-        ! We assume that this will help to release some of the very heavy
-        ! network load in transpositions on most systems
-        trp_sizBlock_j = 64
-        trp_sizBlock_i = 128
-        ! trp_sizBlock_j=1e5   -- would essentially switch off the blocking
-#endif
-
         if (xMpi%num_processors > trp_sizBlock_i) then
             write (line, *) trp_sizBlock_i
-            line = 'Using blocking of '//trim(adjustl(line))//' in TLabMPI_TRP<F,B>_I'
+            line = 'Using blocking of '//trim(adjustl(line))//' in tmpi_transpose_x'
             call TLab_Write_ASCII(lfile, line)
         end if
 
         if (yMpi%num_processors > trp_sizBlock_j) then
             write (line, *) trp_sizBlock_j
-            line = 'Using blocking of '//trim(adjustl(line))//' in TLabMPI_TRP<F,B>_K'
+            line = 'Using blocking of '//trim(adjustl(line))//' in tmpi_transpose_y'
             call TLab_Write_ASCII(lfile, line)
         end if
 
@@ -201,11 +202,10 @@ contains
 
     ! ######################################################################
     ! ######################################################################
-    subroutine tmpi_trp_initialize_x(self, nmax, npage, locStride, locType, message)
+    subroutine tmpi_trp_initialize_x(self, nmax, npage, locType, message)
         use TLabMPI_VARS, only: xMpi
         class(tmpi_transpose_x_dt), intent(out) :: self
         integer(wi), intent(in) :: npage, nmax
-        integer(wi), intent(in), optional :: locStride
         type(MPI_Datatype), intent(in), optional :: locType
         character(len=*), intent(in), optional :: message
 
@@ -281,11 +281,10 @@ contains
 
     ! ######################################################################
     ! ######################################################################
-    subroutine tmpi_trp_initialize_y(self, nmax, npage, locStride, locType, message)
+    subroutine tmpi_trp_initialize_y(self, nmax, npage, locType, message)
         use TLabMPI_VARS, only: yMpi
         class(tmpi_transpose_y_dt), intent(out) :: self
         integer(wi), intent(in) :: npage, nmax
-        integer(wi), intent(in), optional :: locStride
         type(MPI_Datatype), intent(in), optional :: locType
         character(len=*), intent(in), optional :: message
 

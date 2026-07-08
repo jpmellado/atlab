@@ -46,8 +46,6 @@ subroutine AVG_N_XZ(fname, itime, rtime, nx, ny, nz, nv, nm, vars, igate, gate, 
     end do
 
     ! ###################################################################
-    ! Output
-    ! ###################################################################
     varname(:) = ''
     groupname(:) = ''
     do iv = 1, nv

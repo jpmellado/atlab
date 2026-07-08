@@ -6,12 +6,11 @@ program AVERAGES
     use TLab_Memory, only: imax, jmax, kmax, inb_scal_array, inb_txc, isize_wrk3d, inb_flow, inb_scal, isize_field
     use TLab_Time, only: itime, rtime
     use TLab_Arrays
-    use TLab_WorkFlow
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Start, flow_on, scal_on
     use TLab_Memory, only: TLab_Initialize_Memory
     use TLab_Pointers, only: pointers_dt, u, v, w
 #ifdef USE_MPI
     use TLabMPI_PROCS, only: TLabMPI_Initialize
-    ! use TLabMPI_Transpose, only: TLabMPI_Trp_Initialize
     use TLabMPI_Transpose, only: TLabMPI_Trp_Initialize
 #endif
     use IO_Fields
@@ -49,9 +48,8 @@ program AVERAGES
     integer(wi) opt_vec(iopt_size_max)
     character(len=64) opt_name(iopt_size_max)
 
-    character(len=32) time_str                      ! Time stamp
-
     character*32 fname
+    character(len=32) time_str                      ! Time stamp
     ! character*64 str
 
     integer is, ij
@@ -271,34 +269,35 @@ program AVERAGES
                 call NSE_Pressure_Incompressible(q, s, txc(:, 1), txc(:, 2), txc(:, 5), txc(:, 6))
                 ifield = ifield + 1; vars(ifield)%field => txc(:, 1); vars(ifield)%tag = 'P'
             else
-                ifield = ifield + 1; vars(ifield)%field => q(:, 5); vars(ifield)%tag = 'R'
                 ifield = ifield + 1; vars(ifield)%field => q(:, 6); vars(ifield)%tag = 'P'
+                ifield = ifield + 1; vars(ifield)%field => q(:, 5); vars(ifield)%tag = 'R'
                 ifield = ifield + 1; vars(ifield)%field => q(:, 7); vars(ifield)%tag = 'T'
             end if
 
             if (scal_on) then
                 do is = 1, inb_scal_array
-                    ifield = ifield + 1; vars(ifield)%field => s(:, is); write (vars(ifield)%tag, *) is; vars(ifield)%tag = 'Scalar'//trim(adjustl(vars(ifield)%tag))
+                    ifield = ifield + 1; vars(ifield)%field => s(:, is)
+                    write (vars(ifield)%tag, *) is; vars(ifield)%tag = 'S'//trim(adjustl(vars(ifield)%tag))
                 end do
             end if
 
         case ('Scalar gradient G_iG_i/2 equation')
-            fname = 'avgG2'
+            fname = 'avgG2Eqn'
             ! write (fname, *) itime; fname = 'avgG2'//trim(adjustl(fname))
             call Diagnose_ScalarGradientEquation(is=inb_scal, vars=vars)
 
         case ('Enstrophy W_iW_i (Log)')
-            fname = 'avgPV'
+            fname = 'avgW2'
             ! write (fname, *) itime; fname = 'avgPV'//trim(adjustl(fname))
             call Diagnose_Enstrophy(vars=vars)
 
         case ('Enstrophy W_iW_i/2 equation')
-            fname = 'avgW2'
+            fname = 'avgW2Eqn'
             ! write (fname, *) itime; fname = 'avgW2'//trim(adjustl(fname))
             call Diagnose_EnstrophyEquation(vars=vars)
 
         case ('Strain 2S_ijS_ij/2 equation')
-            fname = 'avgS2'
+            fname = 'avgS2Eqn'
             ! write (fname, *) itime; fname = 'avgS2'//trim(adjustl(fname))
             call Diagnose_StrainEquation(vars=vars)
 

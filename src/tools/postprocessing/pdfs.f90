@@ -1,7 +1,7 @@
 #include "tlab_error.h"
 
 program PDFS
-    use TLab_Constants, only: wp, wi, small_wp
+    use TLab_Constants, only: wp, wi, small_wp, MAX_PARS
     use TLab_Constants, only: ifile, efile, lfile, gfile, tag_flow, tag_scal
     use TLab_Pointers, only: pointers_dt
     use TLab_Time, only: itime, rtime
@@ -11,7 +11,6 @@ program PDFS
     use TLab_Memory, only: TLab_Initialize_Memory
 #ifdef USE_MPI
     use TLabMPI_PROCS, only: TLabMPI_Initialize
-    ! use TLabMPI_Transpose, only: TLabMPI_Trp_Initialize
     use TLabMPI_Transpose, only: TLabMPI_Trp_Initialize
 #endif
     use IO_Fields
@@ -50,23 +49,30 @@ program PDFS
     integer(wi) opt_vec(iopt_size_max)
     character(len=64) opt_name(iopt_size_max)
 
-    ! -------------------------------------------------------------------
-    ! Additional local arrays
-    real(wp), allocatable :: pdf(:), z_aux(:)
-
     character*32 fname
-    character*64 str
+    character(len=32) time_str                      ! Time stamp
+    ! character*64 str
+
+    ! integer opt_main, opt_block
+    ! integer nfield, ifield, is, ij, kmax_aux
+    ! logical iread_flow, iread_scal
+    ! real(wp) params(2)
+    integer is, ij
+    logical iread_flow, iread_scal
+    real(wp) params(MAX_PARS)
 
     integer opt_main, opt_block
-    integer nfield, ifield, is, ij, kmax_aux
-    integer isize_pdf
-    logical iread_flow, iread_scal
-    real(wp) params(2)
+    integer nfield, ifield, kmax_aux
 
+    integer isize_pdf
     integer opt_bins(2)
     integer(wi) ibc(16)
     real(wp) vmin(16), vmax(16)
-    logical reduce_data
+    ! logical reduce_data
+
+    ! -------------------------------------------------------------------
+    ! Additional local arrays
+    real(wp), allocatable :: pdf(:), z_aux(:)
 
     ! ! Gates for the definition of the intermittency function (partition of the fields)
     ! integer(wi) opt_cond, opt_cond_scal, opt_cond_relative
@@ -144,8 +150,9 @@ program PDFS
     do it = 1, itime_size
         itime = itime_vec(it)
 
-        write (str, *) itime; str = 'Processing iteration It'//trim(adjustl(str))
-        call TLab_Write_ASCII(lfile, str)
+        write (time_str, *) itime
+
+        call TLab_Write_ASCII(lfile, 'Processing iteration It'//trim(adjustl(time_str)))
 
         if (iread_scal) then
             write (fname, *) itime; fname = trim(adjustl(tag_scal))//trim(adjustl(fname))
@@ -189,12 +196,13 @@ program PDFS
         ! Type of PDFs
         ! -------------------------------------------------------------------
         ifield = 0
-        reduce_data = .true.
+        ! reduce_data = .true.
 
         iv = 1      ! We only process 1 type per run
         select case (trim(adjustl(opt_name(opt_vec(iv)))))
         case ('Main variables')
-            write (fname, *) itime; fname = 'pdf'//trim(adjustl(fname))
+            fname = 'pdfMain'
+            ! write (fname, *) itime; fname = 'pdf'//trim(adjustl(fname))
 
             ifield = ifield + 1; vars(ifield)%field => q(:, 1); vars(ifield)%tag = 'u'
             ifield = ifield + 1; vars(ifield)%field => q(:, 2); vars(ifield)%tag = 'v'
@@ -210,7 +218,7 @@ program PDFS
 
             do is = 1, inb_scal_array
                 ifield = ifield + 1; vars(ifield)%field => s(:, is); vars(ifield)%tag = 's'
-                write (str, *) is; vars(ifield)%tag = trim(adjustl(vars(ifield)%tag))//trim(adjustl(str))
+                write (vars(ifield)%tag, *) is; vars(ifield)%tag = 's'//trim(adjustl(vars(ifield)%tag))
             end do
 
             do is = 1, ifield ! In case we want same interval for all heights
@@ -218,23 +226,28 @@ program PDFS
             end do
 
         case ('Scalar gradient G_iG_i/2 equation')
-            write (fname, *) itime; fname = 'pdfG2'//trim(adjustl(fname))
+            fname = 'pdfG2Eqn'
+            ! write (fname, *) itime; fname = 'pdfG2'//trim(adjustl(fname))
             call Diagnose_ScalarGradientEquation(is=inb_scal, vars=vars)
 
         case ('Enstrophy W_iW_i (Log)')
-            write (fname, *) itime; fname = 'pdfPV'//trim(adjustl(fname))
+            fname = 'pdfW2'
+            ! write (fname, *) itime; fname = 'pdfPV'//trim(adjustl(fname))
             call Diagnose_Enstrophy(vars=vars)
 
         case ('Enstrophy W_iW_i/2 equation')
-            write (fname, *) itime; fname = 'pdfW2'//trim(adjustl(fname))
+            fname = 'pdfW2Eqn'
+            ! write (fname, *) itime; fname = 'pdfW2'//trim(adjustl(fname))
             call Diagnose_EnstrophyEquation(vars=vars)
 
         case ('Strain 2S_ijS_ij/2 equation')
-            write (fname, *) itime; fname = 'pdfS2'//trim(adjustl(fname))
+            fname = 'pdfS2Eqn'
+            ! write (fname, *) itime; fname = 'pdfS2'//trim(adjustl(fname))
             call Diagnose_StrainEquation(vars=vars)
 
         case ('Velocity gradient invariants')
-            write (fname, *) itime; fname = 'pdfInv'//trim(adjustl(fname))
+            fname = 'pdfInv'
+            ! write (fname, *) itime; fname = 'pdfInv'//trim(adjustl(fname))
 
             call FI_INVARIANT_R(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), txc(1, 1), txc(1, 2), txc(1, 3), txc(1, 4), txc(1, 5), txc(1, 6))
             call FI_INVARIANT_Q(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), txc(1, 2), txc(1, 3), txc(1, 4), txc(1, 5))
@@ -244,18 +257,19 @@ program PDFS
             ifield = ifield + 1; vars(ifield)%field => txc(:, 2); vars(ifield)%tag = 'InvQ'
             ifield = ifield + 1; vars(ifield)%field => txc(:, 1); vars(ifield)%tag = 'InvR'
 
-            if (kmax_aux*opt_block /= z%size .and. reduce_data) then ! I already need it here
-                do is = 1, ifield
-                    call REDUCE_BLOCK_INPLACE(imax, jmax, kmax, 1, 1, 1, imax, jmax*opt_block, kmax_aux, vars(is)%field)
-                end do
-                reduce_data = .false.
-            end if
+            ! if (kmax_aux*opt_block /= z%size .and. reduce_data) then ! I already need it here
+            !     do is = 1, ifield
+            !         call REDUCE_BLOCK_INPLACE(imax, jmax, kmax, 1, 1, 1, imax, jmax*opt_block, kmax_aux, vars(is)%field)
+            !     end do
+            !     reduce_data = .false.
+            ! end if
 
-            write (fname, *) itime; fname = 'pdf'//trim(adjustl(fname))//'.RQ'
+            write (fname, *) itime; fname = 'pdf.'//trim(adjustl(fname))//'.RQ'
             call PDF2V(fname, imax, jmax*opt_block, kmax_aux, opt_bins, z_aux, txc(1, 1), txc(1, 2), pdf)
 
         case ('Eigenvalues of rate-of-strain tensor')
-            write (fname, *) itime; fname = 'pdfEig'//trim(adjustl(fname))
+            fname = 'pdfEig'
+            ! write (fname, *) itime; fname = 'pdfEig'//trim(adjustl(fname))
 
             call FI_STRAIN_TENSOR(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), txc(1, 1), txc(1, 2), txc(1, 3), txc(1, 4), txc(1, 5), txc(1, 6))
             call TENSOR_EIGENVALUES(imax, jmax, kmax, txc(1, 1), txc(1, 7)) ! txc7-txc9
@@ -265,7 +279,8 @@ program PDFS
             ifield = ifield + 1; vars(ifield)%field => txc(:, 9); vars(ifield)%tag = 'Lambda3'
 
         case ('Eigenframe of rate-of-strain tensor')
-            write (fname, *) itime; fname = 'pdfCos'//trim(adjustl(fname))
+            fname = 'pdfCos'
+            ! write (fname, *) itime; fname = 'pdfCos'//trim(adjustl(fname))
 
             call FI_STRAIN_TENSOR(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), txc(1, 1), txc(1, 2), txc(1, 3), txc(1, 4), txc(1, 5), txc(1, 6))
             call TENSOR_EIGENVALUES(imax, jmax, kmax, txc(1, 1), txc(1, 7)) ! txc7-txc9
@@ -287,7 +302,8 @@ program PDFS
             ifield = ifield + 1; vars(ifield)%field => txc(:, 9); vars(ifield)%tag = 'cos(G,lambda3)'
 
         case ('Longitudinal velocity derivatives')
-            write (fname, *) itime; fname = 'pdfUDer'//trim(adjustl(fname))
+            fname = 'pdfUDer'
+            ! write (fname, *) itime; fname = 'pdfUDer'//trim(adjustl(fname))
 
             call OPR_Partial_X(OPR_P1, imax, jmax, kmax, q(1, 1), txc(1, 1))
             call OPR_Partial_Y(OPR_P1, imax, jmax, kmax, q(1, 2), txc(1, 2))
@@ -298,34 +314,40 @@ program PDFS
             ifield = ifield + 1; vars(ifield)%field => txc(:, 3); vars(ifield)%tag = 'Szz'
 
         case ('Thermodynamics')
-            write (fname, *) itime; fname = 'pdfThermo'//trim(adjustl(fname))
+            fname = 'pdfThermo'
+            ! write (fname, *) itime; fname = 'pdfThermo'//trim(adjustl(fname))
             call Diagnose_Thermodynamics(vars=vars)
 
         case ('Atmospheric Thermodynamics')
             select case (imode_thermo)
             case (THERMO_TYPE_ANELASTIC)
                 ! need to construct pdf here to save memory
-                write (fname, *) itime; fname = 'pdfThermoEnergies'//trim(adjustl(fname))
+                fname = 'pdfThermoEnergies'
+                ! write (fname, *) itime; fname = 'pdfThermoEnergies'//trim(adjustl(fname))
                 call Diagnose_Energies_Anelastic(vars)
-                if (kmax_aux*opt_block /= z%size .and. reduce_data) then
-                    do is = 1, size(vars)
-                        call REDUCE_BLOCK_INPLACE(imax, jmax, kmax, 1, 1, 1, imax, jmax*opt_block, kmax_aux, vars(is)%field)
-                    end do
-                end if
-                call PDF1V_N(fname, imax, jmax*opt_block, kmax_aux, &
+                ! if (kmax_aux*opt_block /= z%size .and. reduce_data) then
+                !     do is = 1, size(vars)
+                !         call REDUCE_BLOCK_INPLACE(imax, jmax, kmax, 1, 1, 1, imax, jmax*opt_block, kmax_aux, vars(is)%field)
+                !     end do
+                ! end if
+                call PDF1V_N(trim(adjustl(fname))//'.'//trim(adjustl(time_str)), &
+                             imax, jmax*opt_block, kmax_aux, &
                              size(vars), opt_bins(1), ibc, vmin, vmax, vars, z_aux, pdf)
 
-                write (fname, *) itime; fname = 'pdfThermoThetas'//trim(adjustl(fname))
+                fname = 'pdfThermoThetas'
+                ! write (fname, *) itime; fname = 'pdfThermoThetas'//trim(adjustl(fname))
                 call Diagnose_Thetas_Anelastic(vars)
-                if (kmax_aux*opt_block /= z%size .and. reduce_data) then
-                    do is = 1, size(vars)
-                        call REDUCE_BLOCK_INPLACE(imax, jmax, kmax, 1, 1, 1, imax, jmax*opt_block, kmax_aux, vars(is)%field)
-                    end do
-                end if
-                call PDF1V_N(fname, imax, jmax*opt_block, kmax_aux, &
+                ! if (kmax_aux*opt_block /= z%size .and. reduce_data) then
+                !     do is = 1, size(vars)
+                !         call REDUCE_BLOCK_INPLACE(imax, jmax, kmax, 1, 1, 1, imax, jmax*opt_block, kmax_aux, vars(is)%field)
+                !     end do
+                ! end if
+                call PDF1V_N(trim(adjustl(fname))//'.'//trim(adjustl(time_str)), &
+                             imax, jmax*opt_block, kmax_aux, &
                              size(vars), opt_bins(1), ibc, vmin, vmax, vars, z_aux, pdf)
 
-                write (fname, *) itime; fname = 'pdfThermoMoist'//trim(adjustl(fname))
+                fname = 'pdfThermoMoist'
+                ! write (fname, *) itime; fname = 'pdfThermoMoist'//trim(adjustl(fname))
                 call Diagnose_Moisture_Anelastic(vars)
 
             case (THERMO_TYPE_COMPRESSIBLE)
@@ -335,21 +357,21 @@ program PDFS
             ! Joint PDF W^2 and 2S^2
             ! ###################################################################
         case ('Joint enstrophy and strain')
-            write (fname, *) itime; fname = 'pdf'//trim(adjustl(fname))
-            call TLab_Write_ASCII(lfile, 'Computing enstrophy-strain pdf...')
+            write (fname, *) itime; fname = 'pdf.'//trim(adjustl(fname))
+            ! call TLab_Write_ASCII(lfile, 'Computing enstrophy-strain pdf...')
 
             call FI_VORTICITY(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), txc(1, 1), txc(1, 2), txc(1, 3))
             call FI_STRAIN(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), txc(1, 2), txc(1, 3), txc(1, 4))
             txc(1:isize_field, 2) = 2.0_wp*txc(1:isize_field, 2)
 
-            if (kmax_aux*opt_block /= z%size .and. reduce_data) then ! I already need it here
-                do is = 1, ifield
-                    call REDUCE_BLOCK_INPLACE(imax, jmax, kmax, 1, 1, 1, imax, jmax*opt_block, kmax_aux, vars(is)%field)
-                end do
-                reduce_data = .false.
-            end if
+            ! if (kmax_aux*opt_block /= z%size .and. reduce_data) then ! I already need it here
+            !     do is = 1, ifield
+            !         call REDUCE_BLOCK_INPLACE(imax, jmax, kmax, 1, 1, 1, imax, jmax*opt_block, kmax_aux, vars(is)%field)
+            !     end do
+            !     reduce_data = .false.
+            ! end if
 
-            write (fname, *) itime; fname = 'pdf'//trim(adjustl(fname))//'.WS'
+            write (fname, *) itime; fname = 'pdf.'//trim(adjustl(fname))//'.WS'
             call PDF2V(fname, imax, jmax*opt_block, kmax_aux, opt_bins, z_aux, txc(1, 1), txc(1, 2), pdf)
 
         case ('Joint scalar and scalar gradient')
@@ -362,12 +384,12 @@ program PDFS
             ifield = ifield + 1; vars(2)%field => txc(:, 1); vars(ifield)%tag = 'GiGi'; ibc(ifield) = 2
             ifield = ifield + 1; vars(3)%field => txc(:, 2); vars(ifield)%tag = 'LnGiGi'; ibc(ifield) = 3
 
-            if (kmax_aux*opt_block /= z%size .and. reduce_data) then ! I already need it here
-                do is = 1, ifield
-                    call REDUCE_BLOCK_INPLACE(imax, jmax, kmax, 1, 1, 1, imax, jmax*opt_block, kmax_aux, vars(is)%field)
-                end do
-                reduce_data = .false.
-            end if
+            ! if (kmax_aux*opt_block /= z%size .and. reduce_data) then ! I already need it here
+            !     do is = 1, ifield
+            !         call REDUCE_BLOCK_INPLACE(imax, jmax, kmax, 1, 1, 1, imax, jmax*opt_block, kmax_aux, vars(is)%field)
+            !     end do
+            !     reduce_data = .false.
+            ! end if
 
             write (fname, *) itime; fname = 'pdf'//trim(adjustl(fname))//'.SLnG'
             call PDF2V(fname, imax, jmax*opt_block, kmax_aux, opt_bins, s(1, 1), txc(1, 2), z_aux, pdf)
@@ -391,13 +413,14 @@ program PDFS
                 call TLab_Stop(DNS_ERROR_WRKSIZE)
             end if
 
-            if (kmax_aux*opt_block /= z%size .and. reduce_data) then
-                do is = 1, ifield
-                    call REDUCE_BLOCK_INPLACE(imax, jmax, kmax, 1, 1, 1, imax, jmax*opt_block, kmax_aux, vars(is)%field)
-                end do
-            end if
+            ! if (kmax_aux*opt_block /= z%size .and. reduce_data) then
+            !     do is = 1, ifield
+            !         call REDUCE_BLOCK_INPLACE(imax, jmax, kmax, 1, 1, 1, imax, jmax*opt_block, kmax_aux, vars(is)%field)
+            !     end do
+            ! end if
 
-            call PDF1V_N(fname, imax, jmax*opt_block, kmax_aux, &
+            call PDF1V_N(trim(adjustl(fname))//'.'//trim(adjustl(time_str)), &
+                         imax, jmax*opt_block, kmax_aux, &
                          ifield, opt_bins(1), ibc, vmin, vmax, vars, z_aux, pdf)
 
         end if
@@ -486,6 +509,7 @@ contains
 
         ! -------------------------------------------------------------------
         opt_bins = 16 ! default values
+        opt_block = 1
 
         call ScanFile_Char(bakfile, ifile, block, 'ParamPdfs', '-1', sRes)
         if (sRes == '-1') then
@@ -511,7 +535,9 @@ contains
             read (*, '(A64)') sRes
 #endif
         end if
-        read (sRes, *) opt_block
+        if (len_trim(adjustl(sRes)) > 0) then
+            read (sRes, *) opt_block
+        end if
 
         if (opt_block < 1) then ! default
             opt_block = 1

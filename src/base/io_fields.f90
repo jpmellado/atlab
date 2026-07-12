@@ -34,6 +34,7 @@ module IO_Fields
     public :: IO_Open_File
 
     public :: IO_TYPE_DOUBLE, IO_TYPE_SINGLE
+    public :: io_datatype, io_subarray_main         ! Needed in transfields
     public :: io_header_q, io_header_s
 
     public :: io_subarray_dt

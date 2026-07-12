@@ -39,28 +39,13 @@ FILE(GLOB sourcefiles "postprocessing/pdfs*.f90")
 add_executable(pdfs.x ${sourcefiles})
 target_link_libraries(pdfs.x diagnostics statistics physics mappings operators finitedifferences thermodynamics ${LEVEL1_LIBS} ${LIBS})
 
-# FILE(GLOB sourcefiles "statistics/spectra*.f90")
-# add_executable(spectra.x ${sourcefiles})
-# target_link_libraries(spectra.x statistics physics mappings operators filters finitedifferencesibm thermodynamics ${LEVEL1_LIBS} ${LIBS})
-# if (PSFFT_LIB)
-# set_target_properties(spectra.x PROPERTIES LINK_FLAGS "${PSFFT_LINK_FLAGS} ${LINK_FLAGS}")
-# endif()
-
 FILE(GLOB sourcefiles "postprocessing/transgrid*.f90")
 add_executable(transgrid.x ${sourcefiles})
 target_link_libraries(transgrid.x ${LEVEL1_LIBS} ${LIBS})
 
-# # Transformation
-# FILE(GLOB sourcefiles "transform/transgrid.f90")
-# add_executable(transgrid.x ${sourcefiles})
-# target_link_libraries(transgrid.x operators ${LEVEL1_LIBS} ${LIBS})
-
-# FILE(GLOB sourcefiles "transform/transfields.f90")
-# add_executable(transfields.x ${sourcefiles})
-# target_link_libraries(transfields.x statistics physics mappings operators filters finitedifferencesibm thermodynamics ${LEVEL1_LIBS} ${LIBS})
-# if (PSFFT_LIB)
-# set_target_properties(transfields.x PROPERTIES LINK_FLAGS "${PSFFT_LINK_FLAGS} ${LINK_FLAGS}")
-# endif()
+FILE(GLOB sourcefiles "postprocessing/transfield*.f90")
+add_executable(transfield.x ${sourcefiles})
+target_link_libraries(transfield.x physics  finitedifferences thermodynamics ${LEVEL1_LIBS} ${LIBS})
 
 # # Particles
 # FILE(GLOB sourcefiles "initialize/part/*.f90")

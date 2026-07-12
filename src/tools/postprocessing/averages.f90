@@ -90,7 +90,6 @@ program AVERAGES
 
 #ifdef USE_MPI
     call TLabMPI_Initialize(ifile)
-    ! call TLabMPI_Trp_Initialize(ifile)
     call TLabMPI_Trp_Initialize(ifile)
 #endif
 

@@ -2,39 +2,24 @@
 
 import numpy as np   # For array operations.
 import sys
+import atlab
 
-nx = 0 # number of points in Ox; if 0, then search tlab.ini
-ny = 0 # number of points in Oy; if 0, then search tlab.ini
-nz = 0 # number of points in Oz; if 0, then search tlab.ini
+if len(sys.argv) == 1:
+    print("Usage: python $0 list-of-files.")
+    quit()
 
 sizeofmask = 6
 
-# do not edit below this line
+###########################################################
+nx, ny, nz = atlab.getGridSize()  # getting grid size from tlab.ini
 
-# getting grid size from tlab.ini, if necessary
-if ( nx == 0 ):
-    for line in open('tlab.ini'):
-        if line.lower().replace(" ","").startswith("imax="):
-            nx = int(line.split("=",1)[1])
-            break
-
-if ( ny == 0 ):
-    for line in open('tlab.ini'):
-        if line.lower().replace(" ","").startswith("jmax="):
-            ny = int(line.split("=",1)[1])
-            break
-
-if ( nz == 0 ):
-    for line in open('tlab.ini'):
-        if line.lower().replace(" ","").startswith("kmax="):
-            nz = int(line.split("=",1)[1])
-            break
-
-print("Grid size is {}x{}x{}.".format(nx,ny,nz))
+def itstr(filename):
+    cp = filename.count(".")  # number of dots in the string
+    main = filename.rsplit(".", cp - 1)[0]
+    return main[len(main)-sizeofmask:len(main)]
 
 def itnumber(filename):
-    main = filename.split(".",1)[0]
-    return int(main[len(main)-sizeofmask:len(main)])
+    return int(itstr(filename))
 
 if ( len(sys.argv) == 1 ):
     print("Usage: python $0 list-of-files.")
@@ -44,15 +29,14 @@ filenames = sorted(sys.argv[1:],key=itnumber)
 
 filetypes = []
 for name in filenames:
-    main = name.split(".",1)[0]
-    type = main[:len(main)-sizeofmask]
+    time = itstr(name)
+    type = name.split(time)[0] #.split(".")[0]
     if not (any(type in s for s in filetypes)):
         filetypes.append(type)
 
 filetimes = []
 for name in filenames:
-    main = name.split(".",1)[0]
-    time = main[len(main)-sizeofmask:len(main)]
+    time = itstr(name)
     if not (any(time in s for s in filetimes)):
         filetimes.append(time)
 
@@ -189,7 +173,7 @@ for time in filetimes:
     ''' % (int(time)) )
 
     for type in filetypes:
-        if ( type in ['VelocityVector','VorticityVector'] ):
+        if ( type in ['VelocityVector.','VorticityVector.'] ):
             f.write('''
         <Attribute AttributeType="Vector" Name="%s">
 	  <DataItem ItemType="Function" Function="JOIN($0,$1,$2)" Dimensions="&HSDimsZ; &HSDimsY; &HSDimsX; 3">

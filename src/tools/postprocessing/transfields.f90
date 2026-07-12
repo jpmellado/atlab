@@ -32,7 +32,7 @@ program TransFields
     character*32 fname
     character(len=32) time_str                      ! Time stamp
 
-    integer is
+    integer is, iq
     logical iread_flow, iread_scal
     real(wp) params(MAX_PARS)
 
@@ -93,7 +93,12 @@ program TransFields
             call DoubleToSingle()
 
         case ('Swap Y-Z coordinates')
-            call SwapYZ()
+            do iq = 1, inb_flow
+                call SwapYZ(q(:, iq))
+            end do
+            do is = 1, inb_scal
+                call SwapYZ(s(:, is))
+            end do
 
         end select
 
@@ -223,9 +228,25 @@ contains
 
     !########################################################################
     !########################################################################
-    subroutine SwapYZ()
-        print *, "To be done"
+    subroutine SwapYZ(field)
+        real(wp), intent(inout) :: field(:)
 
+        integer j, k
+        target field
+        real(wp), pointer :: p_org(:, :, :) => null(), p_dst(:, :, :) => null()
+
+        p_org(1:imax, 1:kmax, 1:jmax) => field(1:imax*jmax*kmax)
+        p_dst(1:imax, 1:jmax, 1:kmax) => wrk3d(1:imax*jmax*kmax)
+
+        do k = 1, kmax
+            do j = 1, jmax
+                p_dst(1:imax, j, k) = p_org(1:imax, k, j)
+            end do
+        end do
+        field(1:imax*jmax*kmax) = wrk3d(1:imax*jmax*kmax)
+
+        nullify (p_org, p_dst)
+        
         return
     end subroutine
 

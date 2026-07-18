@@ -265,9 +265,10 @@ contains
     end subroutine
 
     subroutine SwapYZ_transpose(field)
+#ifdef USE_MPI
         use TLab_Transpose
         use TLabMPI_Transpose, only: tmpi_trp_Y
-
+#endif
         real(wp), intent(inout) :: field(:)
         integer j, k
         target field

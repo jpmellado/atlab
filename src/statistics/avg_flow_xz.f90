@@ -1232,7 +1232,7 @@ subroutine AVG_FLOW_XZ(q, s, dudx, dvdx, dvdy, dvdz, dwdx, dwdy, dwdz, mean2d)
     ! ###################################################################
     ! Output
     ! ###################################################################
-    write (name, *) itime; name = 'avg'//trim(adjustl(name))
+    write (name, *) itime; name = 'avg.'//trim(adjustl(name))
     call IO_WRITE_AVERAGES(name, itime, rtime, kmax, nv, ng, z%nodes, varname, groupname, mean2d)
 
     return

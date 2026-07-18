@@ -736,7 +736,7 @@ subroutine AVG_SCAL_XZ(is, q, s, s_local, dsdx, dsdy, dsdz, tmp1, tmp2, tmp3, me
     ! ###################################################################
     ! Output
     ! #######################################################################
-    write (line1, *) is; line1 = 'avg'//trim(adjustl(line1))//'s'
+    write (line1, *) is; line1 = 'avg'//trim(adjustl(line1))//'s.'
     write (name, *) itime; name = trim(adjustl(line1))//trim(adjustl(name))
     call IO_WRITE_AVERAGES(name, itime, rtime, kmax, nv, ng, z%nodes, varname, groupname, mean2d)
 

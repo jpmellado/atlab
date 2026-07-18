@@ -145,7 +145,7 @@ contains
                 write (str, *) is; vars(nfield)%tag = trim(adjustl(vars(nfield)%tag))//trim(adjustl(str))
             end do
 
-            write (fname, *) itime; fname = 'pdf'//trim(adjustl(fname))
+            write (fname, *) itime; fname = 'pdfMain.'//trim(adjustl(fname))
             call PDF1V_N(fname, imax, jmax, kmax, &
                          nfield, nbins, ibc, amin, amax, vars, z%nodes, pdfs)
 

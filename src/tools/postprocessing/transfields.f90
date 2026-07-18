@@ -9,6 +9,7 @@ program TransFields
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Start, flow_on, scal_on
     use TLab_Memory, only: TLab_Initialize_Memory
 #ifdef USE_MPI
+    use TLabMPI_VARS, only: yMpi
     use TLabMPI_PROCS, only: TLabMPI_Initialize
     use TLabMPI_Transpose, only: TLabMPI_Trp_Initialize
 #endif
@@ -37,6 +38,10 @@ program TransFields
     real(wp) params(MAX_PARS)
 
     integer opt_main
+
+    interface SwapYZ
+        procedure SwapYZ_initialize, SwapYZ_transpose
+    end interface
 
     !########################################################################
     !########################################################################
@@ -75,6 +80,11 @@ program TransFields
 
         call TLab_Write_ASCII(lfile, 'Processing iteration It'//trim(adjustl(time_str)))
 
+        select case (trim(adjustl(opt_name(opt_vec(iv)))))
+        case ('Swap Y-Z coordinates')
+            call SwapYZ()
+        end select
+
         if (iread_scal) then
             fname = trim(adjustl(tag_scal))//trim(adjustl(time_str))
             call IO_Read_Fields(fname, imax, jmax, kmax, itime, inb_scal, 0, s, params(1:1))
@@ -93,9 +103,16 @@ program TransFields
             call DoubleToSingle()
 
         case ('Swap Y-Z coordinates')
+            jmax = ySubgrid%size    ! back to original
+            kmax = zSubgrid%size
+
             do iq = 1, inb_flow
                 call SwapYZ(q(:, iq))
             end do
+            wrk3d(1:imax*jmax*kmax) = q(:, 2)
+            q(:, 2) = -q(:, 3)
+            q(:, 3) = wrk3d(1:imax*jmax*kmax)
+
             do is = 1, inb_scal
                 call SwapYZ(s(:, is))
             end do
@@ -228,9 +245,30 @@ contains
 
     !########################################################################
     !########################################################################
-    subroutine SwapYZ(field)
-        real(wp), intent(inout) :: field(:)
+    ! Have read rotated +90 deg along x: Y is old Z, Z is old Y
+    subroutine SwapYZ_initialize()
 
+#ifdef USE_MPI
+        ! if (mod(kmax, yMpi%num_processors) /= 0) then
+        !     call TLab_Write_ASCII(efile, __FILE__//'. Cannot transpose in Z coordinate. Try only X domain decomposition.')
+        !     call TLab_Stop(DNS_ERROR_INVALOPT)
+        ! end if
+        if (yMpi%num_processors > 1) then
+            call TLab_Write_ASCII(efile, __FILE__//'. Only X domain decomposition.')
+            call TLab_Stop(DNS_ERROR_INVALOPT)
+        end if
+#endif
+        jmax = zSubgrid%size
+        kmax = ySubgrid%size
+
+        return
+    end subroutine
+
+    subroutine SwapYZ_transpose(field)
+        use TLab_Transpose
+        use TLabMPI_Transpose, only: tmpi_trp_Y
+
+        real(wp), intent(inout) :: field(:)
         integer j, k
         target field
         real(wp), pointer :: p_org(:, :, :) => null(), p_dst(:, :, :) => null()
@@ -240,13 +278,25 @@ contains
 
         do k = 1, kmax
             do j = 1, jmax
-                p_dst(1:imax, j, k) = p_org(1:imax, k, j)
+                p_dst(1:imax, j, k) = p_org(1:imax, k, jmax - j + 1)
             end do
         end do
-        field(1:imax*jmax*kmax) = wrk3d(1:imax*jmax*kmax)
+
+#ifdef USE_MPI
+        if (yMpi%num_processors > 1) then
+            call TLab_Transpose_Real(wrk3d, imax*jmax, kmax, imax*jmax, field, kmax)
+            call tmpi_trp_Y%backward(field, wrk3d)
+            call TLab_Transpose_Real(wrk3d, kmax, imax*jmax, kmax, field, imax*jmax)
+        else
+#endif
+            field(1:imax*jmax*kmax) = wrk3d(1:imax*jmax*kmax)
+
+#ifdef USE_MPI
+        end if
+#endif
 
         nullify (p_org, p_dst)
-        
+
         return
     end subroutine
 

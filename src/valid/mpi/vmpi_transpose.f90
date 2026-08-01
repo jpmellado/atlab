@@ -63,7 +63,9 @@ program vMpi_Transpose
     time_loc_2 = MPI_WTIME()
 
     if (mpiGrid%rank == 0) then
-        print *, new_line('a'), 'Transpose algorithm.'
+        print *, new_line('a'), 'Transpose algorithm. MPI derived types ', USE_MPI_DERIVED_TYPES
+        print *, 'Number of processors: ', mpiGrid%num_processors
+        print *, 'Error in processors with rank 0: ', maxval(abs(f - u))
         print *, 'Elapsed time in processor with rank 0 (seconds): ', time_loc_2 - time_loc_1
         ! print *, 'Communication time in processor with rank 0 (seconds): ', ims_time_trans
         ! print *, 'Serial time in processor with rank 0 (seconds): ', time_loc_2 - time_loc_1 - ims_time_trans

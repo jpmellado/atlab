@@ -18,10 +18,14 @@ module TLabMPI_Transpose
     public :: tmpi_transpose_y_dt
     public :: tmpi_trp_X, tmpi_trp_Y    ! general plans used in derivatives and other operators
     !                                   I wonder if here or somewhere else
+    ! starting to explore raw transposition without mpi-derived types
+    public :: TLabMPI_Transpose_Real, TLabMPI_Transpose_Complex
+    public :: USE_MPI_DERIVED_TYPES
 
     ! -----------------------------------------------------------------------
     type trp_mem_dt
         type(MPI_Datatype) :: type              ! derived types
+        integer(wi) :: count                    ! number of elements of type type to be transferred
         integer(wi), allocatable :: disp(:)     ! buffer displacements
         integer(wi), allocatable :: map(:)      ! processor mapping
     end type
@@ -70,6 +74,8 @@ module TLabMPI_Transpose
     type(MPI_Datatype) :: trp_datatype_j = MPI_REAL8
     real(wp), allocatable, target :: wrk_mpi(:)                     ! 3D work array for datatype conversion
     real(sp), pointer :: a_wrk(:) => null(), b_wrk(:) => null()
+
+    logical :: USE_MPI_DERIVED_TYPES = .true.
 
     ! -----------------------------------------------------------------------
     ! Size of communication in explicit send/recv
@@ -154,7 +160,7 @@ contains
             end if
 
         end if
-        
+
         ! #######################################################################
         ! Initialize
         if (xMpi%num_processors > trp_sizBlock_i) then
@@ -235,14 +241,6 @@ contains
         block_count = self%nlines
         block_length = nmax
 
-        ! Calculate array displacements in Forward Send/Receive
-        self%send%disp(1) = 0
-        self%recv%disp(1) = 0
-        do i = 2, xMpi%num_processors
-            self%send%disp(i) = self%send%disp(i - 1) + block_length*block_count
-            self%recv%disp(i) = self%recv%disp(i - 1) + block_length
-        end do
-
         ! #######################################################################
         if (present(locType)) then
             datatype = locType
@@ -250,23 +248,55 @@ contains
             datatype = trp_datatype_i
         end if
 
-        stride = block_length                   ! stride = block_length because things are together
-        call MPI_TYPE_VECTOR(block_count, block_length, stride, datatype, self%send%type, ims_err)
-        call MPI_TYPE_COMMIT(self%send%type, ims_err)
+        if (USE_MPI_DERIVED_TYPES) then
+            ! Calculate array displacements in Forward Send/Receive
+            self%send%disp(1) = 0
+            self%recv%disp(1) = 0
+            do i = 2, xMpi%num_processors
+                self%send%disp(i) = self%send%disp(i - 1) + block_length*block_count
+                self%recv%disp(i) = self%recv%disp(i - 1) + block_length
+            end do
 
-        stride = nmax*xMpi%num_processors       ! stride is a multiple of nmax_total=nmax*xMpi%num_processors
-        call MPI_TYPE_VECTOR(block_count, block_length, stride, datatype, self%recv%type, ims_err)
-        call MPI_TYPE_COMMIT(self%recv%type, ims_err)
+            ! Define types
+            self%send%count = 1
+            self%recv%count = 1
 
-        ! -----------------------------------------------------------------------
-        call MPI_TYPE_SIZE(self%send%type, ims_ss, ims_err)
-        call MPI_TYPE_SIZE(self%recv%type, ims_rs, ims_err)
+            ! -----------------------------------------------------------------------
+            stride = block_length                   ! stride = block_length because things are together
+            call MPI_TYPE_VECTOR(block_count, block_length, stride, datatype, self%send%type, ims_err)
+            call MPI_TYPE_COMMIT(self%send%type, ims_err)
 
-        if (ims_ss /= ims_rs) then
-            write (str, *) ims_ss; write (line, *) ims_rs
-            line = 'Send size '//trim(adjustl(str))//'differs from recv size '//trim(adjustl(line))
-            call TLab_Write_ASCII(efile, line)
-            call TLab_Stop(DNS_ERROR_MPITYPECHECK)
+            stride = nmax*xMpi%num_processors       ! stride is a multiple of nmax_total=nmax*xMpi%num_processors
+            call MPI_TYPE_VECTOR(block_count, block_length, stride, datatype, self%recv%type, ims_err)
+            call MPI_TYPE_COMMIT(self%recv%type, ims_err)
+
+            ! check
+            call MPI_TYPE_SIZE(self%send%type, ims_ss, ims_err)
+            call MPI_TYPE_SIZE(self%recv%type, ims_rs, ims_err)
+
+            if (ims_ss /= ims_rs) then
+                write (str, *) ims_ss; write (line, *) ims_rs
+                line = 'Send size '//trim(adjustl(str))//'differs from recv size '//trim(adjustl(line))
+                call TLab_Write_ASCII(efile, line)
+                call TLab_Stop(DNS_ERROR_MPITYPECHECK)
+            end if
+
+        else
+            ! Calculate array displacements in Forward Send/Receive
+            self%send%disp(1) = 0
+            self%recv%disp(1) = 0
+            do i = 2, xMpi%num_processors
+                self%send%disp(i) = self%send%disp(i - 1) + block_length*block_count
+                self%recv%disp(i) = self%recv%disp(i - 1) + block_length*block_count
+            end do
+
+            ! Define types
+            self%send%count = block_length*block_count
+            self%recv%count = block_length*block_count
+
+            self%send%type = datatype
+            self%recv%type = datatype
+
         end if
 
         ! -----------------------------------------------------------------------
@@ -329,6 +359,7 @@ contains
             datatype = trp_datatype_i
         end if
 
+        ! -----------------------------------------------------------------------
         stride = npage
         call MPI_TYPE_VECTOR(block_count, block_length, stride, datatype, self%send%type, ims_err)
         call MPI_TYPE_COMMIT(self%send%type, ims_err)
@@ -337,7 +368,7 @@ contains
         call MPI_TYPE_VECTOR(block_count, block_length, stride, datatype, self%recv%type, ims_err)
         call MPI_TYPE_COMMIT(self%recv%type, ims_err)
 
-        ! -----------------------------------------------------------------------
+        ! check
         call MPI_TYPE_SIZE(self%send%type, ims_ss, ims_err)
         call MPI_TYPE_SIZE(self%recv%type, ims_rs, ims_err)
 
@@ -347,6 +378,9 @@ contains
             call TLab_Write_ASCII(efile, line)
             call TLab_Stop(DNS_ERROR_MPITYPECHECK)
         end if
+
+        self%send%count = 1
+        self%recv%count = 1
 
         ! -----------------------------------------------------------------------
         self%size_block_processes = trp_sizBlock_j
@@ -516,9 +550,9 @@ contains
                     ns = send%map(m) + 1; ips = ns - 1
                     nr = recv%map(m) + 1; ipr = nr - 1
                     l = l + 1
-                    call MPI_ISEND(in(send%disp(ns) + 1), 1, send%type, ips, ims_tag, comm, request(l), ims_err)
+                    call MPI_ISEND(in(send%disp(ns) + 1), send%count, send%type, ips, ims_tag, comm, request(l), ims_err)
                     l = l + 1
-                    call MPI_IRECV(out(recv%disp(nr) + 1), 1, recv%type, ipr, ims_tag, comm, request(l), ims_err)
+                    call MPI_IRECV(out(recv%disp(nr) + 1), recv%count, recv%type, ipr, ims_tag, comm, request(l), ims_err)
                 end do
                 call MPI_WAITALL(l, request, status, ims_err)
             end do
@@ -528,8 +562,8 @@ contains
                 do m = j, min(j + step - 1, npro)
                     ns = send%map(m) + 1; ips = ns - 1
                     nr = recv%map(m) + 1; ipr = nr - 1
-                    call MPI_SENDRECV(in(send%disp(ns) + 1), 1, send%type, ips, ims_tag, &
-                                      out(recv%disp(nr) + 1), 1, recv%type, ipr, ims_tag, comm, status(1), ims_err)
+                    call MPI_SENDRECV(in(send%disp(ns) + 1), send%count, send%type, ips, ims_tag, &
+                                      out(recv%disp(nr) + 1), recv%count, recv%type, ipr, ims_tag, comm, status(1), ims_err)
                 end do
             end do
 
@@ -572,9 +606,9 @@ contains
                     ns = send%map(m) + 1; ips = ns - 1
                     nr = recv%map(m) + 1; ipr = nr - 1
                     l = l + 1
-                    call MPI_ISEND(in(send%disp(ns) + 1), 1, send%type, ips, ims_tag, comm, request(l), ims_err)
+                    call MPI_ISEND(in(send%disp(ns) + 1), send%count, send%type, ips, ims_tag, comm, request(l), ims_err)
                     l = l + 1
-                    call MPI_IRECV(out(recv%disp(nr) + 1), 1, recv%type, ipr, ims_tag, comm, request(l), ims_err)
+                    call MPI_IRECV(out(recv%disp(nr) + 1), recv%count, recv%type, ipr, ims_tag, comm, request(l), ims_err)
                 end do
                 call MPI_WAITALL(l, request, status, ims_err)
             end do
@@ -584,8 +618,8 @@ contains
                 do m = j, min(j + step - 1, npro)
                     ns = send%map(m) + 1; ips = ns - 1
                     nr = recv%map(m) + 1; ipr = nr - 1
-                    call MPI_SENDRECV(in(send%disp(ns) + 1), 1, send%type, ips, ims_tag, &
-                                      out(recv%disp(nr) + 1), 1, recv%type, ipr, ims_tag, comm, status(1), ims_err)
+                    call MPI_SENDRECV(in(send%disp(ns) + 1), send%count, send%type, ips, ims_tag, &
+                                      out(recv%disp(nr) + 1), recv%count, recv%type, ipr, ims_tag, comm, status(1), ims_err)
                 end do
             end do
 
@@ -628,9 +662,9 @@ contains
                     ns = send%map(m) + 1; ips = ns - 1
                     nr = recv%map(m) + 1; ipr = nr - 1
                     l = l + 1
-                    call MPI_ISEND(in(send%disp(ns) + 1), 1, send%type, ips, ims_tag, comm, request(l), ims_err)
+                    call MPI_ISEND(in(send%disp(ns) + 1), send%count, send%type, ips, ims_tag, comm, request(l), ims_err)
                     l = l + 1
-                    call MPI_IRECV(out(recv%disp(nr) + 1), 1, recv%type, ipr, ims_tag, comm, request(l), ims_err)
+                    call MPI_IRECV(out(recv%disp(nr) + 1), recv%count, recv%type, ipr, ims_tag, comm, request(l), ims_err)
                 end do
                 call MPI_WAITALL(l, request, status, ims_err)
             end do
@@ -640,8 +674,8 @@ contains
                 do m = j, min(j + step - 1, npro)
                     ns = send%map(m) + 1; ips = ns - 1
                     nr = recv%map(m) + 1; ipr = nr - 1
-                    call MPI_SENDRECV(in(send%disp(ns) + 1), 1, send%type, ips, ims_tag, &
-                                      out(recv%disp(nr) + 1), 1, recv%type, ipr, ims_tag, comm, status(1), ims_err)
+                    call MPI_SENDRECV(in(send%disp(ns) + 1), send%count, send%type, ips, ims_tag, &
+                                      out(recv%disp(nr) + 1), recv%count, recv%type, ipr, ims_tag, comm, status(1), ims_err)
                 end do
             end do
 
@@ -657,5 +691,27 @@ contains
 
         return
     end subroutine tmpi_trp_complex
+
+    ! ######################################################################
+    ! ######################################################################
+    subroutine TLabMPI_Transpose_Complex(var, a, b)
+        class(tmpi_transpose_dt), intent(in) :: var
+        complex(wp), intent(in) :: a(:)
+        complex(wp), intent(out) :: b(:)
+
+        ! TO BE DONE
+        b = a
+        return
+    end subroutine
+
+    subroutine TLabMPI_Transpose_Real(var, a, b)
+        class(tmpi_transpose_dt), intent(in) :: var
+        real(wp), intent(in) :: a(:)
+        real(wp), intent(out) :: b(:)
+
+        ! TO BE DONE
+        b = a
+        return
+    end subroutine
 
 end module TLabMPI_Transpose

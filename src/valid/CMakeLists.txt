@@ -33,6 +33,10 @@ if ( "USE_MPI" IN_LIST defs )
     FILE(GLOB sourcefiles "mpi/vmpi_thomas3_scaling.f90")
     add_executable(vmpi_thomas3_scaling.x ${sourcefiles})
     target_link_libraries(vmpi_thomas3_scaling.x ${LEVEL1_LIBS} ${LIBS})
+
+    FILE(GLOB sourcefiles "mpi/vmpi_transpose.f90")
+    add_executable(vmpi_transpose.x ${sourcefiles})
+    target_link_libraries(vmpi_transpose.x ${LEVEL1_LIBS} ${LIBS})
 endif()
 
 # FILE(GLOB sourcefiles "thermo/vthermo.f90")

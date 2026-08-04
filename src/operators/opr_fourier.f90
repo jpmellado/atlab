@@ -9,13 +9,13 @@ module OPR_Fourier
     use TLab_Memory, only: imax, jmax, kmax
     use TLab_Arrays, only: wrk3d
     use TLab_Pointers_C, only: c_wrk3d
-    use TLab_Transpose, only: TLab_Transpose_Complex, trans_cy_forward, trans_cy_backward
+    use TLab_Transpose!, only: TLab_Transpose_Complex, trans_cy_forward, trans_cy_backward
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
     use TLab_Grid
     use, intrinsic :: iso_c_binding
 #ifdef USE_MPI
     use TLabMPI_VARS, only: xMpi, yMpi
-    use TLabMPI_Transpose, only: tmpi_transpose_x_dt, tmpi_transpose_y_dt, tmpi_trp_X
+    use TLabMPI_Transpose!, only: tmpi_transpose_x_dt, tmpi_transpose_y_dt, tmpi_trp_X
 #endif
     implicit none
     private
@@ -38,12 +38,16 @@ module OPR_Fourier
     type(c_ptr) :: fft_plan_fy, fft_plan_by
     type(c_ptr) :: fft_plan_fz, fft_plan_bz
 #ifdef USE_MPI
-    ! type(tmpi_transpose_dt) :: tmpi_plan_fftx
-    ! type(tmpi_transpose_dt) :: tmpi_plan_ffty
     type(tmpi_transpose_x_dt) :: tmpi_trp_fft_X
     type(tmpi_transpose_y_dt) :: tmpi_trp_fft_Y
     real(wp), pointer :: r_out(:) => null()
     real(wp), pointer :: r_in(:) => null()
+#endif
+
+    type(c_ptr) :: fft_plan_fx2, fft_plan_bx2
+#ifdef USE_MPI
+    type(tmpi_transpose_block_dt) :: tmpi_trp_X2
+    type(tmpi_transpose_block_dt) :: tmpi_trp_fft_X2
 #endif
 
     ! complex(wp), pointer :: c_out(:) => null()
@@ -53,7 +57,7 @@ contains
     ! #######################################################################
     subroutine OPR_Fourier_Initialize(locIniFile)
 #ifdef USE_MPI
-        use mpi_f08, only: MPI_DOUBLE_COMPLEX
+        use mpi_f08, only: MPI_DOUBLE_COMPLEX, MPI_REAL8
 #endif
         use TLab_Arrays, only: txc
 
@@ -135,6 +139,13 @@ contains
                                                locType=MPI_DOUBLE_COMPLEX, &
                                                message='extended Ox FFTW in Poisson solver.')
 
+                call tmpi_trp_X2%initialize(imax, nlines, xMpi, &
+                                            locType=MPI_REAL8, &
+                                            message='extended NEW Ox FFTW in Poisson solver.')
+                call tmpi_trp_fft_X2%initialize(imax/2 + 1, nlines, xMpi, &
+                                                locType=MPI_DOUBLE_COMPLEX, &
+                                                message='extended NEW Ox FFTW in Poisson solver.')
+
                 nlines = tmpi_trp_X%nlines
                 offset = (imax/2 + 1)*xMpi%num_processors
 
@@ -158,6 +169,15 @@ contains
                                          wrk3d, size_fft_x, 1, size_fft_x, &
                                          fftw_planner_flag)
 
+            stride = nlines
+            call dfftw_plan_many_dft_r2c(fft_plan_fx2, 1, size_fft_x, nlines, &
+                                         txc(:, 1), size_fft_x, stride, 1, &
+                                         wrk3d, size_fft_x/2 + 1, stride, 1, &
+                                         fftw_planner_flag)
+            call dfftw_plan_many_dft_c2r(fft_plan_bx2, 1, size_fft_x, nlines, &
+                                         txc(:, 1), size_fft_x/2 + 1, stride, 1, &
+                                         wrk3d, size_fft_x, stride, 1, &
+                                         fftw_planner_flag)
         end if
 
         ! -----------------------------------------------------------------------
@@ -225,15 +245,24 @@ contains
         if (xMpi%num_processors > 1) then
             call c_f_pointer(c_loc(out), r_out, shape=[isize_txc_field])
 
-            call tmpi_trp_X%forward(in, r_out)
-            call dfftw_execute_dft_r2c(fft_plan_fx, r_out, c_wrk3d)
-            call tmpi_trp_fft_X%backward(c_wrk3d, out)
+            ! call tmpi_trp_X%forward(in, r_out)
+            ! call dfftw_execute_dft_r2c(fft_plan_fx, r_out, c_wrk3d)
+            ! call tmpi_trp_fft_X%backward(c_wrk3d, out)
+
+            call tmpi_trp_X2%in_out(in, r_out, 'forward')
+            call dfftw_execute_dft_r2c(fft_plan_fx2, r_out, c_wrk3d)
+            call tmpi_trp_fft_X2%out_in(c_wrk3d, out, 'backward')
 
             nullify (r_out)
 
         else
 #endif
             call dfftw_execute_dft_r2c(fft_plan_fx, in, out)
+
+            ! call c_f_pointer(c_loc(out), r_out, shape=[isize_txc_field])
+            ! call TLab_Transpose_Real(in, imax, jmax*kmax, imax, r_out, jmax*kmax, locBlock=trans_x_forward)
+            ! call dfftw_execute_dft_r2c(fft_plan_fx2, r_out, c_wrk3d)
+            ! call TLab_Transpose_Complex(c_wrk3d, jmax*kmax, imax/2 + 1, jmax*kmax, out, imax/2 + 1, locBlock=trans_cx_backward)
 
 #ifdef USE_MPI
         end if
@@ -262,14 +291,24 @@ contains
 
             call c_f_pointer(c_loc(in), r_in, shape=[isize_txc_field])
 
-            call tmpi_trp_fft_X%forward(in, c_wrk3d)
-            call dfftw_execute_dft_c2r(fft_plan_bx, c_wrk3d, r_in)
-            call tmpi_trp_X%backward(r_in, out)
+            ! call tmpi_trp_fft_X%forward(in, c_wrk3d)
+            ! call dfftw_execute_dft_c2r(fft_plan_bx, c_wrk3d, r_in)
+            ! call tmpi_trp_X%backward(r_in, out)
+
+            call tmpi_trp_fft_X2%in_out(in, c_wrk3d, 'forward')
+            call dfftw_execute_dft_c2r(fft_plan_bx2, c_wrk3d, r_in)
+            call tmpi_trp_X2%out_in(r_in, out, 'backward')
+
             nullify (r_in)
 
         else
 #endif
             call dfftw_execute_dft_c2r(fft_plan_bx, in, out)
+
+            ! call c_f_pointer(c_loc(in), r_in, shape=[isize_txc_field])
+            ! call TLab_Transpose_Complex(in, imax/2 + 1, jmax*kmax, imax/2 + 1, c_wrk3d, jmax*kmax, locBlock=trans_cx_forward)
+            ! call dfftw_execute_dft_c2r(fft_plan_bx2, c_wrk3d, r_in)
+            ! call TLab_Transpose_Real(r_in, jmax*kmax, imax, jmax*kmax, out, imax, locBlock=trans_x_backward)
 
 #ifdef USE_MPI
         end if

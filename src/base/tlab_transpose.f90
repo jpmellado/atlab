@@ -13,6 +13,7 @@ module TLab_Transpose
 
     public :: trans_x_forward, trans_x_backward
     public :: trans_y_forward, trans_y_backward
+    public :: trans_cx_forward, trans_cx_backward
     public :: trans_cy_forward, trans_cy_backward
 
     ! -----------------------------------------------------------------------
@@ -30,6 +31,7 @@ module TLab_Transpose
     type(block_dt) trans_x_forward, trans_x_backward
     type(block_dt) trans_y_forward, trans_y_backward
     type(block_dt) trans_cy_forward, trans_cy_backward  ! complex
+    type(block_dt) trans_cx_forward, trans_cx_backward  ! complex
 
 contains
     ! ###################################################################
@@ -59,6 +61,12 @@ contains
             call scan(imax, jmax*kmax, trans_x_forward)
             call TLab_Write_ASCII(lfile, 'Optimizing cache-blocking for array backward transposition along X...')
             call scan(jmax*kmax, imax, trans_x_backward)
+
+            call TLab_Write_ASCII(lfile, 'Optimizing cache-blocking for complex array forward transposition along Y...')
+            call scan((imax + 2), jmax*kmax, trans_cx_forward)
+            call TLab_Write_ASCII(lfile, 'Optimizing cache-blocking for complex array backward transposition along Y...')
+            call scan(jmax*kmax, (imax + 2), trans_cx_backward)
+
         end if
 
         if (jmax > 1) then

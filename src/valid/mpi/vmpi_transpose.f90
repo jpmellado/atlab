@@ -3,7 +3,7 @@ program vMpi_Transpose
     use mpi_f08
     use TLabMPI_VARS, only: mpiGrid, xMpi, yMpi, ims_err, ims_time_trans
     use TLab_Memory, only: imax, jmax, kmax
-    use TLabMPI_Transpose
+    use TLabMPI_Transpose_DerivedTypes
     implicit none
 
     ! integer(wi), parameter :: nx = 8         ! full size of each linear system
@@ -13,8 +13,10 @@ program vMpi_Transpose
 
     real(wp), allocatable :: u(:, :), f(:, :)
     real(wp), allocatable :: u_transposed(:, :)
+    real(wp), allocatable :: wrk3d(:)
     complex(wp), allocatable :: uc(:, :), fc(:, :)
     complex(wp), allocatable :: uc_transposed(:, :)
+    complex(wp), allocatable :: c_wrk3d(:)
     type(tmpi_transpose_x_dt) :: tmpi_trp
     type(tmpi_transpose_block_dt) :: tmpi_trp_block
 
@@ -39,6 +41,9 @@ program vMpi_Transpose
     !
     allocate (uc(nxLoc/2, nlines))          ! complex case
     allocate (fc(nxLoc/2, nlines))
+    !
+    allocate (wrk3d(nxLoc*nlines))
+    allocate (c_wrk3d(nxLoc/2*nlines))
 
     ! -------------------------------------------------------------------
     ! Initialize
@@ -52,10 +57,6 @@ program vMpi_Transpose
     allocate (uc_transposed(nlinesLoc, nx/2))
     xMpi => mpiGrid%mpi_axis_dt
     yMpi => mpiGrid%mpi_axis_dt ! I need it for the initialization
-    !
-    imax = nx
-    jmax = nlines
-    kmax = 1
     call TLabMPI_Trp_Initialize()
 
     ! -------------------------------------------------------------------
@@ -79,25 +80,58 @@ program vMpi_Transpose
 
     ! -------------------------------------------------------------------
     call tmpi_trp_block%initialize(nxLoc, nlines, mpiGrid%mpi_axis_dt, locType=MPI_REAL8)
-    !
-    call tmpi_trp_block%initialize(nxLoc/2, nlines, mpiGrid%mpi_axis_dt, locType=MPI_DOUBLE_COMPLEX)
 
     time_loc_1 = MPI_WTIME()
     if (mpiGrid%num_processors > 1) then
         do it = 1, num_iterations
-            call tmpi_trp_block%in_out(u(:, 1), u_transposed(:, 1), 'forward')
-            call tmpi_trp_block%out_in(u_transposed(:, 1), f(:, 1), 'backward')
-            ! call tmpi_trp_block%in_out(uc(:, 1), uc_transposed(:, 1), 'forward')
-            ! call tmpi_trp_block%out_in(uc_transposed(:, 1), fc(:, 1), 'backward')
+            call tmpi_trp_block%in_out(u(:, 1), u_transposed(:, 1), wrk3d, 'forward')
+            call tmpi_trp_block%out_in(u_transposed(:, 1), f(:, 1), wrk3d, 'backward')
         end do
     end if
     time_loc_2 = MPI_WTIME()
 
     if (mpiGrid%rank == 0) then
-        print *, new_line('a'), 'Transpose algorithm with raw types.'
+        print *, new_line('a'), 'Transpose algorithm with raw real types.'
         print *, 'Number of processors: ', mpiGrid%num_processors
         print *, 'Error in processors with rank 0: ', maxval(abs(f - u))
         ! print *, 'Error in processors with rank 0: ', maxval(abs(fc - uc))
+        print *, 'Elapsed time in processor with rank 0 (seconds): ', time_loc_2 - time_loc_1
+    end if
+
+    ! -------------------------------------------------------------------
+    call tmpi_trp_block%initialize(nxLoc/2, nlines, mpiGrid%mpi_axis_dt, locType=MPI_DOUBLE_COMPLEX)
+
+    time_loc_1 = MPI_WTIME()
+    if (mpiGrid%num_processors > 1) then
+        do it = 1, num_iterations
+            call tmpi_trp_block%in_out(uc(:, 1), uc_transposed(:, 1), c_wrk3d, 'forward')
+            call tmpi_trp_block%out_in(uc_transposed(:, 1), fc(:, 1), c_wrk3d, 'backward')
+        end do
+    end if
+    time_loc_2 = MPI_WTIME()
+
+    if (mpiGrid%rank == 0) then
+        print *, new_line('a'), 'Transpose algorithm with raw complex types.'
+        print *, 'Number of processors: ', mpiGrid%num_processors
+        print *, 'Error in processors with rank 0: ', maxval(abs(fc - uc))
+        print *, 'Elapsed time in processor with rank 0 (seconds): ', time_loc_2 - time_loc_1
+    end if
+
+    ! check inplace routines
+    time_loc_1 = MPI_WTIME()
+    if (mpiGrid%num_processors > 1) then
+        do it = 1, num_iterations
+            fc = uc
+            call tmpi_trp_block%in_out(fc(:, 1), c_wrk3d, 'forward')
+            call tmpi_trp_block%out_in(fc(:, 1), c_wrk3d, 'backward')
+        end do
+    end if
+    time_loc_2 = MPI_WTIME()
+
+    if (mpiGrid%rank == 0) then
+        print *, new_line('a'), 'Transpose algorithm with raw complex types (in-place).'
+        print *, 'Number of processors: ', mpiGrid%num_processors
+        print *, 'Error in processors with rank 0: ', maxval(abs(fc - uc))
         print *, 'Elapsed time in processor with rank 0 (seconds): ', time_loc_2 - time_loc_1
     end if
 

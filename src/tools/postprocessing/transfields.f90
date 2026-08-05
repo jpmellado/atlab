@@ -11,7 +11,7 @@ program TransFields
 #ifdef USE_MPI
     use TLabMPI_VARS, only: yMpi
     use TLabMPI_PROCS, only: TLabMPI_Initialize
-    use TLabMPI_Transpose, only: TLabMPI_Trp_Initialize
+    use TLabMPI_Transpose_DerivedTypes, only: TLabMPI_Trp_Initialize
 #endif
     use IO_Fields
     use TLab_Grid
@@ -267,7 +267,7 @@ contains
     subroutine SwapYZ_transpose(field)
 #ifdef USE_MPI
         use TLab_Transpose
-        use TLabMPI_Transpose, only: tmpi_trp_Y
+        use TLabMPI_Transpose_DerivedTypes, only: tmpi_trp_Y
 #endif
         real(wp), intent(inout) :: field(:)
         integer j, k

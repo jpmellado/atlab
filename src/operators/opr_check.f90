@@ -9,8 +9,8 @@ subroutine OPR_Check()
     use mpi_f08
     use TLabMPI_VARS, only: ims_err
     use TLabMPI_VARS, only: xMpi, yMpi
-    ! use TLabMPI_Transpose
-    use TLabMPI_Transpose, only: tmpi_trp_X, tmpi_trp_Y
+    ! use TLabMPI_Transpose_DerivedTypes
+    use TLabMPI_Transpose_DerivedTypes, only: tmpi_trp_X, tmpi_trp_Y
 #endif
     use TLab_Grid, only: x, y, z
     use OPR_Fourier

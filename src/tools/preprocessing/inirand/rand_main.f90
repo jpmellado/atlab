@@ -8,8 +8,8 @@ program IniRand
     use TLab_Memory, only: TLab_Initialize_Memory
 #ifdef USE_MPI
     use TLabMPI_PROCS, only: TLabMPI_Initialize
-    ! use TLabMPI_Transpose, only: TLabMPI_Trp_Initialize
-    use TLabMPI_Transpose, only: TLabMPI_Trp_Initialize
+    ! use TLabMPI_Transpose_DerivedTypes, only: TLabMPI_Trp_Initialize
+    use TLabMPI_Transpose_DerivedTypes, only: TLabMPI_Trp_Initialize
 #endif
     use IO_Fields, only: IO_Initialize, IO_Write_Fields, io_header_q, io_header_s
     use TLab_Grid

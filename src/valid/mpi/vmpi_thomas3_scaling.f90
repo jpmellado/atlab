@@ -4,7 +4,7 @@ program vMpi_Thomas3_Scaling
     use TLabMPI_VARS, only: mpiGrid, xMpi, yMpi, ims_err, ims_time_trans
     use Thomas_Parallel
     use Thomas_Circulant
-    use TLabMPI_Transpose
+    use TLabMPI_Transpose_DerivedTypes
     implicit none
 
     integer(wi), parameter :: nd = 3            ! number of diagonals

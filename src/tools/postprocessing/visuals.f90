@@ -11,7 +11,7 @@ program VISUALS
     use TLab_Pointers, only: pointers_dt
 #ifdef USE_MPI
     use TLabMPI_PROCS, only: TLabMPI_Initialize
-    use TLabMPI_Transpose, only: TLabMPI_Trp_Initialize
+    use TLabMPI_Transpose_DerivedTypes, only: TLabMPI_Trp_Initialize
 #endif
     use IO_Fields
     use TLab_Grid

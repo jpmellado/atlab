@@ -1,7 +1,7 @@
 #include "tlab_error.h"
 
 ! Circular transposition within directional communicators
-module TLabMPI_Transpose
+module TLabMPI_Transpose_DerivedTypes
     use mpi_f08
     use TLab_Constants, only: wp, dp, sp, wi, sizeofreal
     use TLab_Constants, only: lfile, efile
@@ -68,9 +68,11 @@ module TLabMPI_Transpose
         procedure :: tmpi_trp_in_out_real
         procedure :: tmpi_trp_out_in_real
         procedure :: tmpi_trp_in_out_complex
+        procedure :: tmpi_trp_in_out_complex_inplace
         procedure :: tmpi_trp_out_in_complex
-        generic, public :: in_out => tmpi_trp_in_out_real, tmpi_trp_in_out_complex
-        generic, public :: out_in => tmpi_trp_out_in_real, tmpi_trp_out_in_complex
+        procedure :: tmpi_trp_out_in_complex_inplace
+        generic, public :: in_out => tmpi_trp_in_out_real, tmpi_trp_in_out_complex, tmpi_trp_in_out_complex_inplace
+        generic, public :: out_in => tmpi_trp_out_in_real, tmpi_trp_out_in_complex, tmpi_trp_out_in_complex_inplace
     end type
 
     ! -----------------------------------------------------------------------
@@ -85,7 +87,6 @@ module TLabMPI_Transpose
     type(MPI_Datatype) :: trp_datatype_j = MPI_REAL8
     real(wp), allocatable, target :: wrk_mpi(:)                     ! 3D work array for datatype conversion
     real(sp), pointer :: a_wrk(:) => null(), b_wrk(:) => null()
-    complex(wp), pointer :: c_wrk_mpi(:) => null()
 
     ! -----------------------------------------------------------------------
     ! Size of communication in explicit send/recv
@@ -193,10 +194,9 @@ contains
         ! to use single transposition when running in double precision
         ! call TLab_Allocate_Real(__FILE__, wrk_mpi, [isize_wrk3d], 'wrk-mpi')
         ! isize_wrk3d is not yet defined; see if you need to move this somewhere else
-        ! if (trp_datatype_i == MPI_REAL4 .or. trp_datatype_j == MPI_REAL4) then
-        call TLab_Allocate_Real(__FILE__, wrk_mpi, [(imax + 2)*jmax*kmax], 'wrk-mpi')
-        ! end if
-        call c_f_pointer(c_loc(wrk_mpi), c_wrk_mpi, shape=[(imax + 2)*jmax*kmax])
+        if (trp_datatype_i == MPI_REAL4 .or. trp_datatype_j == MPI_REAL4) then
+            call TLab_Allocate_Real(__FILE__, wrk_mpi, [imax*jmax*kmax], 'wrk-mpi')
+        end if
 
         ! -----------------------------------------------------------------------
         ! to use alltoallw
@@ -745,11 +745,12 @@ contains
         return
     end subroutine tmpi_trp_initialize_block
 
-    subroutine tmpi_trp_in_out_complex(self, a, b, mode)
+    subroutine tmpi_trp_in_out_complex(self, a, b, wrk, mode)
         use TLab_Transpose
         class(tmpi_transpose_block_dt), intent(in) :: self
         complex(wp), intent(in) :: a(:)
         complex(wp), intent(out) :: b(:)
+        complex(wp), intent(inout) :: wrk(:)
         character(len=*), intent(in) :: mode
 
         integer ib, nblocks
@@ -761,24 +762,54 @@ contains
 
         do ib = 1, nblocks
             ip = (ib - 1)*count + 1
-            call TLab_Transpose_Complex(a(ip:), nmax, self%nlines, nmax, c_wrk_mpi(ip:), self%nlines)
+            call TLab_Transpose_Complex(a(ip:), nmax, self%nlines, nmax, wrk(ip:), self%nlines)
         end do
 
         select case (mode)
         case ('forward')
-            call self%forward(c_wrk_mpi, b)
+            call self%forward(wrk, b)
         case ('backward')
-            call self%backward(c_wrk_mpi, b)
+            call self%backward(wrk, b)
         end select
 
         return
     end subroutine
 
-    subroutine tmpi_trp_out_in_complex(self, a, b, mode)
+    subroutine tmpi_trp_in_out_complex_inplace(self, a, wrk, mode)
+        use TLab_Transpose
+        class(tmpi_transpose_block_dt), intent(in) :: self
+        complex(wp), intent(inout) :: a(:)
+        complex(wp), intent(inout) :: wrk(:)
+        character(len=*), intent(in) :: mode
+
+        integer ib, nblocks
+        integer(wi) count, nmax, ip
+
+        nblocks = size(self%send%disp(:)) ! # of blocks = # of processors
+        count = self%send%disp(2)   ! # all processors transfer same amount
+        nmax = count/self%nlines ! size along direction
+
+        do ib = 1, nblocks
+            ip = (ib - 1)*count + 1
+            call TLab_Transpose_Complex(a(ip:), nmax, self%nlines, nmax, wrk(ip:), self%nlines)
+        end do
+
+        select case (mode)
+        case ('forward')
+            call self%forward(wrk, a)
+        case ('backward')
+            call self%backward(wrk, a)
+        end select
+
+        return
+    end subroutine
+
+    subroutine tmpi_trp_out_in_complex(self, a, b, wrk, mode)
         use TLab_Transpose
         class(tmpi_transpose_block_dt), intent(in) :: self
         complex(wp), intent(in) :: a(:)
         complex(wp), intent(out) :: b(:)
+        complex(wp), intent(inout) :: wrk(:)
         character(len=*), intent(in) :: mode
 
         integer ib, nblocks
@@ -786,9 +817,9 @@ contains
 
         select case (mode)
         case ('forward')
-            call self%forward(a, c_wrk_mpi)
+            call self%forward(a, wrk)
         case ('backward')
-            call self%backward(a, c_wrk_mpi)
+            call self%backward(a, wrk)
         end select
 
         nblocks = size(self%send%disp(:)) ! # of blocks = # of processors
@@ -797,17 +828,47 @@ contains
 
         do ib = 1, nblocks
             ip = (ib - 1)*count + 1
-            call TLab_Transpose_Complex(c_wrk_mpi(ip:), self%nlines, nmax, self%nlines, b(ip:), nmax)
+            call TLab_Transpose_Complex(wrk(ip:), self%nlines, nmax, self%nlines, b(ip:), nmax)
         end do
 
         return
     end subroutine
 
-    subroutine tmpi_trp_in_out_real(self, a, b, mode)
+    subroutine tmpi_trp_out_in_complex_inplace(self, a, wrk, mode)
+        use TLab_Transpose
+        class(tmpi_transpose_block_dt), intent(in) :: self
+        complex(wp), intent(inout) :: a(:)
+        complex(wp), intent(inout) :: wrk(:)
+        character(len=*), intent(in) :: mode
+
+        integer ib, nblocks
+        integer(wi) count, nmax, ip
+
+        select case (mode)
+        case ('forward')
+            call self%forward(a, wrk)
+        case ('backward')
+            call self%backward(a, wrk)
+        end select
+
+        nblocks = size(self%send%disp(:)) ! # of blocks = # of processors
+        count = self%send%disp(2)   ! # all processors transfer same amount
+        nmax = count/self%nlines ! size along direction
+
+        do ib = 1, nblocks
+            ip = (ib - 1)*count + 1
+            call TLab_Transpose_Complex(wrk(ip:), self%nlines, nmax, self%nlines, a(ip:), nmax)
+        end do
+
+        return
+    end subroutine
+
+    subroutine tmpi_trp_in_out_real(self, a, b, wrk, mode)
         use TLab_Transpose
         class(tmpi_transpose_block_dt), intent(in) :: self
         real(wp), intent(in) :: a(:)
         real(wp), intent(out) :: b(:)
+        real(wp), intent(inout) :: wrk(:)
         character(len=*), intent(in) :: mode
 
         integer ib, nblocks
@@ -820,24 +881,25 @@ contains
 
         do ib = 1, nblocks
             ip = (ib - 1)*count + 1
-            call TLab_Transpose_Real(a(ip:), nmax, self%nlines, nmax, wrk_mpi(ip:), self%nlines)
+            call TLab_Transpose_Real(a(ip:), nmax, self%nlines, nmax, wrk(ip:), self%nlines)
         end do
 
         select case (mode)
         case ('forward')
-            call self%forward(wrk_mpi, b)
+            call self%forward(wrk, b)
         case ('backward')
-            call self%backward(wrk_mpi, b)
+            call self%backward(wrk, b)
         end select
 
         return
     end subroutine
 
-    subroutine tmpi_trp_out_in_real(self, a, b, mode)
+    subroutine tmpi_trp_out_in_real(self, a, b, wrk, mode)
         use TLab_Transpose
         class(tmpi_transpose_block_dt), intent(in) :: self
         real(wp), intent(in) :: a(:)
         real(wp), intent(out) :: b(:)
+        real(wp), intent(inout) :: wrk(:)
         character(len=*), intent(in) :: mode
 
         integer ib, nblocks
@@ -845,9 +907,9 @@ contains
 
         select case (mode)
         case ('forward')
-            call self%forward(a, wrk_mpi)
+            call self%forward(a, wrk)
         case ('backward')
-            call self%backward(a, wrk_mpi)
+            call self%backward(a, wrk)
         end select
 
         ! Make last index first
@@ -857,10 +919,10 @@ contains
 
         do ib = 1, nblocks
             ip = (ib - 1)*count + 1
-            call TLab_Transpose_Real(wrk_mpi(ip:), self%nlines, nmax, self%nlines, b(ip:), nmax)
+            call TLab_Transpose_Real(wrk(ip:), self%nlines, nmax, self%nlines, b(ip:), nmax)
         end do
 
         return
     end subroutine
 
-end module TLabMPI_Transpose
+end module TLabMPI_Transpose_DerivedTypes

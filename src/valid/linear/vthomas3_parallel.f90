@@ -7,7 +7,7 @@ program vThomas3_Parallel
 #ifdef USE_MPI
     use mpi_f08
     use TLabMPI_VARS, only: mpiGrid, yMpi, xMpi, ims_err
-    use TLabMPI_Transpose
+    use TLabMPI_Transpose_DerivedTypes
 #endif
     implicit none
 

@@ -15,7 +15,7 @@ module OPR_Fourier
     use, intrinsic :: iso_c_binding
 #ifdef USE_MPI
     use TLabMPI_VARS, only: xMpi, yMpi
-    use TLabMPI_Transpose!, only: tmpi_transpose_x_dt, tmpi_transpose_y_dt, tmpi_trp_X
+    use TLabMPI_Transpose_DerivedTypes!, only: tmpi_transpose_x_dt, tmpi_transpose_y_dt, tmpi_trp_X
 #endif
     implicit none
     private
@@ -34,21 +34,19 @@ module OPR_Fourier
     ! -----------------------------------------------------------------------
     integer(wi) size_fft_x, size_fft_y, size_fft_z
 
-    type(c_ptr) :: fft_plan_fx, fft_plan_bx
-    type(c_ptr) :: fft_plan_fy, fft_plan_by
-    type(c_ptr) :: fft_plan_fz, fft_plan_bz
 #ifdef USE_MPI
     type(tmpi_transpose_x_dt) :: tmpi_trp_fft_X
     type(tmpi_transpose_y_dt) :: tmpi_trp_fft_Y
     real(wp), pointer :: r_out(:) => null()
     real(wp), pointer :: r_in(:) => null()
-#endif
-
-    type(c_ptr) :: fft_plan_fx2, fft_plan_bx2
-#ifdef USE_MPI
+    !
     type(tmpi_transpose_block_dt) :: tmpi_trp_X2
     type(tmpi_transpose_block_dt) :: tmpi_trp_fft_X2
+    type(c_ptr) :: fft_plan_fx2, fft_plan_bx2
 #endif
+    type(c_ptr) :: fft_plan_fx, fft_plan_bx
+    type(c_ptr) :: fft_plan_fy, fft_plan_by
+    type(c_ptr) :: fft_plan_fz, fft_plan_bz
 
     ! complex(wp), pointer :: c_out(:) => null()
 
@@ -149,35 +147,38 @@ contains
                 nlines = tmpi_trp_X%nlines
                 offset = (imax/2 + 1)*xMpi%num_processors
 
+                stride = nlines
+                call dfftw_plan_many_dft_r2c(fft_plan_fx2, 1, size_fft_x, nlines, &
+                                             txc(:, 1), size_fft_x, stride, 1, &
+                                             wrk3d, size_fft_x/2 + 1, stride, 1, &
+                                             fftw_planner_flag)
+                call dfftw_plan_many_dft_c2r(fft_plan_bx2, 1, size_fft_x, nlines, &
+                                             txc(:, 1), size_fft_x/2 + 1, stride, 1, &
+                                             wrk3d, size_fft_x, stride, 1, &
+                                             fftw_planner_flag)
+            else
+#endif
+
+                ! call dfftw_plan_many_dft_r2c(fft_plan_fx, 1, size_fft_x, nlines, &
+                !                              txc(:, 1), 1, 1, size_fft_x, &
+                !                              wrk3d, 1, 1, offset, &
+                !                              fftw_planner_flag)
+                ! call dfftw_plan_many_dft_c2r(fft_plan_bx, 1, size_fft_x, nlines, &
+                !                              txc(:, 1), 1, 1, offset, &
+                !                              wrk3d, 1, 1, size_fft_x, &
+                !                              fftw_planner_flag)
+                call dfftw_plan_many_dft_r2c(fft_plan_fx, 1, size_fft_x, nlines, &
+                                             txc(:, 1), size_fft_x, 1, size_fft_x, &
+                                             wrk3d, size_fft_x/2 + 1, 1, offset, &
+                                             fftw_planner_flag)
+                call dfftw_plan_many_dft_c2r(fft_plan_bx, 1, size_fft_x, nlines, &
+                                             txc(:, 1), size_fft_x/2 + 1, 1, offset, &
+                                             wrk3d, size_fft_x, 1, size_fft_x, &
+                                             fftw_planner_flag)
+#ifdef USE_MPI
             end if
 #endif
 
-            ! call dfftw_plan_many_dft_r2c(fft_plan_fx, 1, size_fft_x, nlines, &
-            !                              txc(:, 1), 1, 1, size_fft_x, &
-            !                              wrk3d, 1, 1, offset, &
-            !                              fftw_planner_flag)
-            ! call dfftw_plan_many_dft_c2r(fft_plan_bx, 1, size_fft_x, nlines, &
-            !                              txc(:, 1), 1, 1, offset, &
-            !                              wrk3d, 1, 1, size_fft_x, &
-            !                              fftw_planner_flag)
-            call dfftw_plan_many_dft_r2c(fft_plan_fx, 1, size_fft_x, nlines, &
-                                         txc(:, 1), size_fft_x, 1, size_fft_x, &
-                                         wrk3d, size_fft_x/2 + 1, 1, offset, &
-                                         fftw_planner_flag)
-            call dfftw_plan_many_dft_c2r(fft_plan_bx, 1, size_fft_x, nlines, &
-                                         txc(:, 1), size_fft_x/2 + 1, 1, offset, &
-                                         wrk3d, size_fft_x, 1, size_fft_x, &
-                                         fftw_planner_flag)
-
-            stride = nlines
-            call dfftw_plan_many_dft_r2c(fft_plan_fx2, 1, size_fft_x, nlines, &
-                                         txc(:, 1), size_fft_x, stride, 1, &
-                                         wrk3d, size_fft_x/2 + 1, stride, 1, &
-                                         fftw_planner_flag)
-            call dfftw_plan_many_dft_c2r(fft_plan_bx2, 1, size_fft_x, nlines, &
-                                         txc(:, 1), size_fft_x/2 + 1, stride, 1, &
-                                         wrk3d, size_fft_x, stride, 1, &
-                                         fftw_planner_flag)
         end if
 
         ! -----------------------------------------------------------------------
@@ -249,20 +250,15 @@ contains
             ! call dfftw_execute_dft_r2c(fft_plan_fx, r_out, c_wrk3d)
             ! call tmpi_trp_fft_X%backward(c_wrk3d, out)
 
-            call tmpi_trp_X2%in_out(in, r_out, 'forward')
-            call dfftw_execute_dft_r2c(fft_plan_fx2, r_out, c_wrk3d)
-            call tmpi_trp_fft_X2%out_in(c_wrk3d, out, 'backward')
+            call tmpi_trp_X2%in_out(in, wrk3d, r_out, 'forward')
+            call dfftw_execute_dft_r2c(fft_plan_fx2, wrk3d, out)
+            call tmpi_trp_fft_X2%out_in(out, c_wrk3d, 'backward')
 
             nullify (r_out)
 
         else
 #endif
             call dfftw_execute_dft_r2c(fft_plan_fx, in, out)
-
-            ! call c_f_pointer(c_loc(out), r_out, shape=[isize_txc_field])
-            ! call TLab_Transpose_Real(in, imax, jmax*kmax, imax, r_out, jmax*kmax, locBlock=trans_x_forward)
-            ! call dfftw_execute_dft_r2c(fft_plan_fx2, r_out, c_wrk3d)
-            ! call TLab_Transpose_Complex(c_wrk3d, jmax*kmax, imax/2 + 1, jmax*kmax, out, imax/2 + 1, locBlock=trans_cx_backward)
 
 #ifdef USE_MPI
         end if
@@ -296,19 +292,14 @@ contains
             ! call tmpi_trp_X%backward(r_in, out)
 
             call tmpi_trp_fft_X2%in_out(in, c_wrk3d, 'forward')
-            call dfftw_execute_dft_c2r(fft_plan_bx2, c_wrk3d, r_in)
-            call tmpi_trp_X2%out_in(r_in, out, 'backward')
+            call dfftw_execute_dft_c2r(fft_plan_bx2, in, wrk3d)
+            call tmpi_trp_X2%out_in(wrk3d, out, r_in, 'backward')
 
             nullify (r_in)
 
         else
 #endif
             call dfftw_execute_dft_c2r(fft_plan_bx, in, out)
-
-            ! call c_f_pointer(c_loc(in), r_in, shape=[isize_txc_field])
-            ! call TLab_Transpose_Complex(in, imax/2 + 1, jmax*kmax, imax/2 + 1, c_wrk3d, jmax*kmax, locBlock=trans_cx_forward)
-            ! call dfftw_execute_dft_c2r(fft_plan_bx2, c_wrk3d, r_in)
-            ! call TLab_Transpose_Real(r_in, jmax*kmax, imax, jmax*kmax, out, imax, locBlock=trans_x_backward)
 
 #ifdef USE_MPI
         end if

@@ -11,8 +11,8 @@ program VELLIPTIC
     use mpi_f08
     use TLabMPI_VARS, only: ims_err, mpiGrid
     use TLabMPI_PROCS, only: TLabMPI_Initialize
-    ! use TLabMPI_Transpose, only: TLabMPI_Trp_Initialize
-    use TLabMPI_Transpose, only: TLabMPI_Trp_Initialize
+    ! use TLabMPI_Transpose_DerivedTypes, only: TLabMPI_Trp_Initialize
+    use TLabMPI_Transpose_DerivedTypes, only: TLabMPI_Trp_Initialize
 #endif
     use FDM, only: FDM_Initialize
     use NavierStokes, only: NavierStokes_Initialize_Parameters

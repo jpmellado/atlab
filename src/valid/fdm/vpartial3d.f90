@@ -10,8 +10,8 @@ program VPARTIAL3D
     use mpi_f08
     use TLabMPI_VARS
     use TLabMPI_PROCS, only: TLabMPI_Initialize
-    ! use TLabMPI_Transpose, only: TLabMPI_Trp_Initialize
-    use TLabMPI_Transpose, only: TLabMPI_Trp_Initialize
+    ! use TLabMPI_Transpose_DerivedTypes, only: TLabMPI_Trp_Initialize
+    use TLabMPI_Transpose_DerivedTypes, only: TLabMPI_Trp_Initialize
 #endif
     use FDM, only: FDM_Initialize !, FDM_CreatePlan
     use FDM_Base, only: FDM_COM4_DIRECT, FDM_COM6_JACOBIAN

@@ -4,6 +4,7 @@ program vMpi_Transpose
     use TLabMPI_VARS, only: mpiGrid, xMpi, yMpi, ims_err, ims_time_trans
     use TLab_Memory, only: imax, jmax, kmax
     use TLabMPI_Transpose_DerivedTypes
+    use TLabMPI_Transpose_X
     implicit none
 
     ! integer(wi), parameter :: nx = 8         ! full size of each linear system

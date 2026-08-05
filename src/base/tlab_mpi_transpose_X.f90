@@ -1,0 +1,485 @@
+#include "tlab_error.h"
+
+! Circular transposition within directional communicators
+! combined with local transpositions to avoid the need of MPI derived types
+module TLabMPI_Transpose_X
+    use mpi_f08
+    use TLab_Constants, only: wp, dp, wi
+    use TLab_Constants, only: lfile, efile
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
+    use TLabMPI_VARS, only: TLAB_MPI_REAL_TYPE
+    implicit none
+    private
+
+    public :: tmpi_transpose_block_dt
+
+    ! -----------------------------------------------------------------------
+    type trp_mem_dt
+        type(MPI_Datatype) :: type              ! derived types
+        integer(wi) :: count                    ! number of elements of type type to be transferred
+        integer(wi), allocatable :: disp(:)     ! buffer displacements
+        integer(wi), allocatable :: map(:)      ! processor mapping
+    end type
+
+    type :: tmpi_transpose_dt
+        ! sequence
+        integer :: mode                         ! asynchronous, sendrecv, alltoall
+        type(trp_mem_dt) :: send                ! send information
+        type(trp_mem_dt) :: recv                ! recv information
+        type(MPI_Comm) :: comm                  ! communicator
+        integer :: size_block_processes
+        integer(wi) :: nlines
+    contains
+        ! private
+        procedure :: tmpi_trp_in_out_real
+        procedure :: tmpi_trp_out_in_real
+        procedure :: tmpi_trp_in_out_complex
+        procedure :: tmpi_trp_in_out_complex_inplace
+        procedure :: tmpi_trp_out_in_complex
+        procedure :: tmpi_trp_out_in_complex_inplace
+        generic, public :: in_out => tmpi_trp_in_out_real, tmpi_trp_in_out_complex, tmpi_trp_in_out_complex_inplace
+        generic, public :: out_in => tmpi_trp_out_in_real, tmpi_trp_out_in_complex, tmpi_trp_out_in_complex_inplace
+    end type tmpi_transpose_dt
+
+    ! -----------------------------------------------------------------------
+    type, extends(tmpi_transpose_dt) :: tmpi_transpose_block_dt
+    contains
+        procedure :: initialize => tmpi_trp_initialize_block
+    end type
+
+    ! -----------------------------------------------------------------------
+    ! Size of communication in explicit send/recv
+    ! We assume that this will help to release some of the very heavy
+    ! network load in transpositions on most systems
+#ifdef HLRS_HAWK
+    ! On hawk, we tested that 192 yields optimum performance;
+    ! Blocking will thus only take effect in very large cases
+    integer(wi) :: tmpi_sizeblock = 384
+#else
+    integer(wi) :: tmpi_sizeblock = 128
+    ! integer(wi) :: trp_sizBlock_j=1e5   -- would essentially switch off the blocking
+#endif
+
+    ! -----------------------------------------------------------------------
+    type(MPI_Status), allocatable :: status(:)
+    type(MPI_Request), allocatable :: request(:)
+    integer ims_tag
+
+    integer ims_err
+
+contains
+    ! ######################################################################
+    ! ######################################################################
+    subroutine tmpi_trp_initialize_block(self, nmax, npage, axis, locType, message)
+        use TLabMPI_VARS, only: mpi_axis_dt
+        class(tmpi_transpose_block_dt), intent(out) :: self
+        integer(wi), intent(in) :: npage, nmax
+        type(mpi_axis_dt), intent(in) :: axis
+        type(MPI_Datatype), intent(in), optional :: locType
+        character(len=*), intent(in), optional :: message
+
+        ! -----------------------------------------------------------------------
+        integer(wi) i, locSize
+
+        ! #######################################################################
+        self%comm = axis%comm
+
+        if (present(message)) &
+            call TLab_Write_ASCII(lfile, 'Creating derived MPI types for '//trim(adjustl(message)))
+
+        if (mod(npage, axis%num_processors) == 0) then
+            self%nlines = npage/axis%num_processors
+            allocate (self%send%disp(axis%num_processors), self%recv%disp(axis%num_processors))
+        else
+            call TLab_Write_ASCII(efile, __FILE__//'. Ratio npage/npro not an integer.')
+            call TLab_Stop(DNS_ERROR_PARPARTITION)
+        end if
+
+        ! Calculate array displacements in Forward Send/Receive
+        self%send%disp(1) = 0
+        self%recv%disp(1) = 0
+        do i = 2, axis%num_processors
+            self%send%disp(i) = self%send%disp(i - 1) + self%nlines*nmax
+            self%recv%disp(i) = self%recv%disp(i - 1) + self%nlines*nmax
+        end do
+
+        ! Define types
+        if (present(locType)) then
+            self%send%type = locType
+            self%recv%type = locType
+        else
+            self%send%type = TLAB_MPI_REAL_TYPE
+            self%recv%type = TLAB_MPI_REAL_TYPE
+        end if
+
+        self%send%count = self%nlines*nmax
+        self%recv%count = self%nlines*nmax
+
+        ! -----------------------------------------------------------------------
+        self%size_block_processes = tmpi_sizeblock
+
+        ! -----------------------------------------------------------------------
+        ! local PE mappings for explicit send/recv
+        call explicit_mapping(self%send, self%recv, axis)
+
+        ! -----------------------------------------------------------------------
+        if (allocated(status)) then
+            locSize = size(status)
+            deallocate (status)
+        else
+            locSize = 0
+        end if
+        locSize = max(locSize, 2*max(tmpi_sizeblock, axis%num_processors))
+        allocate (status(locSize))
+
+        if (allocated(request)) then
+            locSize = size(request)
+            deallocate (request)
+        else
+            locSize = 0
+        end if
+        locSize = max(locSize, 2*max(tmpi_sizeblock, axis%num_processors))
+        allocate (request(locSize))
+
+        return
+    end subroutine tmpi_trp_initialize_block
+
+    subroutine explicit_mapping(send, recv, axis)
+        use TLabMPI_VARS, only: mpi_axis_dt
+        type(trp_mem_dt), intent(inout) :: send                ! send information
+        type(trp_mem_dt), intent(inout) :: recv                ! recv information
+        type(mpi_axis_dt), intent(in) :: axis
+
+        integer ip
+
+        allocate (send%map(axis%num_processors))
+        allocate (recv%map(axis%num_processors))
+        do ip = 0, axis%num_processors - 1
+            send%map(ip + 1) = ip
+            recv%map(ip + 1) = mod(axis%num_processors - ip, axis%num_processors)
+        end do
+        send%map = cshift(send%map, axis%rank)
+        recv%map = cshift(recv%map, -axis%rank)
+
+        return
+    end subroutine
+
+    ! ######################################################################
+    ! ######################################################################
+    subroutine tmpi_trp_in_out_complex(self, a, b, wrk, mode)
+        use TLab_Transpose
+        class(tmpi_transpose_dt), intent(in) :: self
+        complex(wp), intent(in) :: a(:)
+        complex(wp), intent(out) :: b(:)
+        complex(wp), intent(inout) :: wrk(:)
+        character(len=*), intent(in) :: mode
+
+        integer ib, nblocks
+        integer(wi) count, nmax, ip
+
+        nblocks = size(self%send%disp(:)) ! # of blocks = # of processors
+        count = self%send%disp(2)   ! # all processors transfer same amount
+        nmax = count/self%nlines ! size along direction
+
+        do ib = 1, nblocks
+            ip = (ib - 1)*count + 1
+            call TLab_Transpose_Complex(a(ip:), nmax, self%nlines, nmax, wrk(ip:), self%nlines)
+        end do
+
+        select case (mode)
+        case ('forward')
+            ! call self%forward(wrk, b)
+            call tmpi_trp_complex(wrk, self%send, b, self%recv, &
+                                  self%comm, self%size_block_processes, self%mode)
+        case ('backward')
+            ! call self%backward(wrk, b)
+            call tmpi_trp_complex(wrk, self%recv, b, self%send, &
+                                  self%comm, self%size_block_processes, self%mode)
+        end select
+
+        return
+    end subroutine
+
+    subroutine tmpi_trp_in_out_complex_inplace(self, a, wrk, mode)
+        use TLab_Transpose
+        class(tmpi_transpose_dt), intent(in) :: self
+        complex(wp), intent(inout) :: a(:)
+        complex(wp), intent(inout) :: wrk(:)
+        character(len=*), intent(in) :: mode
+
+        integer ib, nblocks
+        integer(wi) count, nmax, ip
+
+        nblocks = size(self%send%disp(:)) ! # of blocks = # of processors
+        count = self%send%disp(2)   ! # all processors transfer same amount
+        nmax = count/self%nlines ! size along direction
+
+        do ib = 1, nblocks
+            ip = (ib - 1)*count + 1
+            call TLab_Transpose_Complex(a(ip:), nmax, self%nlines, nmax, wrk(ip:), self%nlines)
+        end do
+
+        select case (mode)
+        case ('forward')
+            ! call self%forward(wrk, a)
+            call tmpi_trp_complex(wrk, self%send, a, self%recv, &
+                                  self%comm, self%size_block_processes, self%mode)
+        case ('backward')
+            ! call self%backward(wrk, a)
+            call tmpi_trp_complex(wrk, self%recv, a, self%send, &
+                                  self%comm, self%size_block_processes, self%mode)
+        end select
+
+        return
+    end subroutine
+
+    subroutine tmpi_trp_out_in_complex(self, a, b, wrk, mode)
+        use TLab_Transpose
+        class(tmpi_transpose_dt), intent(in) :: self
+        complex(wp), intent(in) :: a(:)
+        complex(wp), intent(out) :: b(:)
+        complex(wp), intent(inout) :: wrk(:)
+        character(len=*), intent(in) :: mode
+
+        integer ib, nblocks
+        integer(wi) count, nmax, ip
+
+        select case (mode)
+        case ('forward')
+            ! call self%forward(a, wrk)
+            call tmpi_trp_complex(a, self%send, wrk, self%recv, &
+                                  self%comm, self%size_block_processes, self%mode)
+        case ('backward')
+            ! call self%backward(a, wrk)
+            call tmpi_trp_complex(a, self%recv, wrk, self%send, &
+                                  self%comm, self%size_block_processes, self%mode)
+        end select
+
+        nblocks = size(self%send%disp(:)) ! # of blocks = # of processors
+        count = self%send%disp(2)   ! # all processors transfer same amount
+        nmax = count/self%nlines ! size along direction
+
+        do ib = 1, nblocks
+            ip = (ib - 1)*count + 1
+            call TLab_Transpose_Complex(wrk(ip:), self%nlines, nmax, self%nlines, b(ip:), nmax)
+        end do
+
+        return
+    end subroutine
+
+    subroutine tmpi_trp_out_in_complex_inplace(self, a, wrk, mode)
+        use TLab_Transpose
+        class(tmpi_transpose_dt), intent(in) :: self
+        complex(wp), intent(inout) :: a(:)
+        complex(wp), intent(inout) :: wrk(:)
+        character(len=*), intent(in) :: mode
+
+        integer ib, nblocks
+        integer(wi) count, nmax, ip
+
+        select case (mode)
+        case ('forward')
+            ! call self%forward(a, wrk)
+            call tmpi_trp_complex(a, self%send, wrk, self%recv, &
+                                  self%comm, self%size_block_processes, self%mode)
+        case ('backward')
+            ! call self%backward(a, wrk)
+            call tmpi_trp_complex(a, self%recv, wrk, self%send, &
+                                  self%comm, self%size_block_processes, self%mode)
+        end select
+
+        nblocks = size(self%send%disp(:)) ! # of blocks = # of processors
+        count = self%send%disp(2)   ! # all processors transfer same amount
+        nmax = count/self%nlines ! size along direction
+
+        do ib = 1, nblocks
+            ip = (ib - 1)*count + 1
+            call TLab_Transpose_Complex(wrk(ip:), self%nlines, nmax, self%nlines, a(ip:), nmax)
+        end do
+
+        return
+    end subroutine
+
+    ! ######################################################################
+    ! ######################################################################
+    subroutine tmpi_trp_in_out_real(self, a, b, wrk, mode)
+        use TLab_Transpose
+        class(tmpi_transpose_dt), intent(in) :: self
+        real(wp), intent(in) :: a(:)
+        real(wp), intent(out) :: b(:)
+        real(wp), intent(inout) :: wrk(:)
+        character(len=*), intent(in) :: mode
+
+        integer ib, nblocks
+        integer(wi) count, nmax, ip
+
+        ! Make first index last
+        nblocks = size(self%send%disp(:)) ! # of blocks = # of processors
+        count = self%send%disp(2)   ! # all processors transfer same amount
+        nmax = count/self%nlines ! size along direction
+
+        do ib = 1, nblocks
+            ip = (ib - 1)*count + 1
+            call TLab_Transpose_Real(a(ip:), nmax, self%nlines, nmax, wrk(ip:), self%nlines)
+        end do
+
+        select case (mode)
+        case ('forward')
+            ! call self%forward(wrk, b)
+            call tmpi_trp_real(wrk, self%send, b, self%recv, &
+                               self%comm, self%size_block_processes, self%mode)
+        case ('backward')
+            ! call self%backward(wrk, b)
+            call tmpi_trp_real(wrk, self%recv, b, self%send, &
+                               self%comm, self%size_block_processes, self%mode)
+        end select
+
+        return
+    end subroutine
+
+    subroutine tmpi_trp_out_in_real(self, a, b, wrk, mode)
+        use TLab_Transpose
+        class(tmpi_transpose_dt), intent(in) :: self
+        real(wp), intent(in) :: a(:)
+        real(wp), intent(out) :: b(:)
+        real(wp), intent(inout) :: wrk(:)
+        character(len=*), intent(in) :: mode
+
+        integer ib, nblocks
+        integer(wi) count, nmax, ip
+
+        select case (mode)
+        case ('forward')
+            ! call self%forward(a, wrk)
+            call tmpi_trp_real(a, self%send, wrk, self%recv, &
+                               self%comm, self%size_block_processes, self%mode)
+        case ('backward')
+            ! call self%backward(a, wrk)
+            call tmpi_trp_real(a, self%recv, wrk, self%send, &
+                               self%comm, self%size_block_processes, self%mode)
+        end select
+
+        ! Make last index first
+        nblocks = size(self%send%disp(:)) ! # of blocks = # of processors
+        count = self%send%disp(2)   ! # all processors transfer same amount
+        nmax = count/self%nlines ! size along direction
+
+        do ib = 1, nblocks
+            ip = (ib - 1)*count + 1
+            call TLab_Transpose_Real(wrk(ip:), self%nlines, nmax, self%nlines, b(ip:), nmax)
+        end do
+
+        return
+    end subroutine
+
+    !########################################################################
+    !########################################################################
+    subroutine tmpi_trp_real(in, send, out, recv, &
+                             comm, step, mode)
+        real(wp), intent(in) :: in(*)
+        real(wp), intent(out) :: out(*)
+        type(trp_mem_dt), intent(in) :: send, recv
+        type(MPI_Comm), intent(in) :: comm
+        integer(wi), intent(in) :: step
+        integer, intent(in) :: mode
+
+        ! -----------------------------------------------------------------------
+        integer npro
+        integer(wi) j, l, m, ns, nr, ips, ipr
+
+        ! #######################################################################
+        npro = size(send%disp(:))
+
+        ! select case (mode)
+        ! case (TLAB_MPI_TRP_ASYNCHRONOUS)
+        do j = 1, npro, step
+            l = 0
+            do m = j, min(j + step - 1, npro)
+                ns = send%map(m) + 1; ips = ns - 1
+                nr = recv%map(m) + 1; ipr = nr - 1
+                l = l + 1
+                call MPI_ISEND(in(send%disp(ns) + 1), send%count, send%type, ips, ims_tag, comm, request(l), ims_err)
+                l = l + 1
+                call MPI_IRECV(out(recv%disp(nr) + 1), recv%count, recv%type, ipr, ims_tag, comm, request(l), ims_err)
+            end do
+            call MPI_WAITALL(l, request, status, ims_err)
+        end do
+
+        ! case (TLAB_MPI_TRP_SENDRECV)
+        !     do j = 1, npro, step
+        !         do m = j, min(j + step - 1, npro)
+        !             ns = send%map(m) + 1; ips = ns - 1
+        !             nr = recv%map(m) + 1; ipr = nr - 1
+        !             call MPI_SENDRECV(in(send%disp(ns) + 1), send%count, send%type, ips, ims_tag, &
+        !                               out(recv%disp(nr) + 1), recv%count, recv%type, ipr, ims_tag, comm, status(1), ims_err)
+        !         end do
+        !     end do
+
+        ! case (TLAB_MPI_TRP_ALLTOALL)
+        !     types_send(1:npro) = send%type
+        !     types_recv(1:npro) = recv%type
+        !     call MPI_ALLTOALLW(in, counts, send%disp*int(sizeof(1.0_wp)), types_send, &
+        !                        out, counts, recv%disp*int(sizeof(1.0_wp)), types_recv, comm, ims_err)
+        !     ! call MPI_ALLTOALLW(in, spread(1, 1, npro), send%disp*int(sizeof(1.0_wp)), spread(send%type, 1, npro), &
+        !     !                    out, spread(1, 1, npro), recv%disp*int(sizeof(1.0_wp)), spread(recv%type, 1, npro), comm, ims_err)
+
+        ! end select
+
+        return
+    end subroutine tmpi_trp_real
+
+    subroutine tmpi_trp_complex(in, send, out, recv, &
+                                comm, step, mode)
+        complex(wp), intent(in) :: in(*)
+        complex(wp), intent(out) :: out(*)
+        type(trp_mem_dt), intent(in) :: send, recv
+        type(MPI_Comm), intent(in) :: comm
+        integer(wi), intent(in) :: step
+        integer, intent(in) :: mode
+
+        ! -----------------------------------------------------------------------
+        integer npro
+        integer(wi) j, l, m, ns, nr, ips, ipr
+
+        ! #######################################################################
+        npro = size(send%disp(:))
+
+        ! select case (mode)
+        ! case (TLAB_MPI_TRP_ASYNCHRONOUS)
+        do j = 1, npro, step
+            l = 0
+            do m = j, min(j + step - 1, npro)
+                ns = send%map(m) + 1; ips = ns - 1
+                nr = recv%map(m) + 1; ipr = nr - 1
+                l = l + 1
+                call MPI_ISEND(in(send%disp(ns) + 1), send%count, send%type, ips, ims_tag, comm, request(l), ims_err)
+                l = l + 1
+                call MPI_IRECV(out(recv%disp(nr) + 1), recv%count, recv%type, ipr, ims_tag, comm, request(l), ims_err)
+            end do
+            call MPI_WAITALL(l, request, status, ims_err)
+        end do
+
+        ! case (TLAB_MPI_TRP_SENDRECV)
+        !     do j = 1, npro, step
+        !         do m = j, min(j + step - 1, npro)
+        !             ns = send%map(m) + 1; ips = ns - 1
+        !             nr = recv%map(m) + 1; ipr = nr - 1
+        !             call MPI_SENDRECV(in(send%disp(ns) + 1), send%count, send%type, ips, ims_tag, &
+        !                               out(recv%disp(nr) + 1), recv%count, recv%type, ipr, ims_tag, comm, status(1), ims_err)
+        !         end do
+        !     end do
+
+        ! case (TLAB_MPI_TRP_ALLTOALL)
+        !     types_send(1:npro) = send%type
+        !     types_recv(1:npro) = recv%type
+        !     call MPI_ALLTOALLW(in, counts, send%disp*int(2*sizeof(1.0_wp)), types_send, &
+        !                        out, counts, recv%disp*int(2*sizeof(1.0_wp)), types_recv, comm, ims_err)
+        !     ! call MPI_ALLTOALLW(in, spread(1, 1, npro), send%disp*int(sizeof(1.0_wp)), spread(send%type, 1, npro), &
+        !     !                    out, spread(1, 1, npro), recv%disp*int(sizeof(1.0_wp)), spread(recv%type, 1, npro), comm, ims_err)
+
+        ! end select
+
+        return
+    end subroutine tmpi_trp_complex
+
+end module

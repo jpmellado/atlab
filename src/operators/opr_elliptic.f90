@@ -11,14 +11,11 @@ module OPR_Elliptic
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
     use TLab_Arrays, only: wrk1d, wrk2d, wrk3d
     use TLab_Grid, only: x, y, z
-#ifdef USE_MPI
-    use TLabMPI_VARS, only: xMpi
-#endif
     use FDM, only: fdm_der1_Z, FDM_CreatePlan_Der2
     use FDM_Derivative_2order
     use FDM_Integral_1
     use FDM_Integral_2
-    use OPR_Fourier, only: OPR_Fourier_XY_Backward, OPR_Fourier_XY_Forward
+    use OPR_Fourier
     use OPR_ODES
     use, intrinsic :: iso_c_binding, only: c_f_pointer, c_loc
     implicit none
@@ -60,7 +57,7 @@ module OPR_Elliptic
 
     real(wp) norm
     integer(wi) i_sing(2), j_sing(2)                                ! singular modes
-    integer(wi) i, j, i_max, isize_line
+    integer(wi) i, j, isize_line
 
     class(der2_extended_dt), allocatable :: fdm_der2
 
@@ -100,7 +97,6 @@ contains
         character(len=512) sRes
 
         integer(wi) iglobal, jglobal
-        integer(wi) fft_offset_i, fft_offset_j
 
         real(wp), allocatable :: mwn_x(:), mwn_y(:)
 
@@ -179,32 +175,14 @@ contains
 
         end select
 
-#ifdef USE_MPI
-        fft_offset_i = xMpi%rank*isize_line
-
-#else
-        fft_offset_i = 0
-#endif
-        fft_offset_j = ySubgrid%offset
-
         i_sing = i_sing - [fft_offset_i, fft_offset_i]          ! Singular modes in task-local variables
         j_sing = j_sing - [fft_offset_j, fft_offset_j]
-        i_max = min(x%size/2 + 1 - fft_offset_i, isize_line)    ! Maximum mode is x direction
 
-        do i = 1, i_max
-#ifdef USE_MPI
-
+        do i = 1, fft_imax
             iglobal = i + fft_offset_i
-#else
-            iglobal = i
-#endif
 
             do j = 1, jmax
-#ifdef USE_MPI
                 jglobal = j + fft_offset_j
-#else
-                jglobal = j
-#endif
 
                 select case (imode_elliptic)
                 case (TYPE_FACTORIZE)
@@ -324,7 +302,7 @@ contains
 
         ! Solve for each (kx,ky) a system of 1 complex equation as 2 independent real equations
         do j = 1, ny
-            do i = 1, i_max
+            do i = 1, fft_imax
                 bcs(1:2, 1) = f(1:2, i, j)                  ! bottom boundary conditions
                 bcs(1:2, 2) = f(2*nz - 1:2*nz, i, j)        ! top boundary conditions
 
@@ -396,7 +374,7 @@ contains
 
         ! Solve for each (kx,ky) a system of 1 complex equation as 2 independent real equations
         do j = 1, ny
-            do i = 1, i_max
+            do i = 1, fft_imax
                 u(1:2, i, j) = f(1:2, i, j)                         ! bottom boundary conditions
                 u(2*nz - 1:2*nz, i, j) = f(2*nz - 1:2*nz, i, j)     ! top boundary conditions
 
@@ -478,7 +456,7 @@ contains
 #define v(k,i,j) p_wrk3d_loc(k,i,j)
 
         ! Solve for each (kx,ky) a system of 1 complex equation as 2 independent real equations
-        do i = 1, i_max
+        do i = 1, fft_imax
             do j = 1, ny
                 bcs(1:2, 1) = f(1:2, i, j)                  ! bottom boundary conditions
                 bcs(1:2, 2) = f(2*nz - 1:2*nz, i, j)        ! top boundary conditions
@@ -551,7 +529,7 @@ contains
 #define u(k,i,j) tmp2(k,i,j)
 
         ! Solve for each (kx,ky) a system of 1 complex equation as 2 independent real equations
-        do i = 1, i_max
+        do i = 1, fft_imax
             do j = 1, ny
                 u(1:2, i, j) = f(1:2, i, j)
                 u(2*nz - 1:2*nz, i, j) = f(2*nz - 1:2*nz, i, j)

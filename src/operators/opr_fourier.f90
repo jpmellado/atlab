@@ -5,17 +5,16 @@
 module OPR_Fourier
     use TLab_Constants, only: wp, wi, pi_wp
     use TLab_Constants, only: efile, ifile
-    use TLab_Memory, only: isize_txc_field
-    use TLab_Memory, only: imax, jmax, kmax
+    use TLab_Memory, only: imax, jmax, kmax, isize_txc_field
     use TLab_Arrays, only: wrk3d
     use TLab_Pointers_C, only: c_wrk3d
-    use TLab_Transpose!, only: TLab_Transpose_Complex, trans_cy_forward, trans_cy_backward
+    use TLab_Transpose
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
-    use TLab_Grid
+    use TLab_Grid, only: x, y, z, xSubgrid, ySubgrid, zSubgrid
     use, intrinsic :: iso_c_binding
 #ifdef USE_MPI
     use TLabMPI_VARS, only: xMpi, yMpi
-    use TLabMPI_Transpose_DerivedTypes!, only: tmpi_transpose_x_dt, tmpi_transpose_y_dt, tmpi_trp_X
+    use TLabMPI_Transpose_DerivedTypes
     use TLabMPI_Transpose_X
 #endif
     implicit none
@@ -32,11 +31,16 @@ module OPR_Fourier
     logical, public :: fft_y_on = .false.
     logical, public :: fft_z_on = .false.
 
+    integer, public :: fft_offset_i = 0
+    integer, public :: fft_offset_j = 0
+    integer, public :: fft_offset_k = 0
+    integer, public :: fft_imax
+
     ! -----------------------------------------------------------------------
     integer(wi) size_fft_x, size_fft_y, size_fft_z
 
 #ifdef USE_MPI
-    type(tmpi_transpose_x_dt) :: tmpi_trp_fft_X
+    ! type(tmpi_transpose_x_dt) :: tmpi_trp_fft_X
     type(tmpi_transpose_y_dt) :: tmpi_trp_fft_Y
     real(wp), pointer :: r_out(:) => null()
     real(wp), pointer :: r_in(:) => null()
@@ -125,28 +129,34 @@ contains
         ! -----------------------------------------------------------------------
         ! Ox direction
         size_fft_x = x%size
+#ifdef USE_MPI
+        fft_offset_i = xMpi%rank*(imax/2 + 1)   ! Extended with the Nyquist frequency
+        !                                         Padding at the end of X direction
+#else
+        fft_offset_i = xSubgrid%offset/2
+#endif
+        fft_imax = min(x%size/2 + 1 - fft_offset_i, imax/2 + 1)    ! Maximum mode is x direction
+
         if (size_fft_x > 1) then
             fft_x_on = .true.
 
             nlines = jmax*kmax
-            offset = size_fft_x/2 + 1
 
 #ifdef USE_MPI
             if (xMpi%num_processors > 1) then
-                ! Extended with the Nyquist frequency
-                call tmpi_trp_fft_X%initialize(imax/2 + 1, nlines, &
-                                               locType=MPI_DOUBLE_COMPLEX, &
-                                               message='extended Ox FFTW in Poisson solver.')
-
                 call tmpi_trp_X2%initialize(imax, nlines, xMpi, &
                                             locType=MPI_REAL8, &
                                             message='extended NEW Ox FFTW in Poisson solver.')
+                ! Extended with the Nyquist frequency
+                ! call tmpi_trp_fft_X%initialize(imax/2 + 1, nlines, &
+                !                                locType=MPI_DOUBLE_COMPLEX, &
+                !                                message='extended Ox FFTW in Poisson solver.')
                 call tmpi_trp_fft_X2%initialize(imax/2 + 1, nlines, xMpi, &
                                                 locType=MPI_DOUBLE_COMPLEX, &
                                                 message='extended NEW Ox FFTW in Poisson solver.')
 
                 nlines = tmpi_trp_X%nlines
-                offset = (imax/2 + 1)*xMpi%num_processors
+                ! offset = (imax/2 + 1)*xMpi%num_processors
 
                 stride = nlines
                 call dfftw_plan_many_dft_r2c(fft_plan_fx2, 1, size_fft_x, nlines, &
@@ -159,6 +169,7 @@ contains
                                              fftw_planner_flag)
             else
 #endif
+                offset = size_fft_x/2 + 1
 
                 ! call dfftw_plan_many_dft_r2c(fft_plan_fx, 1, size_fft_x, nlines, &
                 !                              txc(:, 1), 1, 1, size_fft_x, &
@@ -185,6 +196,8 @@ contains
         ! -----------------------------------------------------------------------
         ! Oy direction; assumes y is last index
         size_fft_y = y%size
+        fft_offset_j = ySubgrid%offset
+
         if (size_fft_y > 1) then
             fft_y_on = .true.
 
@@ -216,6 +229,8 @@ contains
         ! -----------------------------------------------------------------------
         ! Oz direction
         size_fft_z = z%size
+        fft_offset_k = zSubgrid%offset
+
         if (size_fft_z > 1) then
             fft_z_on = .true.
 
@@ -497,15 +512,17 @@ contains
             end if
 
             do j = 1, ny
-                jglobal = j + ySubgrid%offset
+                jglobal = j + fft_offset_j
+
                 if (jglobal <= size_fft_y/2 + 1) then
                     fj = real(jglobal - 1, wp)/y%scale
                 else
                     fj = -real(size_fft_y + 1 - jglobal, wp)/y%scale
                 end if
 
-                do i = 1, nx/2 + 1
-                    iglobal = i + xSubgrid%offset/2
+                do i = 1, fft_imax
+                    iglobal = i + fft_offset_i
+
                     fi = real(iglobal - 1, wp)/x%scale
 
                     f = sqrt(fi**2 + fj**2 + fk**2)

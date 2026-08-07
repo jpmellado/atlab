@@ -78,7 +78,6 @@ contains
     ! #######################################################################
     ! #######################################################################
     subroutine OPR_Elliptic_Initialize(inifile)
-        use TLab_Grid, only: ySubgrid
         use FDM_Base, only: FDM_COM4_DIRECT, FDM_COM6_DIRECT
         use FDM, only: fdm_der1_X, fdm_der1_Y, fdm_der1_Z
         use FDM, only: fdm_der2_X, fdm_der2_Y

@@ -12,6 +12,7 @@ module TLabMPI_Transpose_X
     private
 
     public :: tmpi_transpose_block_dt
+    public :: tmpi_transposeX_y_dt
 
     ! -----------------------------------------------------------------------
     type trp_mem_dt
@@ -30,6 +31,7 @@ module TLabMPI_Transpose_X
         integer :: size_block_processes
         integer(wi) :: nlines
     contains
+        procedure :: initialize => tmpi_trp_initialize_block
         ! private
         procedure :: tmpi_trp_in_out_real
         procedure :: tmpi_trp_out_in_real
@@ -44,7 +46,14 @@ module TLabMPI_Transpose_X
     ! -----------------------------------------------------------------------
     type, extends(tmpi_transpose_dt) :: tmpi_transpose_block_dt
     contains
-        procedure :: initialize => tmpi_trp_initialize_block
+        ! procedure :: initialize => tmpi_trp_initialize_block
+    end type
+
+    type, extends(tmpi_transpose_dt) :: tmpi_transposeX_y_dt
+    contains
+        ! procedure :: initialize => tmpi_trp_initialize_block
+        procedure :: forward => tmpi_trp_fy_complex
+        procedure :: backward => tmpi_trp_by_complex
     end type
 
     ! -----------------------------------------------------------------------
@@ -72,7 +81,7 @@ contains
     ! ######################################################################
     subroutine tmpi_trp_initialize_block(self, nmax, npage, axis, locType, message)
         use TLabMPI_VARS, only: mpi_axis_dt
-        class(tmpi_transpose_block_dt), intent(out) :: self
+        class(tmpi_transpose_dt), intent(out) :: self
         integer(wi), intent(in) :: npage, nmax
         type(mpi_axis_dt), intent(in) :: axis
         type(MPI_Datatype), intent(in), optional :: locType
@@ -295,6 +304,86 @@ contains
         do ib = 1, nblocks
             ip = (ib - 1)*count + 1
             call TLab_Transpose_Complex(wrk(ip:), self%nlines, nmax, self%nlines, a(ip:), nmax)
+        end do
+
+        return
+    end subroutine
+
+    ! ######################################################################
+    ! ######################################################################
+    subroutine tmpi_trp_fy_complex(self, a, b, wrk)
+        class(tmpi_transposeX_y_dt), intent(in) :: self
+        complex(wp), intent(in) :: a(:)
+        complex(wp), intent(out) :: b(:)
+        complex(wp), intent(inout) :: wrk(:)
+
+        integer ib, nblocks
+        integer(wi) count, nmax, ip1, ip2
+
+        nblocks = size(self%send%disp(:)) ! # of blocks = # of processors
+        count = self%send%disp(2)   ! # all processors transfer same amount
+        nmax = count/self%nlines ! size along direction
+
+        do ib = 1, nblocks
+            ip1 = (ib - 1)*self%nlines + 1
+            ip2 = (ib - 1)*count + 1
+            call reduce_fy(a(ip1:), self%nlines, nblocks, nmax, wrk(ip2:))
+        end do
+
+        call tmpi_trp_complex(wrk, self%send, b, self%recv, &
+                              self%comm, self%size_block_processes, self%mode)
+
+        return
+    end subroutine
+
+    subroutine reduce_fy(a, nlines, nblocks, nmax, b)
+        integer(wi), intent(in) :: nlines, nblocks, nmax
+        complex(wp), intent(in) :: a(nlines*nblocks, *)
+        complex(wp), intent(out) :: b(nlines, nmax)
+
+        integer n
+
+        do n = 1, nmax
+            b(1:nlines, n) = a(1:nlines, n)
+        end do
+
+        return
+    end subroutine
+
+    subroutine tmpi_trp_by_complex(self, a, b, wrk)
+        class(tmpi_transposeX_y_dt), intent(in) :: self
+        complex(wp), intent(in) :: a(:)
+        complex(wp), intent(out) :: b(:)
+        complex(wp), intent(inout) :: wrk(:)
+
+        integer ib, nblocks
+        integer(wi) count, nmax, ip1, ip2
+
+        call tmpi_trp_complex(a, self%recv, wrk, self%send, &
+                              self%comm, self%size_block_processes, self%mode)
+
+        nblocks = size(self%send%disp(:)) ! # of blocks = # of processors
+        count = self%send%disp(2)   ! # all processors transfer same amount
+        nmax = count/self%nlines ! size along direction
+
+        do ib = 1, nblocks
+            ip1 = (ib - 1)*self%nlines + 1
+            ip2 = (ib - 1)*count + 1
+            call reduce_by(wrk(ip2:), self%nlines, nblocks, nmax, b(ip1:))
+        end do
+
+        return
+    end subroutine
+
+    subroutine reduce_by(a, nlines, nblocks, nmax, b)
+        integer(wi), intent(in) :: nlines, nblocks, nmax
+        complex(wp), intent(in) :: a(nlines, nmax)
+        complex(wp), intent(out) :: b(nlines*nblocks, *)
+
+        integer n
+
+        do n = 1, nmax
+            b(1:nlines, n) = a(1:nlines, n)
         end do
 
         return

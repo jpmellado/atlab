@@ -1,8 +1,7 @@
 program vMpi_Transpose
     use TLab_Constants, only: wp, wi
     use mpi_f08
-    use TLabMPI_VARS, only: mpiGrid, xMpi, yMpi, ims_err, ims_time_trans
-    use TLab_Memory, only: imax, jmax, kmax
+    use TLabMPI_VARS, only: mpiGrid, xMpi, yMpi, ims_err !, ims_time_trans
     use TLabMPI_Transpose_DerivedTypes
     use TLabMPI_Transpose_X
     implicit none
@@ -20,6 +19,7 @@ program vMpi_Transpose
     complex(wp), allocatable :: c_wrk3d(:)
     type(tmpi_transpose_x_dt) :: tmpi_trp
     type(tmpi_transpose_block_dt) :: tmpi_trp_block
+    type(tmpi_transposeX_y_dt) :: tmpi_trpX_y
 
     integer nxLoc, nlinesLoc
 
@@ -50,7 +50,7 @@ program vMpi_Transpose
     ! Initialize
     call random_number(u)
     !
-    uc = cmplx(u(:nxloc/2, :), u(nxloc/2 + 1:, :))
+    uc = cmplx(u(:nxloc/2, :), u(nxloc/2 + 1:, :), wp)
 
     ! -------------------------------------------------------------------
     nlinesLoc = nlines/mpiGrid%num_processors
@@ -131,6 +131,25 @@ program vMpi_Transpose
 
     if (mpiGrid%rank == 0) then
         print *, new_line('a'), 'Transpose algorithm with raw complex types (in-place).'
+        print *, 'Number of processors: ', mpiGrid%num_processors
+        print *, 'Error in processors with rank 0: ', maxval(abs(fc - uc))
+        print *, 'Elapsed time in processor with rank 0 (seconds): ', time_loc_2 - time_loc_1
+    end if
+
+    ! -------------------------------------------------------------------
+    call tmpi_trpX_y%initialize(nxLoc/2, nlines, mpiGrid%mpi_axis_dt, locType=MPI_DOUBLE_COMPLEX)
+
+    time_loc_1 = MPI_WTIME()
+    if (mpiGrid%num_processors > 1) then
+        do it = 1, num_iterations
+            call tmpi_trpX_y%forward(uc(:, 1), uc_transposed(:, 1), c_wrk3d)
+            call tmpi_trpX_y%backward(uc_transposed(:, 1), fc(:, 1), c_wrk3d)
+        end do
+    end if
+    time_loc_2 = MPI_WTIME()
+
+    if (mpiGrid%rank == 0) then
+        print *, new_line('a'), 'Transpose algorithm with raw y-complex types.'
         print *, 'Number of processors: ', mpiGrid%num_processors
         print *, 'Error in processors with rank 0: ', maxval(abs(fc - uc))
         print *, 'Elapsed time in processor with rank 0 (seconds): ', time_loc_2 - time_loc_1

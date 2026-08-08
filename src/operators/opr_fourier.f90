@@ -1,5 +1,12 @@
 #include "tlab_error.h"
 
+! 2d and 3d FFT using FFTW
+! real-to-complex FFT along X (inner index) retains Nyquist frequency.
+! in parallel, this means padding at the end to keep a uniform size imax/2+1 in all processors along cx
+!
+! rank0 rank1 ...         rankNx
+! x...x x...x x...x x...x x...xo...o
+
 ! Backward FFT can change original array
 
 module OPR_Fourier
@@ -14,7 +21,7 @@ module OPR_Fourier
     use, intrinsic :: iso_c_binding
 #ifdef USE_MPI
     use TLabMPI_VARS, only: xMpi, yMpi
-    ! use TLabMPI_Transpose_DerivedTypes
+    use TLabMPI_Transpose_DerivedTypes, only: tmpi_transpose_y_dt
     use TLabMPI_Transpose_X
 #endif
     implicit none
@@ -40,21 +47,19 @@ module OPR_Fourier
     integer(wi) size_fft_x, size_fft_y, size_fft_z
 
 #ifdef USE_MPI
-    ! type(tmpi_transpose_x_dt) :: tmpi_trp_fft_X
-    ! type(tmpi_transpose_y_dt) :: tmpi_trp_fft_Y
+    type(tmpi_transposeX_inner_dt) :: tmp_trpX_X
+    type(tmpi_transposeX_inner_dt) :: tmp_trpX_fft_X
+    !
+    type(tmpi_transpose_y_dt) :: tmpi_trp_fft_Y
+    ! type(tmpi_transposeX_outer_dt) :: tmp_trpX_fft_Y
+    ! type(tmpi_transposeX_inner_dt) :: tmp_trpX_fft_Yi
+    !
     real(wp), pointer :: r_out(:) => null()
     real(wp), pointer :: r_in(:) => null()
-    !
-    type(tmpi_transpose_block_dt) :: tmpi_trp_X2
-    type(tmpi_transpose_block_dt) :: tmpi_trp_fft_X2
-    type(c_ptr) :: fft_plan_fx2, fft_plan_bx2
-    type(tmpi_transposeX_y_dt) :: tmpi_trp_fft_Y2
 #endif
     type(c_ptr) :: fft_plan_fx, fft_plan_bx
     type(c_ptr) :: fft_plan_fy, fft_plan_by
     type(c_ptr) :: fft_plan_fz, fft_plan_bz
-
-    ! complex(wp), pointer :: c_out(:) => null()
 
 contains
     ! #######################################################################
@@ -145,27 +150,22 @@ contains
 
 #ifdef USE_MPI
             if (xMpi%num_processors > 1) then
-                call tmpi_trp_X2%initialize(imax, nlines, xMpi, &
-                                            locType=MPI_REAL8, &
-                                            message='extended NEW Ox FFTW in Poisson solver.')
+                call tmp_trpX_X%initialize(imax, nlines, xMpi, &
+                                           locType=MPI_REAL8, &
+                                           message='extended NEW Ox FFTW in Poisson solver.')
                 ! Extended with the Nyquist frequency
-                ! call tmpi_trp_fft_X%initialize(imax/2 + 1, nlines, &
-                !                                locType=MPI_DOUBLE_COMPLEX, &
-                !                                message='extended Ox FFTW in Poisson solver.')
-                call tmpi_trp_fft_X2%initialize(imax/2 + 1, nlines, xMpi, &
-                                                locType=MPI_DOUBLE_COMPLEX, &
-                                                message='extended NEW Ox FFTW in Poisson solver.')
+                call tmp_trpX_fft_X%initialize(imax/2 + 1, nlines, xMpi, &
+                                               locType=MPI_DOUBLE_COMPLEX, &
+                                               message='extended NEW Ox FFTW in Poisson solver.')
 
-                ! nlines = tmpi_trp_X%nlines
-                nlines = tmpi_trp_X2%nlines
-                ! offset = (imax/2 + 1)*xMpi%num_processors
+                nlines = tmp_trpX_X%nlines
 
                 stride = nlines
-                call dfftw_plan_many_dft_r2c(fft_plan_fx2, 1, size_fft_x, nlines, &
+                call dfftw_plan_many_dft_r2c(fft_plan_fx, 1, size_fft_x, nlines, &
                                              txc(:, 1), size_fft_x, stride, 1, &
                                              wrk3d, size_fft_x/2 + 1, stride, 1, &
                                              fftw_planner_flag)
-                call dfftw_plan_many_dft_c2r(fft_plan_bx2, 1, size_fft_x, nlines, &
+                call dfftw_plan_many_dft_c2r(fft_plan_bx, 1, size_fft_x, nlines, &
                                              txc(:, 1), size_fft_x/2 + 1, stride, 1, &
                                              wrk3d, size_fft_x, stride, 1, &
                                              fftw_planner_flag)
@@ -173,14 +173,6 @@ contains
 #endif
                 offset = size_fft_x/2 + 1
 
-                ! call dfftw_plan_many_dft_r2c(fft_plan_fx, 1, size_fft_x, nlines, &
-                !                              txc(:, 1), 1, 1, size_fft_x, &
-                !                              wrk3d, 1, 1, offset, &
-                !                              fftw_planner_flag)
-                ! call dfftw_plan_many_dft_c2r(fft_plan_bx, 1, size_fft_x, nlines, &
-                !                              txc(:, 1), 1, 1, offset, &
-                !                              wrk3d, 1, 1, size_fft_x, &
-                !                              fftw_planner_flag)
                 call dfftw_plan_many_dft_r2c(fft_plan_fx, 1, size_fft_x, nlines, &
                                              txc(:, 1), size_fft_x, 1, size_fft_x, &
                                              wrk3d, size_fft_x/2 + 1, 1, offset, &
@@ -207,14 +199,19 @@ contains
 
 #ifdef USE_MPI
             if (yMpi%num_processors > 1) then
-                ! call tmpi_trp_fft_Y%initialize(jmax, nlines, &
+                call tmpi_trp_fft_Y%initialize(jmax, nlines, &
+                                               locType=MPI_DOUBLE_COMPLEX, &
+                                               message='Oy FFTW in Poisson solver.')
+                nlines = tmpi_trp_fft_Y%nlines
+                !
+                ! trying new mpi transpose
+                ! call tmp_trpX_fft_Y%initialize(jmax, nlines, yMpi, &
                 !                                locType=MPI_DOUBLE_COMPLEX, &
-                !                                message='Oy FFTW in Poisson solver.')
-                call tmpi_trp_fft_Y2%initialize(jmax, nlines, yMpi, &
-                                                locType=MPI_DOUBLE_COMPLEX, &
-                                                message='NEW Oy FFTW in Poisson solver.')
-                ! nlines = tmpi_trp_fft_Y%nlines
-                nlines = tmpi_trp_fft_Y2%nlines
+                !                                message='NEW Oy FFTW in Poisson solver.')
+                ! call tmp_trpX_fft_Yi%initialize(jmax, nlines, yMpi, &
+                !                                 locType=MPI_DOUBLE_COMPLEX, &
+                !                                 message='NEW Oy FFTW in Poisson solver.')
+                ! nlines = tmp_trpX_fft_Y%nlines
 
             end if
 #endif
@@ -268,13 +265,9 @@ contains
         if (xMpi%num_processors > 1) then
             call c_f_pointer(c_loc(out), r_out, shape=[isize_txc_field])
 
-            ! call tmpi_trp_X%forward(in, r_out)
-            ! call dfftw_execute_dft_r2c(fft_plan_fx, r_out, c_wrk3d)
-            ! call tmpi_trp_fft_X%backward(c_wrk3d, out)
-
-            call tmpi_trp_X2%in_out(in, wrk3d, r_out, 'forward')
-            call dfftw_execute_dft_r2c(fft_plan_fx2, wrk3d, out)
-            call tmpi_trp_fft_X2%out_in(out, c_wrk3d, 'backward')
+            call tmp_trpX_X%in_out(in, wrk3d, r_out, 'forward')
+            call dfftw_execute_dft_r2c(fft_plan_fx, wrk3d, out)
+            call tmp_trpX_fft_X%out_in(out, c_wrk3d, 'backward')
 
             nullify (r_out)
 
@@ -298,24 +291,14 @@ contains
         ! #######################################################################
 #ifdef USE_MPI
         if (xMpi%num_processors > 1) then
-            ! out is not big enough
+            ! out is not big enough; isize_field instead of isize_txc_field
             ! call c_f_pointer(c_loc(out), c_out, shape=[isize_txc_field/2])
-
-            ! call TLabMPI_Trp_ExecI_Forward(in, c_out, tmpi_plan_fftx)
-            ! call dfftw_execute_dft_c2r(fft_plan_bx, c_out, wrk3d)
-            ! call TLabMPI_Trp_ExecI_Backward(wrk3d, out, tmpi_plan_dx)
-
-            ! nullify (c_out)
 
             call c_f_pointer(c_loc(in), r_in, shape=[isize_txc_field])
 
-            ! call tmpi_trp_fft_X%forward(in, c_wrk3d)
-            ! call dfftw_execute_dft_c2r(fft_plan_bx, c_wrk3d, r_in)
-            ! call tmpi_trp_X%backward(r_in, out)
-
-            call tmpi_trp_fft_X2%in_out(in, c_wrk3d, 'forward')
-            call dfftw_execute_dft_c2r(fft_plan_bx2, in, wrk3d)
-            call tmpi_trp_X2%out_in(wrk3d, out, r_in, 'backward')
+            call tmp_trpX_fft_X%in_out(in, c_wrk3d, 'forward')
+            call dfftw_execute_dft_c2r(fft_plan_bx, in, wrk3d)
+            call tmp_trpX_X%out_in(wrk3d, out, r_in, 'backward')
 
             nullify (r_in)
 
@@ -341,12 +324,19 @@ contains
         ! #######################################################################
 #ifdef USE_MPI
         if (yMpi%num_processors > 1) then
-            ! call tmpi_trp_fft_Y%forward(in, out)
-            ! call dfftw_execute_dft(fft_plan_fy, out, c_wrk3d)
-            ! call tmpi_trp_fft_Y%backward(c_wrk3d, out)
-            call tmpi_trp_fft_Y2%forward(in, out, c_wrk3d)
+            call tmpi_trp_fft_Y%forward(in, out)
             call dfftw_execute_dft(fft_plan_fy, out, c_wrk3d)
-            call tmpi_trp_fft_Y2%backward(c_wrk3d, out, in)
+            call tmpi_trp_fft_Y%backward(c_wrk3d, out)
+            !
+            ! new mpi tranpose
+            ! call tmp_trpX_fft_Y%forward(in, out, c_wrk3d)
+            ! call dfftw_execute_dft(fft_plan_fy, out, c_wrk3d)
+            ! call tmp_trpX_fft_Y%backward(c_wrk3d, out, in)
+            !
+            ! testing use of y as inner most index
+            ! call tmp_trpX_fft_Yi%in_out(in, out, c_wrk3d, 'forward')
+            ! call dfftw_execute_dft(fft_plan_fy, out, c_wrk3d)
+            ! call tmp_trpX_fft_Y%backward(c_wrk3d, out, in)
         else
 #endif
             call dfftw_execute_dft(fft_plan_fy, in, out)
@@ -369,12 +359,19 @@ contains
         ! #######################################################################
 #ifdef USE_MPI
         if (yMpi%num_processors > 1) then
-            ! call tmpi_trp_fft_Y%forward(in, out)
-            ! call dfftw_execute_dft(fft_plan_by, out, in)
-            ! call tmpi_trp_fft_Y%backward(in, out)
-            call tmpi_trp_fft_Y2%forward(in, out, c_wrk3d)
+            call tmpi_trp_fft_Y%forward(in, out)
             call dfftw_execute_dft(fft_plan_by, out, in)
-            call tmpi_trp_fft_Y2%backward(in, out, c_wrk3d)
+            call tmpi_trp_fft_Y%backward(in, out)
+            !
+            ! new mpi tranpose
+            ! call tmp_trpX_fft_Y%forward(in, out, c_wrk3d)
+            ! call dfftw_execute_dft(fft_plan_by, out, in)
+            ! call tmp_trpX_fft_Y%backward(in, out, c_wrk3d)
+            !
+            ! testing use of y as inner most index
+            ! call tmp_trpX_fft_Y%forward(in, out, c_wrk3d)
+            ! call dfftw_execute_dft(fft_plan_by, out, in)
+            ! call tmp_trpX_fft_Yi%out_in(in, out, c_wrk3d, 'backward')
         else
 #endif
             call dfftw_execute_dft(fft_plan_by, in, out)
@@ -399,6 +396,8 @@ contains
             call OPR_Fourier_X_Forward(in, out)
             ! Local transposition: make y-direction the last one
             call TLab_Transpose_Complex(out, (imax/2 + 1)*jmax, kmax, (imax/2 + 1)*jmax, tmp1, kmax, locBlock=trans_cy_forward)
+            ! testing use of y as inner most index in XY fft
+            ! call TLab_Transpose_Complex(out, (imax/2 + 1), jmax*kmax, (imax/2 + 1), tmp1, jmax*kmax, locBlock=trans_cy_forward)
             call OPR_Fourier_Y_Forward(tmp1, out)
         else
             call OPR_Fourier_X_Forward(in, tmp1)
@@ -419,17 +418,14 @@ contains
 
         ! #######################################################################
         if (fft_y_on) then
+            ! out is not big enough; isize_field instead of isize_txc_field
             ! call c_f_pointer(c_loc(out), c_out, shape=[isize_txc_field/2])
-
-            ! call OPR_Fourier_Y_Backward(in, c_out)
-            ! ! Local transposition: make y-direction the intermediate one again
-            ! call TLab_Transpose_Complex(c_out, kmax, (imax/2 + 1)*jmax, kmax, tmp1, (imax/2 + 1)*jmax)
-
-            ! nullify (c_out)
 
             call OPR_Fourier_Y_Backward(in, tmp1)
             ! Local transposition: make y-direction the intermediate one again
             call TLab_Transpose_Complex(tmp1, kmax, (imax/2 + 1)*jmax, kmax, in, (imax/2 + 1)*jmax, locBlock=trans_cy_backward)
+            ! testing use of y as inner most index in XY fft
+            ! call TLab_Transpose_Complex(tmp1, jmax*kmax, (imax/2 + 1), jmax*kmax, in, (imax/2 + 1), locBlock=trans_cy_backward)
             call OPR_Fourier_X_Backward(in, out)
         else
             ! Local transposition: make y-direction the intermediate one again
@@ -475,21 +471,13 @@ contains
 
         ! #######################################################################
         if (fft_y_on) then
+            ! out is not big enough; isize_field instead of isize_txc_field
             ! call c_f_pointer(c_loc(out), c_out, shape=[isize_txc_field/2])
-
-            ! call dfftw_execute_dft(fft_plan_bz, in, c_out)
-            ! ! Local transposition: make y-direction the last one
-            ! call TLab_Transpose_Complex(c_out, (imax/2 + 1)*jmax, kmax, (imax/2 + 1)*jmax, tmp1, kmax)
-            ! call OPR_Fourier_Y_Backward(tmp1, c_out)
-            ! ! Local transposition: make y-direction the intermediate one again
-            ! call TLab_Transpose_Complex(c_out, kmax, (imax/2 + 1)*jmax, kmax, tmp1, (imax/2 + 1)*jmax)
-
-            ! nullify (c_out)
 
             call dfftw_execute_dft(fft_plan_bz, in, c_wrk3d)
             ! Local transposition: make y-direction the last one
             call TLab_Transpose_Complex(c_wrk3d, (imax/2 + 1)*jmax, kmax, (imax/2 + 1)*jmax, tmp1, kmax, locBlock=trans_cy_forward)
-    
+
             call OPR_Fourier_Y_Backward(tmp1, in)
             ! Local transposition: make y-direction the intermediate one again
             call TLab_Transpose_Complex(in, kmax, (imax/2 + 1)*jmax, kmax, tmp1, (imax/2 + 1)*jmax, locBlock=trans_cy_backward)

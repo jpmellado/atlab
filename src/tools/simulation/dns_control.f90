@@ -210,7 +210,6 @@ contains
         use Thermo_Anelastic, only: rbackground, Thermo_Anelastic_Weight_OutPlace
 #ifdef USE_MPI
         use mpi_f08
-        use TLabMPI_VARS, only: ims_err
 #endif
         use OPR_Partial
 

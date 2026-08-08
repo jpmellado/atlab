@@ -405,7 +405,7 @@ contains
         use TLab_Constants, only: i4, dp
 #ifdef USE_MPI
         use mpi_f08, only: MPI_COMM_WORLD
-        use TLabMPI_VARS, only: mpiGrid, ims_err
+        use TLabMPI_VARS, only: ims_err
 #endif
         use TLab_Time
         use IO_Fields, only: IO_Write_Subarray

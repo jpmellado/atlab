@@ -64,7 +64,7 @@ subroutine AVG_FLOW_XZ(q, s, dudx, dvdx, dvdy, dvdz, dwdx, dwdy, dwdz, mean2d)
     ! Pointers to existing allocated space
     real(wp), dimension(:, :, :), pointer :: p_loc
 
-    integer :: itransport = 0, EQNS_TRANS_SUTHERLAND = 1, EQNS_TRANS_POWERLAW = 2! temporal fix
+    integer :: itransport = 0, EQNS_TRANS_POWERLAW = 2! temporal fix
 
     ! ###################################################################
     ! Define pointers

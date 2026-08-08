@@ -438,8 +438,10 @@ contains
         character(len=128) eStr
         character(len=512) sRes
 
+#ifdef USE_MPI
+#else
         integer idummy
-
+#endif
         ! #######################################################################
         ! Read from tlab.ini
         bakfile = trim(adjustl(ifile))//'.bak'

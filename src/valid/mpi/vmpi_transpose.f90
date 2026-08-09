@@ -85,8 +85,8 @@ program vMpi_Transpose
     time_loc_1 = MPI_WTIME()
     if (mpiGrid%num_processors > 1) then
         do it = 1, num_iterations
-            call tmpi_trpX_x%in_out(u(:, 1), u_transposed(:, 1), wrk3d, 'forward')
-            call tmpi_trpX_x%out_in(u_transposed(:, 1), f(:, 1), wrk3d, 'backward')
+            call tmpi_trpX_x%forward(u(:, 1), u_transposed(:, 1), wrk3d)
+            call tmpi_trpX_x%backward(u_transposed(:, 1), f(:, 1), wrk3d)
         end do
     end if
     time_loc_2 = MPI_WTIME()
@@ -105,8 +105,8 @@ program vMpi_Transpose
     time_loc_1 = MPI_WTIME()
     if (mpiGrid%num_processors > 1) then
         do it = 1, num_iterations
-            call tmpi_trpX_x%in_out(uc(:, 1), uc_transposed(:, 1), c_wrk3d, 'forward')
-            call tmpi_trpX_x%out_in(uc_transposed(:, 1), fc(:, 1), c_wrk3d, 'backward')
+            call tmpi_trpX_x%forward(uc(:, 1), uc_transposed(:, 1), c_wrk3d)
+            call tmpi_trpX_x%backward(uc_transposed(:, 1), fc(:, 1), c_wrk3d)
         end do
     end if
     time_loc_2 = MPI_WTIME()
@@ -123,8 +123,8 @@ program vMpi_Transpose
     if (mpiGrid%num_processors > 1) then
         do it = 1, num_iterations
             fc = uc
-            call tmpi_trpX_x%in_out(fc(:, 1), c_wrk3d, 'forward')
-            call tmpi_trpX_x%out_in(fc(:, 1), c_wrk3d, 'backward')
+            call tmpi_trpX_x%forward(fc(:, 1), c_wrk3d)
+            call tmpi_trpX_x%backward(fc(:, 1), c_wrk3d)
         end do
     end if
     time_loc_2 = MPI_WTIME()

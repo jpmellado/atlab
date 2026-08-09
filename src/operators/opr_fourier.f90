@@ -265,9 +265,9 @@ contains
         if (xMpi%num_processors > 1) then
             call c_f_pointer(c_loc(out), r_out, shape=[isize_txc_field])
 
-            call tmp_trpX_X%in_out(in, wrk3d, r_out, 'forward')
+            call tmp_trpX_X%forward(in, wrk3d, r_out)
             call dfftw_execute_dft_r2c(fft_plan_fx, wrk3d, out)
-            call tmp_trpX_fft_X%out_in(out, c_wrk3d, 'backward')
+            call tmp_trpX_fft_X%backward(out, c_wrk3d)
 
             nullify (r_out)
 
@@ -296,9 +296,9 @@ contains
 
             call c_f_pointer(c_loc(in), r_in, shape=[isize_txc_field])
 
-            call tmp_trpX_fft_X%in_out(in, c_wrk3d, 'forward')
+            call tmp_trpX_fft_X%forward(in, c_wrk3d)
             call dfftw_execute_dft_c2r(fft_plan_bx, in, wrk3d)
-            call tmp_trpX_X%out_in(wrk3d, out, r_in, 'backward')
+            call tmp_trpX_X%backward(wrk3d, out, r_in)
 
             nullify (r_in)
 

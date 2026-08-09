@@ -38,15 +38,14 @@ module TLabMPI_Transpose_X
     type, extends(tmpi_transposeX_dt) :: tmpi_transposeX_inner_dt
     contains
         private
-        ! check if io_out and out_in should be better forward and backward
-        procedure :: tmpi_trpX_in_out_real
-        procedure :: tmpi_trpX_out_in_real
-        procedure :: tmpi_trpX_in_out_complex
-        procedure :: tmpi_trpX_in_out_complex_inplace
-        procedure :: tmpi_trpX_out_in_complex
-        procedure :: tmpi_trpX_out_in_complex_inplace
-        generic, public :: in_out => tmpi_trpX_in_out_real, tmpi_trpX_in_out_complex, tmpi_trpX_in_out_complex_inplace
-        generic, public :: out_in => tmpi_trpX_out_in_real, tmpi_trpX_out_in_complex, tmpi_trpX_out_in_complex_inplace
+        procedure :: tmpi_trpX_inner_fwd_real
+        procedure :: tmpi_trpX_inner_bwd_real
+        procedure :: tmpi_trpX_inner_fwd_complex
+        procedure :: tmpi_trpX_inner_fwd_complex_inplace
+        procedure :: tmpi_trpX_inner_bwd_complex
+        procedure :: tmpi_trpX_inner_bwd_complex_inplace
+        generic, public :: forward => tmpi_trpX_inner_fwd_real, tmpi_trpX_inner_fwd_complex, tmpi_trpX_inner_fwd_complex_inplace
+        generic, public :: backward => tmpi_trpX_inner_bwd_real, tmpi_trpX_inner_bwd_complex, tmpi_trpX_inner_bwd_complex_inplace
     end type
 
     type, extends(tmpi_transposeX_dt) :: tmpi_transposeX_outer_dt
@@ -175,13 +174,12 @@ contains
 
     ! ######################################################################
     ! ######################################################################
-    subroutine tmpi_trpX_in_out_complex(self, a, b, wrk, mode)
+    subroutine tmpi_trpX_inner_fwd_complex(self, a, b, wrk)
         use TLab_Transpose
         class(tmpi_transposeX_inner_dt), intent(in) :: self
         complex(wp), intent(in) :: a(:)
         complex(wp), intent(out) :: b(:)
         complex(wp), intent(inout) :: wrk(:)
-        character(len=*), intent(in) :: mode
 
         integer ib, nblocks
         integer(wi) count, nmax, ip
@@ -195,26 +193,17 @@ contains
             call TLab_Transpose_Complex(a(ip:), nmax, self%nlines, nmax, wrk(ip:), self%nlines)
         end do
 
-        select case (mode)
-        case ('forward')
-            ! call self%forward(wrk, b)
-            call tmpi_trpX_complex(wrk, self%send, b, self%recv, &
-                                   self%comm, self%size_block_processes, self%mode)
-        case ('backward')
-            ! call self%backward(wrk, b)
-            call tmpi_trpX_complex(wrk, self%recv, b, self%send, &
-                                   self%comm, self%size_block_processes, self%mode)
-        end select
+        call tmpi_trpX_complex(wrk, self%send, b, self%recv, &
+                               self%comm, self%size_block_processes, self%mode)
 
         return
     end subroutine
 
-    subroutine tmpi_trpX_in_out_complex_inplace(self, a, wrk, mode)
+    subroutine tmpi_trpX_inner_fwd_complex_inplace(self, a, wrk)
         use TLab_Transpose
         class(tmpi_transposeX_inner_dt), intent(in) :: self
         complex(wp), intent(inout) :: a(:)
         complex(wp), intent(inout) :: wrk(:)
-        character(len=*), intent(in) :: mode
 
         integer ib, nblocks
         integer(wi) count, nmax, ip
@@ -228,41 +217,24 @@ contains
             call TLab_Transpose_Complex(a(ip:), nmax, self%nlines, nmax, wrk(ip:), self%nlines)
         end do
 
-        select case (mode)
-        case ('forward')
-            ! call self%forward(wrk, a)
-            call tmpi_trpX_complex(wrk, self%send, a, self%recv, &
-                                   self%comm, self%size_block_processes, self%mode)
-        case ('backward')
-            ! call self%backward(wrk, a)
-            call tmpi_trpX_complex(wrk, self%recv, a, self%send, &
-                                   self%comm, self%size_block_processes, self%mode)
-        end select
+        call tmpi_trpX_complex(wrk, self%send, a, self%recv, &
+                               self%comm, self%size_block_processes, self%mode)
 
         return
     end subroutine
 
-    subroutine tmpi_trpX_out_in_complex(self, a, b, wrk, mode)
+    subroutine tmpi_trpX_inner_bwd_complex(self, a, b, wrk)
         use TLab_Transpose
         class(tmpi_transposeX_inner_dt), intent(in) :: self
         complex(wp), intent(in) :: a(:)
         complex(wp), intent(out) :: b(:)
         complex(wp), intent(inout) :: wrk(:)
-        character(len=*), intent(in) :: mode
 
         integer ib, nblocks
         integer(wi) count, nmax, ip
 
-        select case (mode)
-        case ('forward')
-            ! call self%forward(a, wrk)
-            call tmpi_trpX_complex(a, self%send, wrk, self%recv, &
-                                   self%comm, self%size_block_processes, self%mode)
-        case ('backward')
-            ! call self%backward(a, wrk)
-            call tmpi_trpX_complex(a, self%recv, wrk, self%send, &
-                                   self%comm, self%size_block_processes, self%mode)
-        end select
+        call tmpi_trpX_complex(a, self%recv, wrk, self%send, &
+                               self%comm, self%size_block_processes, self%mode)
 
         nblocks = size(self%send%disp(:)) ! # of blocks = # of processors
         count = self%send%disp(2)   ! # all processors transfer same amount
@@ -276,26 +248,17 @@ contains
         return
     end subroutine
 
-    subroutine tmpi_trpX_out_in_complex_inplace(self, a, wrk, mode)
+    subroutine tmpi_trpX_inner_bwd_complex_inplace(self, a, wrk)
         use TLab_Transpose
         class(tmpi_transposeX_inner_dt), intent(in) :: self
         complex(wp), intent(inout) :: a(:)
         complex(wp), intent(inout) :: wrk(:)
-        character(len=*), intent(in) :: mode
 
         integer ib, nblocks
         integer(wi) count, nmax, ip
 
-        select case (mode)
-        case ('forward')
-            ! call self%forward(a, wrk)
-            call tmpi_trpX_complex(a, self%send, wrk, self%recv, &
-                                   self%comm, self%size_block_processes, self%mode)
-        case ('backward')
-            ! call self%backward(a, wrk)
-            call tmpi_trpX_complex(a, self%recv, wrk, self%send, &
-                                   self%comm, self%size_block_processes, self%mode)
-        end select
+        call tmpi_trpX_complex(a, self%recv, wrk, self%send, &
+                               self%comm, self%size_block_processes, self%mode)
 
         nblocks = size(self%send%disp(:)) ! # of blocks = # of processors
         count = self%send%disp(2)   ! # all processors transfer same amount
@@ -304,6 +267,60 @@ contains
         do ib = 1, nblocks
             ip = (ib - 1)*count + 1
             call TLab_Transpose_Complex(wrk(ip:), self%nlines, nmax, self%nlines, a(ip:), nmax)
+        end do
+
+        return
+    end subroutine
+
+    ! ######################################################################
+    ! ######################################################################
+    subroutine tmpi_trpX_inner_fwd_real(self, a, b, wrk)
+        use TLab_Transpose
+        class(tmpi_transposeX_inner_dt), intent(in) :: self
+        real(wp), intent(in) :: a(:)
+        real(wp), intent(out) :: b(:)
+        real(wp), intent(inout) :: wrk(:)
+
+        integer ib, nblocks
+        integer(wi) count, nmax, ip
+
+        ! Make first index last
+        nblocks = size(self%send%disp(:)) ! # of blocks = # of processors
+        count = self%send%disp(2)   ! # all processors transfer same amount
+        nmax = count/self%nlines ! size along direction
+
+        do ib = 1, nblocks
+            ip = (ib - 1)*count + 1
+            call TLab_Transpose_Real(a(ip:), nmax, self%nlines, nmax, wrk(ip:), self%nlines)
+        end do
+
+        call tmpi_trpX_real(wrk, self%send, b, self%recv, &
+                            self%comm, self%size_block_processes, self%mode)
+
+        return
+    end subroutine
+
+    subroutine tmpi_trpX_inner_bwd_real(self, a, b, wrk)
+        use TLab_Transpose
+        class(tmpi_transposeX_inner_dt), intent(in) :: self
+        real(wp), intent(in) :: a(:)
+        real(wp), intent(out) :: b(:)
+        real(wp), intent(inout) :: wrk(:)
+
+        integer ib, nblocks
+        integer(wi) count, nmax, ip
+
+        call tmpi_trpX_real(a, self%recv, wrk, self%send, &
+                            self%comm, self%size_block_processes, self%mode)
+
+        ! Make last index first
+        nblocks = size(self%send%disp(:)) ! # of blocks = # of processors
+        count = self%send%disp(2)   ! # all processors transfer same amount
+        nmax = count/self%nlines ! size along direction
+
+        do ib = 1, nblocks
+            ip = (ib - 1)*count + 1
+            call TLab_Transpose_Real(wrk(ip:), self%nlines, nmax, self%nlines, b(ip:), nmax)
         end do
 
         return
@@ -327,7 +344,7 @@ contains
         do ib = 1, nblocks
             ip1 = (ib - 1)*self%nlines + 1
             ip2 = (ib - 1)*count + 1
-            call reduce_fy(a(ip1:), self%nlines, nblocks, nmax, wrk(ip2:))
+            call reduce_fwd(a(ip1:), self%nlines, nblocks, nmax, wrk(ip2:))
         end do
 
         call tmpi_trpX_complex(wrk, self%send, b, self%recv, &
@@ -336,7 +353,7 @@ contains
         return
     end subroutine
 
-    subroutine reduce_fy(a, nlines, nblocks, nmax, b)
+    subroutine reduce_fwd(a, nlines, nblocks, nmax, b)
         integer(wi), intent(in) :: nlines, nblocks, nmax
         complex(wp), intent(in) :: a(nlines*nblocks, *)
         complex(wp), intent(out) :: b(nlines, nmax)
@@ -369,13 +386,13 @@ contains
         do ib = 1, nblocks
             ip1 = (ib - 1)*self%nlines + 1
             ip2 = (ib - 1)*count + 1
-            call reduce_by(wrk(ip2:), self%nlines, nblocks, nmax, b(ip1:))
+            call reduce_bwd(wrk(ip2:), self%nlines, nblocks, nmax, b(ip1:))
         end do
 
         return
     end subroutine
 
-    subroutine reduce_by(a, nlines, nblocks, nmax, b)
+    subroutine reduce_bwd(a, nlines, nblocks, nmax, b)
         integer(wi), intent(in) :: nlines, nblocks, nmax
         complex(wp), intent(in) :: a(nlines, nmax)
         complex(wp), intent(out) :: b(nlines*nblocks, *)
@@ -384,78 +401,6 @@ contains
 
         do n = 1, nmax
             b(1:nlines, n) = a(1:nlines, n)
-        end do
-
-        return
-    end subroutine
-
-    ! ######################################################################
-    ! ######################################################################
-    subroutine tmpi_trpX_in_out_real(self, a, b, wrk, mode)
-        use TLab_Transpose
-        class(tmpi_transposeX_inner_dt), intent(in) :: self
-        real(wp), intent(in) :: a(:)
-        real(wp), intent(out) :: b(:)
-        real(wp), intent(inout) :: wrk(:)
-        character(len=*), intent(in) :: mode
-
-        integer ib, nblocks
-        integer(wi) count, nmax, ip
-
-        ! Make first index last
-        nblocks = size(self%send%disp(:)) ! # of blocks = # of processors
-        count = self%send%disp(2)   ! # all processors transfer same amount
-        nmax = count/self%nlines ! size along direction
-
-        do ib = 1, nblocks
-            ip = (ib - 1)*count + 1
-            call TLab_Transpose_Real(a(ip:), nmax, self%nlines, nmax, wrk(ip:), self%nlines)
-        end do
-
-        select case (mode)
-        case ('forward')
-            ! call self%forward(wrk, b)
-            call tmpi_trpX_real(wrk, self%send, b, self%recv, &
-                                self%comm, self%size_block_processes, self%mode)
-        case ('backward')
-            ! call self%backward(wrk, b)
-            call tmpi_trpX_real(wrk, self%recv, b, self%send, &
-                                self%comm, self%size_block_processes, self%mode)
-        end select
-
-        return
-    end subroutine
-
-    subroutine tmpi_trpX_out_in_real(self, a, b, wrk, mode)
-        use TLab_Transpose
-        class(tmpi_transposeX_inner_dt), intent(in) :: self
-        real(wp), intent(in) :: a(:)
-        real(wp), intent(out) :: b(:)
-        real(wp), intent(inout) :: wrk(:)
-        character(len=*), intent(in) :: mode
-
-        integer ib, nblocks
-        integer(wi) count, nmax, ip
-
-        select case (mode)
-        case ('forward')
-            ! call self%forward(a, wrk)
-            call tmpi_trpX_real(a, self%send, wrk, self%recv, &
-                                self%comm, self%size_block_processes, self%mode)
-        case ('backward')
-            ! call self%backward(a, wrk)
-            call tmpi_trpX_real(a, self%recv, wrk, self%send, &
-                                self%comm, self%size_block_processes, self%mode)
-        end select
-
-        ! Make last index first
-        nblocks = size(self%send%disp(:)) ! # of blocks = # of processors
-        count = self%send%disp(2)   ! # all processors transfer same amount
-        nmax = count/self%nlines ! size along direction
-
-        do ib = 1, nblocks
-            ip = (ib - 1)*count + 1
-            call TLab_Transpose_Real(wrk(ip:), self%nlines, nmax, self%nlines, b(ip:), nmax)
         end do
 
         return

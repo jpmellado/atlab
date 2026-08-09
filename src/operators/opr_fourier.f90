@@ -51,7 +51,7 @@ module OPR_Fourier
     type(tmpi_transposeX_inner_dt) :: tmp_trpX_fft_X
     !
     type(tmpi_transpose_y_dt) :: tmpi_trp_fft_Y
-    ! type(tmpi_transposeX_outer_dt) :: tmp_trpX_fft_Y
+    type(tmpi_transposeX_outer_dt) :: tmp_trpX_fft_Y
     ! type(tmpi_transposeX_inner_dt) :: tmp_trpX_fft_Yi
     !
     real(wp), pointer :: r_out(:) => null()
@@ -202,16 +202,16 @@ contains
                 call tmpi_trp_fft_Y%initialize(jmax, nlines, &
                                                locType=MPI_DOUBLE_COMPLEX, &
                                                message='Oy FFTW in Poisson solver.')
-                nlines = tmpi_trp_fft_Y%nlines
+                ! nlines = tmpi_trp_fft_Y%nlines
                 !
                 ! trying new mpi transpose
-                ! call tmp_trpX_fft_Y%initialize(jmax, nlines, yMpi, &
-                !                                locType=MPI_DOUBLE_COMPLEX, &
-                !                                message='NEW Oy FFTW in Poisson solver.')
+                call tmp_trpX_fft_Y%initialize(jmax, nlines, yMpi, &
+                                               locType=MPI_DOUBLE_COMPLEX, &
+                                               message='NEW Oy FFTW in Poisson solver.')
                 ! call tmp_trpX_fft_Yi%initialize(jmax, nlines, yMpi, &
                 !                                 locType=MPI_DOUBLE_COMPLEX, &
                 !                                 message='NEW Oy FFTW in Poisson solver.')
-                ! nlines = tmp_trpX_fft_Y%nlines
+                nlines = tmp_trpX_fft_Y%nlines
 
             end if
 #endif
@@ -326,12 +326,12 @@ contains
         if (yMpi%num_processors > 1) then
             call tmpi_trp_fft_Y%forward(in, out)
             call dfftw_execute_dft(fft_plan_fy, out, c_wrk3d)
-            call tmpi_trp_fft_Y%backward(c_wrk3d, out)
+            ! call tmpi_trp_fft_Y%backward(c_wrk3d, out)
             !
             ! new mpi tranpose
             ! call tmp_trpX_fft_Y%forward(in, out, c_wrk3d)
             ! call dfftw_execute_dft(fft_plan_fy, out, c_wrk3d)
-            ! call tmp_trpX_fft_Y%backward(c_wrk3d, out, in)
+            call tmp_trpX_fft_Y%backward(c_wrk3d, out, in)
             !
             ! testing use of y as inner most index
             ! call tmp_trpX_fft_Yi%in_out(in, out, c_wrk3d, 'forward')
@@ -361,12 +361,12 @@ contains
         if (yMpi%num_processors > 1) then
             call tmpi_trp_fft_Y%forward(in, out)
             call dfftw_execute_dft(fft_plan_by, out, in)
-            call tmpi_trp_fft_Y%backward(in, out)
+            ! call tmpi_trp_fft_Y%backward(in, out)
             !
             ! new mpi tranpose
             ! call tmp_trpX_fft_Y%forward(in, out, c_wrk3d)
             ! call dfftw_execute_dft(fft_plan_by, out, in)
-            ! call tmp_trpX_fft_Y%backward(in, out, c_wrk3d)
+            call tmp_trpX_fft_Y%backward(in, out, c_wrk3d)
             !
             ! testing use of y as inner most index
             ! call tmp_trpX_fft_Y%forward(in, out, c_wrk3d)

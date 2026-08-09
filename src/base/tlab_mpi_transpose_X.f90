@@ -24,7 +24,6 @@ module TLabMPI_Transpose_X
 
     type :: tmpi_transposeX_dt
         ! sequence
-        integer :: mode                         ! asynchronous, sendrecv, alltoall
         type(trp_mem_dt) :: send                ! send information
         type(trp_mem_dt) :: recv                ! recv information
         type(MPI_Comm) :: comm                  ! communicator
@@ -38,13 +37,15 @@ module TLabMPI_Transpose_X
     type, extends(tmpi_transposeX_dt) :: tmpi_transposeX_inner_dt
     contains
         private
-        procedure :: tmpi_trpX_inner_fwd_real
+        ! procedure :: tmpi_trpX_inner_fwd_real
+        procedure :: tmpi_trpX_inner_fwd_real_overlap
         procedure :: tmpi_trpX_inner_bwd_real
         procedure :: tmpi_trpX_inner_fwd_complex
         procedure :: tmpi_trpX_inner_fwd_complex_inplace
         procedure :: tmpi_trpX_inner_bwd_complex
         procedure :: tmpi_trpX_inner_bwd_complex_inplace
-        generic, public :: forward => tmpi_trpX_inner_fwd_real, tmpi_trpX_inner_fwd_complex, tmpi_trpX_inner_fwd_complex_inplace
+        ! generic, public :: forward => tmpi_trpX_inner_fwd_real, tmpi_trpX_inner_fwd_complex, tmpi_trpX_inner_fwd_complex_inplace
+        generic, public :: forward => tmpi_trpX_inner_fwd_real_overlap, tmpi_trpX_inner_fwd_complex, tmpi_trpX_inner_fwd_complex_inplace
         generic, public :: backward => tmpi_trpX_inner_bwd_real, tmpi_trpX_inner_bwd_complex, tmpi_trpX_inner_bwd_complex_inplace
     end type
 
@@ -194,7 +195,7 @@ contains
         end do
 
         call tmpi_trpX_complex(wrk, self%send, b, self%recv, &
-                               self%comm, self%size_block_processes, self%mode)
+                               self%comm, self%size_block_processes)
 
         return
     end subroutine
@@ -218,7 +219,7 @@ contains
         end do
 
         call tmpi_trpX_complex(wrk, self%send, a, self%recv, &
-                               self%comm, self%size_block_processes, self%mode)
+                               self%comm, self%size_block_processes)
 
         return
     end subroutine
@@ -234,7 +235,7 @@ contains
         integer(wi) count, nmax, ip
 
         call tmpi_trpX_complex(a, self%recv, wrk, self%send, &
-                               self%comm, self%size_block_processes, self%mode)
+                               self%comm, self%size_block_processes)
 
         nblocks = size(self%send%disp(:)) ! # of blocks = # of processors
         count = self%send%disp(2)   ! # all processors transfer same amount
@@ -258,7 +259,7 @@ contains
         integer(wi) count, nmax, ip
 
         call tmpi_trpX_complex(a, self%recv, wrk, self%send, &
-                               self%comm, self%size_block_processes, self%mode)
+                               self%comm, self%size_block_processes)
 
         nblocks = size(self%send%disp(:)) ! # of blocks = # of processors
         count = self%send%disp(2)   ! # all processors transfer same amount
@@ -295,7 +296,49 @@ contains
         end do
 
         call tmpi_trpX_real(wrk, self%send, b, self%recv, &
-                            self%comm, self%size_block_processes, self%mode)
+                            self%comm, self%size_block_processes)
+
+        return
+    end subroutine
+
+    subroutine tmpi_trpX_inner_fwd_real_overlap(self, a, b, wrk)
+        use TLab_Transpose
+        class(tmpi_transposeX_inner_dt), intent(in) :: self
+        real(wp), intent(in) :: a(:)
+        real(wp), intent(out) :: b(:)
+        real(wp), intent(inout) :: wrk(:)
+
+        ! -----------------------------------------------------------------------
+        integer npro, step
+        integer(wi) j, l, m, ns, nr, ips, ipr
+        integer(wi) count, nmax, ip
+
+        ! #######################################################################
+        npro = size(self%send%disp(:))
+        step = self%size_block_processes
+
+        ! Make first index last
+        count = self%send%disp(2)   ! # all processors transfer same amount
+        nmax = count/self%nlines ! size along direction
+
+        do j = 1, npro, step
+            l = 0
+            do m = j, min(j + step - 1, npro)
+                ns = self%send%map(m) + 1; ips = ns - 1
+                nr = self%recv%map(m) + 1; ipr = nr - 1
+
+                ! Make first index last
+                ip = self%send%disp(ns) + 1
+                call TLab_Transpose_Real(a(ip:), nmax, self%nlines, nmax, wrk(ip:), self%nlines)
+
+                l = l + 1
+                call MPI_ISEND(wrk(self%send%disp(ns) + 1), self%send%count, self%send%type, ips, ims_tag, self%comm, request(l), ims_err)
+                l = l + 1
+                call MPI_IRECV(b(self%recv%disp(nr) + 1), self%recv%count, self%recv%type, ipr, ims_tag, self%comm, request(l), ims_err)
+
+            end do
+            call MPI_WAITALL(l, request, status, ims_err)
+        end do
 
         return
     end subroutine
@@ -311,7 +354,7 @@ contains
         integer(wi) count, nmax, ip
 
         call tmpi_trpX_real(a, self%recv, wrk, self%send, &
-                            self%comm, self%size_block_processes, self%mode)
+                            self%comm, self%size_block_processes)
 
         ! Make last index first
         nblocks = size(self%send%disp(:)) ! # of blocks = # of processors
@@ -348,7 +391,7 @@ contains
         end do
 
         call tmpi_trpX_complex(wrk, self%send, b, self%recv, &
-                               self%comm, self%size_block_processes, self%mode)
+                               self%comm, self%size_block_processes)
 
         return
     end subroutine
@@ -377,7 +420,7 @@ contains
         integer(wi) count, nmax, ip1, ip2
 
         call tmpi_trpX_complex(a, self%recv, wrk, self%send, &
-                               self%comm, self%size_block_processes, self%mode)
+                               self%comm, self%size_block_processes)
 
         nblocks = size(self%send%disp(:)) ! # of blocks = # of processors
         count = self%send%disp(2)   ! # all processors transfer same amount
@@ -409,13 +452,12 @@ contains
     !########################################################################
     !########################################################################
     subroutine tmpi_trpX_real(in, send, out, recv, &
-                              comm, step, mode)
+                              comm, step)
         real(wp), intent(in) :: in(*)
         real(wp), intent(out) :: out(*)
         type(trp_mem_dt), intent(in) :: send, recv
         type(MPI_Comm), intent(in) :: comm
         integer(wi), intent(in) :: step
-        integer, intent(in) :: mode
 
         ! -----------------------------------------------------------------------
         integer npro
@@ -441,13 +483,12 @@ contains
     end subroutine tmpi_trpX_real
 
     subroutine tmpi_trpX_complex(in, send, out, recv, &
-                                 comm, step, mode)
+                                 comm, step)
         complex(wp), intent(in) :: in(*)
         complex(wp), intent(out) :: out(*)
         type(trp_mem_dt), intent(in) :: send, recv
         type(MPI_Comm), intent(in) :: comm
         integer(wi), intent(in) :: step
-        integer, intent(in) :: mode
 
         ! -----------------------------------------------------------------------
         integer npro

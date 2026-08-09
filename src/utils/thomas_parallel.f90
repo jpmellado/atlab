@@ -118,7 +118,6 @@ contains
         real(wp), allocatable :: z_loc(:)
         real(wp), allocatable :: lhs_loc(:, :)
         real(wp), allocatable :: lu_loc(:, :)
-        integer, allocatable :: points_extended(:)
         real(wp) beta_loc, gamma_loc
 
         !########################################################################
@@ -288,7 +287,7 @@ contains
         type(data_dt), intent(inout) :: f(:)
 
         integer(wi) n, nsize, nlines
-        integer(wi) m, mmax
+        integer(wi) m!, mmax
         integer(wi) k, nblocks, k_plus_1
         real(wp), allocatable :: xp(:, :), alpha(:, :)
 

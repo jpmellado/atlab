@@ -1,6 +1,6 @@
 #include "tlab_error.h"
 
-! Circular transposition within directional communicators
+! Circular transposition within directional communicators using MPI elementary types and 
 ! combined with local transpositions to avoid the need of MPI derived types
 module TLabMPI_Transpose_X
     use mpi_f08
@@ -15,8 +15,20 @@ module TLabMPI_Transpose_X
     public :: tmpi_transposeX_outer_dt  ! transpose along outer most index
 
     ! -----------------------------------------------------------------------
+    ! Size of communication in explicit send/recv
+    ! We assume that this will help to release some of the very heavy
+    ! network load in transpositions on most systems
+#ifdef HLRS_HAWK
+    ! On hawk, we tested that 192 yields optimum performance;
+    ! Blocking will thus only take effect in very large cases
+    integer(wi), parameter :: TMPI_GROUP_SIZE = 192
+#else
+    integer(wi), parameter :: TMPI_GROUP_SIZE = 128
+    ! integer(wi) :: trp_sizBlock_j=1e5   -- would essentially switch off the blocking
+#endif
+
     type trp_mem_dt
-        type(MPI_Datatype) :: type              ! derived types
+        type(MPI_Datatype) :: type              ! elementary type
         integer(wi) :: count                    ! number of elements of type type to be transferred
         integer(wi), allocatable :: disp(:)     ! buffer displacements
         integer(wi), allocatable :: map(:)      ! processor mapping
@@ -27,7 +39,7 @@ module TLabMPI_Transpose_X
         type(trp_mem_dt) :: send                ! send information
         type(trp_mem_dt) :: recv                ! recv information
         type(MPI_Comm) :: comm                  ! communicator
-        integer :: size_block_processes
+        integer :: size_group
         integer(wi) :: nlines
     contains
         procedure :: initialize => tmpi_trpX_initialize
@@ -39,14 +51,16 @@ module TLabMPI_Transpose_X
         private
         ! procedure :: tmpi_trpX_inner_fwd_real
         procedure :: tmpi_trpX_inner_fwd_real_overlap
-        procedure :: tmpi_trpX_inner_bwd_real
+        ! procedure :: tmpi_trpX_inner_bwd_real
+        procedure :: tmpi_trpX_inner_bwd_real_overlap
         procedure :: tmpi_trpX_inner_fwd_complex
         procedure :: tmpi_trpX_inner_fwd_complex_inplace
         procedure :: tmpi_trpX_inner_bwd_complex
         procedure :: tmpi_trpX_inner_bwd_complex_inplace
         ! generic, public :: forward => tmpi_trpX_inner_fwd_real, tmpi_trpX_inner_fwd_complex, tmpi_trpX_inner_fwd_complex_inplace
         generic, public :: forward => tmpi_trpX_inner_fwd_real_overlap, tmpi_trpX_inner_fwd_complex, tmpi_trpX_inner_fwd_complex_inplace
-        generic, public :: backward => tmpi_trpX_inner_bwd_real, tmpi_trpX_inner_bwd_complex, tmpi_trpX_inner_bwd_complex_inplace
+        ! generic, public :: backward => tmpi_trpX_inner_bwd_real, tmpi_trpX_inner_bwd_complex, tmpi_trpX_inner_bwd_complex_inplace
+        generic, public :: backward => tmpi_trpX_inner_bwd_real_overlap, tmpi_trpX_inner_bwd_complex, tmpi_trpX_inner_bwd_complex_inplace
     end type
 
     type, extends(tmpi_transposeX_dt) :: tmpi_transposeX_outer_dt
@@ -57,24 +71,9 @@ module TLabMPI_Transpose_X
     end type
 
     ! -----------------------------------------------------------------------
-    ! Size of communication in explicit send/recv
-    ! We assume that this will help to release some of the very heavy
-    ! network load in transpositions on most systems
-#ifdef HLRS_HAWK
-    ! On hawk, we tested that 192 yields optimum performance;
-    ! Blocking will thus only take effect in very large cases
-    integer(wi) :: tmpi_sizeblock = 384
-#else
-    integer(wi) :: tmpi_sizeblock = 128
-    ! integer(wi) :: trp_sizBlock_j=1e5   -- would essentially switch off the blocking
-#endif
-
-    ! -----------------------------------------------------------------------
-    type(MPI_Status), allocatable :: status(:)
     type(MPI_Request), allocatable :: request(:)
-    integer ims_tag
-
-    integer ims_err
+    integer tag
+    integer ierror
 
 contains
     ! ######################################################################
@@ -125,29 +124,20 @@ contains
         self%recv%count = self%nlines*nmax
 
         ! -----------------------------------------------------------------------
-        self%size_block_processes = tmpi_sizeblock
+        self%size_group = TMPI_GROUP_SIZE
 
         ! -----------------------------------------------------------------------
         ! local PE mappings for explicit send/recv
         call explicit_mapping(self%send, self%recv, axis)
 
         ! -----------------------------------------------------------------------
-        if (allocated(status)) then
-            locSize = size(status)
-            deallocate (status)
-        else
-            locSize = 0
-        end if
-        locSize = max(locSize, 2*max(tmpi_sizeblock, axis%num_processors))
-        allocate (status(locSize))
-
         if (allocated(request)) then
             locSize = size(request)
             deallocate (request)
         else
             locSize = 0
         end if
-        locSize = max(locSize, 2*max(tmpi_sizeblock, axis%num_processors))
+        locSize = max(locSize, 2*max(TMPI_GROUP_SIZE, axis%num_processors))
         allocate (request(locSize))
 
         return
@@ -195,7 +185,7 @@ contains
         end do
 
         call tmpi_trpX_complex(wrk, self%send, b, self%recv, &
-                               self%comm, self%size_block_processes)
+                               self%comm, self%size_group)
 
         return
     end subroutine
@@ -219,7 +209,7 @@ contains
         end do
 
         call tmpi_trpX_complex(wrk, self%send, a, self%recv, &
-                               self%comm, self%size_block_processes)
+                               self%comm, self%size_group)
 
         return
     end subroutine
@@ -235,7 +225,7 @@ contains
         integer(wi) count, nmax, ip
 
         call tmpi_trpX_complex(a, self%recv, wrk, self%send, &
-                               self%comm, self%size_block_processes)
+                               self%comm, self%size_group)
 
         nblocks = size(self%send%disp(:)) ! # of blocks = # of processors
         count = self%send%disp(2)   ! # all processors transfer same amount
@@ -259,7 +249,7 @@ contains
         integer(wi) count, nmax, ip
 
         call tmpi_trpX_complex(a, self%recv, wrk, self%send, &
-                               self%comm, self%size_block_processes)
+                               self%comm, self%size_group)
 
         nblocks = size(self%send%disp(:)) ! # of blocks = # of processors
         count = self%send%disp(2)   ! # all processors transfer same amount
@@ -296,7 +286,7 @@ contains
         end do
 
         call tmpi_trpX_real(wrk, self%send, b, self%recv, &
-                            self%comm, self%size_block_processes)
+                            self%comm, self%size_group)
 
         return
     end subroutine
@@ -315,7 +305,7 @@ contains
 
         ! #######################################################################
         npro = size(self%send%disp(:))
-        step = self%size_block_processes
+        step = self%size_group
 
         ! Make first index last
         count = self%send%disp(2)   ! # all processors transfer same amount
@@ -332,12 +322,12 @@ contains
                 call TLab_Transpose_Real(a(ip:), nmax, self%nlines, nmax, wrk(ip:), self%nlines)
 
                 l = l + 1
-                call MPI_ISEND(wrk(self%send%disp(ns) + 1), self%send%count, self%send%type, ips, ims_tag, self%comm, request(l), ims_err)
+                call MPI_ISEND(wrk(self%send%disp(ns) + 1), self%send%count, self%send%type, ips, tag, self%comm, request(l), ierror)
                 l = l + 1
-                call MPI_IRECV(b(self%recv%disp(nr) + 1), self%recv%count, self%recv%type, ipr, ims_tag, self%comm, request(l), ims_err)
+                call MPI_IRECV(b(self%recv%disp(nr) + 1), self%recv%count, self%recv%type, ipr, tag, self%comm, request(l), ierror)
 
             end do
-            call MPI_WAITALL(l, request, status, ims_err)
+            call MPI_WAITALL(l, request, MPI_STATUSES_IGNORE, ierror)
         end do
 
         return
@@ -354,7 +344,7 @@ contains
         integer(wi) count, nmax, ip
 
         call tmpi_trpX_real(a, self%recv, wrk, self%send, &
-                            self%comm, self%size_block_processes)
+                            self%comm, self%size_group)
 
         ! Make last index first
         nblocks = size(self%send%disp(:)) ! # of blocks = # of processors
@@ -364,6 +354,62 @@ contains
         do ib = 1, nblocks
             ip = (ib - 1)*count + 1
             call TLab_Transpose_Real(wrk(ip:), self%nlines, nmax, self%nlines, b(ip:), nmax)
+        end do
+
+        return
+    end subroutine
+
+    subroutine tmpi_trpX_inner_bwd_real_overlap(self, a, b, wrk)
+        use TLab_Transpose
+        class(tmpi_transposeX_inner_dt), intent(in) :: self
+        real(wp), intent(in) :: a(:)
+        real(wp), intent(out) :: b(:)
+        real(wp), intent(inout) :: wrk(:)
+
+        ! -----------------------------------------------------------------------
+        integer npro, step
+        integer(wi) j, m, l, ns, nr, ips, ipr
+        integer(wi) count, nmax, ip
+        integer num_requests, index
+        logical flag
+
+        ! #######################################################################
+        npro = size(self%recv%disp(:))
+        step = self%size_group
+
+        ! Make last index first
+        count = self%send%disp(2)   ! # all processors transfer same amount
+        nmax = count/self%nlines ! size along direction
+
+        do j = 1, npro, step
+            l = 0
+            do m = j, min(j + step - 1, npro)
+                ns = self%recv%map(m) + 1; ips = ns - 1
+                nr = self%send%map(m) + 1; ipr = nr - 1
+
+                l = l + 1
+                call MPI_ISEND(a(self%recv%disp(ns) + 1), self%recv%count, self%recv%type, ips, tag, self%comm, request(l), ierror)
+                call MPI_IRECV(wrk(self%send%disp(nr) + 1), self%send%count, self%send%type, ipr, tag, self%comm, request(npro + l), ierror)
+
+            end do
+
+            ! call MPI_WAITALL(l, request(npro + 1:), MPI_STATUSES_IGNORE, ierror)
+            ! Make last index first
+            num_requests = 0
+            do while (num_requests < l)
+                call MPI_TESTANY(l, request(npro + 1:), index, flag, MPI_STATUS_IGNORE, ierror)
+                if (flag) then
+                    m = j + index - 1
+                    nr = self%send%map(m) + 1
+                    ip = self%send%disp(nr) + 1
+                    call TLab_Transpose_Real(wrk(ip:), self%nlines, nmax, self%nlines, b(ip:), nmax)
+
+                    num_requests = num_requests + 1
+                end if
+            end do
+
+            call MPI_WAITALL(l, request, MPI_STATUSES_IGNORE, ierror)
+
         end do
 
         return
@@ -391,7 +437,7 @@ contains
         end do
 
         call tmpi_trpX_complex(wrk, self%send, b, self%recv, &
-                               self%comm, self%size_block_processes)
+                               self%comm, self%size_group)
 
         return
     end subroutine
@@ -420,7 +466,7 @@ contains
         integer(wi) count, nmax, ip1, ip2
 
         call tmpi_trpX_complex(a, self%recv, wrk, self%send, &
-                               self%comm, self%size_block_processes)
+                               self%comm, self%size_group)
 
         nblocks = size(self%send%disp(:)) ! # of blocks = # of processors
         count = self%send%disp(2)   ! # all processors transfer same amount
@@ -472,11 +518,11 @@ contains
                 ns = send%map(m) + 1; ips = ns - 1
                 nr = recv%map(m) + 1; ipr = nr - 1
                 l = l + 1
-                call MPI_ISEND(in(send%disp(ns) + 1), send%count, send%type, ips, ims_tag, comm, request(l), ims_err)
+                call MPI_ISEND(in(send%disp(ns) + 1), send%count, send%type, ips, tag, comm, request(l), ierror)
                 l = l + 1
-                call MPI_IRECV(out(recv%disp(nr) + 1), recv%count, recv%type, ipr, ims_tag, comm, request(l), ims_err)
+                call MPI_IRECV(out(recv%disp(nr) + 1), recv%count, recv%type, ipr, tag, comm, request(l), ierror)
             end do
-            call MPI_WAITALL(l, request, status, ims_err)
+            call MPI_WAITALL(l, request, MPI_STATUSES_IGNORE, ierror)
         end do
 
         return
@@ -503,11 +549,11 @@ contains
                 ns = send%map(m) + 1; ips = ns - 1
                 nr = recv%map(m) + 1; ipr = nr - 1
                 l = l + 1
-                call MPI_ISEND(in(send%disp(ns) + 1), send%count, send%type, ips, ims_tag, comm, request(l), ims_err)
+                call MPI_ISEND(in(send%disp(ns) + 1), send%count, send%type, ips, tag, comm, request(l), ierror)
                 l = l + 1
-                call MPI_IRECV(out(recv%disp(nr) + 1), recv%count, recv%type, ipr, ims_tag, comm, request(l), ims_err)
+                call MPI_IRECV(out(recv%disp(nr) + 1), recv%count, recv%type, ipr, tag, comm, request(l), ierror)
             end do
-            call MPI_WAITALL(l, request, status, ims_err)
+            call MPI_WAITALL(l, request, MPI_STATUSES_IGNORE, ierror)
         end do
 
         return

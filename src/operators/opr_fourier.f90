@@ -9,6 +9,9 @@
 
 ! Backward FFT can change original array
 
+! The use of Transpose_X is faster, but it seems it is due to the rearrangement of array for fft X,
+! rather than using elementary types instead of derived types in the mpi transposition
+
 module OPR_Fourier
     use TLab_Constants, only: wp, wi, pi_wp
     use TLab_Constants, only: efile, ifile

@@ -1,7 +1,8 @@
 #include "tlab_error.h"
 
-! Circular transposition within directional communicators using MPI elementary types and 
+! Circular transposition within directional communicators using MPI elementary types and
 ! combined with local transpositions to avoid the need of MPI derived types
+! The overlap routines are marginally faster, but not much
 module TLabMPI_Transpose_X
     use mpi_f08
     use TLab_Constants, only: wp, dp, wi
@@ -67,7 +68,8 @@ module TLabMPI_Transpose_X
     contains
         private
         procedure, public :: forward => tmpi_trpX_outer_fwd_complex
-        procedure, public :: backward => tmpi_trpX_outer_bwd_complex
+        ! procedure, public :: backward => tmpi_trpX_outer_bwd_complex
+        procedure, public :: backward => tmpi_trpX_outer_bwd_complex_overlap
     end type
 
     ! -----------------------------------------------------------------------
@@ -477,6 +479,66 @@ contains
             ip2 = (ib - 1)*count + 1
             call reduce_bwd(wrk(ip2:), self%nlines, nblocks, nmax, b(ip1:))
         end do
+
+        return
+    end subroutine
+
+    subroutine tmpi_trpX_outer_bwd_complex_overlap(self, a, b, wrk)
+        class(tmpi_transposeX_outer_dt), intent(in) :: self
+        complex(wp), intent(in) :: a(:)
+        complex(wp), intent(out) :: b(:)
+        complex(wp), intent(inout) :: wrk(:)
+
+        ! -----------------------------------------------------------------------
+        integer npro, step
+        integer(wi) j, m, l, ns, nr, ips, ipr
+        integer(wi) count, nmax, ip1, ip2
+        integer num_requests, index
+        logical flag
+
+        ! #######################################################################
+        npro = size(self%recv%disp(:))
+        step = self%size_group
+
+        count = self%send%disp(2)   ! # all processors transfer same amount
+        nmax = count/self%nlines ! size along direction
+
+        do j = 1, npro, step
+            l = 0
+            do m = j, min(j + step - 1, npro)
+                ns = self%recv%map(m) + 1; ips = ns - 1
+                nr = self%send%map(m) + 1; ipr = nr - 1
+
+                l = l + 1
+                call MPI_ISEND(a(self%recv%disp(ns) + 1), self%recv%count, self%recv%type, ips, tag, self%comm, request(l), ierror)
+                call MPI_IRECV(wrk(self%send%disp(nr) + 1), self%send%count, self%send%type, ipr, tag, self%comm, request(npro + l), ierror)
+
+            end do
+
+            ! call MPI_WAITALL(l, request(npro + 1:), MPI_STATUSES_IGNORE, ierror)
+            num_requests = 0
+            do while (num_requests < l)
+                call MPI_TESTANY(l, request(npro + 1:), index, flag, MPI_STATUS_IGNORE, ierror)
+                if (flag) then
+                    m = j + index - 1
+                    nr = self%send%map(m) + 1
+                    ip2 = self%send%disp(nr) + 1
+                    ip1 = self%send%disp(nr)/nmax + 1
+                    call reduce_bwd(wrk(ip2:), self%nlines, npro, nmax, b(ip1:))
+
+                    num_requests = num_requests + 1
+                end if
+            end do
+
+            call MPI_WAITALL(l, request, MPI_STATUSES_IGNORE, ierror)
+
+        end do
+
+        ! do j = 1, npro
+        !     ip1 = (j - 1)*self%nlines + 1
+        !     ip2 = (j - 1)*count + 1
+        !     call reduce_bwd(wrk(ip2:), self%nlines, npro, nmax, b(ip1:))
+        ! end do
 
         return
     end subroutine

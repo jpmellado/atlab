@@ -102,7 +102,7 @@ if [ ! -e $STATSDIR ]; then
         cp tlab.ini $STATSDIR
     fi
 
-    LIST=$(ls | egrep 'avg[a-zA-Z]*[0-9]|[xzr](sp|cr)[0-9]|pdf[0-9]|int[0-9]|kin[0-9]')
+    LIST=$(ls | egrep 'avg.*|pdf.*|[xzr](sp|cr)[0-9]|int[0-9]|kin[0-9]')
     echo "Moving statistic files into $STATSDIR"
     if [ -n "$LIST" ]; then
         mv $LIST $STATSDIR

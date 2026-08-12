@@ -3,7 +3,7 @@ program vMpi_Transpose
     use mpi_f08
     use TLabMPI_VARS, only: mpiGrid, xMpi, yMpi, ims_err !, ims_time_trans
     use TLabMPI_Transpose_DerivedTypes
-    use TLabMPI_Transpose_X
+    use TLabMPI_Transpose_Elementary
     implicit none
 
     ! integer(wi), parameter :: nx = 8         ! full size of each linear system

@@ -3,7 +3,7 @@
 ! Circular transposition within directional communicators using MPI elementary types and
 ! combined with local transpositions to avoid the need of MPI derived types
 ! The overlap routines are marginally faster, but not much
-module TLabMPI_Transpose_X
+module TLabMPI_Transpose_Elementary
     use mpi_f08
     use TLab_Constants, only: wp, dp, wi
     use TLab_Constants, only: lfile, efile

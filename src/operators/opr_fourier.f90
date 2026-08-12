@@ -25,7 +25,7 @@ module OPR_Fourier
 #ifdef USE_MPI
     use TLabMPI_VARS, only: xMpi, yMpi
     use TLabMPI_Transpose_DerivedTypes, only: tmpi_transpose_y_dt
-    use TLabMPI_Transpose_X
+    use TLabMPI_Transpose_Elementary
 #endif
     implicit none
     private

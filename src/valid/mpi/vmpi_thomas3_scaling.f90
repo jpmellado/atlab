@@ -20,9 +20,12 @@ program vMpi_Thomas3_Scaling
     ! integer(wi), parameter :: nx = 32768        ! full size of each linear system
     ! integer(wi), parameter :: nlines = 262144   ! number of linear systems to solve, 32*8192
 
+    ! integer(wi), parameter :: batchsize = 4     ! # of nlines that are solved together, to test cache
+    integer(wi), parameter :: batchsize = nlines    ! no locality
+
     real(wp) :: lhs(nx, nd)                     ! Diagonals of system matrix A
-    real(wp), allocatable :: u(:, :)            ! numerical solution of A u = f
-    real(wp), allocatable :: f(:, :)            ! forcing
+    real(wp), allocatable :: u(:, :, :)         ! numerical solution of A u = f
+    real(wp), allocatable :: f(:, :, :)         ! forcing
     real(wp) :: wrk2d(nlines, 2)
 
     real(wp), allocatable :: u_transposed(:, :)
@@ -31,7 +34,7 @@ program vMpi_Thomas3_Scaling
     type(thomas_parallel_dt) split_mpi
     type(thomas_circulant_dt) :: thomas_circulant1
 
-    integer k, np, it, nxLoc, nlinesLoc
+    integer k, np, it, ib, nxLoc, nlinesLoc
 
     ! integer :: nseed
     ! integer, allocatable :: seed(:)
@@ -71,14 +74,16 @@ program vMpi_Thomas3_Scaling
 
     ! -------------------------------------------------------------------
     nxLoc = nx/mpiGrid%num_processors     ! task-local number of grid points along X
-    allocate (u(nlines, nxLoc))
-    allocate (f(nlines, nxLoc))
+    ! allocate (u(nlines, nxLoc))
+    ! allocate (f(nlines, nxLoc))
+    allocate (u(batchsize, nxLoc, nlines/batchsize))
+    allocate (f(batchsize, nxLoc, nlines/batchsize))
 
     ! call random_number(f)       ! forcing
-    f(:, :) = 1.0_wp            ! forcing
+    f = 1.0_wp            ! forcing
 
     if (mpiGrid%rank == 0) then
-        print *, new_line('a'), 'Solving ', nlines, ' systems of size ', nx, ' over ', mpiGrid%num_processors, ' processors.'
+        print *, new_line('a'), 'Solving ', nlines, ' systems of size ', nx, 'in batches of ', batchsize, ' over ', mpiGrid%num_processors, ' processors.'
     end if
 
     ! -------------------------------------------------------------------
@@ -92,13 +97,15 @@ program vMpi_Thomas3_Scaling
 
     call MPI_BARRIER(MPI_COMM_WORLD, ims_err)
 
+    u = f
     ims_time_trans = 0.0_wp
     time_loc_1 = MPI_WTIME()
     do it = 1, num_iterations
-        u(:, :) = f(:, :)
-        call split_mpi%SolveL(u)
-        call split_mpi%SolveU(u)
-        call split_mpi%reduce(u, wrk2d(:, 1), wrk2d(:, 2))
+        do ib = 1, nlines/batchsize
+            call split_mpi%SolveL(u(:, :, ib))
+            call split_mpi%SolveU(u(:, :, ib))
+            call split_mpi%reduce(u(:, :, ib), wrk2d(:, 1), wrk2d(:, 2))
+        end do
     end do
     time_loc_2 = MPI_WTIME()
 
@@ -124,26 +131,27 @@ program vMpi_Thomas3_Scaling
 
     call tmpi_trp%initialize(nxLoc, nlines)
 
+    u = f
     ims_time_trans = 0.0_wp
     time_loc_1 = MPI_WTIME()
 
     if (mpiGrid%num_processors > 1) then
         do it = 1, num_iterations
-            u(:, :) = f(:, :)
-            call tmpi_trp%forward(u(:, 1), u_transposed(:, 1))
+            call tmpi_trp%forward(u(:, 1, 1), u_transposed(:, 1))
 
             call thomas_circulant1%solveL(u_transposed)
             call thomas_circulant1%solveU(u_transposed)
             call thomas_circulant1%reduce(u_transposed, wrk2d(:, 1))
 
-            call tmpi_trp%backward(u_transposed(:, 1), u(:, 1))
+            call tmpi_trp%backward(u_transposed(:, 1), u(:, 1, 1))
         end do
     else
         do it = 1, num_iterations
-            u(:, :) = f(:, :)
-            call thomas_circulant1%solveL(u)
-            call thomas_circulant1%solveU(u)
-            call thomas_circulant1%reduce(u, wrk2d(:, 1))
+            do ib = 1, nlines/batchsize
+                call thomas_circulant1%solveL(u(:, :, ib))
+                call thomas_circulant1%solveU(u(:, :, ib))
+                call thomas_circulant1%reduce(u(:, :, ib), wrk2d(:, 1))
+            end do
         end do
     end if
     time_loc_2 = MPI_WTIME()

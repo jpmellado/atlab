@@ -104,7 +104,8 @@ program vMpi_Thomas3_Scaling
         do ib = 1, nlines/batchsize
             call split_mpi%SolveL(u(:, :, ib))
             call split_mpi%SolveU(u(:, :, ib))
-            call split_mpi%reduce(u(:, :, ib), wrk2d(1:batchsize, 1), wrk2d(1:batchsize, 2))
+            call split_mpi%reduce(u(:, :, ib), wrk2d(:, 1), wrk2d(:, 2))
+            ! call split_mpi%reduceX(u(:, :, ib), wrk2d(:, 1), wrk2d(:, 2))
         end do
     end do
     time_loc_2 = MPI_WTIME()

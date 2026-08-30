@@ -34,6 +34,7 @@ module Thomas_Parallel
         procedure :: initialize => thomas_initialize_dt
 #ifdef USE_MPI
         procedure :: reduce => thomas_reduce_mpi_dt
+        procedure :: reduceX => thomas_reduceX_mpi_dt
 #endif
     end type thomas_parallel_dt
 
@@ -278,6 +279,70 @@ contains
 
         return
     end subroutine thomas_reduce_mpi_dt
+
+    !########################################################################
+    !########################################################################
+    ! Assume circulant matrix and need alpha_0
+    ! Truncated algorithm
+    subroutine thomas_reduceX_mpi_dt(self, f, alpha, alpha_m1)
+        use mpi_f08
+        class(thomas_parallel_dt), intent(in) :: self
+        real(wp), intent(inout) :: f(:, :)
+        real(wp), intent(inout) :: alpha(size(f, 1))         ! memory space for local alpha_k
+        real(wp), intent(inout) :: alpha_m1(size(f, 1))      ! memory space for alpha_k-1
+        integer(wi) n, nsize, nlines
+        integer(wi) nblocks
+
+        integer ims_err
+        integer source, dest, tag
+
+        !########################################################################
+        nblocks = self%mpi%num_processors
+        nlines = size(f, 1)
+        nsize = size(f, 2)              ! Assume all blocks have same size
+
+        if (self%mpi%num_processors == 1 .and. self%circulant) then
+            call Thomas_3_Split_Reduce(self%L, &
+                                       self%U, &
+                                       self%y(:, 0), &
+                                       f, alpha, size(self%L, 1))
+            return
+        end if
+
+        ! -------------------------------------------------------------------
+        ! pass x(:,1) to previous block
+#define xp(j) alpha(j)
+        dest = mod(self%mpi%rank - 1 + self%mpi%num_processors, self%mpi%num_processors)
+        source = mod(self%mpi%rank + 1, self%mpi%num_processors)
+        tag = 0
+        call MPI_Sendrecv(f(1, 1), nlines, MPI_REAL8, dest, tag, &
+                          xp(1), nlines, MPI_REAL8, source, tag, &
+                          self%mpi%comm, MPI_STATUS_IGNORE, ims_err)
+
+        ! pass x(:,n) to following block
+#define xm(j) alpha_m1(j)
+        dest = mod(self%mpi%rank + 1, self%mpi%num_processors)
+        source = mod(self%mpi%rank - 1 + self%mpi%num_processors, self%mpi%num_processors)
+        tag = 1
+        call MPI_Sendrecv(f(1, nsize), nlines, MPI_REAL8, dest, tag, &
+                          xm(1), nlines, MPI_REAL8, source, tag, &
+                          self%mpi%comm, MPI_STATUS_IGNORE, ims_err)
+
+        ! Calculate coefficients
+        alpha(:) = f(:, nsize) + xp(:)
+        alpha_m1(:) = f(:, 1) + xm(:)
+
+        ! Update solution
+        do n = 1, nsize
+            f(:, n) = f(:, n) + alpha(:)*self%y(n, dest) &
+                      + alpha_m1(:)*self%y(n, self%block_id - 1)
+        end do
+
+#undef xp
+#undef xm
+
+        return
+    end subroutine thomas_reduceX_mpi_dt
 #endif
 
     !########################################################################

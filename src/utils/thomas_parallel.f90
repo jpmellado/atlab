@@ -197,8 +197,8 @@ contains
 #endif
         class(thomas_parallel_dt), intent(in) :: self
         real(wp), intent(inout) :: f(:, :)
-        real(wp), intent(inout) :: alpha(:)         ! auxiliary memory space for local alpha
-        real(wp), intent(inout) :: tmp(:)           ! auxiliary memory space for all alphas
+        real(wp), intent(inout) :: alpha(size(f, 1))         ! auxiliary memory space for local alpha
+        real(wp), intent(inout) :: tmp(size(f, 1))           ! auxiliary memory space for all alphas
         integer(wi) n, nsize, nlines
         integer(wi) nblocks
 

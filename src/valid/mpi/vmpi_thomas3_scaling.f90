@@ -28,10 +28,10 @@ program vMpi_Thomas3_Scaling
     real(wp), allocatable :: f(:, :, :)         ! forcing
     real(wp) :: wrk2d(nlines, 2)
 
+    type(thomas_parallel_dt) split_mpi
+
     real(wp), allocatable :: u_transposed(:, :)
     type(tmpi_transpose_y_dt) :: tmpi_trp
-
-    type(thomas_parallel_dt) split_mpi
     type(thomas_circulant_dt) :: thomas_circulant1
 
     integer k, np, it, ib, nxLoc, nlinesLoc
@@ -104,7 +104,7 @@ program vMpi_Thomas3_Scaling
         do ib = 1, nlines/batchsize
             call split_mpi%SolveL(u(:, :, ib))
             call split_mpi%SolveU(u(:, :, ib))
-            call split_mpi%reduce(u(:, :, ib), wrk2d(:, 1), wrk2d(:, 2))
+            call split_mpi%reduce(u(:, :, ib), wrk2d(1:batchsize, 1), wrk2d(1:batchsize, 2))
         end do
     end do
     time_loc_2 = MPI_WTIME()
@@ -150,7 +150,7 @@ program vMpi_Thomas3_Scaling
             do ib = 1, nlines/batchsize
                 call thomas_circulant1%solveL(u(:, :, ib))
                 call thomas_circulant1%solveU(u(:, :, ib))
-                call thomas_circulant1%reduce(u(:, :, ib), wrk2d(:, 1))
+                call thomas_circulant1%reduce(u(:, :, ib), wrk2d(1:batchsize, 1))
             end do
         end do
     end if

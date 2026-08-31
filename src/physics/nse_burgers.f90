@@ -19,6 +19,7 @@ module NSE_Burgers
     use FDM_Derivative_1order, only: der1_periodic
     use FDM_Derivative_2order, only: der2_extended_periodic
     use FDM_Derivative_Burgers
+    use OPR_Burgers
 #ifdef USE_MPI
     use OPR_Partial
 #endif
@@ -59,168 +60,168 @@ module NSE_Burgers
 
     real(wp), allocatable :: rho_wbackground(:)     ! subsidence velocity (times density)
 
-    type, abstract :: burgers1d
-        real(wp) :: diffusivity
-    contains
-        procedure :: initialize => burgers1d_initialize
-        procedure :: compute => burgers1d_compute
-        procedure :: compute_setrhou => burgers1d_compute_setrhou
-    end type
+    ! type, abstract :: burgers1d
+    !     real(wp) :: diffusivity
+    ! contains
+    !     procedure :: initialize => burgers1d_initialize
+    !     procedure :: compute => burgers1d_compute
+    !     procedure :: compute_setrhou => burgers1d_compute_setrhou
+    ! end type
 
-    type, extends(burgers1d) :: burgers1d_boussinesq
-    contains
-    end type
+    ! type, extends(burgers1d) :: burgers1d_boussinesq
+    ! contains
+    ! end type
 
-    type, extends(burgers1d) :: burgers1d_anelastic
-        real(wp), allocatable :: rho(:)
-    contains
-    end type
+    ! type, extends(burgers1d) :: burgers1d_anelastic
+    !     real(wp), allocatable :: rho(:)
+    ! contains
+    ! end type
 
     class(burgers1d), allocatable :: burgers1d_X(:), burgers1d_Y(:)
 
 contains
-    !########################################################################
-    !########################################################################
-    subroutine burgers1d_initialize(self, diffusivity, axis)
-        class(burgers1d), intent(out) :: self
-        real(wp), intent(in) :: diffusivity
-        character(len=*), intent(in) :: axis
+!     !########################################################################
+!     !########################################################################
+!     subroutine burgers1d_initialize(self, diffusivity, axis)
+!         class(burgers1d), intent(out) :: self
+!         real(wp), intent(in) :: diffusivity
+!         character(len=*), intent(in) :: axis
 
-        self%diffusivity = diffusivity
+!         self%diffusivity = diffusivity
 
-        select type (self)
-        type is (burgers1d_anelastic)
-            call anelastic_initialize_rho(self%rho, axis)
-        end select
+!         select type (self)
+!         type is (burgers1d_anelastic)
+!             call anelastic_initialize_rho(self%rho, axis)
+!         end select
 
-        return
+!         return
 
-    end subroutine burgers1d_initialize
+!     end subroutine burgers1d_initialize
 
-    !########################################################################
-    !########################################################################
-    subroutine burgers1d_compute(self, nlines, nsize, der1, der2, rhou)
-        class(burgers1d) self
-        integer(wi), intent(in) :: nlines, nsize
-        real(wp), intent(in) :: der1(nlines, nsize)
-        real(wp), intent(inout) :: der2(nlines, nsize)
-        real(wp), intent(in) :: rhou(nlines, nsize)
+!     !########################################################################
+!     !########################################################################
+!     subroutine burgers1d_compute(self, nlines, nsize, der1, der2, rhou)
+!         class(burgers1d) self
+!         integer(wi), intent(in) :: nlines, nsize
+!         real(wp), intent(in) :: der1(nlines, nsize)
+!         real(wp), intent(inout) :: der2(nlines, nsize)
+!         real(wp), intent(in) :: rhou(nlines, nsize)
 
-#define result(i,j) der2(i,j)
+! #define result(i,j) der2(i,j)
 
-        result(:, :) = der2(:, :)*self%diffusivity - rhou(:, :)*der1(:, :)
+!         result(:, :) = der2(:, :)*self%diffusivity - rhou(:, :)*der1(:, :)
 
-#undef result
+! #undef result
 
-        return
-    end subroutine burgers1d_compute
+!         return
+!     end subroutine burgers1d_compute
 
-    !########################################################################
-    !########################################################################
-    subroutine burgers1d_compute_setrhou(self, nlines, nsize, der1, der2, rhou)
-        class(burgers1d) self
-        integer(wi), intent(in) :: nlines, nsize
-        real(wp), intent(in) :: der1(nlines, nsize)
-        real(wp), intent(inout) :: der2(nlines, nsize)
-        real(wp), intent(inout) :: rhou(nlines, nsize)
+!     !########################################################################
+!     !########################################################################
+!     subroutine burgers1d_compute_setrhou(self, nlines, nsize, der1, der2, rhou)
+!         class(burgers1d) self
+!         integer(wi), intent(in) :: nlines, nsize
+!         real(wp), intent(in) :: der1(nlines, nsize)
+!         real(wp), intent(inout) :: der2(nlines, nsize)
+!         real(wp), intent(inout) :: rhou(nlines, nsize)
 
-        select type (self)
-        type is (burgers1d_anelastic)
-            call anelastic_compute_setrho(self, nlines, nsize, der1, der2, rhou)
+!         select type (self)
+!         type is (burgers1d_anelastic)
+!             call anelastic_compute_setrho(self, nlines, nsize, der1, der2, rhou)
 
-        type is (burgers1d_boussinesq)
-            call self%compute(nlines, nsize, der1, der2, rhou)
+!         type is (burgers1d_boussinesq)
+!             call self%compute(nlines, nsize, der1, der2, rhou)
 
-        end select
+!         end select
 
-        return
-    end subroutine burgers1d_compute_setrhou
+!         return
+!     end subroutine burgers1d_compute_setrhou
 
-    !########################################################################
-    !########################################################################
-    subroutine anelastic_compute_setrho(self, nlines, nsize, der1, der2, rhou)
-        class(burgers1d_anelastic) self
-        integer(wi), intent(in) :: nlines, nsize
-        real(wp), intent(in) :: der1(nlines, nsize)
-        real(wp), intent(inout) :: der2(nlines, nsize)
-        real(wp), intent(inout) :: rhou(nlines, nsize)
+!     !########################################################################
+!     !########################################################################
+!     subroutine anelastic_compute_setrho(self, nlines, nsize, der1, der2, rhou)
+!         class(burgers1d_anelastic) self
+!         integer(wi), intent(in) :: nlines, nsize
+!         real(wp), intent(in) :: der1(nlines, nsize)
+!         real(wp), intent(inout) :: der2(nlines, nsize)
+!         real(wp), intent(inout) :: rhou(nlines, nsize)
 
-        integer ij
+!         integer ij
 
-#define result(i,j) der2(i,j)
+! #define result(i,j) der2(i,j)
 
-        do ij = 1, nsize
-            rhou(:, ij) = rhou(:, ij)*self%rho(:)
-            result(:, ij) = der2(:, ij)*self%diffusivity - rhou(:, ij)*der1(:, ij)
-        end do
+!         do ij = 1, nsize
+!             rhou(:, ij) = rhou(:, ij)*self%rho(:)
+!             result(:, ij) = der2(:, ij)*self%diffusivity - rhou(:, ij)*der1(:, ij)
+!         end do
 
-#undef result
+! #undef result
 
-        return
-    end subroutine anelastic_compute_setrho
+!         return
+!     end subroutine anelastic_compute_setrho
 
-    !########################################################################
-    !########################################################################
-    subroutine anelastic_initialize_rho(rho, axis)
-        use TLab_Memory, only: imax, jmax, kmax
-#ifdef USE_MPI
-        use TLabMPI_VARS, only: xMpi, yMpi
-#endif
-        use Thermo_Anelastic, only: rbackground
-        real(wp), allocatable, intent(out) :: rho(:)
-        character(len=*), intent(in) :: axis
+!     !########################################################################
+!     !########################################################################
+!     subroutine anelastic_initialize_rho(rho, axis)
+!         use TLab_Memory, only: imax, jmax, kmax
+! #ifdef USE_MPI
+!         use TLabMPI_VARS, only: xMpi, yMpi
+! #endif
+!         use Thermo_Anelastic, only: rbackground
+!         real(wp), allocatable, intent(out) :: rho(:)
+!         character(len=*), intent(in) :: axis
 
-        integer(wi) ip, j
-        integer(wi) nlines, offset
+!         integer(wi) ip, j
+!         integer(wi) nlines, offset
 
-        !########################################################################
-        select case (trim(adjustl(axis)))
-            ! -----------------------------------------------------------------------
-            ! Density correction term in the burgers operator along X
-        case ('x')
-#ifdef USE_MPI
-            if (xMpi%num_processors > 1 .and. der_mode_i == TYPE_TRANSPOSE) then
-                ! nlines = tmpi_plan_dx%nlines
-                nlines = tmpi_trp_X%nlines
-                offset = nlines*xMpi%rank
-            else
-#endif
-                nlines = jmax*kmax
-                offset = 0
-#ifdef USE_MPI
-            end if
-#endif
-            allocate (rho(nlines))
-            do j = 1, nlines
-                ip = (offset + j - 1)/jmax + 1
-                rho(j) = rbackground(ip)
-            end do
+!         !########################################################################
+!         select case (trim(adjustl(axis)))
+!             ! -----------------------------------------------------------------------
+!             ! Density correction term in the burgers operator along X
+!         case ('x')
+! #ifdef USE_MPI
+!             if (xMpi%num_processors > 1 .and. der_mode_i == TYPE_TRANSPOSE) then
+!                 ! nlines = tmpi_plan_dx%nlines
+!                 nlines = tmpi_trp_X%nlines
+!                 offset = nlines*xMpi%rank
+!             else
+! #endif
+!                 nlines = jmax*kmax
+!                 offset = 0
+! #ifdef USE_MPI
+!             end if
+! #endif
+!             allocate (rho(nlines))
+!             do j = 1, nlines
+!                 ip = (offset + j - 1)/jmax + 1
+!                 rho(j) = rbackground(ip)
+!             end do
 
-            ! -----------------------------------------------------------------------
-            ! Density correction term in the burgers operator along Y
-        case ('y')
-#ifdef USE_MPI
-            if (yMpi%num_processors > 1 .and. der_mode_j == TYPE_TRANSPOSE) then
-                ! nlines = tmpi_plan_dy%nlines
-                nlines = tmpi_trp_Y%nlines
-                offset = nlines*yMpi%rank
-            else
-#endif
-                nlines = imax*kmax
-                offset = 0
-#ifdef USE_MPI
-            end if
-#endif
-            allocate (rho(nlines))
-            do j = 1, nlines
-                ip = mod(offset + j - 1, z%size) + 1
-                rho(j) = rbackground(ip)
-            end do
+!             ! -----------------------------------------------------------------------
+!             ! Density correction term in the burgers operator along Y
+!         case ('y')
+! #ifdef USE_MPI
+!             if (yMpi%num_processors > 1 .and. der_mode_j == TYPE_TRANSPOSE) then
+!                 ! nlines = tmpi_plan_dy%nlines
+!                 nlines = tmpi_trp_Y%nlines
+!                 offset = nlines*yMpi%rank
+!             else
+! #endif
+!                 nlines = imax*kmax
+!                 offset = 0
+! #ifdef USE_MPI
+!             end if
+! #endif
+!             allocate (rho(nlines))
+!             do j = 1, nlines
+!                 ip = mod(offset + j - 1, z%size) + 1
+!                 rho(j) = rbackground(ip)
+!             end do
 
-        end select
+!         end select
 
-        return
-    end subroutine anelastic_initialize_rho
+!         return
+!     end subroutine anelastic_initialize_rho
 
     !########################################################################
     !########################################################################
@@ -248,24 +249,37 @@ contains
             allocate (burgers1d_anelastic :: burgers1d_X(0:inb_scal))
             allocate (burgers1d_anelastic :: burgers1d_Y(0:inb_scal))
 
+            do is = 0, inb_scal
+                if (is == 0) then
+                    diffusivity(is) = visc
+                    call burgers1d_X(is)%initialize(visc, 'x', rbackground)
+                    call burgers1d_Y(is)%initialize(visc, 'y', rbackground)
+                else
+                    diffusivity(is) = visc/schmidt(is)
+                    call burgers1d_X(is)%initialize(visc/schmidt(is), 'x', rbackground)
+                    call burgers1d_Y(is)%initialize(visc/schmidt(is), 'y', rbackground)
+                end if
+
+            end do
+
         case (DNS_EQNS_BOUSSINESQ)
             allocate (burgers1d_boussinesq :: burgers1d_X(0:inb_scal))
             allocate (burgers1d_boussinesq :: burgers1d_Y(0:inb_scal))
 
+            do is = 0, inb_scal
+                if (is == 0) then
+                    diffusivity(is) = visc
+                    call burgers1d_X(is)%initialize(visc, 'x')
+                    call burgers1d_Y(is)%initialize(visc, 'y')
+                else
+                    diffusivity(is) = visc/schmidt(is)
+                    call burgers1d_X(is)%initialize(visc/schmidt(is), 'x')
+                    call burgers1d_Y(is)%initialize(visc/schmidt(is), 'y')
+                end if
+
+            end do
+
         end select
-
-        do is = 0, inb_scal
-            if (is == 0) then
-                diffusivity(is) = visc
-                call burgers1d_X(is)%initialize(visc, 'x')
-                call burgers1d_Y(is)%initialize(visc, 'y')
-            else
-                diffusivity(is) = visc/schmidt(is)
-                call burgers1d_X(is)%initialize(visc/schmidt(is), 'x')
-                call burgers1d_Y(is)%initialize(visc/schmidt(is), 'y')
-            end if
-
-        end do
 
         ! ###################################################################
         ! Initialize subsidence velocity (times density) to handle both Boussinesq and anelastic

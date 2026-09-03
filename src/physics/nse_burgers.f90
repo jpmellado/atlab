@@ -59,7 +59,7 @@ module NSE_Burgers
 
     real(wp), allocatable :: rho_wbackground(:)     ! subsidence velocity (times density)
 
-    class(burgers1d), allocatable :: burgers1d_X(:), burgers1d_Y(:)!, burgers1d_Z(:)
+    class(burgers1d), allocatable :: burgers1d_X(:), burgers1d_Y(:), burgers1d_Z(:)
 
 contains
     !########################################################################
@@ -87,20 +87,24 @@ contains
         case (DNS_EQNS_ANELASTIC)
             allocate (burgers1d_anelastic :: burgers1d_X(0:inb_scal))
             allocate (burgers1d_anelastic :: burgers1d_Y(0:inb_scal))
-            ! if (subsidenceProps%type == TYPE_SUB_CONSTANT) then
-            !     allocate (burgers1d_subsidence_anelastic :: burgers1d_Z(0:inb_scal))
-            ! else
-            !     allocate (burgers1d_anelastic :: burgers1d_Z(0:inb_scal))
-            ! end if
-            do is = 0, inb_scal
+            if (subsidenceProps%type == TYPE_SUB_CONSTANT) then
+                allocate (burgers1d_subsidence_anelastic :: burgers1d_Z(0:inb_scal))
+            else
+                allocate (burgers1d_anelastic :: burgers1d_Z(0:inb_scal))
+            end if
+
+            do is = 0, inb_scal     ! is = 0 corresponds to velocity fields
                 if (is == 0) then
                     diffusivity(is) = visc
-                    call burgers1d_X(is)%initialize(visc, 'x', rbackground)
-                    call burgers1d_Y(is)%initialize(visc, 'y', rbackground)
                 else
                     diffusivity(is) = visc/schmidt(is)
-                    call burgers1d_X(is)%initialize(visc/schmidt(is), 'x', rbackground)
-                    call burgers1d_Y(is)%initialize(visc/schmidt(is), 'y', rbackground)
+                end if
+                call burgers1d_X(is)%initialize(diffusivity(is), 'x', rbackground)
+                call burgers1d_Y(is)%initialize(diffusivity(is), 'y', rbackground)
+                if (subsidenceProps%type == TYPE_SUB_CONSTANT) then
+                    call burgers1d_Z(is)%initialize(diffusivity(is), 'z', rbackground, wbackground=wbackground)
+                else
+                    call burgers1d_Z(is)%initialize(diffusivity(is), 'z', rbackground)
                 end if
 
             end do
@@ -108,20 +112,24 @@ contains
         case (DNS_EQNS_BOUSSINESQ)
             allocate (burgers1d_boussinesq :: burgers1d_X(0:inb_scal))
             allocate (burgers1d_boussinesq :: burgers1d_Y(0:inb_scal))
-            ! if (subsidenceProps%type == TYPE_SUB_CONSTANT) then
-            !     allocate (burgers1d_subsidence_boussinesq :: burgers1d_Z(0:inb_scal))
-            ! else
-            !     allocate (burgers1d_boussinesq :: burgers1d_Z(0:inb_scal))
-            ! end if
-            do is = 0, inb_scal
+            if (subsidenceProps%type == TYPE_SUB_CONSTANT) then
+                allocate (burgers1d_subsidence_boussinesq :: burgers1d_Z(0:inb_scal))
+            else
+                allocate (burgers1d_boussinesq :: burgers1d_Z(0:inb_scal))
+            end if
+
+            do is = 0, inb_scal     ! is = 0 corresponds to velocity fields
                 if (is == 0) then
                     diffusivity(is) = visc
-                    call burgers1d_X(is)%initialize(visc, 'x')
-                    call burgers1d_Y(is)%initialize(visc, 'y')
                 else
                     diffusivity(is) = visc/schmidt(is)
-                    call burgers1d_X(is)%initialize(visc/schmidt(is), 'x')
-                    call burgers1d_Y(is)%initialize(visc/schmidt(is), 'y')
+                end if
+                call burgers1d_X(is)%initialize(diffusivity(is))
+                call burgers1d_Y(is)%initialize(diffusivity(is))
+                if (subsidenceProps%type == TYPE_SUB_CONSTANT) then
+                    call burgers1d_Z(is)%initialize(diffusivity(is), wbackground=wbackground)
+                else
+                    call burgers1d_Z(is)%initialize(diffusivity(is))
                 end if
 
             end do
@@ -538,22 +546,18 @@ contains
         call fdm_der1_Z%compute(nlines, s, wrk3d)
         call fdm_der2_Z%compute(nlines, s, tmp1, wrk3d)
 
-        ! if (present(rhou_in)) then
-        !     call burgers1d_Z(is)%add(nlines, nz, der1=wrk3d, der2=tmp1, rhou=rhou_in, result)
-        ! else
-        !     call burgers1d_Z(is)%add_setrhou(nlines, nz, der1=wrk3d, der2=tmp1, u=s, rhou=rhou_out, result)
-        ! end if
-
-        if (present(rhou_in)) then      ! transposed velocity (times density) is passed as argument
-            if (subsidenceProps%type == TYPE_SUB_CONSTANT) then
-                do k = 1, nz
-                    result(:, k) = result(:, k) + tmp1(:, k)*diffusivity(is) + (rho_wbackground(k) - rhou_in(:, k))*pxy_wrk3d(:, k)
-                end do
-            else
-                result(:, :) = result(:, :) + tmp1(:, :)*diffusivity(is) - rhou_in(:, :)*pxy_wrk3d(:, :)
-            end if
+        if (present(rhou_in)) then      ! velocity (times density) is passed as argument
+            call burgers1d_Z(is)%add(nlines, nz, der1=wrk3d, der2=tmp1, rhou=rhou_in, result=result)
+            ! if (subsidenceProps%type == TYPE_SUB_CONSTANT) then
+            !     do k = 1, nz
+            !         result(:, k) = result(:, k) + tmp1(:, k)*diffusivity(is) + (rho_wbackground(k) - rhou_in(:, k))*pxy_wrk3d(:, k)
+            !     end do
+            ! else
+            !     result(:, :) = result(:, :) + tmp1(:, :)*diffusivity(is) - rhou_in(:, :)*pxy_wrk3d(:, :)
+            ! end if
 
         else                            ! Only used in anelastic formulation
+            ! call burgers1d_Z(is)%add_setrhou(nlines, nz, der1=wrk3d, der2=tmp1, u=s, rhou=rhou_out, result)
             if (subsidenceProps%type == TYPE_SUB_CONSTANT) then
                 do k = 1, nz
                     rhou_out(:, k) = s(:, k)*rbackground(k)

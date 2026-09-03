@@ -6,6 +6,7 @@ module OPR_Burgers
     public :: burgers1d
     public :: burgers1d_boussinesq
     public :: burgers1d_anelastic
+    ! public :: burgers1d_compressible
 
     ! -----------------------------------------------------------------------
     type, abstract :: burgers1d
@@ -13,17 +14,48 @@ module OPR_Burgers
     contains
         procedure :: initialize => burgers1d_initialize
         procedure :: compute => burgers1d_compute
-        procedure :: compute_setrhou => burgers1d_compute_setrhou
+        procedure(compute_setrhou_ice), deferred :: compute_setrhou ! handle density contribution depending on type
     end type
+    abstract interface
+        subroutine compute_setrhou_ice(self, nlines, nsize, der1, der2, rhou)
+            import wp, wi, burgers1d
+            class(burgers1d) self
+            integer(wi), intent(in) :: nlines, nsize
+            real(wp), intent(in) :: der1(nlines, nsize)
+            real(wp), intent(inout) :: der2(nlines, nsize)
+            real(wp), intent(inout) :: rhou(nlines, nsize)
+        end subroutine compute_setrhou_ice
+    end interface
 
     type, extends(burgers1d) :: burgers1d_boussinesq
     contains
+        procedure :: compute_setrhou => boussinesq_compute_setrho
     end type
 
     type, extends(burgers1d) :: burgers1d_anelastic
         real(wp), allocatable :: rho(:)
     contains
+        procedure :: initialize => burgers1d_anelastic_initialize
+        procedure :: compute_setrhou => anelastic_compute_setrho
     end type
+
+    ! -----------------------------------------------------------------------
+    type, abstract, extends(burgers1d) :: burgers1d_subsidence
+        real(wp), allocatable :: rhou_background(:)
+    contains
+        procedure :: compute => burgers1d_subsidence_compute
+    end type
+
+    ! type, extends(burgers1d_subsidence) :: burgers1d_subsidence_boussinesq
+    ! contains
+    !     procedure :: compute_setrhou => boussinesq_compute_setrho
+    ! end type
+
+    ! type, extends(burgers1d_subsidence) :: burgers1d_subsidence_anelastic
+    !     real(wp), allocatable :: rho(:)
+    ! contains
+    !     procedure :: compute_setrhou => anelastic_compute_setrho
+    ! end type
 
 contains
     !########################################################################
@@ -36,17 +68,9 @@ contains
 
         self%diffusivity = diffusivity
 
-        select type (self)
-        type is (burgers1d_anelastic)
-            call anelastic_initialize_rho(self%rho, axis, rbackground)
-        end select
-
         return
-
     end subroutine burgers1d_initialize
 
-!########################################################################
-!########################################################################
     subroutine burgers1d_compute(self, nlines, nsize, der1, der2, rhou)
         class(burgers1d) self
         integer(wi), intent(in) :: nlines, nsize
@@ -63,29 +87,76 @@ contains
         return
     end subroutine burgers1d_compute
 
-!########################################################################
-!########################################################################
-    subroutine burgers1d_compute_setrhou(self, nlines, nsize, der1, der2, rhou)
+    subroutine burgers1d_add(self, nlines, nsize, der1, der2, rhou, result)
         class(burgers1d) self
+        integer(wi), intent(in) :: nlines, nsize
+        real(wp), intent(in) :: der1(nlines, nsize)
+        real(wp), intent(in) :: der2(nlines, nsize)
+        real(wp), intent(in) :: rhou(nlines, nsize)
+        real(wp), intent(out) :: result(nlines, nsize)
+
+        result(:, :) = der2(:, :)*self%diffusivity - rhou(:, :)*der1(:, :)
+
+        return
+    end subroutine burgers1d_add
+
+    subroutine burgers1d_subsidence_compute(self, nlines, nsize, der1, der2, rhou)
+        class(burgers1d_subsidence) self
+        integer(wi), intent(in) :: nlines, nsize
+        real(wp), intent(in) :: der1(nlines, nsize)
+        real(wp), intent(inout) :: der2(nlines, nsize)
+        real(wp), intent(in) :: rhou(nlines, nsize)
+
+        integer n
+
+#define result(i,j) der2(i,j)
+
+        do n = 1, nsize
+            result(:, n) = der2(:, n)*self%diffusivity + (self%rhou_background(n) - rhou(:, n))*der1(:, n)
+        end do
+
+#undef result
+
+        return
+    end subroutine burgers1d_subsidence_compute
+
+    subroutine burgers1d_subsidence_add(self, nlines, nsize, der1, der2, rhou, result)
+        class(burgers1d_subsidence) self
+        integer(wi), intent(in) :: nlines, nsize
+        real(wp), intent(in) :: der1(nlines, nsize)
+        real(wp), intent(inout) :: der2(nlines, nsize)
+        real(wp), intent(in) :: rhou(nlines, nsize)
+        real(wp), intent(out) :: result(nlines, nsize)
+
+        integer n
+
+        do n = 1, nsize
+            result(:, n) = der2(:, n)*self%diffusivity + (self%rhou_background(n) - rhou(:, n))*der1(:, n)
+        end do
+
+        return
+    end subroutine burgers1d_subsidence_add
+
+    !########################################################################
+!########################################################################
+! Handle rho contribution depending on type
+    subroutine boussinesq_compute_setrho(self, nlines, nsize, der1, der2, rhou)
+        ! same as compute but with inout type for rhou
+        class(burgers1d_boussinesq) self
         integer(wi), intent(in) :: nlines, nsize
         real(wp), intent(in) :: der1(nlines, nsize)
         real(wp), intent(inout) :: der2(nlines, nsize)
         real(wp), intent(inout) :: rhou(nlines, nsize)
 
-        select type (self)
-        type is (burgers1d_anelastic)
-            call anelastic_compute_setrho(self, nlines, nsize, der1, der2, rhou)
+#define result(i,j) der2(i,j)
 
-        type is (burgers1d_boussinesq)
-            call self%compute(nlines, nsize, der1, der2, rhou)
+        result(:, :) = der2(:, :)*self%diffusivity - rhou(:, :)*der1(:, :)
 
-        end select
+#undef result
 
         return
-    end subroutine burgers1d_compute_setrhou
+    end subroutine boussinesq_compute_setrho
 
-!########################################################################
-!########################################################################
     subroutine anelastic_compute_setrho(self, nlines, nsize, der1, der2, rhou)
         class(burgers1d_anelastic) self
         integer(wi), intent(in) :: nlines, nsize
@@ -109,6 +180,19 @@ contains
 
 !########################################################################
 !########################################################################
+    subroutine burgers1d_anelastic_initialize(self, diffusivity, axis, rbackground)
+        class(burgers1d_anelastic), intent(out) :: self
+        real(wp), intent(in) :: diffusivity
+        character(len=*), intent(in) :: axis
+        real(wp), intent(in), optional :: rbackground(:)
+
+        self%diffusivity = diffusivity
+
+        call anelastic_initialize_rho(self%rho, axis, rbackground)
+
+        return
+    end subroutine burgers1d_anelastic_initialize
+
     subroutine anelastic_initialize_rho(rho, axis, rbackground)
         use TLab_Memory, only: imax, jmax, kmax
 #ifdef USE_MPI

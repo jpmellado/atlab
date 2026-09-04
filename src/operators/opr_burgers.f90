@@ -21,21 +21,49 @@ module OPR_Burgers
         procedure :: compute => burgers1d_compute
         procedure :: add => burgers1d_add
         !
-        procedure(compute_setrhou_ice), deferred :: compute_setrhou     ! handle density contribution depending on type
+        procedure(compute_setrhou_ice), deferred :: compute_setrhou         ! handle density contribution depending on type
+        procedure(add_setrhou_ice), deferred :: add_setrhou
     end type
 
     type, extends(burgers1d) :: burgers1d_boussinesq
     contains
-        procedure :: compute_setrhou => boussinesq_compute_setrho
+        procedure :: compute_setrhou => boussinesq_compute_setrhou
+        procedure :: add_setrhou => boussinesq_add_setrhou
     end type
 
     type, extends(burgers1d) :: burgers1d_anelastic
         real(wp), allocatable :: rho(:)
     contains
         procedure :: initialize => burgers1d_anelastic_initialize
-        procedure :: compute_setrhou => anelastic_compute_setrho
+        procedure :: compute_setrhou => anelastic_compute_setrhou
+        procedure :: add_setrhou => anelastic_add_setrhou
     end type
 
+    ! -----------------------------------------------------------------------
+    ! Subroutines that include a subsidence term to reduce memory calls
+    type, abstract, extends(burgers1d) :: burgers1d_subsidence
+        real(wp), allocatable :: rhou_background(:)
+    contains
+        procedure :: initialize => burgers1d_subsidence_initialize
+        procedure :: compute => burgers1d_subsidence_compute
+        procedure :: add => burgers1d_subsidence_add
+    end type
+
+    type, extends(burgers1d_subsidence) :: burgers1d_subsidence_boussinesq
+    contains
+        procedure :: compute_setrhou => boussinesq_subsidence_compute_setrhou
+        procedure :: add_setrhou => boussinesq_subsidence_add_setrhou
+    end type
+
+    type, extends(burgers1d_subsidence) :: burgers1d_subsidence_anelastic
+        real(wp), allocatable :: rho(:)
+    contains
+        procedure :: initialize => burgers1d_subsidence_anelastic_initialize
+        procedure :: compute_setrhou => anelastic_subsidence_compute_setrhou
+        procedure :: add_setrhou => anelastic_subsidence_add_setrhou
+    end type
+
+    ! -----------------------------------------------------------------------
     abstract interface
         subroutine compute_setrhou_ice(self, nlines, nsize, der1, der2, rhou)
             import wp, wi, burgers1d
@@ -44,28 +72,24 @@ module OPR_Burgers
             real(wp), intent(in) :: der1(nlines, nsize)
             real(wp), intent(inout) :: der2(nlines, nsize)
             real(wp), intent(inout) :: rhou(nlines, nsize)
-        end subroutine compute_setrhou_ice
+        end subroutine
     end interface
 
-    ! -----------------------------------------------------------------------
-    type, abstract, extends(burgers1d) :: burgers1d_subsidence
-        real(wp), allocatable :: rhou_background(:)
-    contains
-        procedure :: initialize => burgers1d_subsidence_initialize
-        procedure :: add => burgers1d_subsidence_add
-    end type
-
-    type, extends(burgers1d_subsidence) :: burgers1d_subsidence_boussinesq
-    contains
-        procedure :: compute_setrhou => boussinesq_subsidence_compute_setrho
-    end type
-
-    type, extends(burgers1d_subsidence) :: burgers1d_subsidence_anelastic
-        real(wp), allocatable :: rho(:)
-    contains
-        procedure :: initialize => burgers1d_subsidence_anelastic_initialize
-        procedure :: compute_setrhou => anelastic_subsidence_compute_setrho
-    end type
+    ! In this class of procedures, rhou is out-of-place from u. In compute_setrhou, rhou is in-place
+    ! This is because the add routines are called in Oz direction, where u is the original field and not
+    ! an auxiliary array that contains u-transposed
+    abstract interface
+        subroutine add_setrhou_ice(self, nlines, nsize, der1, der2, u, rhou, result)
+            import wp, wi, burgers1d
+            class(burgers1d) self
+            integer(wi), intent(in) :: nlines, nsize
+            real(wp), intent(in) :: der1(nlines, nsize)
+            real(wp), intent(in) :: der2(nlines, nsize)
+            real(wp), intent(in) :: u(nlines, nsize)
+            real(wp), intent(inout) :: rhou(nlines, nsize)
+            real(wp), intent(out) :: result(nlines, nsize)
+        end subroutine
+    end interface
 
 contains
     !########################################################################
@@ -111,6 +135,7 @@ contains
         return
     end subroutine
 
+    ! -----------------------------------------------------------------------
     subroutine burgers1d_subsidence_initialize(self, diffusivity, axis, rbackground, wbackground)
         class(burgers1d_subsidence), intent(out) :: self
         real(wp), intent(in) :: diffusivity
@@ -120,6 +145,26 @@ contains
 
         self%diffusivity = diffusivity
         allocate (self%rhou_background, source=wbackground)
+
+        return
+    end subroutine
+
+    subroutine burgers1d_subsidence_compute(self, nlines, nsize, der1, der2, rhou)
+        class(burgers1d_subsidence) self
+        integer(wi), intent(in) :: nlines, nsize
+        real(wp), intent(in) :: der1(nlines, nsize)
+        real(wp), intent(inout) :: der2(nlines, nsize)
+        real(wp), intent(in) :: rhou(nlines, nsize)
+
+        integer n
+
+#define result(i,j) der2(i,j)
+
+        do n = 1, nsize
+            der2(:, n) = der2(:, n) + der2(:, n)*self%diffusivity + (self%rhou_background(n) - rhou(:, n))*der1(:, n)
+        end do
+
+#undef result
 
         return
     end subroutine
@@ -144,37 +189,49 @@ contains
     !########################################################################
     !########################################################################
     ! Handle rho contribution depending on type
-    subroutine boussinesq_compute_setrho(self, nlines, nsize, der1, der2, rhou)
-        ! same as compute but with inout type for rhou
+    subroutine boussinesq_compute_setrhou(self, nlines, nsize, der1, der2, rhou)
+        ! wrapper of burgers1d_compute because inout attribute for rhou
         class(burgers1d_boussinesq) self
         integer(wi), intent(in) :: nlines, nsize
         real(wp), intent(in) :: der1(nlines, nsize)
         real(wp), intent(inout) :: der2(nlines, nsize)
         real(wp), intent(inout) :: rhou(nlines, nsize)
 
-#define result(i,j) der2(i,j)
-
-        result(:, :) = der2(:, :)*self%diffusivity - rhou(:, :)*der1(:, :)
-
-#undef result
+        call burgers1d_compute(self, nlines, nsize, der1, der2, rhou)
 
         return
     end subroutine
 
-    subroutine anelastic_compute_setrho(self, nlines, nsize, der1, der2, rhou)
+    subroutine boussinesq_add_setrhou(self, nlines, nsize, der1, der2, u, rhou, result)
+        ! wrapper of burgers1d_add because inout attribute for rhou
+        class(burgers1d_boussinesq) self
+        integer(wi), intent(in) :: nlines, nsize
+        real(wp), intent(in) :: der1(nlines, nsize)
+        real(wp), intent(in) :: der2(nlines, nsize)
+        real(wp), intent(in) :: u(nlines, nsize)
+        real(wp), intent(inout) :: rhou(nlines, nsize)
+        real(wp), intent(out) :: result(nlines, nsize)
+
+        call burgers1d_add(self, nlines, nsize, der1, der2, rhou, result)
+
+        return
+    end subroutine
+
+    subroutine anelastic_compute_setrhou(self, nlines, nsize, der1, der2, rhou)
         class(burgers1d_anelastic) self
         integer(wi), intent(in) :: nlines, nsize
         real(wp), intent(in) :: der1(nlines, nsize)
         real(wp), intent(inout) :: der2(nlines, nsize)
         real(wp), intent(inout) :: rhou(nlines, nsize)
 
-        integer ij
+        integer n
 
 #define result(i,j) der2(i,j)
 
-        do ij = 1, nsize
-            rhou(:, ij) = rhou(:, ij)*self%rho(:)
-            result(:, ij) = der2(:, ij)*self%diffusivity - rhou(:, ij)*der1(:, ij)
+        do n = 1, nsize
+            ! This routine is used in the Ox and Oy directions, which explains ths following shape of self%rho
+            rhou(:, n) = rhou(:, n)*self%rho(:)
+            result(:, n) = der2(:, n)*self%diffusivity - rhou(:, n)*der1(:, n)
         end do
 
 #undef result
@@ -182,27 +239,93 @@ contains
         return
     end subroutine
 
-    subroutine boussinesq_subsidence_compute_setrho(self, nlines, nsize, der1, der2, rhou)
-        ! same as compute but with inout type for rhou
+    subroutine anelastic_add_setrhou(self, nlines, nsize, der1, der2, u, rhou, result)
+        class(burgers1d_anelastic) self
+        integer(wi), intent(in) :: nlines, nsize
+        real(wp), intent(in) :: der1(nlines, nsize)
+        real(wp), intent(in) :: der2(nlines, nsize)
+        real(wp), intent(in) :: u(nlines, nsize)
+        real(wp), intent(inout) :: rhou(nlines, nsize)
+        real(wp), intent(out) :: result(nlines, nsize)
+
+        integer n
+
+        do n = 1, nsize
+            ! "add" routines are used in the Oz direction, which explains ths following shape of self%rho
+            rhou(:, n) = u(:, n)*self%rho(n)
+            result(:, n) = result(:, n) + der2(:, n)*self%diffusivity - rhou(:, n)*der1(:, n)
+        end do
+
+        return
+    end subroutine
+
+    ! -----------------------------------------------------------------------
+    subroutine boussinesq_subsidence_compute_setrhou(self, nlines, nsize, der1, der2, rhou)
+        ! wrapper of burgers1d_compute because inout attribute for rhou
         class(burgers1d_subsidence_boussinesq) self
         integer(wi), intent(in) :: nlines, nsize
         real(wp), intent(in) :: der1(nlines, nsize)
         real(wp), intent(inout) :: der2(nlines, nsize)
         real(wp), intent(inout) :: rhou(nlines, nsize)
 
-        ! TBD
+        call burgers1d_subsidence_compute(self, nlines, nsize, der1, der2, rhou)
 
         return
     end subroutine
 
-    subroutine anelastic_subsidence_compute_setrho(self, nlines, nsize, der1, der2, rhou)
+    subroutine boussinesq_subsidence_add_setrhou(self, nlines, nsize, der1, der2, u, rhou, result)
+        ! wrapper of burgers1d_add because inout attribute for rhou
+        class(burgers1d_subsidence_boussinesq) self
+        integer(wi), intent(in) :: nlines, nsize
+        real(wp), intent(in) :: der1(nlines, nsize)
+        real(wp), intent(in) :: der2(nlines, nsize)
+        real(wp), intent(in) :: u(nlines, nsize)
+        real(wp), intent(inout) :: rhou(nlines, nsize)
+        real(wp), intent(out) :: result(nlines, nsize)
+
+        call burgers1d_subsidence_add(self, nlines, nsize, der1, der2, rhou, result)
+
+        return
+    end subroutine
+
+    subroutine anelastic_subsidence_compute_setrhou(self, nlines, nsize, der1, der2, rhou)
         class(burgers1d_subsidence_anelastic) self
         integer(wi), intent(in) :: nlines, nsize
         real(wp), intent(in) :: der1(nlines, nsize)
         real(wp), intent(inout) :: der2(nlines, nsize)
         real(wp), intent(inout) :: rhou(nlines, nsize)
 
-        ! TBD
+        integer n
+
+#define result(i,j) der2(i,j)
+
+        do n = 1, nsize
+            ! This routine is used in the Ox and Oy directions, which explains ths following shape of self%rho
+            rhou(:, n) = rhou(:, n)*self%rho(:)
+            result(:, n) = der2(:, n)*self%diffusivity + (self%rhou_background(n) - rhou(:, n))*der1(:, n)
+        end do
+
+#undef result
+
+        return
+    end subroutine
+
+    subroutine anelastic_subsidence_add_setrhou(self, nlines, nsize, der1, der2, u, rhou, result)
+        class(burgers1d_subsidence_anelastic) self
+        integer(wi), intent(in) :: nlines, nsize
+        real(wp), intent(in) :: der1(nlines, nsize)
+        real(wp), intent(in) :: der2(nlines, nsize)
+        real(wp), intent(in) :: u(nlines, nsize)
+        real(wp), intent(inout) :: rhou(nlines, nsize)
+        real(wp), intent(out) :: result(nlines, nsize)
+
+        integer n
+
+        do n = 1, nsize
+            ! "add" routines are used in the Oz direction, which explains ths following shape of self%rho
+            rhou(:, n) = u(:, n)*self%rho(n)
+            result(:, n) = result(:, n) + der2(:, n)*self%diffusivity + (self%rhou_background(n) - rhou(:, n))*der1(:, n)
+        end do
 
         return
     end subroutine

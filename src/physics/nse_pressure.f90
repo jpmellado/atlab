@@ -53,7 +53,7 @@ contains
         ! Using p as auxiliary array
         ! #######################################################################
         if (nse_eqns == DNS_EQNS_ANELASTIC) then
-            call NSE_AddBurgers_PerVolume_Z(0, imax, jmax, kmax, w, hq(:, 3), tmp1, rhou_out=p)     ! store rho w in p
+            call NSE_AddBurgers_PerVolume_Z(0, imax, jmax, kmax, w, hq(:, 3), tmp1, p)              ! store rho w in p
             call NSE_AddBurgers_PerVolume_Z(0, imax, jmax, kmax, u, hq(:, 1), tmp1, rhou_in=p)
             call NSE_AddBurgers_PerVolume_Z(0, imax, jmax, kmax, v, hq(:, 2), tmp1, rhou_in=p)
         else

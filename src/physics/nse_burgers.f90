@@ -503,14 +503,14 @@ contains
 
     !########################################################################
     !########################################################################
-    subroutine NSE_AddBurgers_PerVolume_Z(is, nx, ny, nz, s, rhs, tmp1, rhou_in, rhou_out)
+    subroutine NSE_AddBurgers_PerVolume_Z(is, nx, ny, nz, s, rhs, tmp2, tmp1, rhou_in)
         integer, intent(in) :: is                       ! scalar index; if 0, then velocity
         integer(wi), intent(in) :: nx, ny, nz
         real(wp), intent(in) :: s(nx*ny, nz)
         real(wp), intent(inout) :: rhs(nx*ny, nz)
-        real(wp), intent(inout) :: tmp1(nx*ny, nz)
+        real(wp), intent(inout) :: tmp2(nx*ny, nz)
+        real(wp), intent(inout), optional :: tmp1(nx*ny, nz)
         real(wp), intent(in), optional :: rhou_in(nx*ny, nz)
-        real(wp), intent(out), optional :: rhou_out(nx*ny, nz)
 
         ! -------------------------------------------------------------------
         integer(wi) nlines
@@ -523,12 +523,12 @@ contains
         nlines = nx*ny
 
         call fdm_der1_Z%compute(nlines, s, wrk3d)
-        call fdm_der2_Z%compute(nlines, s, tmp1, wrk3d)
+        call fdm_der2_Z%compute(nlines, s, tmp2, wrk3d)
 
         if (present(rhou_in)) then      ! velocity (times density) is passed as argument
-            call burgers1d_Z(is)%add(nlines, nz, der1=wrk3d, der2=tmp1, rhou=rhou_in, result=rhs)
+            call burgers1d_Z(is)%add(nlines, nz, der1=wrk3d, der2=tmp2, rhou=rhou_in, result=rhs)
         else
-            call burgers1d_Z(is)%add_setrhou(nlines, nz, der1=wrk3d, der2=tmp1, u=s, rhou=rhou_out, result=rhs)
+            call burgers1d_Z(is)%add_setrhou(nlines, nz, der1=wrk3d, der2=tmp2, u=s, rhou=tmp1, result=rhs)
         end if
 
         return

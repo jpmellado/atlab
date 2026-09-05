@@ -31,7 +31,7 @@ subroutine NSE_Anelastic_PerVolume(hq, hs, dte, remove_divergence)
     ! #######################################################################
     ! Diffusion and advection terms
     ! #######################################################################
-    call NSE_AddBurgers_PerVolume_Z(0, imax, jmax, kmax, w, hq(:, 3), tmp1, rhou_out=tmp3)          ! store rho w in tmp3
+    call NSE_AddBurgers_PerVolume_Z(0, imax, jmax, kmax, w, hq(:, 3), tmp1, tmp3)                   ! store rho w in tmp3
     call NSE_AddBurgers_PerVolume_Z(0, imax, jmax, kmax, u, hq(:, 1), tmp1, rhou_in=tmp3)
     call NSE_AddBurgers_PerVolume_Z(0, imax, jmax, kmax, v, hq(:, 2), tmp1, rhou_in=tmp3)
     do is = 1, inb_scal

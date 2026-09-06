@@ -6,7 +6,7 @@ program VBURGERS
     use TLab_Memory, only: imax, jmax, kmax, inb_txc
     use TLab_Memory, only: TLab_Initialize_Memory
     use TLab_Arrays
-    use TLab_Pointers_3D, only: tmp1, tmp2
+    use TLab_Pointers_3D, only: tmp1, tmp2, tmp6
 #ifdef USE_MPI
     use mpi_f08
     use TLabMPI_VARS
@@ -17,9 +17,9 @@ program VBURGERS
     use FDM, only: FDM_Initialize
     use NavierStokes !, only: NavierStokes_Initialize_Parameters, visc
     use Thermodynamics, only: Thermo_Initialize
-    use Thermo_Anelastic, only: ribackground
+    use Thermo_Anelastic, only: rbackground
     use Gravity, only: Gravity_Initialize
-    use LargeScaleForcing, only: LargeScaleForcing_Initialize
+    use LargeScaleForcing!, only: LargeScaleForcing_Initialize
     use TLab_Grid
     use IO_Fields
     use OPR_Partial
@@ -55,7 +55,7 @@ program VBURGERS
     call Gravity_Initialize(ifile)
     call LargeScaleForcing_Initialize(ifile)
 
-    inb_txc = 5
+    inb_txc = 6
     call TLab_Initialize_Memory(__FILE__)
 
     call OPR_Partial_Initialize(ifile)
@@ -79,7 +79,7 @@ program VBURGERS
         do k = 1, kmax
             do j = 1, jmax
                 do i = 1, imax
-                    b(i, j, k) = b(i, j, k)*visc*ribackground(k) - a(i, j, k)*c(i, j, k)
+                    b(i, j, k) = b(i, j, k)*visc - a(i, j, k)*c(i, j, k)*rbackground(k)
                 end do
             end do
         end do
@@ -103,7 +103,7 @@ program VBURGERS
             do k = 1, kmax
                 do j = 1, jmax
                     do i = 1, imax
-                        b(i, j, k) = b(i, j, k)*visc*ribackground(k) - a(i, j, k)*c(i, j, k)
+                        b(i, j, k) = b(i, j, k)*visc - a(i, j, k)*c(i, j, k)*rbackground(k)
                     end do
                 end do
             end do
@@ -128,7 +128,11 @@ program VBURGERS
         do k = 1, kmax
             do j = 1, jmax
                 do i = 1, imax
-                    b(i, j, k) = b(i, j, k)*visc*ribackground(k) - a(i, j, k)*c(i, j, k)
+                    if (subsidenceProps%type == TYPE_SUB_CONSTANT) then
+                        b(i, j, k) = b(i, j, k)*visc + (wbackground(k) - a(i, j, k))*rbackground(k)*c(i, j, k)
+                    else
+                        b(i, j, k) = b(i, j, k)*visc - a(i, j, k)*c(i, j, k)*rbackground(k)
+                    end if
                 end do
             end do
         end do
@@ -138,9 +142,14 @@ program VBURGERS
     ! call IO_Write_Fields('fieldZdirect.out', imax, jmax, kmax, itime, 1, b, io_header_s(1:1))
 
     c = 0.0_wp
-    call NSE_AddBurgers_PerVolume_Z(0, imax, jmax, kmax, a, c, tmp1, rhou_in=a)
+    ! call NSE_AddBurgers_PerVolume_Z(0, imax, jmax, kmax, a, c, tmp1, tmp2)
+    call NSE_AddBurgers_PerVolume_Z_Cache(0, imax, jmax, kmax, a, c, tmp1, tmp2)
     ! call IO_Write_Fields('fieldZburgers.out', imax, jmax, kmax, itime, 1, c, io_header_s(1:1))
 
+    call check(b, c, tmp1)!, 'fieldZ.dif')
+
+    c = 0.0_wp
+    call NSE_AddBurgers_PerVolume_Z_Cache(0, imax, jmax, kmax, a, c, tmp1, tmp6, rhou_in=tmp2)
     call check(b, c, tmp1)!, 'fieldZ.dif')
 
     call TLab_Stop(0)

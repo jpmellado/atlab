@@ -37,6 +37,12 @@ subroutine NSE_Anelastic_PerVolume(hq, hs, dte, remove_divergence)
     do is = 1, inb_scal
         call NSE_AddBurgers_PerVolume_Z(is, imax, jmax, kmax, s(:, is), hs(:, is), tmp1, rhou_in=tmp3)
     end do
+    ! call NSE_AddBurgers_PerVolume_Z_Cache(0, imax, jmax, kmax, w, hq(:, 3), tmp1, tmp3)                   ! store rho w in tmp3
+    ! call NSE_AddBurgers_PerVolume_Z_Cache(0, imax, jmax, kmax, u, hq(:, 1), tmp1, tmp2, rhou_in=tmp3)
+    ! call NSE_AddBurgers_PerVolume_Z_Cache(0, imax, jmax, kmax, v, hq(:, 2), tmp1, tmp2, rhou_in=tmp3)
+    ! do is = 1, inb_scal
+    !     call NSE_AddBurgers_PerVolume_Z_Cache(is, imax, jmax, kmax, s(:, is), hs(:, is), tmp1, tmp2, rhou_in=tmp3)
+    ! end do
 
     call NSE_AddBurgers_PerVolume_X(0, imax, jmax, kmax, u, hq(:, 1), tmp1, tmp3)                   ! store rho u transposed in tmp3
     call NSE_AddBurgers_PerVolume_X(0, imax, jmax, kmax, v, hq(:, 2), tmp1, tmp2, rhou_in=tmp3)

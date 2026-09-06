@@ -161,7 +161,7 @@ contains
 #define result(i,j) der2(i,j)
 
         do n = 1, nsize
-            der2(:, n) = der2(:, n) + der2(:, n)*self%diffusivity + (self%rhou_background(n) - rhou(:, n))*der1(:, n)
+            der2(:, n) = der2(:, n)*self%diffusivity + (self%rhou_background(n) - rhou(:, n))*der1(:, n)
         end do
 
 #undef result
@@ -227,7 +227,6 @@ contains
         integer n
 
 #define result(i,j) der2(i,j)
-
         do n = 1, nsize
             ! This routine is used in the Ox and Oy directions, which explains ths following shape of self%rho
             rhou(:, n) = rhou(:, n)*self%rho(:)
@@ -300,8 +299,8 @@ contains
 #define result(i,j) der2(i,j)
 
         do n = 1, nsize
-            ! This routine is used in the Ox and Oy directions, which explains ths following shape of self%rho
-            rhou(:, n) = rhou(:, n)*self%rho(:)
+            ! "subsidence" routines are used in the Oz direction, which explains ths following shape of self%rho
+            rhou(:, n) = rhou(:, n)*self%rho(n)
             result(:, n) = der2(:, n)*self%diffusivity + (self%rhou_background(n) - rhou(:, n))*der1(:, n)
         end do
 
@@ -322,7 +321,7 @@ contains
         integer n
 
         do n = 1, nsize
-            ! "add" routines are used in the Oz direction, which explains ths following shape of self%rho
+            ! "subsidence" routines are used in the Oz direction, which explains ths following shape of self%rho
             rhou(:, n) = u(:, n)*self%rho(n)
             result(:, n) = result(:, n) + der2(:, n)*self%diffusivity + (self%rhou_background(n) - rhou(:, n))*der1(:, n)
         end do

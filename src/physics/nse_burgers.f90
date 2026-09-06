@@ -29,6 +29,7 @@ module NSE_Burgers
     public :: NSE_AddBurgers_PerVolume_X
     public :: NSE_AddBurgers_PerVolume_Y
     public :: NSE_AddBurgers_PerVolume_Z
+    public :: NSE_AddBurgers_PerVolume_Z_Cache
 
     ! -----------------------------------------------------------------------
     procedure(nse_burgers_ice) :: NSE_AddBurgers_PerVolume_dt
@@ -40,7 +41,7 @@ module NSE_Burgers
             real(wp), intent(in) :: s(nx*ny*nz)
             real(wp), intent(inout) :: rhs(nx*ny*nz)
             real(wp), intent(inout) :: tmp2(nx*ny*nz)
-            real(wp), intent(inout) :: tmp1(nx*ny*nz)             ! transposed field s times density
+            real(wp), intent(inout) :: tmp1(nx*ny*nz)           ! transposed field s times density
             real(wp), intent(in), optional :: rhou_in(nx*ny*nz) ! transposed field u times density
         end subroutine
     end interface
@@ -533,5 +534,78 @@ contains
 
         return
     end subroutine NSE_AddBurgers_PerVolume_Z
+
+    !########################################################################
+    !########################################################################
+    subroutine NSE_AddBurgers_PerVolume_Z_Cache(is, nx, ny, nz, s, rhs, tmp2, tmp1, rhou_in)
+        integer, parameter :: batchsizeZ = 32
+        integer, intent(in) :: is                       ! scalar index; if 0, then velocity
+        integer(wi), intent(in) :: nx, ny, nz
+        real(wp), intent(in) :: s(nx*ny, nz)
+        real(wp), intent(inout) :: rhs(nx*ny, nz)
+        real(wp), intent(inout) :: tmp2(batchsizeZ, nz, nx*ny/batchsizeZ)
+        real(wp), intent(inout) :: tmp1(batchsizeZ, nz, nx*ny/batchsizeZ)
+        real(wp), intent(in), optional :: rhou_in(batchsizeZ, nz, nx*ny/batchsizeZ)
+
+        ! -------------------------------------------------------------------
+        integer(wi) nlines
+        integer(wi) ib, ip
+
+        ! ###################################################################
+        if (z%size == 1) then ! Set to zero in 2D case nx*ny
+            return
+        end if
+
+        nlines = batchsizeZ
+
+        do ib = 1, nx*ny/batchsizeZ
+            ! memory alignment
+            ip = (ib - 1)*batchsizeZ + 1
+            call reduce(s(ip, 1), batchsizeZ, nx*ny/batchsizeZ, nz, tmp1(1, 1, ib))
+
+            call fdm_der1_Z%compute(nlines, tmp1(:, :, ib), wrk3d)
+            call fdm_der2_Z%compute(nlines, tmp1(:, :, ib), tmp2, wrk3d)
+
+            if (present(rhou_in)) then      ! velocity (times density) is passed as argument
+                call burgers1d_Z(is)%compute(nlines, nz, der1=wrk3d, der2=tmp2, rhou=rhou_in(1, 1, ib))
+            else
+                call burgers1d_Z(is)%compute_setrhou(nlines, nz, der1=wrk3d, der2=tmp2, rhou=tmp1(1, 1, ib))
+            end if
+
+            ! memory arrangement
+            call spread_add(tmp2, batchsizeZ, nx*ny/batchsizeZ, nz, rhs(ip, 1))
+
+        end do
+
+        return
+    end subroutine
+
+    subroutine reduce(a, nlines, nblocks, nmax, b)
+        integer(wi), intent(in) :: nlines, nblocks, nmax
+        real(wp), intent(in) :: a(nlines*nblocks, *)
+        real(wp), intent(out) :: b(nlines, nmax)
+
+        integer n
+
+        do n = 1, nmax
+            b(1:nlines, n) = a(1:nlines, n)
+        end do
+
+        return
+    end subroutine
+
+    subroutine spread_add(a, nlines, nblocks, nmax, b)
+        integer(wi), intent(in) :: nlines, nblocks, nmax
+        real(wp), intent(in) :: a(nlines, nmax)
+        real(wp), intent(out) :: b(nlines*nblocks, *)
+
+        integer n
+
+        do n = 1, nmax
+            b(1:nlines, n) = b(1:nlines, n) + a(1:nlines, n)
+        end do
+
+        return
+    end subroutine
 
 end module NSE_Burgers

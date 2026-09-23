@@ -20,8 +20,8 @@ program vMpi_Thomas3_Scaling
     ! integer(wi), parameter :: nx = 32768        ! full size of each linear system
     ! integer(wi), parameter :: nlines = 262144   ! number of linear systems to solve, 32*8192
 
-    ! integer(wi), parameter :: batchsize = 4     ! # of nlines that are solved together, to test cache
-    integer(wi), parameter :: batchsize = nlines    ! no locality
+    integer(wi), parameter :: batchsize = 64     ! # of nlines that are solved together, to test cache
+    ! integer(wi), parameter :: batchsize = nlines    ! no locality
 
     real(wp) :: lhs(nx, nd)                     ! Diagonals of system matrix A
     real(wp), allocatable :: u(:, :, :)         ! numerical solution of A u = f
@@ -36,9 +36,6 @@ program vMpi_Thomas3_Scaling
 
     integer k, np, it, ib, nxLoc, nlinesLoc
 
-    ! integer :: nseed
-    ! integer, allocatable :: seed(:)
-
     integer, parameter :: num_iterations = 10   ! Number of iterations to obtain a more representative time
     real(wp) time_loc_1, time_loc_2
 
@@ -50,21 +47,7 @@ program vMpi_Thomas3_Scaling
     call MPI_COMM_RANK(mpiGrid%comm, mpiGrid%rank, ims_err)
 
     ! -------------------------------------------------------------------
-    ! random number initialization for reproducibility
-    ! from https://masuday.github.io/fortran_tutorial/random.html
-    ! call random_seed(size=nseed)
-    ! allocate (seed(nseed))
-    ! ! call random_seed(get=seed)
-    ! ! print *, seed
-    ! seed = 123456789    ! putting arbitrary seed to all elements
-    ! call random_seed(put=seed)
-    ! ! call random_seed(get=seed)
-    ! ! print *, seed
-    ! deallocate (seed)
-
-    ! -------------------------------------------------------------------
     ! Initialize
-    ! call random_number(lhs)     ! diagonals in matrix A
     ! lhs(:,1) = 2.0_wp/11.0_wp   ! second order derivative
     ! lhs(:,2) = 1.0_wp
     ! lhs(:,3) = 2.0_wp/11.0_wp
@@ -74,12 +57,9 @@ program vMpi_Thomas3_Scaling
 
     ! -------------------------------------------------------------------
     nxLoc = nx/mpiGrid%num_processors     ! task-local number of grid points along X
-    ! allocate (u(nlines, nxLoc))
-    ! allocate (f(nlines, nxLoc))
     allocate (u(batchsize, nxLoc, nlines/batchsize))
     allocate (f(batchsize, nxLoc, nlines/batchsize))
 
-    ! call random_number(f)       ! forcing
     f = 1.0_wp            ! forcing
 
     if (mpiGrid%rank == 0) then

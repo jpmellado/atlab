@@ -4,7 +4,7 @@ endif()
 message( STATUS "Build Type: " ${BUILD_TYPE} )
 
 set(USER_Fortran_FLAGS "-fconvert=little-endian -cpp -ffree-form -ffree-line-length-none -fno-automatic -fallow-argument-mismatch")
-set(USER_Fortran_FLAGS_RELEASE "-O3 -ffpe-summary=none -ffast-math -mtune=native -march=native")
+set(USER_Fortran_FLAGS_RELEASE "-O3 -ffpe-summary=none -ffast-math -mtune=native -march=native") # -fopt-info-vec-optimized")
 set(USER_Fortran_FLAGS_DEBUG "-O0 -ggdb -Wall -fbacktrace -ffpe-trap=invalid,zero,overflow") # ,underflow,precision,denormal")
 
 set(CMAKE_Fortran_COMPILER gfortran)

@@ -21,14 +21,15 @@ module NSE_Burgers
     use FDM_Derivative_MPISplit, only: der_burgers_mpisplit
     use OPR_Partial
 #endif
-    use OPR_Burgers
+    ! use OPR_Burgers
+    use OPR_Burgers_Dev
     implicit none
     private
 
     public :: NSE_Burgers_Initialize
     public :: NSE_AddBurgers_PerVolume_X
     public :: NSE_AddBurgers_PerVolume_Y
-    public :: NSE_AddBurgers_PerVolume_Z
+    ! public :: NSE_AddBurgers_PerVolume_Z
     public :: NSE_AddBurgers_PerVolume_Z_Cache
 
     ! -----------------------------------------------------------------------
@@ -55,7 +56,8 @@ module NSE_Burgers
     type(der_burgers) :: fdm_burgersX, fdm_burgersY
 
     ! -----------------------------------------------------------------------
-    class(burgers1d), allocatable :: burgers1d_X(:), burgers1d_Y(:), burgers1d_Z(:)
+    ! class(burgers1d), allocatable :: burgers1d_X(:), burgers1d_Y(:), burgers1d_Z(:)
+    class(burgers_dt), allocatable :: burgers1d_X(:), burgers1d_Y(:), burgers1d_Z(:)
     real(wp) :: diffusivity
 
 contains
@@ -82,13 +84,22 @@ contains
         ! ###################################################################
         select case (nse_eqns)
         case (DNS_EQNS_ANELASTIC)
-            allocate (burgers1d_anelastic :: burgers1d_X(0:inb_scal))
-            allocate (burgers1d_anelastic :: burgers1d_Y(0:inb_scal))
+            ! allocate (burgers1d_anelastic :: burgers1d_X(0:inb_scal))
+            ! allocate (burgers1d_anelastic :: burgers1d_Y(0:inb_scal))
+            ! if (subsidenceProps%type == TYPE_SUB_CONSTANT) then
+            !     allocate (burgers1d_subsidence_anelastic :: burgers1d_Z(0:inb_scal))
+            ! else
+            !     allocate (burgers1d_anelastic :: burgers1d_Z(0:inb_scal))
+            ! end if
+            !
+            allocate (burgers_XY :: burgers1d_X(0:inb_scal))
+            allocate (burgers_XY :: burgers1d_Y(0:inb_scal))
             if (subsidenceProps%type == TYPE_SUB_CONSTANT) then
-                allocate (burgers1d_subsidence_anelastic :: burgers1d_Z(0:inb_scal))
+                allocate (burgers_background_Z :: burgers1d_Z(0:inb_scal))
             else
-                allocate (burgers1d_anelastic :: burgers1d_Z(0:inb_scal))
+                allocate (burgers_Z :: burgers1d_Z(0:inb_scal))
             end if
+            !
 
             do is = 0, inb_scal     ! is = 0 corresponds to velocity fields
                 if (is == 0) then
@@ -96,24 +107,34 @@ contains
                 else
                     diffusivity = visc/schmidt(is)
                 end if
-                call burgers1d_X(is)%initialize(diffusivity, 'x', rbackground)
-                call burgers1d_Y(is)%initialize(diffusivity, 'y', rbackground)
+                call burgers1d_X(is)%initialize_setrho(diffusivity, 'x', rbackground)
+                call burgers1d_Y(is)%initialize_setrho(diffusivity, 'y', rbackground)
                 if (subsidenceProps%type == TYPE_SUB_CONSTANT) then
-                    call burgers1d_Z(is)%initialize(diffusivity, 'z', rbackground, wbackground=wbackground)
+                    call burgers1d_Z(is)%initialize_setrho(diffusivity, 'z', rbackground, wbackground=wbackground)
                 else
-                    call burgers1d_Z(is)%initialize(diffusivity, 'z', rbackground)
+                    call burgers1d_Z(is)%initialize_setrho(diffusivity, 'z', rbackground)
                 end if
 
             end do
 
         case (DNS_EQNS_BOUSSINESQ)
-            allocate (burgers1d_boussinesq :: burgers1d_X(0:inb_scal))
-            allocate (burgers1d_boussinesq :: burgers1d_Y(0:inb_scal))
+            ! allocate (burgers1d_boussinesq :: burgers1d_X(0:inb_scal))
+            ! allocate (burgers1d_boussinesq :: burgers1d_Y(0:inb_scal))
+            ! if (subsidenceProps%type == TYPE_SUB_CONSTANT) then
+            !     allocate (burgers1d_subsidence_boussinesq :: burgers1d_Z(0:inb_scal))
+            ! else
+            !     allocate (burgers1d_boussinesq :: burgers1d_Z(0:inb_scal))
+            ! end if
+            !
+            allocate (burgers :: burgers1d_X(0:inb_scal))
+            allocate (burgers :: burgers1d_Y(0:inb_scal))
             if (subsidenceProps%type == TYPE_SUB_CONSTANT) then
-                allocate (burgers1d_subsidence_boussinesq :: burgers1d_Z(0:inb_scal))
+                ! allocate (burgers :: burgers1d_Z(0:inb_scal))
+                print *, 'error'
             else
-                allocate (burgers1d_boussinesq :: burgers1d_Z(0:inb_scal))
+                allocate (burgers :: burgers1d_Z(0:inb_scal))
             end if
+            !
 
             do is = 0, inb_scal     ! is = 0 corresponds to velocity fields
                 if (is == 0) then
@@ -124,7 +145,7 @@ contains
                 call burgers1d_X(is)%initialize(diffusivity)
                 call burgers1d_Y(is)%initialize(diffusivity)
                 if (subsidenceProps%type == TYPE_SUB_CONSTANT) then
-                    call burgers1d_Z(is)%initialize(diffusivity, wbackground=wbackground)
+                    ! call burgers1d_Z(is)%initialize(diffusivity, wbackground=wbackground)
                 else
                     call burgers1d_Z(is)%initialize(diffusivity)
                 end if
@@ -502,38 +523,38 @@ contains
 
 #endif
 
-    !########################################################################
-    !########################################################################
-    subroutine NSE_AddBurgers_PerVolume_Z(is, nx, ny, nz, s, rhs, tmp2, tmp1, rhou_in)
-        integer, intent(in) :: is                       ! scalar index; if 0, then velocity
-        integer(wi), intent(in) :: nx, ny, nz
-        real(wp), intent(in) :: s(nx*ny, nz)
-        real(wp), intent(inout) :: rhs(nx*ny, nz)
-        real(wp), intent(inout) :: tmp2(nx*ny, nz)
-        real(wp), intent(inout), optional :: tmp1(nx*ny, nz)
-        real(wp), intent(in), optional :: rhou_in(nx*ny, nz)
+    ! !########################################################################
+    ! !########################################################################
+    ! subroutine NSE_AddBurgers_PerVolume_Z(is, nx, ny, nz, s, rhs, tmp2, tmp1, rhou_in)
+    !     integer, intent(in) :: is                       ! scalar index; if 0, then velocity
+    !     integer(wi), intent(in) :: nx, ny, nz
+    !     real(wp), intent(in) :: s(nx*ny, nz)
+    !     real(wp), intent(inout) :: rhs(nx*ny, nz)
+    !     real(wp), intent(inout) :: tmp2(nx*ny, nz)
+    !     real(wp), intent(inout), optional :: tmp1(nx*ny, nz)
+    !     real(wp), intent(in), optional :: rhou_in(nx*ny, nz)
 
-        ! -------------------------------------------------------------------
-        integer(wi) nlines
+    !     ! -------------------------------------------------------------------
+    !     integer(wi) nlines
 
-        ! ###################################################################
-        if (z%size == 1) then ! Set to zero in 2D case nx*ny
-            return
-        end if
+    !     ! ###################################################################
+    !     if (z%size == 1) then ! Set to zero in 2D case nx*ny
+    !         return
+    !     end if
 
-        nlines = nx*ny
+    !     nlines = nx*ny
 
-        call fdm_der1_Z%compute(nlines, s, wrk3d)
-        call fdm_der2_Z%compute(nlines, s, tmp2, wrk3d)
+    !     call fdm_der1_Z%compute(nlines, s, wrk3d)
+    !     call fdm_der2_Z%compute(nlines, s, tmp2, wrk3d)
 
-        if (present(rhou_in)) then      ! velocity (times density) is passed as argument
-            call burgers1d_Z(is)%add(nlines, nz, der1=wrk3d, der2=tmp2, rhou=rhou_in, result=rhs)
-        else
-            call burgers1d_Z(is)%add_setrhou(nlines, nz, der1=wrk3d, der2=tmp2, u=s, rhou=tmp1, result=rhs)
-        end if
+    !     if (present(rhou_in)) then      ! velocity (times density) is passed as argument
+    !         call burgers1d_Z(is)%add(nlines, nz, der1=wrk3d, der2=tmp2, rhou=rhou_in, result=rhs)
+    !     else
+    !         call burgers1d_Z(is)%add_setrhou(nlines, nz, der1=wrk3d, der2=tmp2, u=s, rhou=tmp1, result=rhs)
+    !     end if
 
-        return
-    end subroutine NSE_AddBurgers_PerVolume_Z
+    !     return
+    ! end subroutine NSE_AddBurgers_PerVolume_Z
 
     !########################################################################
     !########################################################################

@@ -4,6 +4,8 @@
 ! Calculate the non-linear operator N(u)(s) = dyn_visc* d^2/dx^2 s + ((rho u)_background- rho u) d/dx s (add subsidence term)
 !
 
+#include "tlab_error.h"
+
 module NSE_Burgers
     use TLab_Constants, only: wp, wi
     use TLab_Arrays, only: wrk3d
@@ -21,16 +23,14 @@ module NSE_Burgers
     use FDM_Derivative_MPISplit, only: der_burgers_mpisplit
     use OPR_Partial
 #endif
-    ! use OPR_Burgers
-    use OPR_Burgers_Dev
+    use OPR_Burgers
     implicit none
     private
 
     public :: NSE_Burgers_Initialize
     public :: NSE_AddBurgers_PerVolume_X
     public :: NSE_AddBurgers_PerVolume_Y
-    ! public :: NSE_AddBurgers_PerVolume_Z
-    public :: NSE_AddBurgers_PerVolume_Z_Cache
+    public :: NSE_AddBurgers_PerVolume_Z
 
     ! -----------------------------------------------------------------------
     procedure(nse_burgers_ice) :: NSE_AddBurgers_PerVolume_dt
@@ -56,15 +56,18 @@ module NSE_Burgers
     type(der_burgers) :: fdm_burgersX, fdm_burgersY
 
     ! -----------------------------------------------------------------------
-    ! class(burgers1d), allocatable :: burgers1d_X(:), burgers1d_Y(:), burgers1d_Z(:)
     class(burgers_dt), allocatable :: burgers1d_X(:), burgers1d_Y(:), burgers1d_Z(:)
     real(wp) :: diffusivity
+
+    integer, parameter :: groupSizeX = 32, groupSizeY = 32, groupSizeZ = 32
 
 contains
     !########################################################################
     !########################################################################
     subroutine NSE_Burgers_Initialize(inifile)
-        use TLab_Memory, only: inb_scal
+        use TLab_Constants, only: efile
+        use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
+        use TLab_Memory, only: inb_scal, imax, jmax!, kmax
         use NavierStokes, only: nse_eqns, DNS_EQNS_ANELASTIC, DNS_EQNS_BOUSSINESQ
         use NavierStokes, only: visc, schmidt
         use Thermo_Anelastic, only: rbackground
@@ -84,14 +87,6 @@ contains
         ! ###################################################################
         select case (nse_eqns)
         case (DNS_EQNS_ANELASTIC)
-            ! allocate (burgers1d_anelastic :: burgers1d_X(0:inb_scal))
-            ! allocate (burgers1d_anelastic :: burgers1d_Y(0:inb_scal))
-            ! if (subsidenceProps%type == TYPE_SUB_CONSTANT) then
-            !     allocate (burgers1d_subsidence_anelastic :: burgers1d_Z(0:inb_scal))
-            ! else
-            !     allocate (burgers1d_anelastic :: burgers1d_Z(0:inb_scal))
-            ! end if
-            !
             allocate (burgers_XY :: burgers1d_X(0:inb_scal))
             allocate (burgers_XY :: burgers1d_Y(0:inb_scal))
             if (subsidenceProps%type == TYPE_SUB_CONSTANT) then
@@ -99,7 +94,6 @@ contains
             else
                 allocate (burgers_Z :: burgers1d_Z(0:inb_scal))
             end if
-            !
 
             do is = 0, inb_scal     ! is = 0 corresponds to velocity fields
                 if (is == 0) then
@@ -118,23 +112,14 @@ contains
             end do
 
         case (DNS_EQNS_BOUSSINESQ)
-            ! allocate (burgers1d_boussinesq :: burgers1d_X(0:inb_scal))
-            ! allocate (burgers1d_boussinesq :: burgers1d_Y(0:inb_scal))
-            ! if (subsidenceProps%type == TYPE_SUB_CONSTANT) then
-            !     allocate (burgers1d_subsidence_boussinesq :: burgers1d_Z(0:inb_scal))
-            ! else
-            !     allocate (burgers1d_boussinesq :: burgers1d_Z(0:inb_scal))
-            ! end if
-            !
             allocate (burgers :: burgers1d_X(0:inb_scal))
             allocate (burgers :: burgers1d_Y(0:inb_scal))
             if (subsidenceProps%type == TYPE_SUB_CONSTANT) then
-                ! allocate (burgers :: burgers1d_Z(0:inb_scal))
-                print *, 'error'
+                call TLab_Write_ASCII(efile, __FILE__//'. Subsidence in boussinesq not yet implemented.')
+                call TLab_Stop(DNS_ERROR_UNDEVELOP)
             else
                 allocate (burgers :: burgers1d_Z(0:inb_scal))
             end if
-            !
 
             do is = 0, inb_scal     ! is = 0 corresponds to velocity fields
                 if (is == 0) then
@@ -153,6 +138,13 @@ contains
             end do
 
         end select
+
+        ! ###################################################################
+        ! Cache blocking
+        if (mod(imax*jmax, groupSizeZ) /= 0) then
+            call TLab_Write_ASCII(efile, __FILE__//'. Imax*Jmax not a multiple of GroupSizeZ.')
+            call TLab_Stop(DNS_ERROR_UNDEVELOP)
+        end if
 
         ! ###################################################################
         ! Setting procedure pointers
@@ -558,15 +550,14 @@ contains
 
     !########################################################################
     !########################################################################
-    subroutine NSE_AddBurgers_PerVolume_Z_Cache(is, nx, ny, nz, s, rhs, tmp2, tmp1, rhou_in)
-        integer, parameter :: batchsizeZ = 32
+    subroutine NSE_AddBurgers_PerVolume_Z(is, nx, ny, nz, s, rhs, tmp2, tmp1, rhou_in)
         integer, intent(in) :: is                       ! scalar index; if 0, then velocity
         integer(wi), intent(in) :: nx, ny, nz
         real(wp), intent(in) :: s(nx*ny, nz)
         real(wp), intent(inout) :: rhs(nx*ny, nz)
-        real(wp), intent(inout) :: tmp2(batchsizeZ, nz, nx*ny/batchsizeZ)
-        real(wp), intent(inout) :: tmp1(batchsizeZ, nz, nx*ny/batchsizeZ)
-        real(wp), intent(in), optional :: rhou_in(batchsizeZ, nz, nx*ny/batchsizeZ)
+        real(wp), intent(inout) :: tmp2(groupSizeZ, nz, nx*ny/groupSizeZ)
+        real(wp), intent(inout) :: tmp1(groupSizeZ, nz, nx*ny/groupSizeZ)
+        real(wp), intent(in), optional :: rhou_in(groupSizeZ, nz, nx*ny/groupSizeZ)
 
         ! -------------------------------------------------------------------
         integer(wi) nlines
@@ -577,12 +568,12 @@ contains
             return
         end if
 
-        nlines = batchsizeZ
+        nlines = groupSizeZ
 
-        do ib = 1, nx*ny/batchsizeZ
+        do ib = 1, nx*ny/groupSizeZ
             ! memory alignment
-            ip = (ib - 1)*batchsizeZ + 1
-            call reduce(s(ip, 1), batchsizeZ, nx*ny/batchsizeZ, nz, tmp1(1, 1, ib))
+            ip = (ib - 1)*groupSizeZ + 1
+            call reduce(s(ip, 1), groupSizeZ, nx*ny/groupSizeZ, nz, tmp1(1, 1, ib))
 
             call fdm_der1_Z%compute(nlines, tmp1(:, :, ib), wrk3d)
             call fdm_der2_Z%compute(nlines, tmp1(:, :, ib), tmp2, wrk3d)
@@ -594,7 +585,7 @@ contains
             end if
 
             ! memory arrangement
-            call spread_add(tmp2, batchsizeZ, nx*ny/batchsizeZ, nz, rhs(ip, 1))
+            call spread_add(tmp2, groupSizeZ, nx*ny/groupSizeZ, nz, rhs(ip, 1))
 
         end do
 

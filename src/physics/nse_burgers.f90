@@ -16,8 +16,8 @@ module NSE_Burgers
     use TLab_Grid, only: x, y, z
     use FDM, only: fdm_der1_X, fdm_der1_Y, fdm_der1_Z
     use FDM, only: fdm_der2_X, fdm_der2_Y, fdm_der2_Z
-    use FDM_Derivative_1order, only: der1_periodic
-    use FDM_Derivative_2order, only: der2_extended_periodic
+    ! use FDM_Derivative_1order, only: der1_periodic
+    ! use FDM_Derivative_2order, only: der2_extended_periodic
 !     use FDM_Derivative_Burgers
 #ifdef USE_MPI
 !     use FDM_Derivative_MPISplit, only: der_burgers_mpisplit
@@ -59,8 +59,9 @@ module NSE_Burgers
 
     ! -----------------------------------------------------------------------
     class(burgers_dt), allocatable :: burgers1d_X(:), burgers1d_Y(:), burgers1d_Z(:)
-    real(wp) :: diffusivity
 
+    ! -----------------------------------------------------------------------
+    ! Cache blocking information
     integer, parameter :: groupSizeX = 32, groupSizeY = 32, groupSizeZ = 32
 
 contains
@@ -81,6 +82,7 @@ contains
         character(len=32) bakfile
 
         integer(wi) is
+        real(wp) :: diffusivity
 
         ! ###################################################################
         ! Read input data
@@ -156,13 +158,13 @@ contains
         else
 #endif
             NSE_AddBurgers_PerVolume_X => NSE_AddBurgers_PerVolume_X_Serial
-            select type (fdm_der1_X)
-            type is (der1_periodic)
-                select type (fdm_der2_X)
-                type is (der2_extended_periodic)
-                    ! call fdm_burgersX%initialize(fdm_der1_X, fdm_der2_X%der2)
-                end select
-            end select
+            ! select type (fdm_der1_X)
+            ! type is (der1_periodic)
+            !     select type (fdm_der2_X)
+            !     type is (der2_extended_periodic)
+            !         call fdm_burgersX%initialize(fdm_der1_X, fdm_der2_X%der2)
+            !     end select
+            ! end select
 
 #ifdef USE_MPI
         end if
@@ -181,13 +183,13 @@ contains
         else
 #endif
             NSE_AddBurgers_PerVolume_Y => NSE_AddBurgers_PerVolume_Y_Serial
-            select type (fdm_der1_Y)
-            type is (der1_periodic)
-                select type (fdm_der2_Y)
-                type is (der2_extended_periodic)
-                    ! call fdm_burgersY%initialize(fdm_der1_Y, fdm_der2_Y%der2)
-                end select
-            end select
+            ! select type (fdm_der1_Y)
+            ! type is (der1_periodic)
+            !     select type (fdm_der2_Y)
+            !     type is (der2_extended_periodic)
+            !         call fdm_burgersY%initialize(fdm_der1_Y, fdm_der2_Y%der2)
+            !     end select
+            ! end select
 
 #ifdef USE_MPI
         end if
@@ -314,62 +316,6 @@ contains
         return
     end subroutine NSE_AddBurgers_PerVolume_X_MPITranspose
 
-!     !########################################################################
-!     !########################################################################
-!     subroutine NSE_AddBurgers_PerVolume_X_MPISplit(is, nx, ny, nz, s, rhs, tmp2, tmp1, rhou_in)
-!         use TLabMPI_PROCS, only: TLabMPI_Halos_X
-!         integer, intent(in) :: is                           ! scalar index; if 0, then velocity
-!         integer(wi), intent(in) :: nx, ny, nz
-!         real(wp), intent(in) :: s(nx*ny*nz)
-!         real(wp), intent(inout) :: rhs(nx*ny*nz)
-!         real(wp), intent(inout) :: tmp2(nx*ny*nz)
-!         real(wp), intent(inout) :: tmp1(nx*ny*nz)           ! transposed field s times density
-!         real(wp), intent(in), optional :: rhou_in(nx*ny*nz) ! transposed field u times density
-
-!         ! -------------------------------------------------------------------
-!         integer(wi) nlines
-!         integer np, np1, np2
-
-!         ! ###################################################################
-!         if (x%size == 1) then ! Set to zero in 2D case
-!             return
-!         end if
-
-!         ! Transposition: make x-direction the last one
-! #ifdef USE_ESSL
-!         call DGETMO(s, nx, nx, ny*nz, tmp1, ny*nz)
-! #else
-!         call TLab_Transpose_Real(s, nx, ny*nz, nx, tmp1, ny*nz, locBlock=trans_x_forward)
-! #endif
-
-!         nlines = ny*nz
-
-!         np1 = size(fdm_der1_X_split%rhs, 2)/2
-!         np2 = size(fdm_der2_X_split%rhs, 2)/2
-!         np = max(np1, np2)
-!         call TLabMPI_Halos_X(tmp1, nlines, np, pyz_halo_m(:, 1), pyz_halo_p(:, 1))
-
-!         call fdm_der1_X_split%compute(nlines, tmp1, pyz_halo_m(:, np - np1 + 1:np), pyz_halo_p, tmp2)
-!         call fdm_der2_X_split%compute(nlines, tmp1, pyz_halo_m(:, np - np2 + 1:np), pyz_halo_p, wrk3d)
-!         ! call fdm_burgersX_split%compute(nlines, tmp1, pyz_halo_m(:, 1:np), pyz_halo_p(:, 1:np), tmp2, wrk3d)
-
-!         if (present(rhou_in)) then      ! transposed velocity (times density) is passed as argument
-!             call burgers1d_X(is)%compute(nlines, nx, der1=tmp2, der2=wrk3d, rhou=rhou_in)
-!         else
-!             call burgers1d_X(is)%compute_setrhou(nlines, nx, der1=tmp2, der2=wrk3d, rhou=tmp1)
-!         end if
-
-!         ! Put arrays back in the order in which they came in
-! #ifdef USE_ESSL
-!         call DGETMO(wrk3d, ny*nz, ny*nz, nx, tmp2, nx)
-!         rhs = rhs + tmp2
-! #else
-!         call TLab_AddTranspose(wrk3d, ny*nz, nx, ny*nz, rhs, nx, locBlock=trans_x_backward)
-! #endif
-
-!         return
-!     end subroutine NSE_AddBurgers_PerVolume_X_MPISplit
-
 #endif
 
     !########################################################################
@@ -489,96 +435,7 @@ contains
         return
     end subroutine NSE_AddBurgers_PerVolume_Y_MPITranspose
 
-!     !########################################################################
-!     !########################################################################
-!     subroutine NSE_AddBurgers_PerVolume_Y_MPISplit(is, nx, ny, nz, s, rhs, tmp2, tmp1, rhou_in)
-!         use TLabMPI_PROCS, only: TLabMPI_Halos_Y
-!         integer, intent(in) :: is                           ! scalar index; if 0, then velocity
-!         integer(wi), intent(in) :: nx, ny, nz
-!         real(wp), intent(in) :: s(nx*ny*nz)
-!         real(wp), intent(inout) :: rhs(nx*ny*nz)
-!         real(wp), intent(inout) :: tmp2(nx*ny*nz)
-!         real(wp), intent(inout) :: tmp1(nx*ny*nz)           ! transposed field s times density
-!         real(wp), intent(in), optional :: rhou_in(nx*ny*nz) ! transposed field u times density
-
-!         ! -------------------------------------------------------------------
-!         integer(wi) nlines
-!         integer np, np1, np2
-
-!         ! ###################################################################
-!         if (y%size == 1) then ! Set to zero in 2D case
-!             return
-!         end if
-
-!         ! Transposition: make y-direction the last one
-! #ifdef USE_ESSL
-!         call DGETMO(s, nx*ny, nx*ny, nz, tmp1, nz)
-! #else
-!         call TLab_Transpose_Real(s, nx*ny, nz, nx*ny, tmp1, nz, locBlock=trans_y_forward)
-! #endif
-
-!         nlines = nx*nz
-
-!         np1 = size(fdm_der1_Y_split%rhs, 2)/2
-!         np2 = size(fdm_der2_Y_split%rhs, 2)/2
-!         np = max(np1, np2)
-!         call TLabMPI_Halos_Y(tmp1, nlines, np, pxz_halo_m(:, 1), pxz_halo_p(:, 1))
-
-!         call fdm_der1_Y_split%compute(nlines, tmp1, pxz_halo_m(:, np - np1 + 1:np), pxz_halo_p, tmp2)
-!         call fdm_der2_Y_split%compute(nlines, tmp1, pxz_halo_m(:, np - np2 + 1:np), pxz_halo_p, wrk3d)
-!         ! call fdm_burgersY_split%compute(nlines, tmp1, pxz_halo_m(:, 1:np), pxz_halo_p(:, 1:np), tmp2, wrk3d)
-
-!         if (present(rhou_in)) then      ! transposed velocity (times density) is passed as argument
-!             call burgers1d_Y(is)%compute(nlines, ny, der1=tmp2, der2=wrk3d, rhou=rhou_in)
-!         else
-!             call burgers1d_Y(is)%compute_setrhou(nlines, ny, der1=tmp2, der2=wrk3d, rhou=tmp1)
-!         end if
-
-!         ! Put arrays back in the order in which they came in
-! #ifdef USE_ESSL
-!         call DGETMO(wrk3d, nz, nz, nx*ny, tmp2, nx*ny)
-!         rhs = rhs + tmp2
-! #else
-!         call TLab_AddTranspose(wrk3d, nz, nx*ny, nz, rhs, nx*ny, locBlock=trans_y_backward)
-! #endif
-
-!         return
-!     end subroutine NSE_AddBurgers_PerVolume_Y_MPISplit
-
 #endif
-
-    ! !########################################################################
-    ! !########################################################################
-    ! subroutine NSE_AddBurgers_PerVolume_Z(is, nx, ny, nz, s, rhs, tmp2, tmp1, rhou_in)
-    !     integer, intent(in) :: is                       ! scalar index; if 0, then velocity
-    !     integer(wi), intent(in) :: nx, ny, nz
-    !     real(wp), intent(in) :: s(nx*ny, nz)
-    !     real(wp), intent(inout) :: rhs(nx*ny, nz)
-    !     real(wp), intent(inout) :: tmp2(nx*ny, nz)
-    !     real(wp), intent(inout), optional :: tmp1(nx*ny, nz)
-    !     real(wp), intent(in), optional :: rhou_in(nx*ny, nz)
-
-    !     ! -------------------------------------------------------------------
-    !     integer(wi) nlines
-
-    !     ! ###################################################################
-    !     if (z%size == 1) then ! Set to zero in 2D case nx*ny
-    !         return
-    !     end if
-
-    !     nlines = nx*ny
-
-    !     call fdm_der1_Z%compute(nlines, s, wrk3d)
-    !     call fdm_der2_Z%compute(nlines, s, tmp2, wrk3d)
-
-    !     if (present(rhou_in)) then      ! velocity (times density) is passed as argument
-    !         call burgers1d_Z(is)%add(nlines, nz, der1=wrk3d, der2=tmp2, rhou=rhou_in, result=rhs)
-    !     else
-    !         call burgers1d_Z(is)%add_setrhou(nlines, nz, der1=wrk3d, der2=tmp2, u=s, rhou=tmp1, result=rhs)
-    !     end if
-
-    !     return
-    ! end subroutine NSE_AddBurgers_PerVolume_Z
 
     !########################################################################
     !########################################################################

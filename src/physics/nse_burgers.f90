@@ -67,7 +67,7 @@ contains
     subroutine NSE_Burgers_Initialize(inifile)
         use TLab_Constants, only: efile
         use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
-        use TLab_Memory, only: inb_scal, imax, jmax!, kmax
+        use TLab_Memory, only: inb_scal
         use NavierStokes, only: nse_eqns, DNS_EQNS_ANELASTIC, DNS_EQNS_BOUSSINESQ
         use NavierStokes, only: visc, schmidt
         use Thermo_Anelastic, only: rbackground
@@ -138,13 +138,6 @@ contains
             end do
 
         end select
-
-        ! ###################################################################
-        ! Cache blocking
-        if (mod(imax*jmax, groupSizeZ) /= 0) then
-            call TLab_Write_ASCII(efile, __FILE__//'. Imax*Jmax not a multiple of GroupSizeZ.')
-            call TLab_Stop(DNS_ERROR_UNDEVELOP)
-        end if
 
         ! ###################################################################
         ! Setting procedure pointers
@@ -555,9 +548,9 @@ contains
         integer(wi), intent(in) :: nx, ny, nz
         real(wp), intent(in) :: s(nx*ny, nz)
         real(wp), intent(inout) :: rhs(nx*ny, nz)
-        real(wp), intent(inout) :: tmp2(groupSizeZ, nz, nx*ny/groupSizeZ)
-        real(wp), intent(inout) :: tmp1(groupSizeZ, nz, nx*ny/groupSizeZ)
-        real(wp), intent(in), optional :: rhou_in(groupSizeZ, nz, nx*ny/groupSizeZ)
+        real(wp), intent(inout) :: tmp2(groupSizeZ*nz, *) !nx*ny/groupSizeZ)
+        real(wp), intent(inout) :: tmp1(groupSizeZ*nz, *) !nx*ny/groupSizeZ)
+        real(wp), intent(in), optional :: rhou_in(groupSizeZ*nz, *) !nx*ny/groupSizeZ)
 
         ! -------------------------------------------------------------------
         integer(wi) nlines
@@ -568,33 +561,33 @@ contains
             return
         end if
 
-        nlines = groupSizeZ
-
-        do ib = 1, nx*ny/groupSizeZ
-            ! memory alignment
+        do ib = 1, (nx*ny - 1)/groupSizeZ + 1
             ip = (ib - 1)*groupSizeZ + 1
-            call reduce(s(ip, 1), groupSizeZ, nx*ny/groupSizeZ, nz, tmp1(1, 1, ib))
+            nlines = min(groupSizeZ, nx*ny - (ib - 1)*groupSizeZ)
 
-            call fdm_der1_Z%compute(nlines, tmp1(:, :, ib), wrk3d)
-            call fdm_der2_Z%compute(nlines, tmp1(:, :, ib), tmp2, wrk3d)
+            ! memory arrangement
+            call reduce(s(ip, 1), nlines, nx*ny, nz, tmp1(1, ib))
+
+            call fdm_der1_Z%compute(nlines, tmp1(1, ib), wrk3d)
+            call fdm_der2_Z%compute(nlines, tmp1(1, ib), tmp2, wrk3d)
 
             if (present(rhou_in)) then      ! velocity (times density) is passed as argument
-                call burgers1d_Z(is)%compute(nlines, nz, der1=wrk3d, der2=tmp2, rhou=rhou_in(1, 1, ib))
+                call burgers1d_Z(is)%compute(nlines, nz, der1=wrk3d, der2=tmp2, rhou=rhou_in(1, ib))
             else
-                call burgers1d_Z(is)%compute_setrhou(nlines, nz, der1=wrk3d, der2=tmp2, rhou=tmp1(1, 1, ib))
+                call burgers1d_Z(is)%compute_setrhou(nlines, nz, der1=wrk3d, der2=tmp2, rhou=tmp1(1, ib))
             end if
 
             ! memory arrangement
-            call spread_add(tmp2, groupSizeZ, nx*ny/groupSizeZ, nz, rhs(ip, 1))
+            call spread_add(tmp2, nlines, nx*ny, nz, rhs(ip, 1))
 
         end do
 
         return
     end subroutine
 
-    subroutine reduce(a, nlines, nblocks, nmax, b)
-        integer(wi), intent(in) :: nlines, nblocks, nmax
-        real(wp), intent(in) :: a(nlines*nblocks, *)
+    subroutine reduce(a, nlines, mmax, nmax, b)
+        integer(wi), intent(in) :: nlines, mmax, nmax
+        real(wp), intent(in) :: a(mmax, *)
         real(wp), intent(out) :: b(nlines, nmax)
 
         integer n
@@ -606,10 +599,10 @@ contains
         return
     end subroutine
 
-    subroutine spread_add(a, nlines, nblocks, nmax, b)
-        integer(wi), intent(in) :: nlines, nblocks, nmax
+    subroutine spread_add(a, nlines, mmax, nmax, b)
+        integer(wi), intent(in) :: nlines, mmax, nmax
         real(wp), intent(in) :: a(nlines, nmax)
-        real(wp), intent(out) :: b(nlines*nblocks, *)
+        real(wp), intent(out) :: b(mmax, *)
 
         integer n
 

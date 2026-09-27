@@ -46,7 +46,7 @@ module OPR_Partial
 #ifdef USE_MPI
     type(der_periodic_mpisplit), public, protected :: fdm_der1_X_split, fdm_der2_X_split
     type(der_periodic_mpisplit), public, protected :: fdm_der1_Y_split, fdm_der2_Y_split
-    real(wp), allocatable, target :: halo_m(:), halo_p(:)
+    real(wp), allocatable, public, target :: halo_m(:), halo_p(:)
     real(wp), pointer, public :: pyz_halo_m(:, :) => null(), pyz_halo_p(:, :) => null()
     real(wp), pointer, public :: pxz_halo_m(:, :) => null(), pxz_halo_p(:, :) => null()
 
@@ -335,14 +335,14 @@ contains
 
         select case (type)
         case (OPR_P2)
-            call fdm_der2_X_split%compute(ny*nz, result, pyz_halo_m(:, np - np2 + 1:np), pyz_halo_p, wrk3d)
+            call fdm_der2_X_split%compute(ny*nz, result, pyz_halo_m(1:, np - np2 + 1), pyz_halo_p, wrk3d)
 
         case (OPR_P2_P1)
-            call fdm_der2_X_split%compute(ny*nz, result, pyz_halo_m(:, np - np2 + 1:np), pyz_halo_p, tmp1)
-            call fdm_der1_X_split%compute(ny*nz, result, pyz_halo_m(:, np - np1 + 1:np), pyz_halo_p, wrk3d)
+            call fdm_der2_X_split%compute(ny*nz, result, pyz_halo_m(1:, np - np2 + 1), pyz_halo_p, tmp1)
+            call fdm_der1_X_split%compute(ny*nz, result, pyz_halo_m(1:, np - np1 + 1), pyz_halo_p, wrk3d)
 
         case (OPR_P1, OPR_P1_ADD, OPR_P1_SUBTRACT)
-            call fdm_der1_X_split%compute(ny*nz, result, pyz_halo_m(:, np - np1 + 1:np), pyz_halo_p, wrk3d)
+            call fdm_der1_X_split%compute(ny*nz, result, pyz_halo_m(1:, np - np1 + 1), pyz_halo_p, wrk3d)
 
         end select
 
@@ -531,14 +531,14 @@ contains
 
         select case (type)
         case (OPR_P2)
-            call fdm_der2_Y_split%compute(nx*nz, result, pxz_halo_m(:, np - np2 + 1:np), pxz_halo_p, wrk3d)
+            call fdm_der2_Y_split%compute(nx*nz, result, pxz_halo_m(1:, np - np2 + 1), pxz_halo_p, wrk3d)
 
         case (OPR_P2_P1)
-            call fdm_der2_Y_split%compute(nx*nz, result, pxz_halo_m(:, np - np2 + 1:np), pxz_halo_p, tmp1)
-            call fdm_der1_Y_split%compute(nx*nz, result, pxz_halo_m(:, np - np1 + 1:np), pxz_halo_p, wrk3d)
+            call fdm_der2_Y_split%compute(nx*nz, result, pxz_halo_m(1:, np - np2 + 1), pxz_halo_p, tmp1)
+            call fdm_der1_Y_split%compute(nx*nz, result, pxz_halo_m(1:, np - np1 + 1), pxz_halo_p, wrk3d)
 
         case (OPR_P1, OPR_P1_ADD, OPR_P1_SUBTRACT)
-            call fdm_der1_Y_split%compute(nx*nz, result, pxz_halo_m(:, np - np1 + 1:np), pxz_halo_p, wrk3d)
+            call fdm_der1_Y_split%compute(nx*nz, result, pxz_halo_m(1:, np - np1 + 1), pxz_halo_p, wrk3d)
 
         end select
 

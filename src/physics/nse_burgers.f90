@@ -23,7 +23,7 @@ module NSE_Burgers
 !     use FDM_Derivative_MPISplit, only: der_burgers_mpisplit
     use OPR_Partial, only: der_mode_i, der_mode_j, TYPE_TRANSPOSE, TYPE_SPLIT
     use OPR_Partial, only: fdm_der1_X_split, fdm_der2_X_split, fdm_der1_Y_split, fdm_der2_Y_split
-    use OPR_Partial, only: pxz_halo_m, pxz_halo_p, pyz_halo_m, pyz_halo_p
+    use OPR_Partial, only: pxz_halo_m, pxz_halo_p, pyz_halo_m, pyz_halo_p, halo_m, halo_p
 #endif
     use OPR_Burgers
     implicit none
@@ -236,11 +236,14 @@ contains
         np1 = size(fdm_der1_X_split%rhs, 2)/2
         np2 = size(fdm_der2_X_split%rhs, 2)/2
         np = max(np1, np2)
-        call TLabMPI_Halos_X(tmp1, nlines, np, pyz_halo_m(:, 1), pyz_halo_p(:, 1))
+        ! call TLabMPI_Halos_X(tmp1, nlines, np, pyz_halo_m(:, 1), pyz_halo_p(:, 1))
+        call TLabMPI_Halos_X(tmp1, nlines, np, halo_m, halo_p)
 
-        call fdm_der1_X_split%compute(nlines, tmp1, pyz_halo_m(:, np - np1 + 1:np), pyz_halo_p, tmp2)
-        call fdm_der2_X_split%compute(nlines, tmp1, pyz_halo_m(:, np - np2 + 1:np), pyz_halo_p, wrk3d)
+        ! call fdm_der1_X_split%compute(nlines, tmp1, pyz_halo_m(1:, np - np1 + 1), pyz_halo_p, tmp2)
+        ! call fdm_der2_X_split%compute(nlines, tmp1, pyz_halo_m(1:, np - np2 + 1), pyz_halo_p, wrk3d)
         ! call fdm_burgersX_split%compute(nlines, tmp1, pyz_halo_m(:, 1:np), pyz_halo_p(:, 1:np), tmp2, wrk3d)
+        call fdm_der1_X_split%compute(nlines, tmp1, halo_m(nlines*(np - np1) + 1:), halo_p, tmp2)
+        call fdm_der2_X_split%compute(nlines, tmp1, halo_m(nlines*(np - np2) + 1:), halo_p, wrk3d)
 
 #else
         call fdm_der1_X%compute(nlines, tmp1, tmp2)
@@ -311,9 +314,11 @@ contains
             np = max(np1, np2)
             call TLabMPI_Halos_X(tmp1(:, ib), nlines, np, pyz_halo_m(:, 1), pyz_halo_p(:, 1))
 
-            call fdm_der1_X_split%compute(nlines, tmp1(1, ib), pyz_halo_m(:, np - np1 + 1:np), pyz_halo_p, tmp2)
-            call fdm_der2_X_split%compute(nlines, tmp1(1, ib), pyz_halo_m(:, np - np2 + 1:np), pyz_halo_p, wrk3d)
-            ! call fdm_burgersX_split%compute(nlines, tmp1(1, ib), pyz_halo_m(:, 1:np), pyz_halo_p(:, 1:np), tmp2, wrk3d)
+            ! call fdm_der1_X_split%compute(nlines, tmp1(1, ib), pyz_halo_m(1:, np - np1 + 1:), pyz_halo_p, tmp2)
+            ! call fdm_der2_X_split%compute(nlines, tmp1(1, ib), pyz_halo_m(1:, np - np2 + 1:), pyz_halo_p, wrk3d)
+            ! call fdm_burgersX_split%compute(nlines, tmp1(1, ib), pyz_halo_m(:, 1:np), pyz_halo_p, tmp2, wrk3d)
+            call fdm_der1_X_split%compute(nlines, tmp1(1, ib), halo_m(nlines*(np - np1) + 1:), halo_p, tmp2)
+            call fdm_der2_X_split%compute(nlines, tmp1(1, ib), halo_m(nlines*(np - np2) + 1:), halo_p, wrk3d)
 
 #else
             call fdm_der1_X%compute(nlines, tmp1(1, ib), tmp2)

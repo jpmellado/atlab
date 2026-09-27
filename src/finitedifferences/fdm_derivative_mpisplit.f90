@@ -82,8 +82,10 @@ contains
         class(der_periodic_mpisplit), intent(in) :: self
         integer(wi), intent(in) :: nlines
         real(wp), intent(in) :: u(nlines, size(self%thomas3%L, 1))
-        real(wp), intent(in) :: u_halo_m(:, :)
-        real(wp), intent(in) :: u_halo_p(:, :)
+        ! real(wp), intent(in) :: u_halo_m(:, :)
+        ! real(wp), intent(in) :: u_halo_p(:, :)
+        real(wp), intent(in) :: u_halo_m(nlines, size(self%rhs, 2)/2)
+        real(wp), intent(in) :: u_halo_p(nlines, size(self%rhs, 2)/2)
         real(wp), intent(out) :: result(nlines, size(self%thomas3%L, 1))
 
         ! ###################################################################

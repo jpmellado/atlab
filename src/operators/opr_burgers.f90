@@ -16,16 +16,19 @@ module OPR_Burgers
 
     ! -----------------------------------------------------------------------
     type :: burgers_base
-        real(wp) :: diffusivity                             ! coefficient mu
+        private
+        real(wp) :: diffusivity                         ! coefficient mu
     contains
         procedure :: initialize => burgers_initialize
         procedure :: compute => burgers_compute
-        procedure :: add => burgers_add                   ! compute operator and add it to a rhs array
+        procedure :: add => burgers_add                 ! compute operator and add it to an array
     end type
 
     type, abstract, extends(burgers_base) :: burgers_dt ! handle form of advection field
+        private
         real(wp), allocatable :: rho(:)
         real(wp), allocatable :: rhou_background(:)
+        integer, public :: offset = 0
     contains
         procedure :: initialize_setrho => burgers_initialize_setrho
         procedure :: compute_setrhou => burgers1s_compute_setrhou
@@ -164,7 +167,7 @@ contains
 
 #define result(i,j) der2(i,j)
         do n = 1, nsize
-            rhou(:, n) = rhou(:, n)*self%rho(:)
+            rhou(:, n) = rhou(:, n)*self%rho(self%offset + 1:self%offset + nlines)
             result(:, n) = der2(:, n)*self%diffusivity - rhou(:, n)*der1(:, n)
         end do
 #undef result
@@ -183,7 +186,7 @@ contains
         integer n
 
         do n = 1, nsize
-            rhou(:, n) = rhou(:, n)*self%rho(:)
+            rhou(:, n) = rhou(:, n)*self%rho(self%offset + 1:self%offset + nlines)
             result(:, n) = result(:, n) + der2(:, n)*self%diffusivity - rhou(:, n)*der1(:, n)
         end do
 
@@ -239,7 +242,8 @@ contains
 
 #define result(i,j) der2(i,j)
         do n = 1, nsize
-            rhou(:, n) = rhou(:, n)*self%rho(:) - self%rhou_background(:)
+            rhou(:, n) = rhou(:, n)*self%rho(self%offset + 1:self%offset + nlines) &
+                         - self%rhou_background(self%offset + 1:self%offset + nlines)
             result(:, n) = der2(:, n)*self%diffusivity - rhou(:, n)*der1(:, n)
         end do
 #undef result
@@ -258,7 +262,8 @@ contains
         integer n
 
         do n = 1, nsize
-            rhou(:, n) = rhou(:, n)*self%rho(:) - self%rhou_background(:)
+            rhou(:, n) = rhou(:, n)*self%rho(self%offset + 1:self%offset + nlines) &
+                         - self%rhou_background(self%offset + 1:self%offset + nlines)
             result(:, n) = result(:, n) + der2(:, n)*self%diffusivity - rhou(:, n)*der1(:, n)
         end do
 

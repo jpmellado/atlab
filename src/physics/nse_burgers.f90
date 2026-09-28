@@ -324,7 +324,9 @@ contains
             if (present(rhou_in)) then      ! transposed velocity (times density) is passed as argument
                 call burgers1d_X(is)%compute(nlines, nx, der1=tmp2, der2=wrk3d, rhou=rhou_in(1, ib))
             else
+                burgers1d_X(is)%offset = ip - 1
                 call burgers1d_X(is)%compute_setrhou(nlines, nx, der1=tmp2, der2=wrk3d, rhou=tmp1(1, ib))
+                burgers1d_X(is)%offset = 0
             end if
 
             ! Put arrays back in the order in which they came in

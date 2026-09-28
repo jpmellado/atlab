@@ -237,14 +237,11 @@ contains
         np1 = size(fdm_der1_X_split%rhs, 2)/2
         np2 = size(fdm_der2_X_split%rhs, 2)/2
         np = max(np1, np2)
-        ! call TLabMPI_Halos_X(tmp1, nlines, np, pyz_halo_m(:, 1), pyz_halo_p(:, 1))
         call TLabMPI_Halos_X(tmp1, nlines, np, halo_m, halo_p)
 
-        ! call fdm_der1_X_split%compute(nlines, tmp1, pyz_halo_m(1:, np - np1 + 1), pyz_halo_p, tmp2)
-        ! call fdm_der2_X_split%compute(nlines, tmp1, pyz_halo_m(1:, np - np2 + 1), pyz_halo_p, wrk3d)
-        ! call fdm_burgersX_split%compute(nlines, tmp1, pyz_halo_m(:, 1:np), pyz_halo_p(:, 1:np), tmp2, wrk3d)
         call fdm_der1_X_split%compute(nlines, tmp1, halo_m(nlines*(np - np1) + 1:), halo_p, tmp2)
         call fdm_der2_X_split%compute(nlines, tmp1, halo_m(nlines*(np - np2) + 1:), halo_p, wrk3d)
+        ! call fdm_burgersX_split%compute(nlines, tmp1, halo_m(1:np*nlines), halo_p, tmp2, wrk3d)
 
 #else
         call fdm_der1_X%compute(nlines, tmp1, tmp2)
@@ -434,11 +431,15 @@ contains
         np1 = size(fdm_der1_Y_split%rhs, 2)/2
         np2 = size(fdm_der2_Y_split%rhs, 2)/2
         np = max(np1, np2)
-        call TLabMPI_Halos_Y(tmp1, nlines, np, pxz_halo_m, pxz_halo_p)
+        ! call TLabMPI_Halos_Y(tmp1, nlines, np, pxz_halo_m, pxz_halo_p)
+        call TLabMPI_Halos_Y(tmp1, nlines, np, halo_m, halo_p)
 
-        call fdm_der1_Y_split%compute(nlines, tmp1, pxz_halo_m(:, np - np1 + 1:np), pxz_halo_p, tmp2)
-        call fdm_der2_Y_split%compute(nlines, tmp1, pxz_halo_m(:, np - np2 + 1:np), pxz_halo_p, wrk3d)
-        ! call fdm_burgersY_split%compute(nlines, tmp1, pxz_halo_m(:, 1:np), pxz_halo_p(:, 1:np), tmp2, wrk3d)
+        ! call fdm_der1_Y_split%compute(nlines, tmp1, pxz_halo_m(:, np - np1 + 1:np), pxz_halo_p, tmp2)
+        ! call fdm_der2_Y_split%compute(nlines, tmp1, pxz_halo_m(:, np - np2 + 1:np), pxz_halo_p, wrk3d)
+        ! ! call fdm_burgersY_split%compute(nlines, tmp1, pxz_halo_m(:, 1:np), pxz_halo_p(:, 1:np), tmp2, wrk3d)
+        call fdm_der1_Y_split%compute(nlines, tmp1, halo_m(nlines*(np - np1) + 1:), halo_p, tmp2)
+        call fdm_der2_Y_split%compute(nlines, tmp1, halo_m(nlines*(np - np2) + 1:), halo_p, wrk3d)
+        ! call fdm_burgersY_split%compute(nlines, tmp1, halo_m(1:nlines*np), halo_p, tmp2, wrk3d)
 #else
         call fdm_der1_Y%compute(nlines, tmp1, tmp2)
         call fdm_der2_Y%compute(nlines, tmp1, wrk3d, tmp2)
@@ -470,18 +471,15 @@ contains
 #endif
         integer, intent(in) :: is                           ! scalar index; if 0, then velocity
         integer(wi), intent(in) :: nx, ny, nz
-        real(wp), intent(in) :: s(nx, ny*nz)
-        real(wp), intent(inout) :: rhs(nx, ny*nz)
-        ! real(wp), intent(inout) :: tmp2(nx*ny*nz)
-        ! real(wp), intent(inout) :: tmp1(nx*ny*nz)           ! transposed field s times density
-        ! real(wp), intent(in), optional :: rhou_in(nx*ny*nz) ! transposed field u times density
+        real(wp), intent(in) :: s(nx, ny, nz)
+        real(wp), intent(inout) :: rhs(nx, ny, nz)
         real(wp), intent(inout) :: tmp2(groupSizeY*ny, *)
         real(wp), intent(inout) :: tmp1(groupSizeY*ny, *)           ! transposed field s times density
         real(wp), intent(in), optional :: rhou_in(groupSizeY*ny, *) ! transposed field u times density
 
         ! -------------------------------------------------------------------
         integer(wi) nlines
-        integer(wi) ib, ip
+        integer(wi) ib, ip, i, k
 #ifdef USE_MPI
         integer np, np1, np2
 #endif
@@ -491,52 +489,42 @@ contains
             return
         end if
 
-        do ib = 1, (nz - 1)/groupSizeY + 1
-            ip = (ib - 1)*groupSizeY + 1
-            nlines = min(groupSizeY, nz - (ib - 1)*groupSizeY)
+        do i = 1, nx
+            do ib = 1, (nz - 1)/groupSizeY + 1
+                k = (ib - 1)*groupSizeY + 1
+                ip = (i - 1)*nz + k
+                nlines = min(groupSizeY, nz - (ib - 1)*groupSizeY)
 
-!             ! Transposition: make y-direction the last one
-! #ifdef USE_ESSL
-!             call DGETMO(s, nx*ny, nx*ny, nz, tmp1, nz)
-! #else
-!             call TLab_Transpose_Real(s, nx*ny, nz, nx*ny, tmp1, nz, locBlock=trans_y_forward)
-! #endif
-            ! memory arrangement
-            call reduce(s(ip, 1), nlines, nx*ny, nz, tmp1(1, ib))
+                ! memory arrangement
+                ! reduce s(i,:, k:k+nlines-1) into tmp1(1, ib))
 
 #ifdef USE_MPI
-            np1 = size(fdm_der1_Y_split%rhs, 2)/2
-            np2 = size(fdm_der2_Y_split%rhs, 2)/2
-            np = max(np1, np2)
-            call TLabMPI_Halos_Y(tmp1(:, ib), nlines, np, pxz_halo_m, pxz_halo_p)
+                np1 = size(fdm_der1_Y_split%rhs, 2)/2
+                np2 = size(fdm_der2_Y_split%rhs, 2)/2
+                np = max(np1, np2)
+                call TLabMPI_Halos_Y(tmp1(:, ib), nlines, np, pxz_halo_m, pxz_halo_p)
 
-            call fdm_der1_Y_split%compute(nlines, tmp1(1, ib), halo_m(nlines*(np - np1) + 1:), halo_p, tmp2)
-            call fdm_der2_Y_split%compute(nlines, tmp1(1, ib), halo_m(nlines*(np - np2) + 1:), halo_p, wrk3d)
-            ! call fdm_burgersY_split%compute(nlines, tmp1(1, ib), halo_m, halo_p, tmp2, wrk3d)
+                call fdm_der1_Y_split%compute(nlines, tmp1(1, ib), halo_m(nlines*(np - np1) + 1:), halo_p, tmp2)
+                call fdm_der2_Y_split%compute(nlines, tmp1(1, ib), halo_m(nlines*(np - np2) + 1:), halo_p, wrk3d)
+                ! call fdm_burgersY_split%compute(nlines, tmp1(1, ib), halo_m, halo_p, tmp2, wrk3d)
 #else
-            call fdm_der1_Y%compute(nlines, tmp1(1, ib), tmp2)
-            call fdm_der2_Y%compute(nlines, tmp1(1, ib), wrk3d, tmp2)
-            ! call fdm_burgersY%compute(nlines, tmp1(1, ib), tmp2, wrk3d)
+                call fdm_der1_Y%compute(nlines, tmp1(1, ib), tmp2)
+                call fdm_der2_Y%compute(nlines, tmp1(1, ib), wrk3d, tmp2)
+                ! call fdm_burgersY%compute(nlines, tmp1(1, ib), tmp2, wrk3d)
 #endif
 
-            if (present(rhou_in)) then      ! transposed velocity (times density) is passed as argument
-                call burgers1d_Y(is)%compute(nlines, ny, der1=tmp2, der2=wrk3d, rhou=rhou_in(1, ib))
-            else
-!                burgers1d_Y(is)%offset = ip - 1
-                call burgers1d_Y(is)%compute_setrhou(nlines, ny, der1=tmp2, der2=wrk3d, rhou=tmp1(1, ib))
-!                burgers1d_Y(is)%offset = 0
-            end if
+                if (present(rhou_in)) then      ! transposed velocity (times density) is passed as argument
+                    call burgers1d_Y(is)%compute(nlines, ny, der1=tmp2, der2=wrk3d, rhou=rhou_in(1, ib))
+                else
+                    burgers1d_Y(is)%offset = ip - 1
+                    call burgers1d_Y(is)%compute_setrhou(nlines, ny, der1=tmp2, der2=wrk3d, rhou=tmp1(1, ib))
+                    burgers1d_Y(is)%offset = 0
+                end if
 
-!             ! Put arrays back in the order in which they came in
-! #ifdef USE_ESSL
-!             call DGETMO(wrk3d, nz, nz, nx*ny, tmp2, nx*ny)
-!             rhs = rhs + tmp2
-! #else
-!             call TLab_AddTranspose(wrk3d, nz, nx*ny, nz, rhs(1, ip), nx*ny, locBlock=trans_y_backward)
-! #endif
-            ! memory arrangement
-            call spread_add(tmp2, nlines, nx*ny, nz, rhs(ip, 1))
+                ! memory arrangement
+                ! spread_add tmp2 into rhs(i,:, k:k+nlines-1)
 
+            end do
         end do
 
         return

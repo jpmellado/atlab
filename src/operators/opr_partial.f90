@@ -331,7 +331,7 @@ contains
         np1 = size(fdm_der1_X_split%rhs, 2)/2
         np2 = size(fdm_der2_X_split%rhs, 2)/2
         np = max(np1, np2)
-        call TLabMPI_Halos_X(result, ny*nz, np, pyz_halo_m(:, 1), pyz_halo_p(:, 1))
+        call TLabMPI_Halos_X(result, ny*nz, np, pyz_halo_m, pyz_halo_p)
 
         select case (type)
         case (OPR_P2)
@@ -527,7 +527,7 @@ contains
         np1 = size(fdm_der1_Y_split%rhs, 2)/2
         np2 = size(fdm_der2_Y_split%rhs, 2)/2
         np = max(np1, np2)
-        call TLabMPI_Halos_Y(result, nx*nz, np, pxz_halo_m(:, 1), pxz_halo_p(:, 1))
+        call TLabMPI_Halos_Y(result, nx*nz, np, pxz_halo_m, pxz_halo_p)
 
         select case (type)
         case (OPR_P2)

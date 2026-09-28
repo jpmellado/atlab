@@ -89,7 +89,7 @@ program vMpi_Thomas3_Scaling
     time_loc_1 = MPI_WTIME()
     do it = 1, num_iterations
         do ib = 1, nlines/batchsize
-            call TLabMPI_Halos_X(f(1:batchsize*nxLoc, 1, ib), batchsize, np, halos(:, 1), halos(:, np + 1))
+            call TLabMPI_Halos_X(f(1:batchsize*nxLoc, 1, ib), batchsize, np, halos(1, 1), halos(1, np + 1))
             call fdm_der1_split%compute(batchsize, f(:, :, ib), halos(:, 1:np), halos(:, np + 1:np + np), u(:, :, ib))
         end do
     end do

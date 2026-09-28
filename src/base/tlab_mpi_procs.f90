@@ -113,8 +113,8 @@ contains
         real(wp), intent(in) :: a(:)
         integer(wi), intent(in) :: size_plane
         integer(wi), intent(in) :: n_halo_planes
-        real(wp), intent(out) :: halo_m(:)      ! minus, coming from left/west processor
-        real(wp), intent(out) :: halo_p(:)      ! plus, coming from right/east processor
+        real(wp), intent(out) :: halo_m(*)      ! minus, coming from left/west processor
+        real(wp), intent(out) :: halo_p(*)      ! plus, coming from right/east processor
 
         integer(wi) :: counts, disp
         integer source, dest
@@ -147,8 +147,8 @@ contains
         real(wp), intent(in) :: a(:)
         integer(wi), intent(in) :: size_plane
         integer(wi), intent(in) :: n_halo_planes
-        real(wp), intent(out) :: halo_m(:)      ! minus, coming from left/west processor
-        real(wp), intent(out) :: halo_p(:)      ! plus, coming from right/east processor
+        real(wp), intent(out) :: halo_m(*)      ! minus, coming from left/west processor
+        real(wp), intent(out) :: halo_p(*)      ! plus, coming from right/east processor
 
         integer(wi) :: counts, disp
         integer source, dest

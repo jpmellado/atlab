@@ -278,12 +278,9 @@ contains
         integer(wi), intent(in) :: nx, ny, nz
         real(wp), intent(in) :: s(nx, ny*nz)
         real(wp), intent(inout) :: rhs(nx, ny*nz)
-        ! real(wp), intent(inout) :: tmp2(nx*ny*nz)
-        ! real(wp), intent(inout) :: tmp1(nx*ny*nz)           ! transposed field s times density
-        ! real(wp), intent(in), optional :: rhou_in(nx*ny*nz) ! transposed field u times density
-        real(wp), intent(inout) :: tmp2(groupSizeX*nx, *) !nz*ny/groupSizeX)
-        real(wp), intent(inout) :: tmp1(groupSizeX*nx, *) !nz*ny/groupSizeX)
-        real(wp), intent(in), optional :: rhou_in(groupSizeX*nx, *) !nz*ny/groupSizeX)
+        real(wp), intent(inout) :: tmp2(groupSizeX*nx, *)
+        real(wp), intent(inout) :: tmp1(groupSizeX*nx, *)           ! transposed field s times density
+        real(wp), intent(in), optional :: rhou_in(groupSizeX*nx, *) ! transposed field u times density
 
         ! -------------------------------------------------------------------
         integer(wi) nlines
@@ -312,13 +309,11 @@ contains
             np1 = size(fdm_der1_X_split%rhs, 2)/2
             np2 = size(fdm_der2_X_split%rhs, 2)/2
             np = max(np1, np2)
-            call TLabMPI_Halos_X(tmp1(:, ib), nlines, np, pyz_halo_m(:, 1), pyz_halo_p(:, 1))
+            call TLabMPI_Halos_X(tmp1(:, ib), nlines, np, pyz_halo_m, pyz_halo_p)
 
-            ! call fdm_der1_X_split%compute(nlines, tmp1(1, ib), pyz_halo_m(1:, np - np1 + 1:), pyz_halo_p, tmp2)
-            ! call fdm_der2_X_split%compute(nlines, tmp1(1, ib), pyz_halo_m(1:, np - np2 + 1:), pyz_halo_p, wrk3d)
-            ! call fdm_burgersX_split%compute(nlines, tmp1(1, ib), pyz_halo_m(:, 1:np), pyz_halo_p, tmp2, wrk3d)
             call fdm_der1_X_split%compute(nlines, tmp1(1, ib), halo_m(nlines*(np - np1) + 1:), halo_p, tmp2)
             call fdm_der2_X_split%compute(nlines, tmp1(1, ib), halo_m(nlines*(np - np2) + 1:), halo_p, wrk3d)
+            ! call fdm_burgersX_split%compute(nlines, tmp1(1, ib), halo_m, halo_p, tmp2, wrk3d)
 
 #else
             call fdm_der1_X%compute(nlines, tmp1(1, ib), tmp2)
@@ -436,7 +431,7 @@ contains
         np1 = size(fdm_der1_Y_split%rhs, 2)/2
         np2 = size(fdm_der2_Y_split%rhs, 2)/2
         np = max(np1, np2)
-        call TLabMPI_Halos_Y(tmp1, nlines, np, pxz_halo_m(:, 1), pxz_halo_p(:, 1))
+        call TLabMPI_Halos_Y(tmp1, nlines, np, pxz_halo_m, pxz_halo_p)
 
         call fdm_der1_Y_split%compute(nlines, tmp1, pxz_halo_m(:, np - np1 + 1:np), pxz_halo_p, tmp2)
         call fdm_der2_Y_split%compute(nlines, tmp1, pxz_halo_m(:, np - np2 + 1:np), pxz_halo_p, wrk3d)
@@ -561,9 +556,9 @@ contains
         return
     end subroutine
 
-    subroutine reduce(a, nlines, mmax, nmax, b)
-        integer(wi), intent(in) :: nlines, mmax, nmax
-        real(wp), intent(in) :: a(mmax, *)
+    subroutine reduce(a, nlines, nca, nmax, b)
+        integer(wi), intent(in) :: nlines, nca, nmax
+        real(wp), intent(in) :: a(nca, *)
         real(wp), intent(out) :: b(nlines, nmax)
 
         integer n
@@ -575,10 +570,10 @@ contains
         return
     end subroutine
 
-    subroutine spread_add(a, nlines, mmax, nmax, b)
-        integer(wi), intent(in) :: nlines, mmax, nmax
+    subroutine spread_add(a, nlines, ncb, nmax, b)
+        integer(wi), intent(in) :: nlines, ncb, nmax
         real(wp), intent(in) :: a(nlines, nmax)
-        real(wp), intent(out) :: b(mmax, *)
+        real(wp), intent(out) :: b(ncb, *)
 
         integer n
 

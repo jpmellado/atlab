@@ -473,13 +473,13 @@ contains
         integer(wi), intent(in) :: nx, ny, nz
         real(wp), intent(in) :: s(nx, ny, nz)
         real(wp), intent(inout) :: rhs(nx, ny, nz)
-        real(wp), intent(inout) :: tmp2(groupSizeY*ny, *)
-        real(wp), intent(inout) :: tmp1(groupSizeY*ny, *)           ! transposed field s times density
-        real(wp), intent(in), optional :: rhou_in(groupSizeY*ny, *) ! transposed field u times density
+        real(wp), intent(inout) :: tmp2(*)
+        real(wp), intent(inout) :: tmp1(*)                  ! transposed field s times density
+        real(wp), intent(in), optional :: rhou_in(*)        ! transposed field u times density
 
         ! -------------------------------------------------------------------
         integer(wi) nlines
-        integer(wi) ib, ip, i, k
+        integer(wi) ib, i, k, jj, kk, ip
 #ifdef USE_MPI
         integer np, np1, np2
 #endif
@@ -489,40 +489,53 @@ contains
             return
         end if
 
+        ib = 1
         do i = 1, nx
-            do ib = 1, (nz - 1)/groupSizeY + 1
-                k = (ib - 1)*groupSizeY + 1
-                ip = (i - 1)*nz + k
-                nlines = min(groupSizeY, nz - (ib - 1)*groupSizeY)
+            do k = 1, nz, groupSizeY
+                nlines = min(groupSizeY, nz - k + 1)
 
-                ! memory arrangement
-                ! reduce s(i,:, k:k+nlines-1) into tmp1(1, ib))
+                ! memory arrangement; reduce
+                ip = ib - 1
+                do jj = 1, ny
+                    do kk = k, k + nlines - 1
+                        ip = ip + 1
+                        tmp1(ip) = s(i, jj, kk)
+                    end do
+                end do
 
 #ifdef USE_MPI
                 np1 = size(fdm_der1_Y_split%rhs, 2)/2
                 np2 = size(fdm_der2_Y_split%rhs, 2)/2
                 np = max(np1, np2)
-                call TLabMPI_Halos_Y(tmp1(:, ib), nlines, np, pxz_halo_m, pxz_halo_p)
+                call TLabMPI_Halos_Y(tmp1(ib:ib + nlines*ny - 1), nlines, np, pxz_halo_m, pxz_halo_p)
 
-                call fdm_der1_Y_split%compute(nlines, tmp1(1, ib), halo_m(nlines*(np - np1) + 1:), halo_p, tmp2)
-                call fdm_der2_Y_split%compute(nlines, tmp1(1, ib), halo_m(nlines*(np - np2) + 1:), halo_p, wrk3d)
+                call fdm_der1_Y_split%compute(nlines, tmp1(ib), halo_m(nlines*(np - np1) + 1:), halo_p, tmp2)
+                call fdm_der2_Y_split%compute(nlines, tmp1(ib), halo_m(nlines*(np - np2) + 1:), halo_p, wrk3d)
                 ! call fdm_burgersY_split%compute(nlines, tmp1(1, ib), halo_m, halo_p, tmp2, wrk3d)
 #else
-                call fdm_der1_Y%compute(nlines, tmp1(1, ib), tmp2)
-                call fdm_der2_Y%compute(nlines, tmp1(1, ib), wrk3d, tmp2)
+                call fdm_der1_Y%compute(nlines, tmp1(ib), tmp2)
+                call fdm_der2_Y%compute(nlines, tmp1(ib), wrk3d, tmp2)
                 ! call fdm_burgersY%compute(nlines, tmp1(1, ib), tmp2, wrk3d)
 #endif
 
                 if (present(rhou_in)) then      ! transposed velocity (times density) is passed as argument
-                    call burgers1d_Y(is)%compute(nlines, ny, der1=tmp2, der2=wrk3d, rhou=rhou_in(1, ib))
+                    call burgers1d_Y(is)%compute(nlines, ny, der1=tmp2, der2=wrk3d, rhou=rhou_in(ib))
                 else
-                    burgers1d_Y(is)%offset = ip - 1
-                    call burgers1d_Y(is)%compute_setrhou(nlines, ny, der1=tmp2, der2=wrk3d, rhou=tmp1(1, ib))
+                    burgers1d_Y(is)%offset = (i - 1)*nz + k - 1
+                    call burgers1d_Y(is)%compute_setrhou(nlines, ny, der1=tmp2, der2=wrk3d, rhou=tmp1(ib))
                     burgers1d_Y(is)%offset = 0
                 end if
 
-                ! memory arrangement
-                ! spread_add tmp2 into rhs(i,:, k:k+nlines-1)
+                ! memory arrangement; spread_add
+                ip = 0
+                do jj = 1, ny
+                    do kk = k, k + nlines - 1
+                        ip = ip + 1
+                        rhs(i, jj, kk) = rhs(i, jj, kk) + tmp2(ip)
+                    end do
+                end do
+
+                ib = ib + nlines*ny
 
             end do
         end do

@@ -91,14 +91,12 @@ program VBURGERS
         ! call IO_Write_Fields('fieldXdirect.out', imax, jmax, kmax, itime, 1, b, io_header_s(1:1))
 
         c = 0.0_wp
-        ! call NSE_AddBurgers_PerVolume_X(0, imax, jmax, kmax, a, c, tmp1, tmp2)
-        call NSE_AddBurgers_PerVolume_X_Serial_Dev(0, imax, jmax, kmax, a, c, tmp1, tmp2)
+        call NSE_AddBurgers_PerVolume_X(0, imax, jmax, kmax, a, c, tmp1, tmp2)
         ! call IO_Write_Fields('fieldXburgers.out', imax, jmax, kmax, itime, 1, c, io_header_s(1:1))
         call check(b, c, tmp1)!, 'fieldX.dif')
 
         c = 0.0_wp
-        ! call NSE_AddBurgers_PerVolume_X(0, imax, jmax, kmax, a, c, tmp1, tmp2)
-        call NSE_AddBurgers_PerVolume_X_Serial_Dev(0, imax, jmax, kmax, a, c, tmp1, tmp6, rhou_in=tmp2)
+        call NSE_AddBurgers_PerVolume_X(0, imax, jmax, kmax, a, c, tmp1, tmp2)
         call check(b, c, tmp1)!, 'fieldX.dif')
 
     end if

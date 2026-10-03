@@ -14,11 +14,11 @@ program VBURGERS
     use TLabMPI_Transpose_DerivedTypes, only: TLabMPI_Trp_Initialize
 #endif
     use FDM, only: FDM_Initialize
-    use NavierStokes !, only: NavierStokes_Initialize_Parameters, visc
+    use NavierStokes
     use Thermodynamics, only: Thermo_Initialize
     use Thermo_Anelastic, only: rbackground
     use Gravity, only: Gravity_Initialize
-    use LargeScaleForcing!, only: LargeScaleForcing_Initialize
+    use LargeScaleForcing
     use TLab_Grid
     use IO_Fields
     use OPR_Partial
@@ -30,7 +30,7 @@ program VBURGERS
     real(wp), dimension(:, :, :), pointer :: a, b, c
 
     integer(wi) i, j, k
-    real(wp) params(0)
+    ! real(wp) params(0)
 
 ! ###################################################################
     call TLab_Start()
@@ -42,7 +42,6 @@ program VBURGERS
 
 #ifdef USE_MPI
     call TLabMPI_Initialize(ifile)
-    ! call TLabMPI_Trp_Initialize(ifile)
     call TLabMPI_Trp_Initialize(ifile)
 #endif
 
@@ -69,29 +68,40 @@ program VBURGERS
     ! ###################################################################
     ! Define forcing term
     ! ###################################################################
-    call IO_Read_Fields('field.inp', imax, jmax, kmax, itime, 1, 0, a, params)
+    ! call IO_Read_Fields('field.inp', imax, jmax, kmax, itime, 1, 0, a, params)
+    call random_number(a)
 
     ! ###################################################################
-    print *, new_line('a'), 'Derivative along x.'
-    call OPR_Partial_X(OPR_P2_P1, imax, jmax, kmax, a, b, c)
-    if (nse_eqns == DNS_EQNS_ANELASTIC) then
-        do k = 1, kmax
-            do j = 1, jmax
-                do i = 1, imax
-                    b(i, j, k) = b(i, j, k)*visc - a(i, j, k)*c(i, j, k)*rbackground(k)
+    if (x%size > 1) then
+
+        print *, new_line('a'), 'Derivative along x.'
+        call OPR_Partial_X(OPR_P2_P1, imax, jmax, kmax, a, b, c)
+        if (nse_eqns == DNS_EQNS_ANELASTIC) then
+            print *, 'Anelastic formulation'
+            do k = 1, kmax
+                do j = 1, jmax
+                    do i = 1, imax
+                        b(i, j, k) = b(i, j, k)*visc - a(i, j, k)*c(i, j, k)*rbackground(k)
+                    end do
                 end do
             end do
-        end do
-    else
-        b = b*visc - a*c
+        else
+            b = b*visc - a*c
+        end if
+        ! call IO_Write_Fields('fieldXdirect.out', imax, jmax, kmax, itime, 1, b, io_header_s(1:1))
+
+        c = 0.0_wp
+        ! call NSE_AddBurgers_PerVolume_X(0, imax, jmax, kmax, a, c, tmp1, tmp2)
+        call NSE_AddBurgers_PerVolume_X_Serial_Dev(0, imax, jmax, kmax, a, c, tmp1, tmp2)
+        ! call IO_Write_Fields('fieldXburgers.out', imax, jmax, kmax, itime, 1, c, io_header_s(1:1))
+        call check(b, c, tmp1)!, 'fieldX.dif')
+
+        c = 0.0_wp
+        ! call NSE_AddBurgers_PerVolume_X(0, imax, jmax, kmax, a, c, tmp1, tmp2)
+        call NSE_AddBurgers_PerVolume_X_Serial_Dev(0, imax, jmax, kmax, a, c, tmp1, tmp6, rhou_in=tmp2)
+        call check(b, c, tmp1)!, 'fieldX.dif')
+
     end if
-    ! call IO_Write_Fields('fieldXdirect.out', imax, jmax, kmax, itime, 1, b, io_header_s(1:1))
-
-    c = 0.0_wp
-    call NSE_AddBurgers_PerVolume_X(0, imax, jmax, kmax, a, c, tmp1, tmp2)
-    ! call IO_Write_Fields('fieldXburgers.out', imax, jmax, kmax, itime, 1, c, io_header_s(1:1))
-
-    call check(b, c, tmp1)!, 'fieldX.dif')
 
     ! ###################################################################
     if (y%size > 1) then
@@ -99,6 +109,7 @@ program VBURGERS
         print *, new_line('a'), 'Derivative along y.'
         call OPR_Partial_Y(OPR_P2_P1, imax, jmax, kmax, a, b, c)
         if (nse_eqns == DNS_EQNS_ANELASTIC) then
+            print *, 'Anelastic formulation'
             do k = 1, kmax
                 do j = 1, jmax
                     do i = 1, imax
@@ -112,44 +123,51 @@ program VBURGERS
         ! call IO_Write_Fields('fieldYdirect.out', imax, jmax, kmax, itime, 1, b, io_header_s(1:1))
 
         c = 0.0_wp
-        call NSE_AddBurgers_PerVolume_Y(0, imax, jmax, kmax, a, c, tmp1, tmp2)
+        ! call NSE_AddBurgers_PerVolume_Y(0, imax, jmax, kmax, a, c, tmp1, tmp2)
+        call NSE_AddBurgers_PerVolume_Y_Serial_Dev(0, imax, jmax, kmax, a, c, tmp1, tmp2)
         ! call IO_Write_Fields('fieldYburgers.out', imax, jmax, kmax, itime, 1, c, io_header_s(1:1))
+        call check(b, c, tmp1)!, 'fieldY.dif')
 
+        c = 0.0_wp
+        ! call NSE_AddBurgers_PerVolume_Y(0, imax, jmax, kmax, a, c, tmp1, tmp2)
+        call NSE_AddBurgers_PerVolume_Y_Serial_Dev(0, imax, jmax, kmax, a, c, tmp1, tmp6, rhou_in=tmp2)
         call check(b, c, tmp1)!, 'fieldY.dif')
 
     end if
 
     ! ###################################################################
     ! Careful if you have subsidence activated
-    print *, new_line('a'), 'Derivative along z.'
-    call OPR_Partial_Z(OPR_P2_P1, imax, jmax, kmax, a, b, c)
-    if (nse_eqns == DNS_EQNS_ANELASTIC) then
-        do k = 1, kmax
-            do j = 1, jmax
-                do i = 1, imax
-                    if (subsidenceProps%type == TYPE_SUB_CONSTANT) then
-                        b(i, j, k) = b(i, j, k)*visc + (wbackground(k) - a(i, j, k))*rbackground(k)*c(i, j, k)
-                    else
-                        b(i, j, k) = b(i, j, k)*visc - a(i, j, k)*c(i, j, k)*rbackground(k)
-                    end if
+    if (z%size > 1) then
+        print *, new_line('a'), 'Derivative along z.'
+        call OPR_Partial_Z(OPR_P2_P1, imax, jmax, kmax, a, b, c)
+        if (nse_eqns == DNS_EQNS_ANELASTIC) then
+            print *, 'Anelastic formulation'
+            do k = 1, kmax
+                do j = 1, jmax
+                    do i = 1, imax
+                        if (subsidenceProps%type == TYPE_SUB_CONSTANT) then
+                            b(i, j, k) = b(i, j, k)*visc + (wbackground(k) - a(i, j, k))*rbackground(k)*c(i, j, k)
+                        else
+                            b(i, j, k) = b(i, j, k)*visc - a(i, j, k)*c(i, j, k)*rbackground(k)
+                        end if
+                    end do
                 end do
             end do
-        end do
-    else
-        b = b*visc - a*c
+        else
+            b = b*visc - a*c
+        end if
+        ! call IO_Write_Fields('fieldZdirect.out', imax, jmax, kmax, itime, 1, b, io_header_s(1:1))
+
+        c = 0.0_wp
+        call NSE_AddBurgers_PerVolume_Z(0, imax, jmax, kmax, a, c, tmp1, tmp2)
+        ! call IO_Write_Fields('fieldZburgers.out', imax, jmax, kmax, itime, 1, c, io_header_s(1:1))
+        call check(b, c, tmp1)!, 'fieldZ.dif')
+
+        c = 0.0_wp
+        call NSE_AddBurgers_PerVolume_Z(0, imax, jmax, kmax, a, c, tmp1, tmp6, rhou_in=tmp2)
+        call check(b, c, tmp1)!, 'fieldZ.dif')
+
     end if
-    ! call IO_Write_Fields('fieldZdirect.out', imax, jmax, kmax, itime, 1, b, io_header_s(1:1))
-
-    c = 0.0_wp
-    ! call NSE_AddBurgers_PerVolume_Z(0, imax, jmax, kmax, a, c, tmp1, tmp2)
-    call NSE_AddBurgers_PerVolume_Z(0, imax, jmax, kmax, a, c, tmp1, tmp2)
-    ! call IO_Write_Fields('fieldZburgers.out', imax, jmax, kmax, itime, 1, c, io_header_s(1:1))
-
-    call check(b, c, tmp1)!, 'fieldZ.dif')
-
-    c = 0.0_wp
-    call NSE_AddBurgers_PerVolume_Z(0, imax, jmax, kmax, a, c, tmp1, tmp6, rhou_in=tmp2)
-    call check(b, c, tmp1)!, 'fieldZ.dif')
 
     call TLab_Stop(0)
 

@@ -64,7 +64,7 @@ module NSE_Burgers
 
     ! -----------------------------------------------------------------------
     ! Cache blocking information
-    integer, parameter :: groupSizeX = 32, groupSizeY = 32, groupSizeZ = 32
+    integer, parameter :: groupSizeX = 32, groupSizeY = 128, groupSizeZ = 32
 
 contains
     !########################################################################
@@ -531,7 +531,7 @@ contains
                 do jj = 1, ny
                     do kk = k, k + nlines - 1
                         ip = ip + 1
-                        rhs(i, jj, kk) = rhs(i, jj, kk) + tmp2(ip)
+                        rhs(i, jj, kk) = rhs(i, jj, kk) + wrk3d(ip)
                     end do
                 end do
 

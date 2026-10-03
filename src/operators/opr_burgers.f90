@@ -314,12 +314,8 @@ contains
 #ifdef USE_MPI
         use TLabMPI_VARS, only: xMpi, yMpi
         use TLabMPI_Transpose_DerivedTypes, only: tmpi_trp_X, tmpi_trp_Y
-#endif
-        use TLab_Grid, only: z
-#ifdef USE_MPI
         use OPR_Partial, only: der_mode_i, der_mode_j, TYPE_TRANSPOSE
 #endif
-
         real(wp), intent(in) :: rbackground(:)
         real(wp), allocatable, intent(out) :: rho(:)
         character(len=*), intent(in) :: axis
@@ -334,7 +330,6 @@ contains
         case ('x')
 #ifdef USE_MPI
             if (xMpi%num_processors > 1 .and. der_mode_i == TYPE_TRANSPOSE) then
-                ! nlines = tmpi_plan_dx%nlines
                 nlines = tmpi_trp_X%nlines
                 offset = nlines*xMpi%rank
             else
@@ -355,7 +350,6 @@ contains
         case ('y')
 #ifdef USE_MPI
             if (yMpi%num_processors > 1 .and. der_mode_j == TYPE_TRANSPOSE) then
-                ! nlines = tmpi_plan_dy%nlines
                 nlines = tmpi_trp_Y%nlines
                 offset = nlines*yMpi%rank
             else
@@ -367,7 +361,7 @@ contains
 #endif
             allocate (rho(nlines))
             do j = 1, nlines
-                ip = mod(offset + j - 1, z%size) + 1
+                ip = mod(offset + j - 1, kmax) + 1
                 rho(j) = rbackground(ip)
             end do
 

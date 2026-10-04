@@ -197,73 +197,6 @@ contains
         return
     end subroutine NSE_Burgers_Initialize
 
-!     !########################################################################
-!     !########################################################################
-!     subroutine NSE_AddBurgers_PerVolume_X_Serial(is, nx, ny, nz, s, rhs, tmp2, tmp1, rhou_in)
-! #ifdef USE_MPI
-!         use TLabMPI_PROCS, only: TLabMPI_Halos_X
-! #endif
-!         integer, intent(in) :: is                           ! scalar index; if 0, then velocity
-!         integer(wi), intent(in) :: nx, ny, nz
-!         real(wp), intent(in) :: s(nx*ny*nz)
-!         real(wp), intent(inout) :: rhs(nx*ny*nz)
-!         real(wp), intent(inout) :: tmp2(nx*ny*nz)
-!         real(wp), intent(inout) :: tmp1(nx*ny*nz)           ! transposed field s times density
-!         real(wp), intent(in), optional :: rhou_in(nx*ny*nz) ! transposed field u times density
-
-!         ! -------------------------------------------------------------------
-!         integer(wi) nlines
-! #ifdef USE_MPI
-!         integer np, np1, np2
-! #endif
-
-!         ! ###################################################################
-!         if (x%size == 1) then ! Set to zero in 2D case
-!             return
-!         end if
-
-!         ! Transposition: make x-direction the last one
-! #ifdef USE_ESSL
-!         call DGETMO(s, nx, nx, ny*nz, tmp1, ny*nz)
-! #else
-!         call TLab_Transpose_Real(s, nx, ny*nz, nx, tmp1, ny*nz, locBlock=trans_x_forward)
-! #endif
-
-!         nlines = ny*nz
-
-! #ifdef USE_MPI
-!         np1 = size(fdm_der1_X_split%rhs, 2)/2
-!         np2 = size(fdm_der2_X_split%rhs, 2)/2
-!         np = max(np1, np2)
-!         call TLabMPI_Halos_X(tmp1, nlines, np, halo_m, halo_p)
-
-!         call fdm_der1_X_split%compute(nlines, tmp1, halo_m(nlines*(np - np1) + 1:), halo_p, tmp2)
-!         call fdm_der2_X_split%compute(nlines, tmp1, halo_m(nlines*(np - np2) + 1:), halo_p, wrk3d)
-!         ! call fdm_burgersX_split%compute(nlines, tmp1, halo_m(1:np*nlines), halo_p, tmp2, wrk3d)
-
-! #else
-!         call fdm_der1_X%compute(nlines, tmp1, tmp2)
-!         call fdm_der2_X%compute(nlines, tmp1, wrk3d, tmp2)
-!         ! call fdm_burgersX%compute(nlines, tmp1, tmp2, wrk3d)
-
-! #endif
-!         if (present(rhou_in)) then      ! transposed velocity (times density) is passed as argument
-!             call burgers1d_X(is)%compute(nlines, nx, der1=tmp2, der2=wrk3d, rhou=rhou_in)
-!         else
-!             call burgers1d_X(is)%compute_setrhou(nlines, nx, der1=tmp2, der2=wrk3d, rhou=tmp1)
-!         end if
-
-!         ! Put arrays back in the order in which they came in
-! #ifdef USE_ESSL
-!         call DGETMO(wrk3d, ny*nz, ny*nz, nx, tmp2, nx)
-!         rhs = rhs + tmp2
-! #else
-!         call TLab_AddTranspose(wrk3d, ny*nz, nx, ny*nz, rhs, nx, locBlock=trans_x_backward)
-! #endif
-
-!         return
-!     end subroutine NSE_AddBurgers_PerVolume_X_Serial
-
     !########################################################################
     !########################################################################
     subroutine NSE_AddBurgers_PerVolume_X_Serial(is, nx, ny, nz, s, rhs, tmp2, tmp1, rhou_in)
@@ -394,6 +327,7 @@ contains
     !########################################################################
     !########################################################################
     subroutine NSE_AddBurgers_PerVolume_Y_Serial(is, nx, ny, nz, s, rhs, tmp2, tmp1, rhou_in)
+        use TLab_CacheBlock, only: tlab_cache_reduce_y, tlab_cache_spread_add_y
 #ifdef USE_MPI
         use TLabMPI_PROCS, only: TLabMPI_Halos_Y
 #endif
@@ -423,7 +357,7 @@ contains
                 nlines = min(groupSizeY, nz - k + 1)
 
                 ! memory arrangement; reduce
-                call reduce_y(s, nx, ny, nz, i, k, nlines, tmp1(ib))
+                call tlab_cache_reduce_y(s, nx, ny, nz, i, k, nlines, tmp1(ib))
 
 #ifdef USE_MPI
                 np1 = size(fdm_der1_Y_split%rhs, 2)/2
@@ -449,7 +383,7 @@ contains
                 end if
 
                 ! memory arrangement; spread_add
-                call spread_add_y(wrk3d, nx, ny, nz, i, k, nlines, rhs)
+                call tlab_cache_spread_add_y(wrk3d, nx, ny, nz, i, k, nlines, rhs)
 
                 ib = ib + nlines*ny
 
@@ -458,42 +392,6 @@ contains
 
         return
     end subroutine NSE_AddBurgers_PerVolume_Y_Serial
-
-    subroutine reduce_y(a, nx, ny, nz, i, k, nlines, b)
-        real(wp), intent(in) :: a(nx, ny, nz)
-        integer, intent(in) :: nx, ny, nz, i, k, nlines
-        real(wp), intent(out) :: b(*)
-
-        integer ip, jj, kk
-
-        ip = 0
-        do jj = 1, ny
-            do kk = k, k + nlines - 1
-                ip = ip + 1
-                b(ip) = a(i, jj, kk)
-            end do
-        end do
-
-        return
-    end subroutine
-
-    subroutine spread_add_y(a, nx, ny, nz, i, k, nlines, b)
-        real(wp), intent(in) :: a(*)
-        integer, intent(in) :: nx, ny, nz, i, k, nlines
-        real(wp), intent(inout) :: b(nx, ny, nz)
-
-        integer ip, jj, kk
-
-        ip = 0
-        do jj = 1, ny
-            do kk = k, k + nlines - 1
-                ip = ip + 1
-                b(i, jj, kk) = b(i, jj, kk) + a(ip)
-            end do
-        end do
-
-        return
-    end subroutine
 
     !########################################################################
     !########################################################################
@@ -551,6 +449,7 @@ contains
     !########################################################################
     !########################################################################
     subroutine NSE_AddBurgers_PerVolume_Z(is, nx, ny, nz, s, rhs, tmp2, tmp1, rhou_in)
+        use TLab_CacheBlock, only: tlab_cache_reduce_z, tlab_cache_spread_add_z
         integer, intent(in) :: is                       ! scalar index; if 0, then velocity
         integer(wi), intent(in) :: nx, ny, nz
         real(wp), intent(in) :: s(nx*ny, nz)
@@ -573,7 +472,7 @@ contains
             nlines = min(groupSizeZ, nx*ny - (ib - 1)*groupSizeZ)
 
             ! memory arrangement
-            call reduce_z(s(ip, 1), nlines, nx*ny, nz, tmp1(1, ib))
+            call tlab_cache_reduce_z(s(ip, 1), nlines, nx*ny, nz, tmp1(1, ib))
 
             call fdm_der1_Z%compute(nlines, tmp1(1, ib), wrk3d)
             call fdm_der2_Z%compute(nlines, tmp1(1, ib), tmp2, wrk3d)
@@ -585,36 +484,8 @@ contains
             end if
 
             ! memory arrangement
-            call spread_add_z(tmp2, nlines, nx*ny, nz, rhs(ip, 1))
+            call tlab_cache_spread_add_z(tmp2, nlines, nx*ny, nz, rhs(ip, 1))
 
-        end do
-
-        return
-    end subroutine
-
-    subroutine reduce_z(a, nlines, nca, nmax, b)
-        integer(wi), intent(in) :: nlines, nca, nmax
-        real(wp), intent(in) :: a(nca, *)
-        real(wp), intent(out) :: b(nlines, nmax)
-
-        integer n
-
-        do n = 1, nmax
-            b(1:nlines, n) = a(1:nlines, n)
-        end do
-
-        return
-    end subroutine
-
-    subroutine spread_add_z(a, nlines, ncb, nmax, b)
-        integer(wi), intent(in) :: nlines, ncb, nmax
-        real(wp), intent(in) :: a(nlines, nmax)
-        real(wp), intent(out) :: b(ncb, *)
-
-        integer n
-
-        do n = 1, nmax
-            b(1:nlines, n) = b(1:nlines, n) + a(1:nlines, n)
         end do
 
         return

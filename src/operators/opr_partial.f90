@@ -14,6 +14,7 @@ module OPR_Partial
     use TLab_Grid, only: x, y, z
     use FDM, only: fdm_der1_X, fdm_der1_Y, fdm_der1_Z
     use FDM, only: fdm_der2_X, fdm_der2_Y, fdm_der2_Z
+    use TLab_CacheBlock
     implicit none
     private
 
@@ -55,6 +56,13 @@ module OPR_Partial
     integer, parameter, public :: TYPE_SPLIT = 2
 
 #endif
+
+    ! -----------------------------------------------------------------------
+    ! Cache blocking information; tuned to levante in a subdomain 48x32x768
+    ! integer, parameter :: groupSizeX = 1024, groupSizeY = 512, groupSizeZ = 32
+    integer, parameter :: groupSizeX = CacheBlockSizeX
+    integer, parameter :: groupSizeY = CacheBlockSizeY
+    integer, parameter :: groupSizeZ = CacheBlockSizeZ
 
 contains
     ! ###################################################################

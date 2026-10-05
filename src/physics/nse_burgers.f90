@@ -22,6 +22,7 @@ module NSE_Burgers
     use OPR_Partial, only: halo_m, halo_p
 #endif
     use OPR_Burgers
+    use TLab_CacheBlock
 !     use FDM_Derivative_1order, only: der1_periodic
 !     use FDM_Derivative_2order, only: der2_extended_periodic
 !     use FDM_Derivative_Burgers
@@ -64,7 +65,10 @@ module NSE_Burgers
 
     ! -----------------------------------------------------------------------
     ! Cache blocking information; tuned to levante in a subdomain 48x32x768
-    integer, parameter :: groupSizeX = 1024, groupSizeY = 512, groupSizeZ = 32
+    ! integer, parameter :: groupSizeX = 1024, groupSizeY = 512, groupSizeZ = 32
+    integer, parameter :: groupSizeX = CacheBlockSizeX
+    integer, parameter :: groupSizeY = CacheBlockSizeY
+    integer, parameter :: groupSizeZ = CacheBlockSizeZ
 
 contains
     !########################################################################
@@ -327,7 +331,6 @@ contains
     !########################################################################
     !########################################################################
     subroutine NSE_AddBurgers_PerVolume_Y_Serial(is, nx, ny, nz, s, rhs, tmp2, tmp1, rhou_in)
-        use TLab_CacheBlock, only: tlab_cache_reduce_y, tlab_cache_spread_add_y
 #ifdef USE_MPI
         use TLabMPI_PROCS, only: TLabMPI_Halos_Y
 #endif
@@ -449,14 +452,13 @@ contains
     !########################################################################
     !########################################################################
     subroutine NSE_AddBurgers_PerVolume_Z(is, nx, ny, nz, s, rhs, tmp2, tmp1, rhou_in)
-        use TLab_CacheBlock, only: tlab_cache_reduce_z, tlab_cache_spread_add_z
-        integer, intent(in) :: is                       ! scalar index; if 0, then velocity
+        integer, intent(in) :: is                           ! scalar index; if 0, then velocity
         integer(wi), intent(in) :: nx, ny, nz
-        real(wp), intent(in) :: s(nx*ny, nz)
-        real(wp), intent(inout) :: rhs(nx*ny, nz)
-        real(wp), intent(inout) :: tmp2(groupSizeZ*nz, *) !nx*ny/groupSizeZ)
-        real(wp), intent(inout) :: tmp1(groupSizeZ*nz, *) !nx*ny/groupSizeZ)
-        real(wp), intent(in), optional :: rhou_in(groupSizeZ*nz, *) !nx*ny/groupSizeZ)
+        real(wp), intent(in) :: s(nx*ny*nz)
+        real(wp), intent(inout) :: rhs(nx*ny*nz)
+        real(wp), intent(inout) :: tmp2(nx*ny*nz)
+        real(wp), intent(inout) :: tmp1(nx*ny*nz)           ! transposed field s times density
+        real(wp), intent(in), optional :: rhou_in(nx*ny*nz) ! transposed field u times density
 
         ! -------------------------------------------------------------------
         integer(wi) nlines
@@ -467,24 +469,24 @@ contains
             return
         end if
 
-        do ib = 1, (nx*ny - 1)/groupSizeZ + 1
-            ip = (ib - 1)*groupSizeZ + 1
-            nlines = min(groupSizeZ, nx*ny - (ib - 1)*groupSizeZ)
+        do ib = 1, nx*ny, groupSizeZ
+            ip = (ib - 1)*nz + 1
+            nlines = min(groupSizeZ, nx*ny - ib + 1)
 
             ! memory arrangement
-            call tlab_cache_reduce_z(s(ip, 1), nlines, nx*ny, nz, tmp1(1, ib))
+            call tlab_cache_reduce_z(s(ib), nlines, nx*ny, nz, tmp1(ip))
 
-            call fdm_der1_Z%compute(nlines, tmp1(1, ib), wrk3d)
-            call fdm_der2_Z%compute(nlines, tmp1(1, ib), tmp2, wrk3d)
+            call fdm_der1_Z%compute(nlines, tmp1(ip), wrk3d)
+            call fdm_der2_Z%compute(nlines, tmp1(ip), tmp2, wrk3d)
 
             if (present(rhou_in)) then      ! velocity (times density) is passed as argument
-                call burgers1d_Z(is)%compute(nlines, nz, der1=wrk3d, der2=tmp2, rhou=rhou_in(1, ib))
+                call burgers1d_Z(is)%compute(nlines, nz, der1=wrk3d, der2=tmp2, rhou=rhou_in(ip))
             else
-                call burgers1d_Z(is)%compute_setrhou(nlines, nz, der1=wrk3d, der2=tmp2, rhou=tmp1(1, ib))
+                call burgers1d_Z(is)%compute_setrhou(nlines, nz, der1=wrk3d, der2=tmp2, rhou=tmp1(ip))
             end if
 
             ! memory arrangement
-            call tlab_cache_spread_add_z(tmp2, nlines, nx*ny, nz, rhs(ip, 1))
+            call tlab_cache_spread_add_z(tmp2, nlines, nx*ny, nz, rhs(ib))
 
         end do
 

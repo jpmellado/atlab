@@ -13,7 +13,7 @@
 subroutine NSE_Anelastic_PerVolume(hq, hs, dte, remove_divergence)
     use TLab_Constants, only: wp, wi, BCS_NN
     use TLab_Memory, only: imax, jmax, kmax, isize_field, inb_flow, inb_scal
-    use TLab_Pointers, only: u, v, w, tmp1, tmp2, tmp3!, tmp4
+    use TLab_Pointers, only: u, v, w, tmp1, tmp2, tmp3
     use TLab_Arrays, only: s
     use OPR_Partial
     use NSE_Burgers
@@ -57,9 +57,7 @@ subroutine NSE_Anelastic_PerVolume(hq, hs, dte, remove_divergence)
     ! #######################################################################
     ! Forcing term
     if (remove_divergence) then ! remove residual divergence
-        ! call Add_Residual_Divergence(hq)
         call Add_Residual_Divergence(w, hq(1, 3), tmp2)
-        ! call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, tmp2, tmp1)
         call OPR_Partial_Z_Cache(OPR_P1, imax, jmax, kmax, tmp2, result=tmp1, aux=tmp3)
         call Add_Residual_Divergence(v, hq(1, 2), tmp2)
         call OPR_Partial_Y(OPR_P1_ADD, imax, jmax, kmax, tmp2, tmp3, tmp1)
@@ -67,7 +65,6 @@ subroutine NSE_Anelastic_PerVolume(hq, hs, dte, remove_divergence)
         call OPR_Partial_X(OPR_P1_ADD, imax, jmax, kmax, tmp2, tmp3, tmp1) ! forcing term in tmp1
 
     else
-        ! call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, hq(:, 3), tmp1)
         call OPR_Partial_Z_Cache(OPR_P1, imax, jmax, kmax, hq(:, 3), result=tmp1, aux=tmp2)
         call OPR_Partial_Y(OPR_P1_ADD, imax, jmax, kmax, hq(:, 2), tmp2, tmp1)
         call OPR_Partial_X(OPR_P1_ADD, imax, jmax, kmax, hq(:, 1), tmp2, tmp1)
@@ -82,30 +79,11 @@ subroutine NSE_Anelastic_PerVolume(hq, hs, dte, remove_divergence)
     ! Add pressure gradient
     call OPR_Partial_X(OPR_P1_SUBTRACT, imax, jmax, kmax, tmp1, tmp2, hq(:, 1))
     call OPR_Partial_Y(OPR_P1_SUBTRACT, imax, jmax, kmax, tmp1, tmp2, hq(:, 2))
-    ! call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, tmp1, tmp2)
-    ! hq(:, 3) = hq(:, 3) - tmp2(:)
     call OPR_Partial_Z_Cache(OPR_P1_SUBTRACT, imax, jmax, kmax, tmp1, result=hq(:, 3), aux=tmp2)
 
     return
 
 contains
-    ! subroutine Add_Residual_Divergence(hq)
-    !     use TLab_Pointers_3D, only: p_q, pxy_tmp2 => tmp2, pxy_tmp3 => tmp3, pxy_tmp4 => tmp4
-    !     use Thermo_Anelastic, only: rbackground
-    !     real(wp), intent(out) :: hq(imax, jmax, kmax, inb_flow)
-
-    !     integer(wi) k
-    !     real(wp) dummy
-
-    !     dummy = 1.0_wp/dte
-    !     do k = 1, kmax
-    !         pxy_tmp2(:, :, k) = hq(:, :, k, 1) + p_q(:, :, k, 1)*dummy*rbackground(k)
-    !         pxy_tmp3(:, :, k) = hq(:, :, k, 2) + p_q(:, :, k, 2)*dummy*rbackground(k)
-    !         pxy_tmp4(:, :, k) = hq(:, :, k, 3) + p_q(:, :, k, 3)*dummy*rbackground(k)
-    !     end do
-
-    !     return
-    ! end subroutine
     subroutine Add_Residual_Divergence(q, hq, result)
         use Thermo_Anelastic, only: rbackground
         real(wp), intent(in) :: q(imax, jmax, kmax)

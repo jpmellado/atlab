@@ -47,8 +47,8 @@ module OPR_Partial
     type(der_periodic_mpisplit), public, protected :: fdm_der1_X_split, fdm_der2_X_split
     type(der_periodic_mpisplit), public, protected :: fdm_der1_Y_split, fdm_der2_Y_split
     real(wp), allocatable, public, target :: halo_m(:), halo_p(:)
-    real(wp), pointer, public :: pyz_halo_m(:, :) => null(), pyz_halo_p(:, :) => null()
-    real(wp), pointer, public :: pxz_halo_m(:, :) => null(), pxz_halo_p(:, :) => null()
+    ! real(wp), pointer, public :: pyz_halo_m(:, :) => null(), pyz_halo_p(:, :) => null()
+    ! real(wp), pointer, public :: pxz_halo_m(:, :) => null(), pxz_halo_p(:, :) => null()
 
     integer, public :: der_mode_i, der_mode_j
     integer, parameter, public :: TYPE_TRANSPOSE = 1
@@ -113,7 +113,8 @@ contains
             case (TYPE_TRANSPOSE)
                 OPR_Partial_X => OPR_Partial_X_MPITranspose
             case (TYPE_SPLIT)
-                OPR_Partial_X => OPR_Partial_X_MPISplit
+                ! OPR_Partial_X => OPR_Partial_X_MPISplit
+                OPR_Partial_X => OPR_Partial_X_Serial
                 select type (fdm_der1_X)
                 type is (der1_periodic)
                     call fdm_der1_X_split%initialize(fdm_der1_X, xMpi)
@@ -139,7 +140,8 @@ contains
             case (TYPE_TRANSPOSE)
                 OPR_Partial_Y => OPR_Partial_Y_MPITranspose
             case (TYPE_SPLIT)
-                OPR_Partial_Y => OPR_Partial_Y_MPISplit
+                ! OPR_Partial_Y => OPR_Partial_Y_MPISplit
+                OPR_Partial_Y => OPR_Partial_Y_Serial
                 select type (fdm_der1_Y)
                 type is (der1_periodic)
                     call fdm_der1_Y_split%initialize(fdm_der1_Y, yMpi)
@@ -160,12 +162,12 @@ contains
 
         if (np > 0) then
             allocate (halo_m(max(imax*kmax, jmax*kmax)*np))
-            pyz_halo_m(1:jmax*kmax, 1:np) => halo_m(1:jmax*kmax*np)
-            pxz_halo_m(1:imax*kmax, 1:np) => halo_m(1:imax*kmax*np)
+            ! pyz_halo_m(1:jmax*kmax, 1:np) => halo_m(1:jmax*kmax*np)
+            ! pxz_halo_m(1:imax*kmax, 1:np) => halo_m(1:imax*kmax*np)
 
             allocate (halo_p(max(imax*kmax, jmax*kmax)*np))
-            pyz_halo_p(1:jmax*kmax, 1:np) => halo_p(1:jmax*kmax*np)
-            pxz_halo_p(1:imax*kmax, 1:np) => halo_p(1:imax*kmax*np)
+            ! pyz_halo_p(1:jmax*kmax, 1:np) => halo_p(1:jmax*kmax*np)
+            ! pxz_halo_p(1:imax*kmax, 1:np) => halo_p(1:imax*kmax*np)
         end if
 
 #endif
@@ -176,12 +178,20 @@ contains
     ! ###################################################################
     ! ###################################################################
     subroutine OPR_Partial_X_Serial(type, nx, ny, nz, u, result, tmp1)
+#ifdef USE_MPI
+        use TLabMPI_PROCS, only: TLabMPI_Halos_X
+#endif
         integer(wi), intent(in) :: type                         ! OPR_P1, OPR_P2, OPR_P2_P1
         integer(wi), intent(in) :: nx, ny, nz
         real(wp), intent(in) :: u(nx*ny*nz)
         real(wp), intent(out) :: result(nx*ny*nz)
         real(wp), intent(inout), optional :: tmp1(nx*ny*nz)     ! 1. order derivative in 2. order calculation
 
+        ! -------------------------------------------------------------------
+        integer(wi) nlines
+#ifdef USE_MPI
+        integer np, np1, np2
+#endif
         ! ###################################################################
         if (x%size == 1) then ! Set to zero in 2D case
             result = 0.0_wp
@@ -195,20 +205,42 @@ contains
 #else
         call TLab_Transpose_Real(u, nx, ny*nz, nx, result, ny*nz, locBlock=trans_x_forward)
 #endif
+        nlines = ny*nz
+
+#ifdef USE_MPI
+        np1 = size(fdm_der1_X_split%rhs, 2)/2
+        np2 = size(fdm_der2_X_split%rhs, 2)/2
+        np = max(np1, np2)
+        call TLabMPI_Halos_X(result, nlines, np, halo_m, halo_p)
 
         select case (type)
         case (OPR_P2)
-            if (.not. x%uniform) call fdm_der1_X%compute(ny*nz, result, tmp1)
-            call fdm_der2_X%compute(ny*nz, result, wrk3d, tmp1)
+            if (.not. x%uniform) call fdm_der1_X_split%compute(nlines, result, halo_m(nlines*(np - np1) + 1:), halo_p, tmp1)
+            call fdm_der2_X_split%compute(nlines, result, halo_m(nlines*(np - np2) + 1:), halo_p, wrk3d)
 
         case (OPR_P2_P1)
-            call fdm_der1_X%compute(ny*nz, result, wrk3d)
-            call fdm_der2_X%compute(ny*nz, result, tmp1, wrk3d)
+            call fdm_der2_X_split%compute(nlines, result, halo_m(nlines*(np - np2) + 1:), halo_p, tmp1)
+            call fdm_der1_X_split%compute(nlines, result, halo_m(nlines*(np - np1) + 1:), halo_p, wrk3d)
 
         case (OPR_P1, OPR_P1_ADD, OPR_P1_SUBTRACT)
-            call fdm_der1_X%compute(ny*nz, result, wrk3d)
+            call fdm_der1_X_split%compute(nlines, result, halo_m(nlines*(np - np1) + 1:), halo_p, wrk3d)
 
         end select
+#else
+        select case (type)
+        case (OPR_P2)
+            if (.not. x%uniform) call fdm_der1_X%compute(nlines, result, tmp1)
+            call fdm_der2_X%compute(nlines, result, wrk3d, tmp1)
+
+        case (OPR_P2_P1)
+            call fdm_der1_X%compute(nlines, result, wrk3d)
+            call fdm_der2_X%compute(nlines, result, tmp1, wrk3d)
+
+        case (OPR_P1, OPR_P1_ADD, OPR_P1_SUBTRACT)
+            call fdm_der1_X%compute(nlines, result, wrk3d)
+
+        end select
+#endif
 
         ! Put arrays back in the order in which they came in
         select case (type)
@@ -301,76 +333,79 @@ contains
         return
     end subroutine OPR_Partial_X_MPITranspose
 
-    !########################################################################
-    !########################################################################
-    subroutine OPR_Partial_X_MPISplit(type, nx, ny, nz, u, result, tmp1)
-        use TLabMPI_PROCS, only: TLabMPI_Halos_X
-        integer(wi), intent(in) :: type                         ! OPR_P1, OPR_P2, OPR_P2_P1
-        integer(wi), intent(in) :: nx, ny, nz
-        real(wp), intent(in) :: u(nx*ny*nz)
-        real(wp), intent(out) :: result(nx*ny*nz)
-        real(wp), intent(inout), optional :: tmp1(nx*ny*nz)     ! 1. order derivative in 2. order calculation
+!     !########################################################################
+!     !########################################################################
+!     subroutine OPR_Partial_X_MPISplit(type, nx, ny, nz, u, result, tmp1)
+!         use TLabMPI_PROCS, only: TLabMPI_Halos_X
+!         integer(wi), intent(in) :: type                         ! OPR_P1, OPR_P2, OPR_P2_P1
+!         integer(wi), intent(in) :: nx, ny, nz
+!         real(wp), intent(in) :: u(nx*ny*nz)
+!         real(wp), intent(out) :: result(nx*ny*nz)
+!         real(wp), intent(inout), optional :: tmp1(nx*ny*nz)     ! 1. order derivative in 2. order calculation
 
-        ! -------------------------------------------------------------------
-        integer np, np1, np2
+!         ! -------------------------------------------------------------------
+!         integer np, np1, np2
 
-        ! ###################################################################
-        if (x%size == 1) then ! Set to zero in 2D case
-            result = 0.0_wp
-            if (type == OPR_P2_P1) tmp1 = 0.0_wp
-            return
-        end if
+!         ! ###################################################################
+!         if (x%size == 1) then ! Set to zero in 2D case
+!             result = 0.0_wp
+!             if (type == OPR_P2_P1) tmp1 = 0.0_wp
+!             return
+!         end if
 
-        ! Transposition: make x-direction the last one
-#ifdef USE_ESSL
-        call DGETMO(u, nx, nx, ny*nz, result, ny*nz)
-#else
-        call TLab_Transpose_Real(u, nx, ny*nz, nx, result, ny*nz, locBlock=trans_x_forward)
-#endif
+!         ! Transposition: make x-direction the last one
+! #ifdef USE_ESSL
+!         call DGETMO(u, nx, nx, ny*nz, result, ny*nz)
+! #else
+!         call TLab_Transpose_Real(u, nx, ny*nz, nx, result, ny*nz, locBlock=trans_x_forward)
+! #endif
 
-        np1 = size(fdm_der1_X_split%rhs, 2)/2
-        np2 = size(fdm_der2_X_split%rhs, 2)/2
-        np = max(np1, np2)
-        call TLabMPI_Halos_X(result, ny*nz, np, pyz_halo_m, pyz_halo_p)
+!         np1 = size(fdm_der1_X_split%rhs, 2)/2
+!         np2 = size(fdm_der2_X_split%rhs, 2)/2
+!         np = max(np1, np2)
+!         call TLabMPI_Halos_X(result, ny*nz, np, pyz_halo_m, pyz_halo_p)
 
-        select case (type)
-        case (OPR_P2)
-            call fdm_der2_X_split%compute(ny*nz, result, pyz_halo_m(1:, np - np2 + 1), pyz_halo_p, wrk3d)
+!         select case (type)
+!         case (OPR_P2)
+!             call fdm_der2_X_split%compute(ny*nz, result, pyz_halo_m(1:, np - np2 + 1), pyz_halo_p, wrk3d)
 
-        case (OPR_P2_P1)
-            call fdm_der2_X_split%compute(ny*nz, result, pyz_halo_m(1:, np - np2 + 1), pyz_halo_p, tmp1)
-            call fdm_der1_X_split%compute(ny*nz, result, pyz_halo_m(1:, np - np1 + 1), pyz_halo_p, wrk3d)
+!         case (OPR_P2_P1)
+!             call fdm_der2_X_split%compute(ny*nz, result, pyz_halo_m(1:, np - np2 + 1), pyz_halo_p, tmp1)
+!             call fdm_der1_X_split%compute(ny*nz, result, pyz_halo_m(1:, np - np1 + 1), pyz_halo_p, wrk3d)
 
-        case (OPR_P1, OPR_P1_ADD, OPR_P1_SUBTRACT)
-            call fdm_der1_X_split%compute(ny*nz, result, pyz_halo_m(1:, np - np1 + 1), pyz_halo_p, wrk3d)
+!         case (OPR_P1, OPR_P1_ADD, OPR_P1_SUBTRACT)
+!             call fdm_der1_X_split%compute(ny*nz, result, pyz_halo_m(1:, np - np1 + 1), pyz_halo_p, wrk3d)
 
-        end select
+!         end select
 
-        ! Put arrays back in the order in which they came in
-        select case (type)
-        case (OPR_P2_P1)
-            call TLab_Transpose_Real(tmp1, ny*nz, nx, ny*nz, result, nx, locBlock=trans_x_backward)
-            call TLab_Transpose_Real(wrk3d, ny*nz, nx, ny*nz, tmp1, nx, locBlock=trans_x_backward)
+!         ! Put arrays back in the order in which they came in
+!         select case (type)
+!         case (OPR_P2_P1)
+!             call TLab_Transpose_Real(tmp1, ny*nz, nx, ny*nz, result, nx, locBlock=trans_x_backward)
+!             call TLab_Transpose_Real(wrk3d, ny*nz, nx, ny*nz, tmp1, nx, locBlock=trans_x_backward)
 
-        case (OPR_P1_ADD)
-            call TLab_AddTranspose(wrk3d, ny*nz, nx, ny*nz, tmp1, nx, locBlock=trans_x_backward)
+!         case (OPR_P1_ADD)
+!             call TLab_AddTranspose(wrk3d, ny*nz, nx, ny*nz, tmp1, nx, locBlock=trans_x_backward)
 
-        case (OPR_P1_SUBTRACT)
-            call TLab_SubtractTranspose(wrk3d, ny*nz, nx, ny*nz, tmp1, nx, locBlock=trans_x_backward)
+!         case (OPR_P1_SUBTRACT)
+!             call TLab_SubtractTranspose(wrk3d, ny*nz, nx, ny*nz, tmp1, nx, locBlock=trans_x_backward)
 
-        case default
-            call TLab_Transpose_Real(wrk3d, ny*nz, nx, ny*nz, result, nx, locBlock=trans_x_backward)
+!         case default
+!             call TLab_Transpose_Real(wrk3d, ny*nz, nx, ny*nz, result, nx, locBlock=trans_x_backward)
 
-        end select
+!         end select
 
-        return
-    end subroutine OPR_Partial_X_MPISplit
+!         return
+!     end subroutine OPR_Partial_X_MPISplit
 
 #endif
 
     !########################################################################
     !########################################################################
     subroutine OPR_Partial_Y_Serial(type, nx, ny, nz, u, result, tmp1)
+#ifdef USE_MPI
+        use TLabMPI_PROCS, only: TLabMPI_Halos_Y
+#endif
         integer(wi), intent(in) :: type                         ! OPR_P1, OPR_P2, OPR_P2_P1
         integer(wi), intent(in) :: nx, ny, nz
         real(wp), intent(in) :: u(nx*ny*nz)
@@ -379,6 +414,9 @@ contains
 
         ! -------------------------------------------------------------------
         integer(wi) nlines
+#ifdef USE_MPI
+        integer np, np1, np2
+#endif
 
         ! ###################################################################
         if (y%size == 1) then ! Set to zero in 2D case
@@ -395,6 +433,26 @@ contains
 #endif
         nlines = nx*nz
 
+#ifdef USE_MPI
+        np1 = size(fdm_der1_Y_split%rhs, 2)/2
+        np2 = size(fdm_der2_Y_split%rhs, 2)/2
+        np = max(np1, np2)
+        call TLabMPI_Halos_Y(result, nlines, np, halo_m, halo_p)
+
+        select case (type)
+        case (OPR_P2)
+            if (.not. y%uniform) call fdm_der1_Y_split%compute(nlines, result, halo_m(nlines*(np - np1) + 1:), halo_p, tmp1)
+            call fdm_der2_Y_split%compute(nlines, result, halo_m(nlines*(np - np2) + 1:), halo_p, wrk3d)
+
+        case (OPR_P2_P1)
+            call fdm_der2_Y_split%compute(nlines, result, halo_m(nlines*(np - np2) + 1:), halo_p, tmp1)
+            call fdm_der1_Y_split%compute(nlines, result, halo_m(nlines*(np - np1) + 1:), halo_p, wrk3d)
+
+        case (OPR_P1, OPR_P1_ADD, OPR_P1_SUBTRACT)
+            call fdm_der1_Y_split%compute(nlines, result, halo_m(nlines*(np - np1) + 1:), halo_p, wrk3d)
+
+        end select
+#else
         select case (type)
         case (OPR_P2)
             if (.not. y%uniform) call fdm_der1_Y%compute(nlines, result, tmp1)
@@ -408,6 +466,7 @@ contains
             call fdm_der1_Y%compute(nlines, result, wrk3d)
 
         end select
+#endif
 
         ! Put arrays back in the order in which they came in
         select case (type)
@@ -497,70 +556,70 @@ contains
         return
     end subroutine OPR_Partial_Y_MPITranspose
 
-    !########################################################################
-    !########################################################################
-    subroutine OPR_Partial_Y_MPISplit(type, nx, ny, nz, u, result, tmp1)
-        use TLabMPI_PROCS, only: TLabMPI_Halos_Y
-        integer(wi), intent(in) :: type                         ! OPR_P1, OPR_P2, OPR_P2_P1
-        integer(wi), intent(in) :: nx, ny, nz
-        real(wp), intent(in) :: u(nx*ny*nz)
-        real(wp), intent(out) :: result(nx*ny*nz)
-        real(wp), intent(inout), optional :: tmp1(nx*ny*nz)     ! 1. order derivative in 2. order calculation
+!     !########################################################################
+!     !########################################################################
+!     subroutine OPR_Partial_Y_MPISplit(type, nx, ny, nz, u, result, tmp1)
+!         use TLabMPI_PROCS, only: TLabMPI_Halos_Y
+!         integer(wi), intent(in) :: type                         ! OPR_P1, OPR_P2, OPR_P2_P1
+!         integer(wi), intent(in) :: nx, ny, nz
+!         real(wp), intent(in) :: u(nx*ny*nz)
+!         real(wp), intent(out) :: result(nx*ny*nz)
+!         real(wp), intent(inout), optional :: tmp1(nx*ny*nz)     ! 1. order derivative in 2. order calculation
 
-        ! -------------------------------------------------------------------
-        integer np, np1, np2
+!         ! -------------------------------------------------------------------
+!         integer np, np1, np2
 
-        ! ###################################################################
-        if (y%size == 1) then ! Set to zero in 2D case
-            result = 0.0_wp
-            if (type == OPR_P2_P1) tmp1 = 0.0_wp
-            return
-        end if
+!         ! ###################################################################
+!         if (y%size == 1) then ! Set to zero in 2D case
+!             result = 0.0_wp
+!             if (type == OPR_P2_P1) tmp1 = 0.0_wp
+!             return
+!         end if
 
-        ! Transposition: make y-direction the last one
-#ifdef USE_ESSL
-        call DGETMO(u, nx*ny, nx*ny, nz, result, nz)
-#else
-        call TLab_Transpose_Real(u, nx*ny, nz, nx*ny, result, nz, locBlock=trans_y_forward)
-#endif
+!         ! Transposition: make y-direction the last one
+! #ifdef USE_ESSL
+!         call DGETMO(u, nx*ny, nx*ny, nz, result, nz)
+! #else
+!         call TLab_Transpose_Real(u, nx*ny, nz, nx*ny, result, nz, locBlock=trans_y_forward)
+! #endif
 
-        np1 = size(fdm_der1_Y_split%rhs, 2)/2
-        np2 = size(fdm_der2_Y_split%rhs, 2)/2
-        np = max(np1, np2)
-        call TLabMPI_Halos_Y(result, nx*nz, np, pxz_halo_m, pxz_halo_p)
+!         np1 = size(fdm_der1_Y_split%rhs, 2)/2
+!         np2 = size(fdm_der2_Y_split%rhs, 2)/2
+!         np = max(np1, np2)
+!         call TLabMPI_Halos_Y(result, nx*nz, np, pxz_halo_m, pxz_halo_p)
 
-        select case (type)
-        case (OPR_P2)
-            call fdm_der2_Y_split%compute(nx*nz, result, pxz_halo_m(1:, np - np2 + 1), pxz_halo_p, wrk3d)
+!         select case (type)
+!         case (OPR_P2)
+!             call fdm_der2_Y_split%compute(nx*nz, result, pxz_halo_m(1:, np - np2 + 1), pxz_halo_p, wrk3d)
 
-        case (OPR_P2_P1)
-            call fdm_der2_Y_split%compute(nx*nz, result, pxz_halo_m(1:, np - np2 + 1), pxz_halo_p, tmp1)
-            call fdm_der1_Y_split%compute(nx*nz, result, pxz_halo_m(1:, np - np1 + 1), pxz_halo_p, wrk3d)
+!         case (OPR_P2_P1)
+!             call fdm_der2_Y_split%compute(nx*nz, result, pxz_halo_m(1:, np - np2 + 1), pxz_halo_p, tmp1)
+!             call fdm_der1_Y_split%compute(nx*nz, result, pxz_halo_m(1:, np - np1 + 1), pxz_halo_p, wrk3d)
 
-        case (OPR_P1, OPR_P1_ADD, OPR_P1_SUBTRACT)
-            call fdm_der1_Y_split%compute(nx*nz, result, pxz_halo_m(1:, np - np1 + 1), pxz_halo_p, wrk3d)
+!         case (OPR_P1, OPR_P1_ADD, OPR_P1_SUBTRACT)
+!             call fdm_der1_Y_split%compute(nx*nz, result, pxz_halo_m(1:, np - np1 + 1), pxz_halo_p, wrk3d)
 
-        end select
+!         end select
 
-        ! Put arrays back in the order in which they came in
-        select case (type)
-        case (OPR_P2_P1)
-            call TLab_Transpose_Real(tmp1, nz, nx*ny, nz, result, nx*ny, locBlock=trans_y_backward)
-            call TLab_Transpose_Real(wrk3d, nz, nx*ny, nz, tmp1, nx*ny, locBlock=trans_y_backward)
+!         ! Put arrays back in the order in which they came in
+!         select case (type)
+!         case (OPR_P2_P1)
+!             call TLab_Transpose_Real(tmp1, nz, nx*ny, nz, result, nx*ny, locBlock=trans_y_backward)
+!             call TLab_Transpose_Real(wrk3d, nz, nx*ny, nz, tmp1, nx*ny, locBlock=trans_y_backward)
 
-        case (OPR_P1_ADD)
-            call TLab_AddTranspose(wrk3d, nz, nx*ny, nz, tmp1, nx*ny, locBlock=trans_y_backward)
+!         case (OPR_P1_ADD)
+!             call TLab_AddTranspose(wrk3d, nz, nx*ny, nz, tmp1, nx*ny, locBlock=trans_y_backward)
 
-        case (OPR_P1_SUBTRACT)
-            call TLab_SubtractTranspose(wrk3d, nz, nx*ny, nz, tmp1, nx*ny, locBlock=trans_y_backward)
+!         case (OPR_P1_SUBTRACT)
+!             call TLab_SubtractTranspose(wrk3d, nz, nx*ny, nz, tmp1, nx*ny, locBlock=trans_y_backward)
 
-        case default
-            call TLab_Transpose_Real(wrk3d, nz, nx*ny, nz, result, nx*ny, locBlock=trans_y_backward)
+!         case default
+!             call TLab_Transpose_Real(wrk3d, nz, nx*ny, nz, result, nx*ny, locBlock=trans_y_backward)
 
-        end select
+!         end select
 
-        return
-    end subroutine OPR_Partial_Y_MPISplit
+!         return
+!     end subroutine OPR_Partial_Y_MPISplit
 
 #endif
 

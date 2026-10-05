@@ -60,14 +60,16 @@ subroutine NSE_Boussinesq(hq, hs, dte, remove_divergence)
     if (remove_divergence) then ! remove residual divergence
         dummy = 1.0_wp/dte
         tmp2(:) = hq(:, 3) + w(:)*dummy
-        call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, tmp2, tmp1)
+        ! call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, tmp2, tmp1)
+        call OPR_Partial_Z_Cache(OPR_P1, imax, jmax, kmax, tmp2, result=tmp1, aux=tmp3)
         tmp2(:) = hq(:, 2) + v(:)*dummy
         call OPR_Partial_Y(OPR_P1_ADD, imax, jmax, kmax, tmp2, tmp3, tmp1)
         tmp2(:) = hq(:, 1) + u(:)*dummy
         call OPR_Partial_X(OPR_P1_ADD, imax, jmax, kmax, tmp2, tmp3, tmp1) ! forcing term in tmp1
 
     else
-        call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, hq(:, 3), tmp1)
+        ! call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, hq(:, 3), tmp1)
+        call OPR_Partial_Z_Cache(OPR_P1, imax, jmax, kmax, hq(:, 3), result=tmp1, aux=tmp2)
         call OPR_Partial_Y(OPR_P1_ADD, imax, jmax, kmax, hq(:, 2), tmp2, tmp1)
         call OPR_Partial_X(OPR_P1_ADD, imax, jmax, kmax, hq(:, 1), tmp2, tmp1)
 
@@ -81,8 +83,9 @@ subroutine NSE_Boussinesq(hq, hs, dte, remove_divergence)
     ! Add pressure gradient
     call OPR_Partial_X(OPR_P1_SUBTRACT, imax, jmax, kmax, tmp1, tmp2, hq(:, 1))
     call OPR_Partial_Y(OPR_P1_SUBTRACT, imax, jmax, kmax, tmp1, tmp2, hq(:, 2))
-    call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, tmp1, tmp2)
-    hq(:, 3) = hq(:, 3) - tmp2(:)
+    ! call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, tmp1, tmp2)
+    ! hq(:, 3) = hq(:, 3) - tmp2(:)
+    call OPR_Partial_Z_Cache(OPR_P1_SUBTRACT, imax, jmax, kmax, tmp1, result=hq(:, 3), aux=tmp2)
 
     return
 end subroutine NSE_Boussinesq

@@ -5,6 +5,8 @@ module TLab_CacheBlock
 
     public :: tlab_cache_reduce_z
     public :: tlab_cache_spread_add_z
+    public :: tlab_cache_spread_z
+    public :: tlab_cache_spread_subtract_z
     public :: tlab_cache_reduce_y
     public :: tlab_cache_spread_add_y
 
@@ -38,6 +40,34 @@ contains
 
         do n = 1, nmax
             b(1:nlines, n) = b(1:nlines, n) + a(1:nlines, n)
+        end do
+
+        return
+    end subroutine
+
+    subroutine tlab_cache_spread_z(a, nlines, ncb, nmax, b)
+        integer(wi), intent(in) :: nlines, ncb, nmax
+        real(wp), intent(in) :: a(nlines, nmax)
+        real(wp), intent(out) :: b(ncb, *)
+
+        integer n
+
+        do n = 1, nmax
+            b(1:nlines, n) = a(1:nlines, n)
+        end do
+
+        return
+    end subroutine
+
+    subroutine tlab_cache_spread_subtract_z(a, nlines, ncb, nmax, b)
+        integer(wi), intent(in) :: nlines, ncb, nmax
+        real(wp), intent(in) :: a(nlines, nmax)
+        real(wp), intent(out) :: b(ncb, *)
+
+        integer n
+
+        do n = 1, nmax
+            b(1:nlines, n) = b(1:nlines, n) - a(1:nlines, n)
         end do
 
         return

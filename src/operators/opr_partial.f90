@@ -23,6 +23,7 @@ module OPR_Partial
     public :: OPR_Partial_Y
     public :: OPR_Partial_Z
     public :: OPR_Partial_Z_Bcs
+    public :: OPR_Partial_Z_Cache
 
     integer, parameter, public :: OPR_P1 = 1                ! 1. order derivative
     integer, parameter, public :: OPR_P2 = 2                ! 2. order derivative
@@ -663,6 +664,50 @@ contains
 
         return
     end subroutine OPR_Partial_Z
+
+    !########################################################################
+    !########################################################################
+    subroutine OPR_Partial_Z_Cache(type, nx, ny, nz, u, result, aux)
+        integer(wi), intent(in) :: type                         ! OPR_P1, OPR_P2, OPR_P2_P1
+        integer(wi), intent(in) :: nx, ny, nz
+        real(wp), intent(in) :: u(nx*ny*nz)
+        real(wp), intent(out) :: result(nx*ny*nz)
+        real(wp), intent(inout) :: aux(nx*ny*nz)
+
+        ! -------------------------------------------------------------------
+        integer(wi) nlines
+        integer(wi) ib, ip
+
+        ! ###################################################################
+        if (z%size == 1) then
+            if (type == OPR_P1) result = 0.0_wp
+            return
+        end if
+
+        do ib = 1, nx*ny, groupSizeZ
+            ip = (ib - 1)*nz + 1
+            nlines = min(groupSizeZ, nx*ny - ib + 1)
+
+            ! memory arrangement
+            call tlab_cache_reduce_z(u(ib), nlines, nx*ny, nz, aux)
+
+            call fdm_der1_Z%compute(nlines, aux, wrk3d)
+
+            ! memory arrangement
+            select case (type)
+            case (OPR_P1)
+                call tlab_cache_spread_z(wrk3d, nlines, nx*ny, nz, result(ib))
+            case (OPR_P1_ADD)
+                call tlab_cache_spread_add_z(wrk3d, nlines, nx*ny, nz, result(ib))
+            case (OPR_P1_SUBTRACT)
+                call tlab_cache_spread_subtract_z(wrk3d, nlines, nx*ny, nz, result(ib))
+
+            end select
+
+        end do
+
+        return
+    end subroutine OPR_Partial_Z_Cache
 
     !########################################################################
     !########################################################################

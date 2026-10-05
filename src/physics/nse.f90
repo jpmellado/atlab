@@ -1,17 +1,13 @@
 !########################################################################
 !#
-!# Evolution equations, nonlinear term in convective form and the
+!# Evolution equations per unit volume, nonlinear term in convective form and the
 !# viscous term explicit: 9 2nd order + 9 1st order derivatives.
 !# Pressure term requires 3 1st order derivatives
 !#
-!# It is written such that u and v transposes are calculated first for the
-!# Ox and Oy momentum equations, stored in tmp4 and tmp5 and then used as needed.
-!# This saves 2 transpositions.
-!# Includes the scalar to benefit from the same reduction
-!#
 !########################################################################
-subroutine NSE_Boussinesq(hq, hs, dte, remove_divergence)
-    use TLab_Constants, only: wp, wi, BCS_NN
+subroutine NavierStokes_PerVolume(hq, hs, dte, remove_divergence)
+    use TLab_Constants, only: wp, wi
+    use TLab_Constants, only: BCS_NN
     use TLab_Memory, only: imax, jmax, kmax, isize_field, inb_flow, inb_scal
     use TLab_Pointers, only: u, v, w, tmp1, tmp2, tmp3
     use TLab_Arrays, only: s
@@ -27,12 +23,11 @@ subroutine NSE_Boussinesq(hq, hs, dte, remove_divergence)
 
     ! -----------------------------------------------------------------------
     integer(wi) is
-    real(wp) dummy
 
     ! #######################################################################
     ! Diffusion and advection terms
     ! #######################################################################
-    call NSE_AddBurgers_PerVolume_Z(0, imax, jmax, kmax, w, hq(:, 3), tmp1, tmp3)
+    call NSE_AddBurgers_PerVolume_Z(0, imax, jmax, kmax, w, hq(:, 3), tmp1, tmp3)                   ! store rho w in tmp3
     call NSE_AddBurgers_PerVolume_Z(0, imax, jmax, kmax, u, hq(:, 1), tmp1, tmp2, rhou_in=tmp3)
     call NSE_AddBurgers_PerVolume_Z(0, imax, jmax, kmax, v, hq(:, 2), tmp1, tmp2, rhou_in=tmp3)
     do is = 1, inb_scal
@@ -58,12 +53,11 @@ subroutine NSE_Boussinesq(hq, hs, dte, remove_divergence)
     ! #######################################################################
     ! Forcing term
     if (remove_divergence) then ! remove residual divergence
-        dummy = 1.0_wp/dte
-        tmp2(:) = hq(:, 3) + w(:)*dummy
+        call Add_Residual_Divergence(w, hq(1, 3), tmp2)
         call OPR_Partial_Z_Cache(OPR_P1, imax, jmax, kmax, tmp2, result=tmp1, aux=tmp3)
-        tmp2(:) = hq(:, 2) + v(:)*dummy
+        call Add_Residual_Divergence(v, hq(1, 2), tmp2)
         call OPR_Partial_Y(OPR_P1_ADD, imax, jmax, kmax, tmp2, tmp3, tmp1)
-        tmp2(:) = hq(:, 1) + u(:)*dummy
+        call Add_Residual_Divergence(u, hq(1, 1), tmp2)
         call OPR_Partial_X(OPR_P1_ADD, imax, jmax, kmax, tmp2, tmp3, tmp1) ! forcing term in tmp1
 
     else
@@ -84,4 +78,34 @@ subroutine NSE_Boussinesq(hq, hs, dte, remove_divergence)
     call OPR_Partial_Z_Cache(OPR_P1_SUBTRACT, imax, jmax, kmax, tmp1, result=hq(:, 3), aux=tmp2)
 
     return
-end subroutine NSE_Boussinesq
+
+contains
+    subroutine Add_Residual_Divergence(q, hq, result)
+        use NavierStokes, only: nse_eqns, DNS_EQNS_ANELASTIC, DNS_EQNS_BOUSSINESQ
+        use Thermo_Anelastic, only: rbackground
+        real(wp), intent(in) :: q(imax*jmax, kmax)
+        real(wp), intent(in) :: hq(imax*jmax, kmax)
+        real(wp), intent(out) :: result(imax*jmax, kmax)
+
+        integer(wi) k
+        real(wp) dummy
+
+        dummy = 1.0_wp/dte
+
+        select case (nse_eqns)
+        case (DNS_EQNS_ANELASTIC)
+            do k = 1, kmax
+                result(:, k) = hq(:, k) + q(:, k)*dummy*rbackground(k)
+            end do
+
+        case (DNS_EQNS_BOUSSINESQ)
+            do k = 1, kmax
+                result(:, k) = hq(:, k) + q(:, k)*dummy
+            end do
+
+        end select
+
+        return
+    end subroutine
+
+end subroutine NavierStokes_PerVolume

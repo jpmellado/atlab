@@ -228,22 +228,18 @@ contains
             call Buffer_Nudge_Flow(q, hq)
             call Buffer_Nudge_Scal(s, hs)
 
+            call NavierStokes_PerVolume(hq, hs, &
+                                        TMarchScheme%coef_a(TMarchScheme%substep)*dtime, &
+                                        remove_divergence)
+            call Bcs_Explicit_Flow(hq)
+            call Bcs_Explicit_Scal(hs)
+
             select case (nse_eqns)
             case (DNS_EQNS_BOUSSINESQ)
-                call NSE_Boussinesq(hq, hs, &
-                                    TMarchScheme%coef_a(TMarchScheme%substep)*dtime, &
-                                    remove_divergence)
-                call Bcs_Explicit_Flow(hq)
-                call Bcs_Explicit_Scal(hs)
                 call TMarchScheme%AdvanceSubstep_Boussinesq(pxy_q, pxy_hq, dtime)
                 call TMarchScheme%AdvanceSubstep_Boussinesq(pxy_s, pxy_hs, dtime)
 
             case (DNS_EQNS_ANELASTIC)
-                call NSE_Anelastic_PerVolume(hq, hs, &
-                                             TMarchScheme%coef_a(TMarchScheme%substep)*dtime, &
-                                             remove_divergence)
-                call Bcs_Explicit_Flow(hq)
-                call Bcs_Explicit_Scal(hs)
                 call TMarchScheme%AdvanceSubstep_Anelastic(pxy_q, pxy_hq, dtime, ribackground)
                 call TMarchScheme%AdvanceSubstep_Anelastic(pxy_s, pxy_hs, dtime, ribackground)
 

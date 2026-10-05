@@ -4,8 +4,9 @@
 ! q(:,1:inb_flow) for flow variables.
 ! s(:,1:inb_scal) for scal variables.
 
-module NavierStokes     ! Shall we call it NavierStokes?
-    use TLab_Constants, only: wp, wi, lfile, efile, wfile, MAX_VARS
+module NavierStokes
+    use TLab_Constants, only: wp, wi
+    use TLab_Constants, only: MAX_VARS
     implicit none
     private
 
@@ -16,12 +17,12 @@ module NavierStokes     ! Shall we call it NavierStokes?
     integer, parameter, public :: DNS_EQNS_ANELASTIC = 2
     integer, parameter, public :: DNS_EQNS_COMPRESSIBLE = 3
 
-    integer, public, protected :: nse_advection, nse_viscous, nse_diffusion ! formulation of Burgers operator
+    integer, public, protected :: nse_viscous, nse_diffusion !, nse_advection ! formulation of Burgers operator
     integer, parameter, public :: EQNS_NONE = 0
-    integer, parameter, public :: EQNS_DIVERGENCE = 1
-    integer, parameter, public :: EQNS_SKEWSYMMETRIC = 2
-    integer, parameter, public :: EQNS_CONVECTIVE = 3
     integer, parameter, public :: EQNS_EXPLICIT = 4
+    ! integer, parameter, public :: EQNS_DIVERGENCE = 1
+    ! integer, parameter, public :: EQNS_SKEWSYMMETRIC = 2
+    ! integer, parameter, public :: EQNS_CONVECTIVE = 3
 
     ! Nondimensional numbers
     real(wp), public :: visc, schmidt(MAX_VARS)                     ! molecular transport
@@ -30,6 +31,7 @@ module NavierStokes     ! Shall we call it NavierStokes?
 
 contains
     subroutine NavierStokes_Initialize_Parameters(inifile)
+        use TLab_Constants, only: lfile, efile, wfile
         use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
         use TLab_Memory, only: inb_flow, inb_flow_array, inb_scal, inb_scal_array
         ! use Thermodynamics, only: mach
@@ -49,10 +51,10 @@ contains
 
         call TLab_Write_ASCII(bakfile, '#')
         call TLab_Write_ASCII(bakfile, '#['//trim(adjustl(block))//']')
-        call TLab_Write_ASCII(bakfile, '#Type=<total/internal/incompressible/anelastic>')
-        call TLab_Write_ASCII(bakfile, '#TermAdvection=<divergence/skewsymmetric>')
-        call TLab_Write_ASCII(bakfile, '#TermViscous=<divergence/explicit>')
-        call TLab_Write_ASCII(bakfile, '#TermDiffusion=<divergence/explicit>')
+        call TLab_Write_ASCII(bakfile, '#Type=<compressible/boussinesq/anelastic>')
+        ! call TLab_Write_ASCII(bakfile, '#TermAdvection=<divergence/skewsymmetric>')
+        call TLab_Write_ASCII(bakfile, '#TermViscous=<none/explicit>')
+        call TLab_Write_ASCII(bakfile, '#TermDiffusion=<none/explicit>')
 
         call ScanFile_Char(bakfile, inifile, block, 'Type', 'boussinesq', sRes)
         if (trim(adjustl(sRes)) == 'boussinesq') then; nse_eqns = DNS_EQNS_BOUSSINESQ
@@ -63,19 +65,19 @@ contains
             call TLab_Stop(DNS_ERROR_OPTION)
         end if
 
-        call ScanFile_Char(bakfile, inifile, block, 'TermAdvection', 'convective', sRes)
-        if (trim(adjustl(sRes)) == 'none') then; nse_advection = EQNS_NONE
-        else if (trim(adjustl(sRes)) == 'divergence') then; nse_advection = EQNS_DIVERGENCE
-        else if (trim(adjustl(sRes)) == 'skewsymmetric') then; nse_advection = EQNS_SKEWSYMMETRIC
-        else if (trim(adjustl(sRes)) == 'convective') then; nse_advection = EQNS_CONVECTIVE
-        else
-            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Wrong TermAdvection option.')
-            call TLab_Stop(DNS_ERROR_OPTION)
-        end if
+        ! call ScanFile_Char(bakfile, inifile, block, 'TermAdvection', 'convective', sRes)
+        ! if (trim(adjustl(sRes)) == 'none') then; nse_advection = EQNS_NONE
+        ! else if (trim(adjustl(sRes)) == 'divergence') then; nse_advection = EQNS_DIVERGENCE
+        ! else if (trim(adjustl(sRes)) == 'skewsymmetric') then; nse_advection = EQNS_SKEWSYMMETRIC
+        ! else if (trim(adjustl(sRes)) == 'convective') then; nse_advection = EQNS_CONVECTIVE
+        ! else
+        !     call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Wrong TermAdvection option.')
+        !     call TLab_Stop(DNS_ERROR_OPTION)
+        ! end if
 
         call ScanFile_Char(bakfile, inifile, block, 'TermViscous', 'explicit', sRes)
         if (trim(adjustl(sRes)) == 'none') then; nse_viscous = EQNS_NONE
-        else if (trim(adjustl(sRes)) == 'divergence') then; nse_viscous = EQNS_DIVERGENCE
+        ! else if (trim(adjustl(sRes)) == 'divergence') then; nse_viscous = EQNS_DIVERGENCE
         else if (trim(adjustl(sRes)) == 'explicit') then; nse_viscous = EQNS_EXPLICIT
         else
             call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Wrong TermViscous option.')
@@ -84,7 +86,7 @@ contains
 
         call ScanFile_Char(bakfile, inifile, block, 'TermDiffusion', 'explicit', sRes)
         if (trim(adjustl(sRes)) == 'none') then; nse_diffusion = EQNS_NONE
-        else if (trim(adjustl(sRes)) == 'divergence') then; nse_diffusion = EQNS_DIVERGENCE
+        ! else if (trim(adjustl(sRes)) == 'divergence') then; nse_diffusion = EQNS_DIVERGENCE
         else if (trim(adjustl(sRes)) == 'explicit') then; nse_diffusion = EQNS_EXPLICIT
         else
             call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Wrong TermDiffusion option.')
@@ -94,13 +96,14 @@ contains
         ! -------------------------------------------------------------------
         call TLab_Write_ASCII(bakfile, '#Reynolds=<value>')
         call TLab_Write_ASCII(bakfile, '#Schmidt=<value>')
+        !
         call TLab_Write_ASCII(bakfile, '#Mach=<value>')
         call TLab_Write_ASCII(bakfile, '#Prandtl=<value>')
 
         ! Molecular transport
-        call ScanFile_Real(bakfile, inifile, block,  'Reynolds', '-1.0', reynolds)
+        call ScanFile_Real(bakfile, inifile, block, 'Reynolds', '-1.0', reynolds)
         if (reynolds <= 0.0) then
-            call ScanFile_Real(bakfile, inifile, block,  'Viscosity', '-1.0', dummy)
+            call ScanFile_Real(bakfile, inifile, block, 'Viscosity', '-1.0', dummy)
             if (dummy <= 0.0) then
                 call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Molecular transport coefficients need to be positive.')
                 call TLab_Stop(DNS_ERROR_OPTION)
@@ -120,7 +123,7 @@ contains
         call LIST_REAL(sRes, inb_scal, schmidt)
 
         ! Compressible flows
-        call ScanFile_Real(bakfile, inifile, block, 'Prandtl', '1.0', prandtl)   ! molecular transport, but only appearing in compressible formulation
+        call ScanFile_Real(bakfile, inifile, block, 'Prandtl', '1.0', prandtl)   ! molecular transport, appears only in compressible formulation
         call ScanFile_Real(bakfile, inifile, block, 'Mach', '1.0', mach)
 
         ! ###################################################################

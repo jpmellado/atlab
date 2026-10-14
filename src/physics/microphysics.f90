@@ -232,38 +232,10 @@ contains
 
             end if
 
-            ! select case (is)
-            ! case (2, 3)         ! q_t, q_l
-            !     if (exponent > 0.0_wp) then ! to avoid the calculation of a power, if not necessary
-            !         tmp1 = locProps%parameters(is)*(1.0_wp - s(:, is))*(s_active**dummy)
-            !     else
-            !         tmp1 = locProps%parameters(is)*(1.0_wp - s(:, is))*s_active
-            !     end if
-
-            ! case default        ! energy variables
-            !     call Thermo_Anelastic_StaticL(nx, ny, nz, s, tmp1)
-            !     if (exponent > 0.0_wp) then
-            !         tmp1 = locProps%parameters(is)*tmp1*(s_active**dummy)
-            !     else
-            !         tmp1 = locProps%parameters(is)*tmp1*s_active
-            !     end if
-
-            ! end select
-
             call OPR_Partial_Z(OPR_P1, nx, ny, nz, tmp1, source)
             if (present(flux)) flux = -tmp1
 
         case (TYPE_SED_AIRWATERSIMPLIFIED)
-            ! if (exponent > 0.0_wp) then ! to avoid the calculation of a power, if not necessary
-            !     tmp1 = locProps%parameters(is)*(s_active**dummy)
-            ! else
-            !     tmp1 = locProps%parameters(is)*s_active
-            ! end if
-
-            ! call OPR_Partial_Y(OPR_P1, nx, ny, nz, bcs, g, tmp1, source)
-            ! if (present(flux)) flux = -tmp1
-
-            ! the previous formulation yields oscillations at sharp gradients
             call OPR_Partial_Z(OPR_P1, nx, ny, nz, s_active, tmp1)
             if (exponent > 0.0_wp) tmp1 = tmp1*(s_active**exponent)
             source = locProps%parameters(is)*dummy*tmp1

@@ -93,6 +93,8 @@ class Field:
         nx=0,
         ny=0,
         nz=0,
+        nt=0,
+        time=0.0,
         sizeofheader=-1,  # read it from header in each file
         # sizeofheader=0,  # bytes
         # sizeofheader=36,  # bytes, for gate files
@@ -125,10 +127,12 @@ class Field:
             self.nx = nx
             self.ny = ny
             self.nz = nz
+            self.nt = nt
+            self.time = time
 
         self.dtype = dtype
         match dtype:
-            case "f":  # signle precision
+            case "f":  # single precision
                 self.sizeofdata = 4  # in bytes
             case "d":  # double precision
                 self.sizeofdata = 8

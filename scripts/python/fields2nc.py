@@ -46,7 +46,8 @@ match datatype:
 for file in files:
     print("Processing file %s ..." % file)
 
-    field = atlab.Field(file, dtype=dtype)
+    field = atlab.Field(file, dtype=dtype)  # read header
+    # field = atlab.Field(file, nx=nx, ny=ny, nz=nz, sizeofheader=0, dtype=dtype) # no read header
     # print(field.nx, field.ny, field.nz, field.nt, field.time)
     a = field.read()
 

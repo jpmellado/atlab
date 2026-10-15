@@ -53,7 +53,7 @@ module Radiation
     ! Cache blocking information; tuned to levante in a subdomain 48x32x768
     ! integer, parameter :: groupSizeX = 1024, groupSizeY = 512, groupSizeZ = 32
     integer, parameter :: groupSizeZ = CacheBlockSizeZ
-    real(wp), allocatable :: ql(:, :), qv(:, :), T(:, :), a_source_x(:, :)
+    real(wp), allocatable :: ql(:), qv(:), T(:)
 
 contains
     !########################################################################
@@ -182,6 +182,8 @@ contains
             call TLab_Allocate_Real(__FILE__, tmp_rad, [imax*jmax*kmax, inb_tmp_rad], 'tmp-rad')
             p_source(1:imax*jmax*kmax) => tmp_rad(1:imax*jmax*kmax, 1)
         end select
+
+        allocate (ql(groupSizeZ*kmax), qv(groupSizeZ*kmax), T(groupSizeZ*kmax))
 
         return
     end subroutine Radiation_Initialize
@@ -344,17 +346,56 @@ contains
                     call IR_RTE1_OnlyLiquid(nlines, nz, fdm_Int0, b, wrk3d, bcs_hb, bcs_ht, ibc)
                 end if
 
+                ! memory arrangement
+                call tlab_cache_spread_add_z(b, nlines, nx*ny, nz, result(ib))
+                if (present(flux_up)) then
+                    call tlab_cache_spread_z(tmp1, nlines, nx*ny, nz, flux_down(ib))
+                    call tlab_cache_spread_z(tmp2, nlines, nx*ny, nz, flux_up(ib))
+                end if
+
             case (TYPE_IR_GRAY)
             case (TYPE_IR_BAND)
+                if (present(flux_up)) then  ! initialize accumulation of conttributions from each band
+                    flux_down = 0.0_wp
+                    flux_up = 0.0_wp
+                end if
+
+                ! memory arrangement
+                call tlab_cache_reduce_z(s(ib, inb_scal_ql), nlines, nx*ny, nz, ql)
+                call tlab_cache_reduce_z(s(ib, inb_scal_qt), nlines, nx*ny, nz, qv)
+                qv(1:nlines*nz) = qv(1:nlines*nz) - ql(1:nlines*nz)
+                call tlab_cache_reduce_z(s(ib, inb_scal_T), nlines, nx*ny, nz, T)
+
+                do iband = 1, localProps%nbands
+                    ! emission function, Stefan-Boltzmann law
+                    b(1:nlines*nz) = sigma*T(1:nlines*nz)**4* &
+                                   (localProps%beta(1, iband) + T(1:nlines*nz)*(localProps%beta(2, iband) + T(1:nlines*nz)*localProps%beta(3, iband)))
+
+                    ! absorption coefficient
+                    source(1:nlines*nz) = localProps%kappa(1, iband)*ql(1:nlines*nz) + &
+                                          localProps%kappa(2, iband)*qv(1:nlines*nz) + &
+                                          localProps%kappa(3, iband)
+                    if (nse_eqns == DNS_EQNS_ANELASTIC) then
+                        call Thermo_Anelastic_Weight_InPlace(nlines, 1, nz, rbackground, source)
+                    end if
+
+                    ! solve radiative transfer equation
+                    bcs_ht(1:nlines) = localProps%bcs_t(iband)   ! downward flux at domain top
+                    epsilon = infraredProps%bcs_b(1)            ! surface emmisivity at the bottom of the domain
+                    call IR_RTE1_Global(nlines, nz, fdm_Int0, source, b, wrk3d, bcs_hb, bcs_ht, tmp1, tmp2)
+                    ! call IR_RTE1_Local()
+                    ! call IR_RTE1_Incremental()
+
+                    ! memory arrangement
+                    call tlab_cache_spread_add_z(source, nlines, nx*ny, nz, result(ib))
+                    if (present(flux_up)) then
+                        call tlab_cache_spread_add_z(tmp1, nlines, nx*ny, nz, flux_down(ib))
+                        call tlab_cache_spread_add_z(tmp2, nlines, nx*ny, nz, flux_up(ib))
+                    end if
+
+                end do
 
             end select
-
-            ! memory arrangement
-            call tlab_cache_spread_add_z(b, nlines, nx*ny, nz, result(ib))
-            if (present(flux_up)) then
-                call tlab_cache_spread_z(tmp1, nlines, nx*ny, nz, flux_down(ib))
-                call tlab_cache_spread_z(tmp2, nlines, nx*ny, nz, flux_up(ib))
-            end if
 
         end do
 

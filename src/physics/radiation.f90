@@ -183,7 +183,9 @@ contains
             p_source(1:imax*jmax*kmax) => tmp_rad(1:imax*jmax*kmax, 1)
         end select
 
-        allocate (ql(groupSizeZ*kmax), qv(groupSizeZ*kmax), T(groupSizeZ*kmax))
+        call TLab_Allocate_Real(__FILE__, ql, [groupSizeZ*kmax], 'rad.ql')
+        call TLab_Allocate_Real(__FILE__, qv, [groupSizeZ*kmax], 'rad.qv')
+        call TLab_Allocate_Real(__FILE__, T, [groupSizeZ*kmax], 'T')
 
         return
     end subroutine Radiation_Initialize
@@ -299,38 +301,35 @@ contains
 
     !########################################################################
     !########################################################################
-    subroutine Radiation_Infrared_Z_Cache(localProps, nx, ny, nz, s, source, b, tmp1, tmp2, result, flux_down, flux_up)
+    subroutine Radiation_Infrared_Z_Cache(localProps, nx, ny, nz, s, a_source, b, tmp1, tmp2, result, flux_down, flux_up)
         use TLab_Arrays, only: wrk3d
         use TLab_Constants, only: BCS_MAX, BCS_MIN, BCS_BOTH
         type(infrared_dt), intent(in) :: localProps
         integer(wi), intent(in) :: nx, ny, nz
         real(wp), intent(in) :: s(nx*ny*nz, *)
-        real(wp), intent(inout) :: source(nx*ny*nz)               ! heating rate, also used for absorption coefficient below
+        real(wp), intent(inout) :: a_source(nx*ny*nz)           ! absorption coefficient, heating rate
         real(wp), intent(inout) :: b(nx*ny*nz)                  ! emission function
         real(wp), intent(inout) :: tmp1(nx*ny*nz), tmp2(nx*ny*nz)
-        real(wp), intent(out) :: result(nx*ny*nz)
-        real(wp), intent(inout), optional :: flux_down(nx*ny*nz), flux_up(nx*ny*nz)
+        real(wp), intent(out) :: result(nx*ny*nz)               ! array to which heating rate is added
+        real(wp), intent(out), optional :: flux_down(nx*ny*nz), flux_up(nx*ny*nz)
 
         ! -----------------------------------------------------------------------
         integer iband, ibc, nlines
-        integer(wi) ib, ip
+        integer(wi) ib
 
         !########################################################################
-        nlines = nx*ny
-
         do ib = 1, nx*ny, groupSizeZ
-            ip = (ib - 1)*nz + 1
             nlines = min(groupSizeZ, nx*ny - ib + 1)
 
             select case (localProps%type)
             case (TYPE_IR_GRAY_LIQUID)
                 ! memory arrangement
-                call tlab_cache_reduce_z(s(ib, inb_scal_ql), nlines, nx*ny, nz, b)
+                call tlab_cache_reduce_z(s(ib, inb_scal_ql), nlines, nx*ny, nz, a_source)
 
                 ! absorption coefficient
-                b(1:nlines*nz) = localProps%kappa(1, 1)*b(1:nlines*nz)
+                a_source(1:nlines*nz) = localProps%kappa(1, 1)*a_source(1:nlines*nz)
                 if (nse_eqns == DNS_EQNS_ANELASTIC) then
-                    call Thermo_Anelastic_Weight_InPlace(nlines, 1, nz, rbackground, b)
+                    call Thermo_Anelastic_Weight_InPlace(nlines, 1, nz, rbackground, a_source)
                 end if
 
                 ! solve radiative transfer equation
@@ -341,25 +340,18 @@ contains
                     bcs_hb = localProps%bcs_b(1)                ! upward flux at domain bottom
                 end if
                 if (present(flux_up)) then
-                    call IR_RTE1_OnlyLiquid(nlines, nz, fdm_Int0, b, wrk3d, bcs_hb, bcs_ht, ibc, tmp1, tmp2)
-                else
-                    call IR_RTE1_OnlyLiquid(nlines, nz, fdm_Int0, b, wrk3d, bcs_hb, bcs_ht, ibc)
-                end if
-
-                ! memory arrangement
-                call tlab_cache_spread_add_z(b, nlines, nx*ny, nz, result(ib))
-                if (present(flux_up)) then
+                    call IR_RTE1_OnlyLiquid(nlines, nz, fdm_Int0, a_source, wrk3d, bcs_hb, bcs_ht, ibc, tmp1, tmp2)
+                    ! memory arrangement
+                    call tlab_cache_spread_add_z(a_source, nlines, nx*ny, nz, result(ib))
                     call tlab_cache_spread_z(tmp1, nlines, nx*ny, nz, flux_down(ib))
                     call tlab_cache_spread_z(tmp2, nlines, nx*ny, nz, flux_up(ib))
+                else
+                    call IR_RTE1_OnlyLiquid(nlines, nz, fdm_Int0, a_source, wrk3d, bcs_hb, bcs_ht, ibc)
+                    ! memory arrangement
+                    call tlab_cache_spread_add_z(a_source, nlines, nx*ny, nz, result(ib))
                 end if
 
-            case (TYPE_IR_GRAY)
-            case (TYPE_IR_BAND)
-                if (present(flux_up)) then  ! initialize accumulation of conttributions from each band
-                    flux_down = 0.0_wp
-                    flux_up = 0.0_wp
-                end if
-
+            case (TYPE_IR_BAND, TYPE_IR_GRAY)
                 ! memory arrangement
                 call tlab_cache_reduce_z(s(ib, inb_scal_ql), nlines, nx*ny, nz, ql)
                 call tlab_cache_reduce_z(s(ib, inb_scal_qt), nlines, nx*ny, nz, qv)
@@ -372,25 +364,30 @@ contains
                                    (localProps%beta(1, iband) + T(1:nlines*nz)*(localProps%beta(2, iband) + T(1:nlines*nz)*localProps%beta(3, iband)))
 
                     ! absorption coefficient
-                    source(1:nlines*nz) = localProps%kappa(1, iband)*ql(1:nlines*nz) + &
-                                          localProps%kappa(2, iband)*qv(1:nlines*nz) + &
-                                          localProps%kappa(3, iband)
+                    a_source(1:nlines*nz) = localProps%kappa(1, iband)*ql(1:nlines*nz) + &
+                                            localProps%kappa(2, iband)*qv(1:nlines*nz) + &
+                                            localProps%kappa(3, iband)
                     if (nse_eqns == DNS_EQNS_ANELASTIC) then
-                        call Thermo_Anelastic_Weight_InPlace(nlines, 1, nz, rbackground, source)
+                        call Thermo_Anelastic_Weight_InPlace(nlines, 1, nz, rbackground, a_source)
                     end if
 
                     ! solve radiative transfer equation
                     bcs_ht(1:nlines) = localProps%bcs_t(iband)   ! downward flux at domain top
                     epsilon = infraredProps%bcs_b(1)            ! surface emmisivity at the bottom of the domain
-                    call IR_RTE1_Global(nlines, nz, fdm_Int0, source, b, wrk3d, bcs_hb, bcs_ht, tmp1, tmp2)
+                    call IR_RTE1_Global(nlines, nz, fdm_Int0, a_source, b, wrk3d, bcs_hb, bcs_ht, tmp1, tmp2)
                     ! call IR_RTE1_Local()
                     ! call IR_RTE1_Incremental()
 
                     ! memory arrangement
-                    call tlab_cache_spread_add_z(source, nlines, nx*ny, nz, result(ib))
+                    call tlab_cache_spread_add_z(a_source, nlines, nx*ny, nz, result(ib))
                     if (present(flux_up)) then
-                        call tlab_cache_spread_add_z(tmp1, nlines, nx*ny, nz, flux_down(ib))
-                        call tlab_cache_spread_add_z(tmp2, nlines, nx*ny, nz, flux_up(ib))
+                        if (iband == 1) then
+                            call tlab_cache_spread_z(tmp1, nlines, nx*ny, nz, flux_down(ib))
+                            call tlab_cache_spread_z(tmp2, nlines, nx*ny, nz, flux_up(ib))
+                        else
+                            call tlab_cache_spread_add_z(tmp1, nlines, nx*ny, nz, flux_down(ib))
+                            call tlab_cache_spread_add_z(tmp2, nlines, nx*ny, nz, flux_up(ib))
+                        end if
                     end if
 
                 end do

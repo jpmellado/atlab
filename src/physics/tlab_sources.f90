@@ -87,8 +87,6 @@ contains
         do is = 1, inb_scal
 
             if (infraredProps%active(is)) then
-                ! call Radiation_Infrared_Z(infraredProps, imax, jmax, kmax, s, tmp1, tmp2, tmp3, tmp4)
-                ! hs(:, is) = hs(:, is) + tmp1(:)
                 call Radiation_Infrared_Z(infraredProps, imax, jmax, kmax, s, hs(:, is), tmp1, tmp2, tmp3)
             end if
 

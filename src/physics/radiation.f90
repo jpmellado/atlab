@@ -11,12 +11,14 @@ module Radiation
     use Thermo_Base, only: imixture, MIXT_TYPE_AIRWATER
     use Thermo_AirWater, only: inb_scal_e, inb_scal_qt, inb_scal_ql, inb_scal_T
     use Thermo_Anelastic, only: rbackground, Thermo_Anelastic_Weight_InPlace
+    use TLab_CacheBlock
     use OPR_Radiation
     implicit none
     private
 
     public :: Radiation_Initialize
     public :: Radiation_Infrared_Z
+    public :: Radiation_Infrared_Z_Cache
 
     ! -------------------------------------------------------------------
     integer, parameter :: ncomps_max = 10               ! maximum number of radiatively active components
@@ -46,6 +48,12 @@ module Radiation
     real(wp), allocatable, target :: tmp_rad(:, :)      ! 3D temporary arrays for radiation routine
 
     real(wp), pointer :: p_source(:) => null()
+
+    ! -----------------------------------------------------------------------
+    ! Cache blocking information; tuned to levante in a subdomain 48x32x768
+    ! integer, parameter :: groupSizeX = 1024, groupSizeY = 512, groupSizeZ = 32
+    integer, parameter :: groupSizeZ = CacheBlockSizeZ
+    real(wp), allocatable :: ql(:, :), qv(:, :), T(:, :), a_source_x(:, :)
 
 contains
     !########################################################################
@@ -286,5 +294,70 @@ contains
         end select
 
     end subroutine Radiation_Infrared_Z
+
+    !########################################################################
+    !########################################################################
+    subroutine Radiation_Infrared_Z_Cache(localProps, nx, ny, nz, s, source, b, tmp1, tmp2, result, flux_down, flux_up)
+        use TLab_Arrays, only: wrk3d
+        use TLab_Constants, only: BCS_MAX, BCS_MIN, BCS_BOTH
+        type(infrared_dt), intent(in) :: localProps
+        integer(wi), intent(in) :: nx, ny, nz
+        real(wp), intent(in) :: s(nx*ny*nz, *)
+        real(wp), intent(inout) :: source(nx*ny*nz)               ! heating rate, also used for absorption coefficient below
+        real(wp), intent(inout) :: b(nx*ny*nz)                  ! emission function
+        real(wp), intent(inout) :: tmp1(nx*ny*nz), tmp2(nx*ny*nz)
+        real(wp), intent(out) :: result(nx*ny*nz)
+        real(wp), intent(inout), optional :: flux_down(nx*ny*nz), flux_up(nx*ny*nz)
+
+        ! -----------------------------------------------------------------------
+        integer iband, ibc, nlines
+        integer(wi) ib, ip
+
+        !########################################################################
+        nlines = nx*ny
+
+        do ib = 1, nx*ny, groupSizeZ
+            ip = (ib - 1)*nz + 1
+            nlines = min(groupSizeZ, nx*ny - ib + 1)
+
+            select case (localProps%type)
+            case (TYPE_IR_GRAY_LIQUID)
+                ! memory arrangement
+                call tlab_cache_reduce_z(s(ib, inb_scal_ql), nlines, nx*ny, nz, b)
+
+                ! absorption coefficient
+                b(1:nlines*nz) = localProps%kappa(1, 1)*b(1:nlines*nz)
+                if (nse_eqns == DNS_EQNS_ANELASTIC) then
+                    call Thermo_Anelastic_Weight_InPlace(nlines, 1, nz, rbackground, b)
+                end if
+
+                ! solve radiative transfer equation
+                ibc = BCS_MAX                                   ! Flux given at the top
+                bcs_ht = localProps%bcs_t(1)                    ! downward flux at domain top
+                if (localProps%bcs_b(1) > 0.0_wp) then
+                    ibc = BCS_BOTH                              ! Flux also given at the bottom
+                    bcs_hb = localProps%bcs_b(1)                ! upward flux at domain bottom
+                end if
+                if (present(flux_up)) then
+                    call IR_RTE1_OnlyLiquid(nlines, nz, fdm_Int0, b, wrk3d, bcs_hb, bcs_ht, ibc, tmp1, tmp2)
+                else
+                    call IR_RTE1_OnlyLiquid(nlines, nz, fdm_Int0, b, wrk3d, bcs_hb, bcs_ht, ibc)
+                end if
+
+            case (TYPE_IR_GRAY)
+            case (TYPE_IR_BAND)
+
+            end select
+
+            ! memory arrangement
+            call tlab_cache_spread_add_z(b, nlines, nx*ny, nz, result(ib))
+            if (present(flux_up)) then
+                call tlab_cache_spread_z(tmp1, nlines, nx*ny, nz, flux_down(ib))
+                call tlab_cache_spread_z(tmp2, nlines, nx*ny, nz, flux_up(ib))
+            end if
+
+        end do
+
+    end subroutine Radiation_Infrared_Z_Cache
 
 end module

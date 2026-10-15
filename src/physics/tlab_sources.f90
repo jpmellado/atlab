@@ -11,7 +11,7 @@ module TLab_Sources
     use Rotation, only: coriolisProps, Rotation_AddCoriolis, Rotation_AddCoriolis_PerVolume
     use Microphysics, only: sedimentationProps, Microphysics_Sedimentation_Z
     use Microphysics, only: evaporationProps, Microphysics_Evaporation, Microphysics_Evaporation_Impl
-    use Radiation, only: infraredProps, Radiation_Infrared_Z
+    use Radiation!, only: infraredProps, Radiation_Infrared_Z
     use SpecialForcing
     ! use LargeScaleForcing
     implicit none
@@ -89,6 +89,7 @@ contains
             if (infraredProps%active(is)) then
                 call Radiation_Infrared_Z(infraredProps, imax, jmax, kmax, s, tmp1, tmp2, tmp3, tmp4)
                 hs(:, is) = hs(:, is) + tmp1(:)
+                ! call Radiation_Infrared_Z_Cache(infraredProps, imax, jmax, kmax, s, tmp1, tmp2, tmp3, tmp4, hs(:, is))
             end if
 
             if (sedimentationProps%active(is)) then

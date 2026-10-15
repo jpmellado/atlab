@@ -223,7 +223,7 @@ contains
 
             ! Explicit part
             call TLab_Sources_Flow(q, s, TMarchScheme%time, hq, txc(:, 1))
-            call TLab_Sources_Scal(s, hs, TMarchScheme%time, txc(:, 1), txc(:, 2), txc(:, 3), txc(:, 4))
+            call TLab_Sources_Scal(s, hs, TMarchScheme%time, txc(:, 1), txc(:, 2), txc(:, 3))
 
             call Buffer_Nudge_Flow(q, hq)
             call Buffer_Nudge_Scal(s, hs)

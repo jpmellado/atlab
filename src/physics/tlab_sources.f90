@@ -74,11 +74,11 @@ contains
 
     ! #######################################################################
     ! #######################################################################
-    subroutine TLab_Sources_Scal(s, hs, time, tmp1, tmp2, tmp3, tmp4)
+    subroutine TLab_Sources_Scal(s, hs, time, tmp1, tmp2, tmp3)!, tmp4)
         real(wp), intent(in) :: time
         real(wp), intent(in) :: s(isize_field, *)
         real(wp), intent(out) :: hs(isize_field, *)
-        real(wp), intent(inout) :: tmp1(isize_field), tmp2(isize_field), tmp3(isize_field), tmp4(isize_field)
+        real(wp), intent(inout) :: tmp1(isize_field), tmp2(isize_field), tmp3(isize_field)!, tmp4(isize_field)
 
         ! -----------------------------------------------------------------------
         integer is
@@ -89,7 +89,7 @@ contains
             if (infraredProps%active(is)) then
                 ! call Radiation_Infrared_Z(infraredProps, imax, jmax, kmax, s, tmp1, tmp2, tmp3, tmp4)
                 ! hs(:, is) = hs(:, is) + tmp1(:)
-                call Radiation_Infrared_Z_Cache(infraredProps, imax, jmax, kmax, s, tmp1, tmp2, tmp3, tmp4, hs(:, is))
+                call Radiation_Infrared_Z(infraredProps, imax, jmax, kmax, s, hs(:, is), tmp1, tmp2, tmp3)
             end if
 
             if (sedimentationProps%active(is)) then

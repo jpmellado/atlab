@@ -384,6 +384,7 @@ program VISUALS
                 do is = 1, inb_scal
                     if (infraredProps%active(is)) then
                         write (str, *) is; plot_file = 'Infrared'//trim(adjustl(str))
+                        txc(1:isize_field, 1) = 0.0_wp 
                         call Radiation_Infrared_Z(infraredProps, imax, jmax, kmax, s, &
                                                   txc(:, 1), txc(:, 2), txc(:, 3), txc(:, 4), txc(:, 5), txc(:, 6))
                         if (nse_eqns == DNS_EQNS_ANELASTIC) then

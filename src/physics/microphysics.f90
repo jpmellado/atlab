@@ -316,7 +316,7 @@ contains
                     call tlab_cache_reduce_z(s(ib, inb_scal_qt), nlines, nx*ny, nz, qt(1))
                     call tlab_cache_reduce_z(s(ib, inb_scal_T), nlines, nx*ny, nz, T(1))
 
-                    call Thermo_Anelastic_StaticL(groupSizeZ, 1, nz, T(1), tmp1)
+                    call Thermo_Anelastic_StaticL(nlines, 1, nz, T(1), tmp1)
                     if (exponent > 0.0_wp) then
                         tmp1(1:nlines*nz) = locProps%parameters(is)*(tmp1(1:nlines*nz) - h(1:nlines*nz))*(rhoql(1:nlines*nz)**dummy)
                     else

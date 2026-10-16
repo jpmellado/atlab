@@ -24,6 +24,7 @@ module Thermo_Anelastic
     public :: Thermo_Anelastic_EquilibriumPH
     public :: Thermo_Anelastic_T
     public :: Thermo_Anelastic_StaticL
+    public :: Thermo_Anelastic_StaticL_X
     public :: Thermo_Anelastic_AddBuoyancy
     public :: Thermo_Anelastic_AddBuoyancy_PerVolume
     public :: Thermo_Anelastic_Weight_InPlace
@@ -345,6 +346,21 @@ contains
 
         return
     end subroutine Thermo_Anelastic_StaticL
+
+    subroutine Thermo_Anelastic_StaticL_X(nx, ny, nz, T, result)
+        integer(wi), intent(in) :: nx, ny, nz
+        real(wp), intent(in) :: T(nx*ny, nz)
+        real(wp), intent(out) :: result(nx*ny, nz)
+
+        integer(wi) k
+
+        ! ###################################################################
+        do k = 1, nz
+            result(:, k) = Cl*T(:, k) + E_LOC - Lv0
+        end do
+
+        return
+    end subroutine Thermo_Anelastic_StaticL_X
 
     !########################################################################
     !########################################################################

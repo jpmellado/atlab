@@ -10,7 +10,7 @@ module TLab_Sources
     use Gravity, only: gravityProps, Gravity_AddSource
     use Rotation, only: coriolisProps, Rotation_AddCoriolis, Rotation_AddCoriolis_PerVolume
     use Microphysics, only: sedimentationProps, Microphysics_Sedimentation_Z
-    use Microphysics, only: evaporationProps, Microphysics_Evaporation, Microphysics_Evaporation_Impl
+    use Microphysics!, only: evaporationProps, Microphysics_Evaporation, Microphysics_Evaporation_Impl
     use Radiation!, only: infraredProps, Radiation_Infrared_Z
     use SpecialForcing
     ! use LargeScaleForcing
@@ -91,8 +91,9 @@ contains
             end if
 
             if (sedimentationProps%active(is)) then
-                call Microphysics_Sedimentation_Z(sedimentationProps, imax, jmax, kmax, is, s, tmp1, tmp2)
-                hs(:, is) = hs(:, is) + tmp1(:)
+                ! call Microphysics_Sedimentation_Z(sedimentationProps, imax, jmax, kmax, is, s, tmp1, tmp2)
+                ! hs(:, is) = hs(:, is) + tmp1(:)
+                call Microphysics_Sedimentation_Z_Cache(sedimentationProps, imax, jmax, kmax, is, s, hs(:, is), tmp1)
             end if
 
             if (evaporationProps%active(is)) then

@@ -49,7 +49,6 @@ module Radiation
     ! Cache blocking information; tuned to levante in a subdomain 48x32x768
     ! integer, parameter :: groupSizeX = 1024, groupSizeY = 512, groupSizeZ = 32
     integer, parameter :: groupSizeZ = CacheBlockSizeZ
-    ! real(wp), allocatable :: ql(:), qv(:), T(:), a_source(:)
 
 contains
     !########################################################################
@@ -171,11 +170,6 @@ contains
         !########################################################################
         ! Local allocation
         allocate (bcs_ht(imax*jmax), bcs_hb(imax*jmax))!, t_ht(imax*jmax))
-
-        ! call TLab_Allocate_Real(__FILE__, ql, [groupSizeZ*kmax], 'rad.ql')
-        ! call TLab_Allocate_Real(__FILE__, qv, [groupSizeZ*kmax], 'rad.qv')
-        ! call TLab_Allocate_Real(__FILE__, T, [groupSizeZ*kmax], 'rad.T')
-        ! call TLab_Allocate_Real(__FILE__, a_source, [groupSizeZ*kmax], 'rad.a_source')
 
         return
     end subroutine Radiation_Initialize

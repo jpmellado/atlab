@@ -49,7 +49,7 @@ module Radiation
     ! Cache blocking information; tuned to levante in a subdomain 48x32x768
     ! integer, parameter :: groupSizeX = 1024, groupSizeY = 512, groupSizeZ = 32
     integer, parameter :: groupSizeZ = CacheBlockSizeZ
-    real(wp), allocatable :: ql(:), qv(:), T(:), a_source(:)
+    ! real(wp), allocatable :: ql(:), qv(:), T(:), a_source(:)
 
 contains
     !########################################################################
@@ -172,10 +172,10 @@ contains
         ! Local allocation
         allocate (bcs_ht(imax*jmax), bcs_hb(imax*jmax))!, t_ht(imax*jmax))
 
-        call TLab_Allocate_Real(__FILE__, ql, [groupSizeZ*kmax], 'rad.ql')
-        call TLab_Allocate_Real(__FILE__, qv, [groupSizeZ*kmax], 'rad.qv')
-        call TLab_Allocate_Real(__FILE__, T, [groupSizeZ*kmax], 'rad.T')
-        call TLab_Allocate_Real(__FILE__, a_source, [groupSizeZ*kmax], 'rad.a_source')
+        ! call TLab_Allocate_Real(__FILE__, ql, [groupSizeZ*kmax], 'rad.ql')
+        ! call TLab_Allocate_Real(__FILE__, qv, [groupSizeZ*kmax], 'rad.qv')
+        ! call TLab_Allocate_Real(__FILE__, T, [groupSizeZ*kmax], 'rad.T')
+        ! call TLab_Allocate_Real(__FILE__, a_source, [groupSizeZ*kmax], 'rad.a_source')
 
         return
     end subroutine Radiation_Initialize
@@ -200,18 +200,24 @@ contains
         integer(wi) ib
 
         !########################################################################
+
+#define a_source(i) sCache(i,1)
+#define qv(i) sCache(i,2)
+#define ql(i) sCache(i,3)
+#define T(i) sCache(i,4)
+
         do ib = 1, nx*ny, groupSizeZ
             nlines = min(groupSizeZ, nx*ny - ib + 1)
 
             select case (localProps%type)
             case (TYPE_IR_GRAY_LIQUID)
                 ! memory arrangement
-                call tlab_cache_reduce_z(s(ib, inb_scal_ql), nlines, nx*ny, nz, a_source)
+                call tlab_cache_reduce_z(s(ib, inb_scal_ql), nlines, nx*ny, nz, a_source(1))
 
                 ! absorption coefficient
                 a_source(1:nlines*nz) = localProps%kappa(1, 1)*a_source(1:nlines*nz)
                 if (nse_eqns == DNS_EQNS_ANELASTIC) then
-                    call Thermo_Anelastic_Weight_InPlace(nlines, 1, nz, rbackground, a_source)
+                    call Thermo_Anelastic_Weight_InPlace(nlines, 1, nz, rbackground, a_source(1))
                 end if
 
                 ! solve radiative transfer equation, a_source overwritten with heating rate
@@ -222,23 +228,23 @@ contains
                     bcs_hb = localProps%bcs_b(1)                ! upward flux at domain bottom
                 end if
                 if (present(flux_up)) then
-                    call IR_RTE1_OnlyLiquid(nlines, nz, fdm_Int0, a_source, wrk3d, bcs_hb, bcs_ht, ibc, tmp1, tmp2)
+                    call IR_RTE1_OnlyLiquid(nlines, nz, fdm_Int0, a_source(1), wrk3d, bcs_hb, bcs_ht, ibc, tmp1, tmp2)
                     ! memory arrangement
-                    call tlab_cache_spread_add_z(a_source, nlines, nx*ny, nz, rhs(ib))
+                    call tlab_cache_spread_add_z(a_source(1), nlines, nx*ny, nz, rhs(ib))
                     call tlab_cache_spread_z(tmp1, nlines, nx*ny, nz, flux_down(ib))
                     call tlab_cache_spread_z(tmp2, nlines, nx*ny, nz, flux_up(ib))
                 else
-                    call IR_RTE1_OnlyLiquid(nlines, nz, fdm_Int0, a_source, wrk3d, bcs_hb, bcs_ht, ibc)
+                    call IR_RTE1_OnlyLiquid(nlines, nz, fdm_Int0, a_source(1), wrk3d, bcs_hb, bcs_ht, ibc)
                     ! memory arrangement
-                    call tlab_cache_spread_add_z(a_source, nlines, nx*ny, nz, rhs(ib))
+                    call tlab_cache_spread_add_z(a_source(1), nlines, nx*ny, nz, rhs(ib))
                 end if
 
             case (TYPE_IR_BAND, TYPE_IR_GRAY)
                 ! memory arrangement
-                call tlab_cache_reduce_z(s(ib, inb_scal_ql), nlines, nx*ny, nz, ql)
-                call tlab_cache_reduce_z(s(ib, inb_scal_qt), nlines, nx*ny, nz, qv)
+                call tlab_cache_reduce_z(s(ib, inb_scal_ql), nlines, nx*ny, nz, ql(1))
+                call tlab_cache_reduce_z(s(ib, inb_scal_qt), nlines, nx*ny, nz, qv(1))
                 qv(1:nlines*nz) = qv(1:nlines*nz) - ql(1:nlines*nz)
-                call tlab_cache_reduce_z(s(ib, inb_scal_T), nlines, nx*ny, nz, T)
+                call tlab_cache_reduce_z(s(ib, inb_scal_T), nlines, nx*ny, nz, T(1))
 
                 do iband = 1, localProps%nbands
                     ! emission function, Stefan-Boltzmann law
@@ -250,18 +256,18 @@ contains
                                             localProps%kappa(2, iband)*qv(1:nlines*nz) + &
                                             localProps%kappa(3, iband)
                     if (nse_eqns == DNS_EQNS_ANELASTIC) then
-                        call Thermo_Anelastic_Weight_InPlace(nlines, 1, nz, rbackground, a_source)
+                        call Thermo_Anelastic_Weight_InPlace(nlines, 1, nz, rbackground, a_source(1))
                     end if
 
                     ! solve radiative transfer equation, a_source overwritten with heating rate
                     bcs_ht(1:nlines) = localProps%bcs_t(iband)   ! downward flux at domain top
                     epsilon = infraredProps%bcs_b(1)            ! surface emmisivity at the bottom of the domain
-                    call IR_RTE1_Global(nlines, nz, fdm_Int0, a_source, b, wrk3d, bcs_hb, bcs_ht, tmp1, tmp2)
+                    call IR_RTE1_Global(nlines, nz, fdm_Int0, a_source(1), b, wrk3d, bcs_hb, bcs_ht, tmp1, tmp2)
                     ! call IR_RTE1_Local()
                     ! call IR_RTE1_Incremental()
 
                     ! memory arrangement
-                    call tlab_cache_spread_add_z(a_source, nlines, nx*ny, nz, rhs(ib))
+                    call tlab_cache_spread_add_z(a_source(1), nlines, nx*ny, nz, rhs(ib))
                     if (present(flux_up)) then
                         if (iband == 1) then
                             call tlab_cache_spread_z(tmp1, nlines, nx*ny, nz, flux_down(ib))
@@ -277,6 +283,11 @@ contains
             end select
 
         end do
+
+#undef a_source
+#undef qv
+#undef ql
+#undef T
 
     end subroutine Radiation_Infrared_Z
 

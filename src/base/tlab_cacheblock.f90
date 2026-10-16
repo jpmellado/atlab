@@ -14,6 +14,9 @@ module TLab_CacheBlock
     integer, parameter, public :: CacheBlockSizeY = 512
     integer, parameter, public :: CacheBlockSizeZ = 32
 
+    real(wp), allocatable, public :: qCache(:, :)
+    real(wp), allocatable, public :: sCache(:, :)
+
 contains
     !########################################################################
     !########################################################################

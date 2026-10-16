@@ -117,7 +117,8 @@ end module TLab_Pointers_C
 ! ###################################################################
 ! ###################################################################
 module TLab_Memory
-    use TLab_Constants, only: sp, wp, wi, longi, lfile, efile
+    use TLab_Constants, only: sp, wp, wi, longi
+    use TLab_Constants, only: lfile, efile
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
     implicit none
     private
@@ -179,12 +180,14 @@ contains
     subroutine TLab_Initialize_Memory(C_FILE_LOC)
         use TLab_Constants, only: i8
         use TLab_Arrays
+        use TLab_CacheBlock
 #ifdef USE_MPI
         use TLabMPI_VARS, only: xMpi, yMpi, zMpi
 #endif
 
         character(len=*), intent(in) :: C_FILE_LOC
         integer(i8) maxSize
+        integer(wi) idummy
 
         ! ###################################################################
         ! loop counters over the whole domain are integer*4
@@ -237,6 +240,11 @@ contains
         call TLab_Set_Pointers_2D()
 
         call TLab_Set_Pointers_C()
+
+        ! ###################################################################
+        idummy = max(CacheBlockSizeZ*kmax, max(CacheBlockSizeY*jmax, CacheBlockSizeX*imax))
+        call TLab_Allocate_Real(C_FILE_LOC, qCache, [idummy, inb_flow_array], 'qCache')
+        call TLab_Allocate_Real(C_FILE_LOC, sCache, [idummy, inb_scal_array], 'sCache')
 
         return
     end subroutine TLab_Initialize_Memory

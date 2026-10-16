@@ -467,6 +467,7 @@ subroutine AVG_SCAL_XZ(is, q, s, s_local, dsdx, dsdy, dsdz, tmp1, tmp2, tmp3, me
     end if
 
     if (sedimentationProps%active(is)) then     ! Sedimentation in tmp2 and dsdz
+        tmp2 = 0.0_wp
         call Microphysics_Sedimentation_Z(sedimentationProps, imax, jmax, kmax, is, s, tmp2, tmp3, dsdx)
         if (nse_eqns == DNS_EQNS_ANELASTIC) then
             call Thermo_Anelastic_Weight_InPlace(imax, jmax, kmax, ribackground, tmp2)

@@ -16,7 +16,6 @@ module Microphysics
 
     public :: Microphysics_Initialize
     public :: Microphysics_Sedimentation_Z
-    public :: Microphysics_Sedimentation_Z_Cache
     public :: Microphysics_Evaporation
     public :: Microphysics_Evaporation_Impl
 
@@ -191,73 +190,73 @@ contains
         return
     end subroutine Microphysics_Initialize
 
-!########################################################################
-!########################################################################
-    subroutine Microphysics_Sedimentation_Z(locProps, nx, ny, nz, is, s, source, tmp1, flux)
-        use Thermo_Anelastic, only: rbackground, Thermo_Anelastic_Weight_OutPlace, Thermo_Anelastic_StaticL
-        type(microphysics_dt), intent(in) :: locProps
-        integer(wi), intent(in) :: nx, ny, nz, is
-        real(wp), intent(in) :: s(nx*ny*nz, inb_scal_array)
-        real(wp), intent(out) :: source(nx*ny*nz)
-        real(wp), intent(inout) :: tmp1(nx*ny*nz)
-        real(wp), intent(out), optional :: flux(nx*ny*nz)
+    !########################################################################
+    !########################################################################
+    ! subroutine Microphysics_Sedimentation_Z(locProps, nx, ny, nz, is, s, source, tmp1, flux)
+    !     use Thermo_Anelastic, only: rbackground, Thermo_Anelastic_Weight_OutPlace, Thermo_Anelastic_StaticL
+    !     type(microphysics_dt), intent(in) :: locProps
+    !     integer(wi), intent(in) :: nx, ny, nz, is
+    !     real(wp), intent(in) :: s(nx*ny*nz, inb_scal_array)
+    !     real(wp), intent(out) :: source(nx*ny*nz)
+    !     real(wp), intent(inout) :: tmp1(nx*ny*nz)
+    !     real(wp), intent(out), optional :: flux(nx*ny*nz)
 
-        target s, source
+    !     target s, source
 
-        ! -----------------------------------------------------------------------
-        real(wp) dummy, exponent
+    !     ! -----------------------------------------------------------------------
+    !     real(wp) dummy, exponent
 
-        real(wp), pointer :: s_active(:) => null()
+    !     real(wp), pointer :: s_active(:) => null()
 
-        !########################################################################
-        exponent = locProps%auxiliar(1)
-        dummy = 1.0_wp + exponent
+    !     !########################################################################
+    !     exponent = locProps%auxiliar(1)
+    !     dummy = 1.0_wp + exponent
 
-        if (nse_eqns == DNS_EQNS_ANELASTIC) then
-            call Thermo_Anelastic_Weight_OutPlace(nx, ny, nz, rbackground, s(:, locProps%scalar(is)), source)
-            s_active => source
-        else
-            s_active => s(:, locProps%scalar(is))
-        end if
+    !     if (nse_eqns == DNS_EQNS_ANELASTIC) then
+    !         call Thermo_Anelastic_Weight_OutPlace(nx, ny, nz, rbackground, s(:, locProps%scalar(is)), source)
+    !         s_active => source
+    !     else
+    !         s_active => s(:, locProps%scalar(is))
+    !     end if
 
-        select case (locProps%type)
-        case (TYPE_SED_AIRWATER)
-            if (any([inb_scal_qt, inb_scal_ql] == is)) then
-                if (exponent > 0.0_wp) then ! to avoid the calculation of a power, if not necessary
-                    tmp1 = locProps%parameters(is)*(1.0_wp - s(:, is))*(s_active**dummy)
-                else
-                    tmp1 = locProps%parameters(is)*(1.0_wp - s(:, is))*s_active
-                end if
+    !     select case (locProps%type)
+    !     case (TYPE_SED_AIRWATER)
+    !         if (any([inb_scal_qt, inb_scal_ql] == is)) then
+    !             if (exponent > 0.0_wp) then ! to avoid the calculation of a power, if not necessary
+    !                 tmp1 = locProps%parameters(is)*(1.0_wp - s(:, is))*(s_active**dummy)
+    !             else
+    !                 tmp1 = locProps%parameters(is)*(1.0_wp - s(:, is))*s_active
+    !             end if
 
-            else if (is == inb_scal_e) then
-                call Thermo_Anelastic_StaticL(nx, ny, nz, s, tmp1)
-                if (exponent > 0.0_wp) then
-                    tmp1 = locProps%parameters(is)*tmp1*(s_active**dummy)
-                else
-                    tmp1 = locProps%parameters(is)*tmp1*s_active
-                end if
+    !         else if (is == inb_scal_e) then
+    !             call Thermo_Anelastic_StaticL(nx, ny, nz, s, tmp1)
+    !             if (exponent > 0.0_wp) then
+    !                 tmp1 = locProps%parameters(is)*tmp1*(s_active**dummy)
+    !             else
+    !                 tmp1 = locProps%parameters(is)*tmp1*s_active
+    !             end if
 
-            end if
+    !         end if
 
-            call OPR_Partial_Z(OPR_P1, nx, ny, nz, tmp1, source)
-            if (present(flux)) flux = -tmp1
+    !         call OPR_Partial_Z(OPR_P1, nx, ny, nz, tmp1, source)
+    !         if (present(flux)) flux = -tmp1
 
-        case (TYPE_SED_AIRWATERSIMPLIFIED)
-            call OPR_Partial_Z(OPR_P1, nx, ny, nz, s_active, tmp1)
-            if (exponent > 0.0_wp) tmp1 = tmp1*(s_active**exponent)
-            source = locProps%parameters(is)*dummy*tmp1
+    !     case (TYPE_SED_AIRWATERSIMPLIFIED)
+    !         call OPR_Partial_Z(OPR_P1, nx, ny, nz, s_active, tmp1)
+    !         if (exponent > 0.0_wp) tmp1 = tmp1*(s_active**exponent)
+    !         source = locProps%parameters(is)*dummy*tmp1
 
-            if (present(flux)) flux = -locProps%parameters(is)*(s_active**dummy)
+    !         if (present(flux)) flux = -locProps%parameters(is)*(s_active**dummy)
 
-        end select
+    !     end select
 
-        nullify (s_active)
+    !     nullify (s_active)
 
-    end subroutine Microphysics_Sedimentation_Z
+    ! end subroutine Microphysics_Sedimentation_Z
 
-    subroutine Microphysics_Sedimentation_Z_Cache(locProps, nx, ny, nz, is, s, rhs, tmp1, flux)
+    subroutine Microphysics_Sedimentation_Z(locProps, nx, ny, nz, is, s, rhs, tmp1, flux)
         use TLab_Arrays, only: wrk3d
-        use Thermo_Anelastic, only: rbackground, Thermo_Anelastic_Weight_OutPlace, Thermo_Anelastic_StaticL_X
+        use Thermo_Anelastic, only: rbackground, Thermo_Anelastic_Weight_OutPlace, Thermo_Anelastic_StaticL
         use FDM, only: fdm_der1_Z
         type(microphysics_dt), intent(in) :: locProps
         integer(wi), intent(in) :: nx, ny, nz, is
@@ -290,6 +289,8 @@ contains
                 call tlab_cache_reduce_z(s(ib, inb_scal_ql), nlines, nx*ny, nz, ql(1))
                 if (nse_eqns == DNS_EQNS_ANELASTIC) then
                     call Thermo_Anelastic_Weight_OutPlace(nlines, 1, nz, rbackground, ql(1), rhoql(1))
+                else
+                    rhoql(1:nlines*nz) = ql(1:nlines*nz)
                 end if
 
                 if (is == inb_scal_ql) then
@@ -315,7 +316,7 @@ contains
                     call tlab_cache_reduce_z(s(ib, inb_scal_qt), nlines, nx*ny, nz, qt(1))
                     call tlab_cache_reduce_z(s(ib, inb_scal_T), nlines, nx*ny, nz, T(1))
 
-                    call Thermo_Anelastic_StaticL_X(groupSizeZ, 1, nz, T(1), tmp1)
+                    call Thermo_Anelastic_StaticL(groupSizeZ, 1, nz, T(1), tmp1)
                     if (exponent > 0.0_wp) then
                         tmp1(1:nlines*nz) = locProps%parameters(is)*(tmp1(1:nlines*nz) - h(1:nlines*nz))*(rhoql(1:nlines*nz)**dummy)
                     else
@@ -332,12 +333,19 @@ contains
                 end if
 
             case (TYPE_SED_AIRWATERSIMPLIFIED)
+                ! to be done
+                ! call OPR_Partial_Z(OPR_P1, nx, ny, nz, rhoql, tmp1)
+                ! if (exponent > 0.0_wp) tmp1 = tmp1*(rhoql**exponent)
+                ! source = locProps%parameters(is)*dummy*tmp1
+
+                ! if (present(flux)) flux = -locProps%parameters(is)*(rhoql**dummy)
+
             end select
 
         end do
 
         return
-    end subroutine Microphysics_Sedimentation_Z_Cache
+    end subroutine Microphysics_Sedimentation_Z
 
 !########################################################################
 !########################################################################

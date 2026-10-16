@@ -409,6 +409,7 @@ program VISUALS
                 do is = 1, inb_scal
                     if (infraredProps%active(is)) then
                         write (str, *) is; plot_file = 'Sedimentation'//trim(adjustl(str))
+                        txc(1:isize_field, 1) = 0.0_wp 
                         call Microphysics_Sedimentation_Z(sedimentationProps, imax, jmax, kmax, is, s, &
                                                           txc(:, 1), txc(:, 2), txc(:, 3))
                         if (nse_eqns == DNS_EQNS_ANELASTIC) then

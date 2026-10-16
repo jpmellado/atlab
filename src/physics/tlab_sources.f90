@@ -93,7 +93,7 @@ contains
             if (sedimentationProps%active(is)) then
                 ! call Microphysics_Sedimentation_Z(sedimentationProps, imax, jmax, kmax, is, s, tmp1, tmp2)
                 ! hs(:, is) = hs(:, is) + tmp1(:)
-                call Microphysics_Sedimentation_Z_Cache(sedimentationProps, imax, jmax, kmax, is, s, hs(:, is), tmp1)
+                call Microphysics_Sedimentation_Z(sedimentationProps, imax, jmax, kmax, is, s, hs(:, is), tmp1)
             end if
 
             if (evaporationProps%active(is)) then

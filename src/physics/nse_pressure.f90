@@ -70,7 +70,7 @@ contains
         ! Forcing term in p
         call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, hq(:, 3), p)
         call OPR_Partial_Y(OPR_P1_ADD, imax, jmax, kmax, hq(:, 2), tmp2, p)
-        call OPR_Partial_X(OPR_P1_ADD, imax, jmax, kmax, hq(:, 1), tmp2, p)
+        call OPR_Partial_X(OPR_P1_ADD, imax, jmax, kmax, hq(:, 1), result=p)
 
         ! Neumman BCs in d/dz(p) s.t. v=0 (no-penetration)
         if (allocated(bcs_hb)) deallocate (bcs_hb)

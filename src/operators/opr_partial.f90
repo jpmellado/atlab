@@ -48,8 +48,6 @@ module OPR_Partial
     type(der_periodic_mpisplit), public, protected :: fdm_der1_X_split, fdm_der2_X_split
     type(der_periodic_mpisplit), public, protected :: fdm_der1_Y_split, fdm_der2_Y_split
     real(wp), allocatable, public, target :: halo_m(:), halo_p(:)
-    ! real(wp), pointer, public :: pyz_halo_m(:, :) => null(), pyz_halo_p(:, :) => null()
-    ! real(wp), pointer, public :: pxz_halo_m(:, :) => null(), pxz_halo_p(:, :) => null()
 
     integer, public :: der_mode_i, der_mode_j
     integer, parameter, public :: TYPE_TRANSPOSE = 1
@@ -170,12 +168,7 @@ contains
 
         if (np > 0) then
             allocate (halo_m(max(imax*kmax, jmax*kmax)*np))
-            ! pyz_halo_m(1:jmax*kmax, 1:np) => halo_m(1:jmax*kmax*np)
-            ! pxz_halo_m(1:imax*kmax, 1:np) => halo_m(1:imax*kmax*np)
-
             allocate (halo_p(max(imax*kmax, jmax*kmax)*np))
-            ! pyz_halo_p(1:jmax*kmax, 1:np) => halo_p(1:jmax*kmax*np)
-            ! pxz_halo_p(1:imax*kmax, 1:np) => halo_p(1:imax*kmax*np)
         end if
 
 #endif
@@ -501,39 +494,6 @@ contains
 
 #endif
 
-    ! !########################################################################
-    ! !########################################################################
-    ! subroutine OPR_Partial_Z(type, nx, ny, nz, u, result, tmp1)
-    !     integer(wi), intent(in) :: type                         ! OPR_P1, OPR_P2, OPR_P2_P1
-    !     integer(wi), intent(in) :: nx, ny, nz
-    !     real(wp), intent(in) :: u(nx*ny*nz)
-    !     real(wp), intent(out) :: result(nx*ny*nz)
-    !     real(wp), intent(inout), optional :: tmp1(nx*ny*nz)     ! 1. order derivative in 2. order calculation
-
-    !     ! ###################################################################
-    !     if (z%size == 1) then
-    !         result = 0.0_wp
-    !         if (type == OPR_P2_P1) tmp1 = 0.0_wp
-    !         return
-    !     end if
-
-    !     select case (type)
-    !     case (OPR_P2)
-    !         if (.not. z%uniform) call fdm_der1_Z%compute(nx*ny, u, wrk3d)
-    !         call fdm_der2_Z%compute(nx*ny, u, result, wrk3d)
-
-    !     case (OPR_P2_P1)
-    !         call fdm_der1_Z%compute(nx*ny, u, tmp1)
-    !         call fdm_der2_Z%compute(nx*ny, u, result, tmp1)
-
-    !     case (OPR_P1)
-    !         call fdm_der1_Z%compute(nx*ny, u, result)
-
-    !     end select
-
-    !     return
-    ! end subroutine OPR_Partial_Z
-
     !########################################################################
     !########################################################################
     subroutine OPR_Partial_Z(type, nx, ny, nz, u, result, aux)
@@ -545,17 +505,16 @@ contains
 
         ! -------------------------------------------------------------------
         integer(wi) nlines
-        integer(wi) ib, ip
+        integer(wi) ib
 
         ! ###################################################################
         if (z%size == 1) then
-            if (any([OPR_P1, OPR_P2, OPR_P2_P1] == type)) result=0.0_wp
+            if (any([OPR_P1, OPR_P2, OPR_P2_P1] == type)) result = 0.0_wp
             if (type == OPR_P2_P1) aux = 0.0_wp
             return
         end if
 
         do ib = 1, nx*ny, groupSizeZ
-            ip = (ib - 1)*nz + 1
             nlines = min(groupSizeZ, nx*ny - ib + 1)
 
             ! memory arrangement
@@ -577,19 +536,18 @@ contains
 
             ! memory arrangement
             select case (type)
-            case (OPR_P2)
+            case (OPR_P2, OPR_P2_P1, OPR_P1)
                 call tlab_cache_spread_z(wrk3d, nlines, nx*ny, nz, result(ib))
-            case (OPR_P2_P1)
-                call tlab_cache_spread_z(wrk3d, nlines, nx*ny, nz, result(ib))
-                call tlab_cache_spread_z(sCache(1, 2), nlines, nx*ny, nz, aux(ib))
-            case (OPR_P1)
-                call tlab_cache_spread_z(wrk3d, nlines, nx*ny, nz, result(ib))
+
             case (OPR_P1_ADD)
                 call tlab_cache_spread_add_z(wrk3d, nlines, nx*ny, nz, result(ib))
+                
             case (OPR_P1_SUBTRACT)
                 call tlab_cache_spread_subtract_z(wrk3d, nlines, nx*ny, nz, result(ib))
 
             end select
+
+            if (type == OPR_P2_P1) call tlab_cache_spread_z(sCache(1, 2), nlines, nx*ny, nz, aux(ib))
 
         end do
 

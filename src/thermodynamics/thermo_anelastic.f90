@@ -310,42 +310,6 @@ contains
         return
     end subroutine Thermo_Anelastic_T
 
-!     !########################################################################
-!     ! Calculating h_l - h; very similar to the temperature routine
-!     !########################################################################
-!     subroutine Thermo_Anelastic_StaticL(nx, ny, nz, s, result)
-!         integer(wi), intent(in) :: nx, ny, nz
-!         real(wp), intent(in) :: s(nx*ny, nz, *)
-!         real(wp), intent(out) :: result(nx*ny, nz)
-
-!         integer(wi) k
-
-!         ! ###################################################################
-! #define T_LOC(ij,k) s(ij, k, inb_scal_T)
-
-!         select case (imixture)
-!         case (MIXT_TYPE_AIR)
-!             do k = 1, nz
-!                 result(:, k) = Cl*T_LOC(:, k) + E_LOC - Lv0 - s(:, k, 1)
-!             end do
-
-!         case (MIXT_TYPE_AIRVAPOR)
-!             do k = 1, nz
-!                 result(:, k) = Cl*T_LOC(:, k) + E_LOC - Lv0 - s(:, k, 1)
-!             end do
-
-!         case (MIXT_TYPE_AIRWATER)
-!             do k = 1, nz
-!                 result(:, k) = Cl*T_LOC(:, k) + E_LOC - Lv0 - s(:, k, 1)
-!             end do
-
-!         end select
-
-! #undef T_LOC
-
-!         return
-!     end subroutine Thermo_Anelastic_StaticL
-
     !########################################################################
     ! Calculating h_l; very similar to the temperature routine
     ! This is used in sedimentation to calculate h_l-h

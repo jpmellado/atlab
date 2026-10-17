@@ -190,70 +190,6 @@ contains
         return
     end subroutine Microphysics_Initialize
 
-    !########################################################################
-    !########################################################################
-    ! subroutine Microphysics_Sedimentation_Z(locProps, nx, ny, nz, is, s, source, tmp1, flux)
-    !     use Thermo_Anelastic, only: rbackground, Thermo_Anelastic_Weight_OutPlace, Thermo_Anelastic_StaticL
-    !     type(microphysics_dt), intent(in) :: locProps
-    !     integer(wi), intent(in) :: nx, ny, nz, is
-    !     real(wp), intent(in) :: s(nx*ny*nz, inb_scal_array)
-    !     real(wp), intent(out) :: source(nx*ny*nz)
-    !     real(wp), intent(inout) :: tmp1(nx*ny*nz)
-    !     real(wp), intent(out), optional :: flux(nx*ny*nz)
-
-    !     target s, source
-
-    !     ! -----------------------------------------------------------------------
-    !     real(wp) dummy, exponent
-
-    !     real(wp), pointer :: s_active(:) => null()
-
-    !     !########################################################################
-    !     exponent = locProps%auxiliar(1)
-    !     dummy = 1.0_wp + exponent
-
-    !     if (nse_eqns == DNS_EQNS_ANELASTIC) then
-    !         call Thermo_Anelastic_Weight_OutPlace(nx, ny, nz, rbackground, s(:, locProps%scalar(is)), source)
-    !         s_active => source
-    !     else
-    !         s_active => s(:, locProps%scalar(is))
-    !     end if
-
-    !     select case (locProps%type)
-    !     case (TYPE_SED_AIRWATER)
-    !         if (any([inb_scal_qt, inb_scal_ql] == is)) then
-    !             if (exponent > 0.0_wp) then ! to avoid the calculation of a power, if not necessary
-    !                 tmp1 = locProps%parameters(is)*(1.0_wp - s(:, is))*(s_active**dummy)
-    !             else
-    !                 tmp1 = locProps%parameters(is)*(1.0_wp - s(:, is))*s_active
-    !             end if
-
-    !         else if (is == inb_scal_e) then
-    !             call Thermo_Anelastic_StaticL(nx, ny, nz, s, tmp1)
-    !             if (exponent > 0.0_wp) then
-    !                 tmp1 = locProps%parameters(is)*tmp1*(s_active**dummy)
-    !             else
-    !                 tmp1 = locProps%parameters(is)*tmp1*s_active
-    !             end if
-
-    !         end if
-
-    !         call OPR_Partial_Z(OPR_P1, nx, ny, nz, tmp1, source)
-    !         if (present(flux)) flux = -tmp1
-
-    !     case (TYPE_SED_AIRWATERSIMPLIFIED)
-    !         call OPR_Partial_Z(OPR_P1, nx, ny, nz, s_active, tmp1)
-    !         if (exponent > 0.0_wp) tmp1 = tmp1*(s_active**exponent)
-    !         source = locProps%parameters(is)*dummy*tmp1
-
-    !         if (present(flux)) flux = -locProps%parameters(is)*(s_active**dummy)
-
-    !     end select
-
-    !     nullify (s_active)
-
-    ! end subroutine Microphysics_Sedimentation_Z
-
     subroutine Microphysics_Sedimentation_Z(locProps, nx, ny, nz, is, s, rhs, tmp1, flux)
         use TLab_Arrays, only: wrk3d
         use Thermo_Anelastic, only: rbackground, Thermo_Anelastic_Weight_OutPlace, Thermo_Anelastic_StaticL
@@ -440,7 +376,7 @@ contains
                     dummy = 1.0_wp + mod_exponent
                     source = damkohler*locProps%parameters(1) * ( ( 1.0_wp - (1.0_wp-s(:,:,inb_scal_qt))/(1.0_wp-s(:,:,inb_scal_ql)))/qsat - 1.0_wp ) * sign(1.0_wp,s_active)*(abs(s_active))**dummy 
                 else
-         source = damkohler*locProps%parameters(1)*((1.0_wp - (1.0_wp - s(:, :, inb_scal_qt))/(1.0_wp - s(:, :, inb_scal_ql)))/qsat - 1.0_wp)*s_active
+                   source = damkohler*locProps%parameters(1)*((1.0_wp - (1.0_wp - s(:, :, inb_scal_qt))/(1.0_wp - s(:, :, inb_scal_ql)))/qsat - 1.0_wp)*s_active
                 end if
 
             else
@@ -589,7 +525,7 @@ contains
                             dpsdT(:, :) = dpsdT(:, :)*T_LOC + THERMO_PSAT(ipsat + 1)*ipsat
                         end do
                         do k = 1, nz
-     dTdql(:,k) = ( Lv0*(Cd+Cdv*s(:,k,inb_scal_qt)) - Cvl*(s(:,k,inb_scal_e)-E_LOC(k)) )/(( Cd + Cdv*s(:,k,inb_scal_qt) + Cvl*s(:,k,inb_scal_ql) )**2)
+      dTdql(:, k) = (Lv0*(Cd + Cdv*s(:, k, inb_scal_qt)) - Cvl*(s(:, k, inb_scal_e) - E_LOC(k)))/((Cd + Cdv*s(:, k, inb_scal_qt) + Cvl*s(:, k, inb_scal_ql))**2)
                             diqsdql(:, k) = -P_LOC(k)/(psat(:, k)**2)/rd_ov_rv*dpsdT(:, k)*dTdql(:, k)
                             qstmp(:, k) = rd_ov_rv/(P_LOC(k)/psat(:, k) - 1.0_wp)
                         end do
@@ -637,7 +573,7 @@ contains
 
                     ! --- Source term delta f(q_l) for NRmethod ---
                     ! ( rescaled by q_l^alpha to avoid division by zero )
-           tmp2 = damkohler*locProps%parameters(1)*((1.0_wp - (1.0_wp - s(:, :, inb_scal_qt))/(1.0_wp - s(:, :, inb_scal_ql)))/qsat - 1.0_wp)*s_active
+                    tmp2 = damkohler*locProps%parameters(1)*((1.0_wp - (1.0_wp - s(:, :, inb_scal_qt))/(1.0_wp - s(:, :, inb_scal_ql)))/qsat - 1.0_wp)*s_active
                     if (nse_eqns == DNS_EQNS_ANELASTIC) then
                         call Thermo_Anelastic_Weight_InPlace(nx, ny, nz, ribackground, tmp2)
                     end if

@@ -15,7 +15,7 @@ module Microphysics
     private
 
     public :: Microphysics_Initialize
-    public :: Microphysics_Sedimentation_Z
+    public :: Microphysics_AddSedimentation_Z
     public :: Microphysics_Evaporation
     public :: Microphysics_Evaporation_Impl
 
@@ -190,7 +190,7 @@ contains
         return
     end subroutine Microphysics_Initialize
 
-    subroutine Microphysics_Sedimentation_Z(locProps, nx, ny, nz, is, s, rhs, tmp1, flux)
+    subroutine Microphysics_AddSedimentation_Z(locProps, nx, ny, nz, is, s, rhs, tmp1, flux)
         use TLab_Arrays, only: wrk3d
         use Thermo_Anelastic, only: rbackground, Thermo_Anelastic_Weight_OutPlace, Thermo_Anelastic_StaticL
         use FDM, only: fdm_der1_Z
@@ -281,7 +281,7 @@ contains
         end do
 
         return
-    end subroutine Microphysics_Sedimentation_Z
+    end subroutine Microphysics_AddSedimentation_Z
 
 !########################################################################
 !########################################################################

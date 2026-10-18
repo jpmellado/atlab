@@ -17,7 +17,7 @@ module Radiation
     private
 
     public :: Radiation_Initialize
-    public :: Radiation_Infrared_Z
+    public :: Radiation_AddInfrared_Z
 
     ! -------------------------------------------------------------------
     integer, parameter :: ncomps_max = 10               ! maximum number of radiatively active components
@@ -176,7 +176,7 @@ contains
 
     !########################################################################
     !########################################################################
-    subroutine Radiation_Infrared_Z(localProps, nx, ny, nz, s, rhs, b, tmp1, tmp2, flux_down, flux_up)
+    subroutine Radiation_AddInfrared_Z(localProps, nx, ny, nz, s, rhs, b, tmp1, tmp2, flux_down, flux_up)
         use TLab_Arrays, only: wrk3d
         use TLab_Constants, only: BCS_MAX, BCS_MIN, BCS_BOTH
         type(infrared_dt), intent(in) :: localProps
@@ -283,6 +283,6 @@ contains
 #undef ql
 #undef T
 
-    end subroutine Radiation_Infrared_Z
+    end subroutine Radiation_AddInfrared_Z
 
 end module

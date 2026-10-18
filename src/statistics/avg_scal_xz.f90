@@ -456,7 +456,7 @@ subroutine AVG_SCAL_XZ(is, q, s, s_local, dsdx, dsdy, dsdz, tmp1, tmp2, tmp3, me
     iv = ig(1) + offset_sources - 1
     tmp1 = 0.0_wp                               ! Accumulating sources in tmp1
     if (infraredProps%active(is)) then          ! Radiation source in tmp1
-        call Radiation_Infrared_Z(infraredProps, imax, jmax, kmax, s, tmp1, tmp2, tmp3, dsdx, dsdy, dsdz)
+        call Radiation_AddInfrared_Z(infraredProps, imax, jmax, kmax, s, tmp1, tmp2, tmp3, dsdx, dsdy, dsdz)
         if (nse_eqns == DNS_EQNS_ANELASTIC) then
             call Thermo_Anelastic_Weight_InPlace(imax, jmax, kmax, ribackground, tmp1)
         end if
@@ -468,7 +468,7 @@ subroutine AVG_SCAL_XZ(is, q, s, s_local, dsdx, dsdy, dsdz, tmp1, tmp2, tmp3, me
 
     if (sedimentationProps%active(is)) then     ! Sedimentation in tmp2 and dsdz
         tmp2 = 0.0_wp
-        call Microphysics_Sedimentation_Z(sedimentationProps, imax, jmax, kmax, is, s, tmp2, tmp3, dsdx)
+        call Microphysics_AddSedimentation_Z(sedimentationProps, imax, jmax, kmax, is, s, tmp2, tmp3, dsdx)
         if (nse_eqns == DNS_EQNS_ANELASTIC) then
             call Thermo_Anelastic_Weight_InPlace(imax, jmax, kmax, ribackground, tmp2)
         end if

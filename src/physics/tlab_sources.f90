@@ -9,9 +9,9 @@ module TLab_Sources
     use Thermo_Anelastic, only: Thermo_Anelastic_AddBuoyancy_PerVolume
     use Gravity, only: gravityProps, Gravity_AddSource
     use Rotation, only: coriolisProps, Rotation_AddCoriolis, Rotation_AddCoriolis_PerVolume
-    use Microphysics, only: sedimentationProps, Microphysics_Sedimentation_Z
+    use Microphysics, only: sedimentationProps, Microphysics_AddSedimentation_Z
     use Microphysics!, only: evaporationProps, Microphysics_Evaporation, Microphysics_Evaporation_Impl
-    use Radiation, only: infraredProps, Radiation_Infrared_Z
+    use Radiation, only: infraredProps, Radiation_AddInfrared_Z
     use SpecialForcing
     ! use LargeScaleForcing
     implicit none
@@ -87,11 +87,11 @@ contains
         do is = 1, inb_scal
 
             if (infraredProps%active(is)) then
-                call Radiation_Infrared_Z(infraredProps, imax, jmax, kmax, s, hs(:, is), tmp1, tmp2, tmp3)
+                call Radiation_AddInfrared_Z(infraredProps, imax, jmax, kmax, s, hs(:, is), tmp1, tmp2, tmp3)
             end if
 
             if (sedimentationProps%active(is)) then
-                call Microphysics_Sedimentation_Z(sedimentationProps, imax, jmax, kmax, is, s, hs(:, is), tmp1)
+                call Microphysics_AddSedimentation_Z(sedimentationProps, imax, jmax, kmax, is, s, hs(:, is), tmp1)
             end if
 
             if (evaporationProps%active(is)) then

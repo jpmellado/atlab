@@ -27,21 +27,21 @@ subroutine NavierStokes_PerVolume(hq, hs, dte, remove_divergence)
     ! #######################################################################
     ! Diffusion and advection terms
     ! #######################################################################
-    call NSE_AddBurgers_PerVolume_Z(0, imax, jmax, kmax, w, hq(:, 3), tmp1, tmp3)                   ! store rho w in tmp3
+    call NSE_AddBurgers_PerVolume_Z(0, imax, jmax, kmax, w, hq(:, 3), tmp1, tmp3)               ! store rho w in tmp3
     call NSE_AddBurgers_PerVolume_Z(0, imax, jmax, kmax, u, hq(:, 1), tmp1, tmp2, rhou_in=tmp3)
     call NSE_AddBurgers_PerVolume_Z(0, imax, jmax, kmax, v, hq(:, 2), tmp1, tmp2, rhou_in=tmp3)
     do is = 1, inb_scal
         call NSE_AddBurgers_PerVolume_Z(is, imax, jmax, kmax, s(:, is), hs(:, is), tmp1, tmp2, rhou_in=tmp3)
     end do
 
-    call NSE_AddBurgers_PerVolume_X(0, imax, jmax, kmax, u, hq(:, 1), tmp1, tmp3)                   ! store rho u transposed in tmp3
+    call NSE_AddBurgers_PerVolume_X(0, imax, jmax, kmax, u, hq(:, 1), tmp1, tmp3)               ! store rho u transposed in tmp3
     call NSE_AddBurgers_PerVolume_X(0, imax, jmax, kmax, v, hq(:, 2), tmp1, tmp2, rhou_in=tmp3)
     call NSE_AddBurgers_PerVolume_X(0, imax, jmax, kmax, w, hq(:, 3), tmp1, tmp2, rhou_in=tmp3)
     do is = 1, inb_scal
         call NSE_AddBurgers_PerVolume_X(is, imax, jmax, kmax, s(:, is), hs(:, is), tmp1, tmp2, rhou_in=tmp3)
     end do
 
-    call NSE_AddBurgers_PerVolume_Y(0, imax, jmax, kmax, v, hq(:, 2), tmp1, tmp3)                   ! store rho v transposed in tmp3
+    call NSE_AddBurgers_PerVolume_Y(0, imax, jmax, kmax, v, hq(:, 2), tmp1, tmp3)               ! store rho v transposed in tmp3
     call NSE_AddBurgers_PerVolume_Y(0, imax, jmax, kmax, u, hq(:, 1), tmp1, tmp2, rhou_in=tmp3)
     call NSE_AddBurgers_PerVolume_Y(0, imax, jmax, kmax, w, hq(:, 3), tmp1, tmp2, rhou_in=tmp3)
     do is = 1, inb_scal
@@ -54,30 +54,27 @@ subroutine NavierStokes_PerVolume(hq, hs, dte, remove_divergence)
     ! Forcing term
     if (remove_divergence) then ! remove residual divergence
         call Add_Residual_Divergence(w, hq(1, 3), tmp2)
-        call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, tmp2, result=tmp1)
+        call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, tmp2, result=tmp1)     ! accumulate forcing term in tmp1
         call Add_Residual_Divergence(v, hq(1, 2), tmp2)
-        ! call OPR_Partial_Y(OPR_P1_ADD, imax, jmax, kmax, tmp2, tmp3, tmp1)
-        call OPR_Partial_Y_Serial_Cache(OPR_P1_ADD, imax, jmax, kmax, tmp2, result=tmp1)
+        call OPR_Partial_Y(OPR_P1_ADD, imax, jmax, kmax, tmp2, result=tmp1)
         call Add_Residual_Divergence(u, hq(1, 1), tmp2)
-        call OPR_Partial_X(OPR_P1_ADD, imax, jmax, kmax, tmp2, result=tmp1) ! forcing term in tmp1
+        call OPR_Partial_X(OPR_P1_ADD, imax, jmax, kmax, tmp2, result=tmp1)
 
     else
         call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, hq(:, 3), result=tmp1)
-        ! call OPR_Partial_Y(OPR_P1_ADD, imax, jmax, kmax, hq(:, 2), tmp2, tmp1)
-        call OPR_Partial_Y_Serial_Cache(OPR_P1_ADD, imax, jmax, kmax, hq(:, 2), result=tmp1)
+        call OPR_Partial_Y(OPR_P1_ADD, imax, jmax, kmax, hq(:, 2), result=tmp1)
         call OPR_Partial_X(OPR_P1_ADD, imax, jmax, kmax, hq(:, 1), result=tmp1)
 
     end if
 
     ! Solution of Poisson equation: pressure in tmp1
     call OPR_Poisson(imax, jmax, kmax, BCS_NN, tmp1, tmp2, tmp3, &
-                     bcs_hb=hq(1:imax*jmax, 3), &                               ! Neumman BCs in d/dy(p) s.t. v=0 (no-penetration)
+                     bcs_hb=hq(1:imax*jmax, 3), &                           ! Neumman BCs in d/dy(p) s.t. v=0 (no-penetration)
                      bcs_ht=hq(isize_field - imax*jmax + 1:isize_field, 3))
 
     ! Add pressure gradient
     call OPR_Partial_X(OPR_P1_SUBTRACT, imax, jmax, kmax, tmp1, result=hq(:, 1))
-    ! call OPR_Partial_Y(OPR_P1_SUBTRACT, imax, jmax, kmax, tmp1, tmp2, hq(:, 2))
-    call OPR_Partial_Y_Serial_Cache(OPR_P1_SUBTRACT, imax, jmax, kmax, tmp1, result=hq(:, 2))
+    call OPR_Partial_Y(OPR_P1_SUBTRACT, imax, jmax, kmax, tmp1, result=hq(:, 2))
     call OPR_Partial_Z(OPR_P1_SUBTRACT, imax, jmax, kmax, tmp1, result=hq(:, 3))
 
     return

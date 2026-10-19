@@ -4,11 +4,14 @@ module TLab_CacheBlock
     private
 
     public :: tlab_cache_reduce_z
-    public :: tlab_cache_spread_add_z
     public :: tlab_cache_spread_z
+    public :: tlab_cache_spread_add_z
     public :: tlab_cache_spread_subtract_z
+
     public :: tlab_cache_reduce_y
+    public :: tlab_cache_spread_y
     public :: tlab_cache_spread_add_y
+    public :: tlab_cache_spread_subtract_y
 
     integer, parameter, public :: CacheBlockSizeX = 1024
     integer, parameter, public :: CacheBlockSizeY = 512
@@ -96,6 +99,24 @@ contains
         return
     end subroutine
 
+    subroutine tlab_cache_spread_y(a, nx, ny, nz, i, k, nlines, b)
+        real(wp), intent(in) :: a(*)
+        integer, intent(in) :: nx, ny, nz, i, k, nlines
+        real(wp), intent(inout) :: b(nx, ny, nz)
+
+        integer ip, jj, kk
+
+        ip = 0
+        do jj = 1, ny
+            do kk = k, k + nlines - 1
+                ip = ip + 1
+                b(i, jj, kk) = a(ip)
+            end do
+        end do
+
+        return
+    end subroutine
+
     subroutine tlab_cache_spread_add_y(a, nx, ny, nz, i, k, nlines, b)
         real(wp), intent(in) :: a(*)
         integer, intent(in) :: nx, ny, nz, i, k, nlines
@@ -108,6 +129,24 @@ contains
             do kk = k, k + nlines - 1
                 ip = ip + 1
                 b(i, jj, kk) = b(i, jj, kk) + a(ip)
+            end do
+        end do
+
+        return
+    end subroutine
+
+    subroutine tlab_cache_spread_subtract_y(a, nx, ny, nz, i, k, nlines, b)
+        real(wp), intent(in) :: a(*)
+        integer, intent(in) :: nx, ny, nz, i, k, nlines
+        real(wp), intent(inout) :: b(nx, ny, nz)
+
+        integer ip, jj, kk
+
+        ip = 0
+        do jj = 1, ny
+            do kk = k, k + nlines - 1
+                ip = ip + 1
+                b(i, jj, kk) = b(i, jj, kk) - a(ip)
             end do
         end do
 

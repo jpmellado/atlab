@@ -21,6 +21,7 @@ module OPR_Partial
     public :: OPR_Partial_Initialize
     public :: OPR_Partial_X
     public :: OPR_Partial_Y
+    public :: OPR_Partial_Y_Serial_Cache
     public :: OPR_Partial_Z
     public :: OPR_Partial_Z_Bcs
 
@@ -427,6 +428,97 @@ contains
 
         return
     end subroutine OPR_Partial_Y_Serial
+
+    !########################################################################
+    !########################################################################
+    subroutine OPR_Partial_Y_Serial_Cache(type, nx, ny, nz, u, result, aux)
+#ifdef USE_MPI
+        use TLabMPI_PROCS, only: TLabMPI_Halos_Y
+#endif
+        integer(wi), intent(in) :: type                         ! OPR_P1, OPR_P2, OPR_P2_P1
+        integer(wi), intent(in) :: nx, ny, nz
+        real(wp), intent(in) :: u(nx*ny*nz)
+        real(wp), intent(out) :: result(nx*ny*nz)
+        real(wp), intent(inout), optional :: aux(nx*ny*nz)     ! 1. order derivative in 2. order calculation
+
+        ! -------------------------------------------------------------------
+        integer(wi) nlines
+        integer(wi) ib, i, k
+#ifdef USE_MPI
+        integer np, np1, np2
+#endif
+
+        ! ###################################################################
+        if (y%size == 1) then ! Set to zero in 2D case
+            if (any([OPR_P1, OPR_P2, OPR_P2_P1] == type)) result = 0.0_wp
+            if (type == OPR_P2_P1) aux = 0.0_wp
+            return
+        end if
+
+        ib = 1
+        do i = 1, nx
+            do k = 1, nz, groupSizeY
+                nlines = min(groupSizeY, nz - k + 1)
+
+                ! memory arrangement; reduce
+                call tlab_cache_reduce_y(u, nx, ny, nz, i, k, nlines, sCache(1, 1))
+
+#ifdef USE_MPI
+                np1 = size(fdm_der1_Y_split%rhs, 2)/2
+                np2 = size(fdm_der2_Y_split%rhs, 2)/2
+                np = max(np1, np2)
+                call TLabMPI_Halos_Y(sCache(1:nlines*ny, 1), nlines, np, halo_m, halo_p)
+
+                select case (type)
+                case (OPR_P2)
+                    if (.not. y%uniform) call fdm_der1_Y_split%compute(nlines, sCache(1, 1), halo_m(nlines*(np - np1) + 1:), halo_p, sCache(1, 2))
+                    call fdm_der2_Y_split%compute(nlines, sCache(1, 1), halo_m(nlines*(np - np2) + 1:), halo_p, wrk3d)
+
+                case (OPR_P2_P1)
+                    call fdm_der1_Y_split%compute(nlines, sCache(1, 1), halo_m(nlines*(np - np1) + 1:), halo_p, sCache(1, 2))
+                    call fdm_der2_Y_split%compute(nlines, sCache(1, 1), halo_m(nlines*(np - np2) + 1:), halo_p, wrk3d)
+
+                case (OPR_P1, OPR_P1_ADD, OPR_P1_SUBTRACT)
+                    call fdm_der1_Y_split%compute(nlines, sCache(1, 1), halo_m(nlines*(np - np1) + 1:), halo_p, wrk3d)
+                end select
+#else
+                select case (type)
+                case (OPR_P2)
+                    if (.not. y%uniform) call fdm_der1_Y%compute(nlines, sCache(1, 1), sCache(1, 2))
+                    call fdm_der2_Y%compute(nlines, sCache(1, 1), wrk3d, sCache(1, 2))
+
+                case (OPR_P2_P1)
+                    call fdm_der1_Y%compute(nlines, sCache(1, 1), sCache(1, 2))
+                    call fdm_der2_Y%compute(nlines, sCache(1, 1), wrk3d, sCache(1, 2))
+
+                case (OPR_P1, OPR_P1_ADD, OPR_P1_SUBTRACT)
+                    call fdm_der1_Y%compute(nlines, sCache(1, 1), wrk3d)
+
+                end select
+#endif
+
+                ! memory arrangement; spread_add
+                select case (type)
+                case (OPR_P1_ADD)
+                    call tlab_cache_spread_add_y(wrk3d, nx, ny, nz, i, k, nlines, result)
+
+                case (OPR_P1_SUBTRACT)
+                    call tlab_cache_spread_subtract_y(wrk3d, nx, ny, nz, i, k, nlines, result)
+
+                case default
+                    call tlab_cache_spread_y(wrk3d, nx, ny, nz, i, k, nlines, result)
+
+                end select
+
+                if (type == OPR_P2_P1) call tlab_cache_spread_y(sCache(1, 2), nx, ny, nz, i, k, nlines, aux)
+
+                ib = ib + nlines*ny
+
+            end do
+        end do
+
+        return
+    end subroutine OPR_Partial_Y_Serial_Cache
 
     !########################################################################
     !########################################################################

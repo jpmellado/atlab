@@ -205,7 +205,7 @@ contains
         use TLab_Grid, only: xSubgrid, ySubgrid
         use NavierStokes, only: nse_eqns, DNS_EQNS_COMPRESSIBLE, DNS_EQNS_ANELASTIC, DNS_EQNS_BOUSSINESQ
         use TLab_Memory, only: imax, jmax, kmax
-        use TLab_Pointers_3D, only: u, v, w, tmp1, tmp2, tmp3
+        use TLab_Pointers_3D, only: u, v, w, tmp1, tmp2!, tmp3
         use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Runtime
         use Thermo_Anelastic, only: rbackground, Thermo_Anelastic_Weight_OutPlace
 #ifdef USE_MPI
@@ -253,12 +253,14 @@ contains
                 call Thermo_Anelastic_Weight_OutPlace(imax, jmax, kmax, rbackground, w, tmp2)
                 call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, tmp2, tmp1)
                 call Thermo_Anelastic_Weight_OutPlace(imax, jmax, kmax, rbackground, v, tmp2)
-                call OPR_Partial_Y(OPR_P1_ADD, imax, jmax, kmax, tmp2, tmp3, tmp1)
+                ! call OPR_Partial_Y(OPR_P1_ADD, imax, jmax, kmax, tmp2, tmp3, tmp1)
+                call OPR_Partial_Y_Serial_Cache(OPR_P1_ADD, imax, jmax, kmax, tmp2, result=tmp1)
                 call Thermo_Anelastic_Weight_OutPlace(imax, jmax, kmax, rbackground, u, tmp2)
                 call OPR_Partial_X(OPR_P1_ADD, imax, jmax, kmax, tmp2, result=tmp1)
             else
                 call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, w, tmp1)
-                call OPR_Partial_Y(OPR_P1_ADD, imax, jmax, kmax, v, tmp2, tmp1)
+                ! call OPR_Partial_Y(OPR_P1_ADD, imax, jmax, kmax, v, tmp2, tmp1)
+                call OPR_Partial_Y_Serial_Cache(OPR_P1_ADD, imax, jmax, kmax, v, result=tmp1)
                 call OPR_Partial_X(OPR_P1_ADD, imax, jmax, kmax, u, result=tmp1)
             end if
 

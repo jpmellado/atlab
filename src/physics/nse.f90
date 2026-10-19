@@ -56,13 +56,15 @@ subroutine NavierStokes_PerVolume(hq, hs, dte, remove_divergence)
         call Add_Residual_Divergence(w, hq(1, 3), tmp2)
         call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, tmp2, result=tmp1)
         call Add_Residual_Divergence(v, hq(1, 2), tmp2)
-        call OPR_Partial_Y(OPR_P1_ADD, imax, jmax, kmax, tmp2, tmp3, tmp1)
+        ! call OPR_Partial_Y(OPR_P1_ADD, imax, jmax, kmax, tmp2, tmp3, tmp1)
+        call OPR_Partial_Y_Serial_Cache(OPR_P1_ADD, imax, jmax, kmax, tmp2, result=tmp1)
         call Add_Residual_Divergence(u, hq(1, 1), tmp2)
         call OPR_Partial_X(OPR_P1_ADD, imax, jmax, kmax, tmp2, result=tmp1) ! forcing term in tmp1
 
     else
         call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, hq(:, 3), result=tmp1)
-        call OPR_Partial_Y(OPR_P1_ADD, imax, jmax, kmax, hq(:, 2), tmp2, tmp1)
+        ! call OPR_Partial_Y(OPR_P1_ADD, imax, jmax, kmax, hq(:, 2), tmp2, tmp1)
+        call OPR_Partial_Y_Serial_Cache(OPR_P1_ADD, imax, jmax, kmax, hq(:, 2), result=tmp1)
         call OPR_Partial_X(OPR_P1_ADD, imax, jmax, kmax, hq(:, 1), result=tmp1)
 
     end if
@@ -74,7 +76,8 @@ subroutine NavierStokes_PerVolume(hq, hs, dte, remove_divergence)
 
     ! Add pressure gradient
     call OPR_Partial_X(OPR_P1_SUBTRACT, imax, jmax, kmax, tmp1, result=hq(:, 1))
-    call OPR_Partial_Y(OPR_P1_SUBTRACT, imax, jmax, kmax, tmp1, tmp2, hq(:, 2))
+    ! call OPR_Partial_Y(OPR_P1_SUBTRACT, imax, jmax, kmax, tmp1, tmp2, hq(:, 2))
+    call OPR_Partial_Y_Serial_Cache(OPR_P1_SUBTRACT, imax, jmax, kmax, tmp1, result=hq(:, 2))
     call OPR_Partial_Z(OPR_P1_SUBTRACT, imax, jmax, kmax, tmp1, result=hq(:, 3))
 
     return

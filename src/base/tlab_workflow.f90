@@ -1,10 +1,11 @@
 #include "tlab_error.h"
 
 module TLab_WorkFlow
-    use TLab_Constants, only: sp, wp, wi, longi, lfile, efile, fmt_r
-#ifdef USE_OPENMP
-    use OMP_LIB
-#endif
+    use TLab_Constants, only: wp, wi
+    use TLab_Constants, only: lfile, efile, fmt_r
+! #ifdef USE_OPENMP
+!     use OMP_LIB
+! #endif
 #ifdef USE_MPI
     use mpi_f08
     use TLabMPI_VARS, only: mpiGrid
@@ -23,13 +24,14 @@ module TLab_WorkFlow
 
     logical, public :: flow_on = .true.         ! calculate flow parts of the code
     logical, public :: scal_on = .true.         ! calculate scal parts of the code
-    logical, public :: stagger_on = .false.     ! horizontal staggering of pressure
-
-    real(wp), public :: runtime                 ! Execution elapsed time in seconds
+    ! logical, public :: stagger_on = .false.     ! horizontal staggering of pressure
 
     ! -------------------------------------------------------------------
+#ifdef USE_MPI
     real(wp) :: walltime_ref                    ! reference time in seconds
+#else
     integer :: clock_ref                        ! reference time in clock cycles
+#endif
 
     character(len=128) :: line
 
@@ -91,6 +93,8 @@ contains
     subroutine TLab_Stop(error_code)
         integer, intent(in) :: error_code
 
+        real(wp) runtime
+
         ! ###################################################################
         if (error_code /= 0) then
             write (line, *) error_code
@@ -108,7 +112,7 @@ contains
         call TLab_Write_ASCII(lfile, line)
 
         !#####################################################################
-        call TLab_Runtime()
+        runtime = TLab_Runtime()
         write (line, fmt_r) runtime
         line = 'Time elapse ....................: '//trim(adjustl(line))
         call TLab_Write_ASCII(lfile, line)
@@ -138,7 +142,9 @@ contains
 
     ! ###################################################################
     ! ###################################################################
-    subroutine TLab_Runtime()
+    ! Execution elapsed time in seconds
+    function TLab_Runtime() result(runtime)
+        real(wp) :: runtime
 
 #ifdef USE_MPI
 #else
@@ -153,8 +159,9 @@ contains
         call system_clock(clock_loc, int_dummy)
         runtime = real(clock_loc - clock_ref)/int_dummy
 #endif
+
         return
-    end subroutine
+    end function
 
     ! ###################################################################
     ! ###################################################################

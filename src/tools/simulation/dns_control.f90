@@ -206,7 +206,7 @@ contains
         use NavierStokes, only: nse_eqns, DNS_EQNS_COMPRESSIBLE, DNS_EQNS_ANELASTIC, DNS_EQNS_BOUSSINESQ
         use TLab_Memory, only: imax, jmax, kmax
         use TLab_Pointers_3D, only: u, v, w, tmp1, tmp2!, tmp3
-        use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Runtime
+        use TLab_WorkFlow, only: TLab_Write_ASCII
         use Thermo_Anelastic, only: rbackground, Thermo_Anelastic_Weight_OutPlace
 #ifdef USE_MPI
         use mpi_f08
@@ -218,10 +218,6 @@ contains
         real(wp) dummy
         character*128 line
         character*32 str
-
-        ! ###################################################################
-        ! To check wall time bounds in dns_main
-        call TLab_Runtime()
 
         ! ###################################################################
         ! Compressible flow

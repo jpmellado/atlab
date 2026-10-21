@@ -2,7 +2,7 @@
 
 program DNS
     use TLab_Constants, only: ifile, efile, wfile, lfile, tag_flow, tag_scal
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Start, runtime
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Start, TLab_Runtime
     use TLab_WorkFlow, only: scal_on, flow_on
     use TLab_Time, only: itime, rtime
     use TLab_Arrays
@@ -11,7 +11,6 @@ program DNS
     use TLab_Transpose, only: TLab_Transpose_Initialize
 #ifdef USE_MPI
     use TLabMPI_PROCS, only: TLabMPI_Initialize
-    ! use TLabMPI_Transpose_DerivedTypes, only: TLabMPI_Trp_Initialize
     use TLabMPI_Transpose_DerivedTypes, only: TLabMPI_Trp_Initialize
 #endif
     use IO_Fields
@@ -44,6 +43,7 @@ program DNS
     ! -------------------------------------------------------------------
     character(len=32) fname, str
     real(wp) params(2)
+    real(wp) runtime
 
     ! ###################################################################
     call TLab_Start()
@@ -187,6 +187,7 @@ program DNS
             call Statistics_Compute()
         end if
 
+        runtime = TLab_Runtime()
         if (mod(itime - nitera_first, nitera_save) == 0 .or. &      ! Check-pointing: Save restart files
             itime == nitera_last .or. int(logs_data(1)) /= 0 .or. & ! Secure that one restart file is saved
             runtime > runtime_max) then                          ! If max runtime of the code is reached

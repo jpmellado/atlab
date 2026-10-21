@@ -8,7 +8,7 @@
 
 module FDM_Interpolate
     use TLab_Constants, only: wp, wi, pi_wp, efile
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, stagger_on
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop!, stagger_on
     use Thomas
     use Thomas_Circulant
     use FDM_Com0_Jacobian

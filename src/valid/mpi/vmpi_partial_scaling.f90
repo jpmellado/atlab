@@ -1,7 +1,8 @@
 program vMpi_Thomas3_Scaling
     use TLab_Constants, only: wp, wi
     use mpi_f08
-    use TLabMPI_VARS, only: mpiGrid, xMpi, ims_err, ims_time_trans
+    use TLabMPI_VARS, only: mpiGrid, xMpi, ims_err
+    use TLab_WorkFlow, only: runtime_mpi
     use TLabMPI_PROCS, only: TLabMPI_Halos_X
     use TLab_Grid, only: axis_dt
     use FDM_Derivative_1order
@@ -85,7 +86,7 @@ program vMpi_Thomas3_Scaling
 
     call MPI_BARRIER(MPI_COMM_WORLD, ims_err)
 
-    ims_time_trans = 0.0_wp
+    runtime_mpi = 0.0_wp
     time_loc_1 = MPI_WTIME()
     do it = 1, num_iterations
         do ib = 1, nlines/batchsize
@@ -98,8 +99,8 @@ program vMpi_Thomas3_Scaling
     if (mpiGrid%rank == 0) then
         print *, new_line('a'), 'Splitting algorithm.'
         print *, 'Elapsed time in processor with rank 0 (seconds): ', time_loc_2 - time_loc_1
-        print *, 'Communication time in processor with rank 0 (seconds): ', ims_time_trans
-        print *, 'Serial time in processor with rank 0 (seconds): ', time_loc_2 - time_loc_1 - ims_time_trans
+        print *, 'Communication time in processor with rank 0 (seconds): ', runtime_mpi
+        print *, 'Serial time in processor with rank 0 (seconds): ', time_loc_2 - time_loc_1 - runtime_mpi
     end if
 
     call MPI_BARRIER(MPI_COMM_WORLD, ims_err)

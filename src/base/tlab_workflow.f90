@@ -9,7 +9,6 @@ module TLab_WorkFlow
 #ifdef USE_MPI
     use mpi_f08
     use TLabMPI_VARS, only: mpiGrid
-    use TLabMPI_VARS, only: ims_time_trans
     use TLabMPI_VARS, only: ims_err
 #endif
     implicit none
@@ -25,6 +24,10 @@ module TLab_WorkFlow
     logical, public :: flow_on = .true.         ! calculate flow parts of the code
     logical, public :: scal_on = .true.         ! calculate scal parts of the code
     ! logical, public :: stagger_on = .false.     ! horizontal staggering of pressure
+
+#ifdef USE_MPI
+    real(wp), public :: runtime_mpi             ! runtime accumulated in mpi part
+#endif
 
     ! -------------------------------------------------------------------
 #ifdef USE_MPI
@@ -67,7 +70,7 @@ contains
 #ifdef USE_MPI
         walltime_ref = MPI_WTIME()
 #ifdef PROFILE_ON
-        ims_time_trans = 0.0_wp
+        runtime_mpi = 0.0_wp
 #endif
 #else
         call system_clock(clock_ref)
@@ -119,8 +122,8 @@ contains
 
 #ifdef USE_MPI
 #ifdef PROFILE_ON
-        write (line, fmt_r) ims_time_trans
-        line = 'Time in array transposition ....: '//trim(ADJUST(line))
+        write (line, fmt_r) runtime_mpi
+        line = 'Time in mpi transposition ......: '//trim(ADJUST(line))
         call TLab_Write_ASCII(lfile, line)
 #endif
 #endif

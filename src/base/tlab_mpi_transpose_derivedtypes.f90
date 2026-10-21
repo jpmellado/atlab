@@ -6,11 +6,8 @@ module TLabMPI_Transpose_DerivedTypes
     use mpi_f08
     use TLab_Constants, only: wp, dp, sp, wi, sizeofreal
     use TLab_Constants, only: lfile, efile
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, runtime_mpi
     use TLabMPI_VARS, only: ims_err
-#ifdef PROFILE_ON
-    use TLabMPI_VARS, only: ims_time_trans
-#endif
     implicit none
     private
 
@@ -428,7 +425,7 @@ contains
 
 #ifdef PROFILE_ON
         time_loc_2 = MPI_WTIME()
-        ims_time_trans = ims_time_trans + (time_loc_2 - time_loc_1)
+        runtime_mpi = runtime_mpi + (time_loc_2 - time_loc_1)
 #endif
 
         return
@@ -471,7 +468,7 @@ contains
 
 #ifdef PROFILE_ON
         time_loc_2 = MPI_WTIME()
-        ims_time_trans = ims_time_trans + (time_loc_2 - time_loc_1)
+        runtime_mpi = runtime_mpi + (time_loc_2 - time_loc_1)
 #endif
 
         return

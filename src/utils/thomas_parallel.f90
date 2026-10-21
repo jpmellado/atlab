@@ -8,6 +8,7 @@ module Thomas_Parallel
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
 #ifdef USE_MPI
     use TLabMPI_VARS, only: mpi_axis_dt
+    use TLab_WorkFlow, only: runtime_mpi
 #endif
     use Thomas_Split
     implicit none
@@ -193,9 +194,6 @@ contains
     !########################################################################
     subroutine thomas_reduce_mpi_dt(self, f, alpha, tmp)
         use mpi_f08
-#ifdef PROFILE_ON
-        use TLabMPI_VARS, only: ims_time_trans
-#endif
         class(thomas_parallel_dt), intent(in) :: self
         real(wp), intent(inout) :: f(:, :)
         real(wp), intent(inout) :: alpha(size(f, 1))         ! auxiliary memory space for local alpha
@@ -254,7 +252,7 @@ contains
 
 #ifdef PROFILE_ON
         time_loc_2 = MPI_WTIME()
-        ims_time_trans = ims_time_trans + (time_loc_2 - time_loc_1)
+        runtime_mpi = runtime_mpi + (time_loc_2 - time_loc_1)
 #endif
 
         ! Update solution

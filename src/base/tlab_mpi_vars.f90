@@ -22,6 +22,4 @@ module TLabMPI_VARS
 
     integer :: ims_err
 
-    real(wp) :: ims_time_trans      ! Profiling
-
 end module TLabMPI_VARS

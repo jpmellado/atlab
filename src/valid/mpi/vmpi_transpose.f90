@@ -1,7 +1,7 @@
 program vMpi_Transpose
     use TLab_Constants, only: wp, wi
     use mpi_f08
-    use TLabMPI_VARS, only: mpiGrid, xMpi, yMpi, ims_err !, ims_time_trans
+    use TLabMPI_VARS, only: mpiGrid, xMpi, yMpi, ims_err
     use TLabMPI_Transpose_DerivedTypes
     use TLabMPI_Transpose_Elementary
     implicit none

@@ -53,6 +53,8 @@ module OPR_Partial
     integer, parameter, public :: TYPE_TRANSPOSE = 1
     integer, parameter, public :: TYPE_SPLIT = 2
 
+    real(wp), allocatable :: locMpiAux(:)  ! 3d array only used in TYPE_TRANSPOSE
+
 #endif
 
     ! -----------------------------------------------------------------------
@@ -69,7 +71,6 @@ contains
         use TLab_Constants, only: efile
 #ifdef USE_MPI
         use TLab_Memory, only: imax, jmax, kmax
-        use TLab_Memory, only: TLab_Allocate_Real
 #endif
         use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
 
@@ -118,8 +119,8 @@ contains
             select case (der_mode_i)
             case (TYPE_TRANSPOSE)
                 OPR_Partial_X => OPR_Partial_X_MPITranspose
+                if (.not. allocated(locMpiAux)) allocate (locMpiAux(imax*jmax*kmax))
             case (TYPE_SPLIT)
-                ! OPR_Partial_X => OPR_Partial_X_MPISplit
                 OPR_Partial_X => OPR_Partial_X_Serial
                 select type (fdm_der1_X)
                 type is (der1_periodic)
@@ -145,8 +146,8 @@ contains
             select case (der_mode_j)
             case (TYPE_TRANSPOSE)
                 OPR_Partial_Y => OPR_Partial_Y_MPITranspose
+                if (.not. allocated(locMpiAux)) allocate (locMpiAux(imax*jmax*kmax))
             case (TYPE_SPLIT)
-                ! OPR_Partial_Y => OPR_Partial_Y_MPISplit
                 OPR_Partial_Y => OPR_Partial_Y_Serial
                 select type (fdm_der1_Y)
                 type is (der1_periodic)
@@ -282,7 +283,7 @@ contains
 
         ! ###################################################################
         if (x%size == 1) then ! Set to zero in 2D case
-            result = 0.0_wp
+            if (any([OPR_P1, OPR_P2, OPR_P2_P1] == type)) result = 0.0_wp
             if (type == OPR_P2_P1) tmp1 = 0.0_wp
             return
         end if
@@ -290,50 +291,47 @@ contains
         nlines = tmpi_trp_X%nlines
 
         ! Transposition: make x-direction the last one
-        call tmpi_trp_X%forward(u, result)
+        call tmpi_trp_X%forward(u, locMpiAux)
 #ifdef USE_ESSL
-        call DGETMO(result, x%size, x%size, nlines, wrk3d, nlines)
+        call DGETMO(locMpiAux, x%size, x%size, nlines, wrk3d, nlines)
 #else
-        call TLab_Transpose_Real(result, x%size, nlines, x%size, wrk3d, nlines)
+        call TLab_Transpose_Real(locMpiAux, x%size, nlines, x%size, wrk3d, nlines)
 #endif
 
         select case (type)
         case (OPR_P2)
             if (.not. x%uniform) call fdm_der1_X%compute(nlines, wrk3d, tmp1)
-            call fdm_der2_X%compute(ny*nz, wrk3d, result, tmp1)
+            call fdm_der2_X%compute(ny*nz, wrk3d, locMpiAux, tmp1)
 
         case (OPR_P2_P1)
             call fdm_der1_X%compute(nlines, wrk3d, tmp1)
-            call fdm_der2_X%compute(ny*nz, wrk3d, result, tmp1)
+            call fdm_der2_X%compute(ny*nz, wrk3d, locMpiAux, tmp1)
 
         case (OPR_P1, OPR_P1_ADD, OPR_P1_SUBTRACT)
-            call fdm_der1_X%compute(nlines, wrk3d, result)
+            call fdm_der1_X%compute(nlines, wrk3d, locMpiAux)
 
         end select
 
         ! Put arrays back in the order in which they came in
+        call TLab_Transpose_Real(locMpiAux, nlines, x%size, nlines, wrk3d, x%size)
         select case (type)
-        case (OPR_P2_P1)
-            call TLab_Transpose_Real(tmp1, nlines, x%size, nlines, wrk3d, x%size)
-            call TLab_Transpose_Real(result, nlines, x%size, nlines, tmp1, x%size)
-            call tmpi_trp_X%backward(tmp1, result)
-            call tmpi_trp_X%backward(wrk3d, tmp1)
-
         case (OPR_P1_ADD)
-            call TLab_Transpose_Real(result, nlines, x%size, nlines, wrk3d, x%size)
-            call tmpi_trp_X%backward(wrk3d, result)
-            tmp1 = tmp1 + result
+            call tmpi_trp_X%backward(wrk3d, locMpiAux)
+            result(1:nx*ny*nz) = result(1:nx*ny*nz) + locMpiAux(1:nx*ny*nz)
 
         case (OPR_P1_SUBTRACT)
-            call TLab_Transpose_Real(result, nlines, x%size, nlines, wrk3d, x%size)
-            call tmpi_trp_X%backward(wrk3d, result)
-            tmp1 = tmp1 - result
+            call tmpi_trp_X%backward(wrk3d, locMpiAux)
+            result(1:nx*ny*nz) = result(1:nx*ny*nz) - locMpiAux(1:nx*ny*nz)
 
         case default
-            call TLab_Transpose_Real(result, nlines, x%size, nlines, wrk3d, x%size)
             call tmpi_trp_X%backward(wrk3d, result)
 
         end select
+
+        if (type == OPR_P2_P1) then
+            call TLab_Transpose_Real(tmp1, nlines, x%size, nlines, wrk3d, x%size)
+            call tmpi_trp_X%backward(wrk3d, tmp1)
+        end if
 
         return
     end subroutine OPR_Partial_X_MPITranspose
@@ -446,55 +444,53 @@ contains
 
         ! ###################################################################
         if (y%size == 1) then ! Set to zero in 2D case
-            result = 0.0_wp
+            if (any([OPR_P1, OPR_P2, OPR_P2_P1] == type)) result = 0.0_wp
             if (type == OPR_P2_P1) tmp1 = 0.0_wp
             return
         end if
 
+        nlines = tmpi_trp_Y%nlines
+
         ! Transposition: make y-direction the last one
 #ifdef USE_ESSL
-        call DGETMO(u, nx*ny, nx*ny, nz, result, nz)
+        call DGETMO(u, nx*ny, nx*ny, nz, locMpiAux, nz)
 #else
-        call TLab_Transpose_Real(u, nx*ny, nz, nx*ny, result, nz)
+        call TLab_Transpose_Real(u, nx*ny, nz, nx*ny, locMpiAux, nz)
 #endif
-        call tmpi_trp_Y%forward(result, wrk3d)
-        nlines = tmpi_trp_Y%nlines
+        call tmpi_trp_Y%forward(locMpiAux, wrk3d)
 
         select case (type)
         case (OPR_P2)
             if (.not. y%uniform) call fdm_der1_Y%compute(nlines, wrk3d, tmp1)
-            call fdm_der2_Y%compute(nlines, wrk3d, result, tmp1)
+            call fdm_der2_Y%compute(nlines, wrk3d, locMpiAux, tmp1)
 
         case (OPR_P2_P1)
             call fdm_der1_Y%compute(nlines, wrk3d, tmp1)
-            call fdm_der2_Y%compute(nlines, wrk3d, result, tmp1)
+            call fdm_der2_Y%compute(nlines, wrk3d, locMpiAux, tmp1)
 
         case (OPR_P1, OPR_P1_ADD, OPR_P1_SUBTRACT)
-            call fdm_der1_Y%compute(nlines, wrk3d, result)
+            call fdm_der1_Y%compute(nlines, wrk3d, locMpiAux)
 
         end select
 
         ! Put arrays back in the order in which they came in
+        call tmpi_trp_Y%backward(locMpiAux, wrk3d)
         select case (type)
-        case (OPR_P2_P1)
-            call tmpi_trp_Y%backward(tmp1, wrk3d)
-            call tmpi_trp_Y%backward(result, tmp1)
-            call TLab_Transpose_Real(tmp1, nz, nx*ny, nz, result, nx*ny)
-            call TLab_Transpose_Real(wrk3d, nz, nx*ny, nz, tmp1, nx*ny)
-
         case (OPR_P1_ADD)
-            call tmpi_trp_Y%backward(result, wrk3d)
-            call TLab_AddTranspose(wrk3d, nz, nx*ny, nz, tmp1, nx*ny)
+            call TLab_AddTranspose(wrk3d, nz, nx*ny, nz, result, nx*ny)
 
         case (OPR_P1_SUBTRACT)
-            call tmpi_trp_Y%backward(result, wrk3d)
-            call TLab_SubtractTranspose(wrk3d, nz, nx*ny, nz, tmp1, nx*ny)
+            call TLab_SubtractTranspose(wrk3d, nz, nx*ny, nz, result, nx*ny)
 
         case default
-            call tmpi_trp_Y%backward(result, wrk3d)
             call TLab_Transpose_Real(wrk3d, nz, nx*ny, nz, result, nx*ny)
 
         end select
+
+        if (type == OPR_P2_P1) then
+            call tmpi_trp_Y%backward(tmp1, wrk3d)
+            call TLab_Transpose_Real(wrk3d, nz, nx*ny, nz, tmp1, nx*ny)
+        end if
 
         return
     end subroutine OPR_Partial_Y_MPITranspose

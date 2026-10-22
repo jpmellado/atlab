@@ -23,12 +23,12 @@ module NSE_Burgers
 #endif
     use OPR_Burgers
     use TLab_CacheBlock
-!     use FDM_Derivative_1order, only: der1_periodic
-!     use FDM_Derivative_2order, only: der2_extended_periodic
-!     use FDM_Derivative_Burgers
-! #ifdef USE_MPI
-!     use FDM_Derivative_MPISplit, only: der_burgers_mpisplit
-! #endif
+    !     use FDM_Derivative_1order, only: der1_periodic
+    !     use FDM_Derivative_2order, only: der2_extended_periodic
+    !     use FDM_Derivative_Burgers
+    ! #ifdef USE_MPI
+    !     use FDM_Derivative_MPISplit, only: der_burgers_mpisplit
+    ! #endif
     implicit none
     private
 
@@ -55,10 +55,10 @@ module NSE_Burgers
     procedure(NSE_AddBurgers_PerVolume_dt), pointer :: NSE_AddBurgers_PerVolume_Y
 
     ! -----------------------------------------------------------------------
-! #ifdef USE_MPI
-!     type(der_burgers_mpisplit) :: fdm_burgersX_split, fdm_burgersY_split
-! #endif
-!     type(der_burgers) :: fdm_burgersX, fdm_burgersY
+    ! #ifdef USE_MPI
+    !     type(der_burgers_mpisplit) :: fdm_burgersX_split, fdm_burgersY_split
+    ! #endif
+    !     type(der_burgers) :: fdm_burgersX, fdm_burgersY
 
     ! -----------------------------------------------------------------------
     class(burgers_dt), allocatable :: burgers1d_X(:), burgers1d_Y(:), burgers1d_Z(:)
@@ -239,20 +239,23 @@ contains
 #endif
 
 #ifdef USE_MPI
-            np1 = size(fdm_der1_X_split%rhs, 2)/2
-            np2 = size(fdm_der2_X_split%rhs, 2)/2
-            np = max(np1, np2)
-            call TLabMPI_Halos_X(tmp1(ip:ip + nlines*nx - 1), nlines, np, halo_m, halo_p)
+            if (xMpi%num_processors > 1) then
+                np1 = size(fdm_der1_X_split%rhs, 2)/2
+                np2 = size(fdm_der2_X_split%rhs, 2)/2
+                np = max(np1, np2)
+                call TLabMPI_Halos_X(tmp1(ip:ip + nlines*nx - 1), nlines, np, halo_m, halo_p)
 
-            call fdm_der1_X_split%compute(nlines, tmp1(ip), halo_m(nlines*(np - np1) + 1:), halo_p, tmp2)
-            call fdm_der2_X_split%compute(nlines, tmp1(ip), halo_m(nlines*(np - np2) + 1:), halo_p, wrk3d)
-            ! call fdm_burgersX_split%compute(nlines, tmp1(ip), halo_m, halo_p, tmp2, wrk3d)
+                call fdm_der1_X_split%compute(nlines, tmp1(ip), halo_m(nlines*(np - np1) + 1:), halo_p, tmp2)
+                call fdm_der2_X_split%compute(nlines, tmp1(ip), halo_m(nlines*(np - np2) + 1:), halo_p, wrk3d)
+                ! call fdm_burgersX_split%compute(nlines, tmp1(ip), halo_m, halo_p, tmp2, wrk3d)
+            else
+#endif
+                call fdm_der1_X%compute(nlines, tmp1(ip), tmp2)
+                call fdm_der2_X%compute(nlines, tmp1(ip), wrk3d, tmp2)
+                ! call fdm_burgersX%compute(nlines, tmp1(ip), tmp2, wrk3d)
 
-#else
-            call fdm_der1_X%compute(nlines, tmp1(ip), tmp2)
-            call fdm_der2_X%compute(nlines, tmp1(ip), wrk3d, tmp2)
-            ! call fdm_burgersX%compute(nlines, tmp1(ip), tmp2, wrk3d)
-
+#ifdef USE_MPI
+            end if
 #endif
             if (present(rhou_in)) then      ! transposed velocity (times density) is passed as argument
                 call burgers1d_X(is)%compute(nlines, nx, der1=tmp2, der2=wrk3d, rhou=rhou_in(ip))
@@ -363,18 +366,22 @@ contains
                 call tlab_cache_reduce_y(s, nx, ny, nz, i, k, nlines, tmp1(ib))
 
 #ifdef USE_MPI
-                np1 = size(fdm_der1_Y_split%rhs, 2)/2
-                np2 = size(fdm_der2_Y_split%rhs, 2)/2
-                np = max(np1, np2)
-                call TLabMPI_Halos_Y(tmp1(ib:ib + nlines*ny - 1), nlines, np, halo_m, halo_p)
+                if (yMpi%num_processors > 1) then
+                    np1 = size(fdm_der1_Y_split%rhs, 2)/2
+                    np2 = size(fdm_der2_Y_split%rhs, 2)/2
+                    np = max(np1, np2)
+                    call TLabMPI_Halos_Y(tmp1(ib:ib + nlines*ny - 1), nlines, np, halo_m, halo_p)
 
-                call fdm_der1_Y_split%compute(nlines, tmp1(ib), halo_m(nlines*(np - np1) + 1:), halo_p, tmp2)
-                call fdm_der2_Y_split%compute(nlines, tmp1(ib), halo_m(nlines*(np - np2) + 1:), halo_p, wrk3d)
-                ! call fdm_burgersY_split%compute(nlines, tmp1(1, ib), halo_m, halo_p, tmp2, wrk3d)
-#else
-                call fdm_der1_Y%compute(nlines, tmp1(ib), tmp2)
-                call fdm_der2_Y%compute(nlines, tmp1(ib), wrk3d, tmp2)
-                ! call fdm_burgersY%compute(nlines, tmp1(1, ib), tmp2, wrk3d)
+                    call fdm_der1_Y_split%compute(nlines, tmp1(ib), halo_m(nlines*(np - np1) + 1:), halo_p, tmp2)
+                    call fdm_der2_Y_split%compute(nlines, tmp1(ib), halo_m(nlines*(np - np2) + 1:), halo_p, wrk3d)
+                    ! call fdm_burgersY_split%compute(nlines, tmp1(1, ib), halo_m, halo_p, tmp2, wrk3d)
+                else
+#endif
+                    call fdm_der1_Y%compute(nlines, tmp1(ib), tmp2)
+                    call fdm_der2_Y%compute(nlines, tmp1(ib), wrk3d, tmp2)
+                    ! call fdm_burgersY%compute(nlines, tmp1(1, ib), tmp2, wrk3d)
+#ifdef USE_MPI
+                end if
 #endif
 
                 if (present(rhou_in)) then      ! transposed velocity (times density) is passed as argument

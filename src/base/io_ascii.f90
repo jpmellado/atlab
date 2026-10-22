@@ -91,10 +91,9 @@ end subroutine ScanFile_Char
 ! #######################################################################
 subroutine TLab_Read_ASCII(fname, title, name, value, default)
     use TLab_Constants, only: wp, wi
-
+    use TLab_WorkFlow, only: rank
 #ifdef USE_MPI
     use mpi_f08
-    use TLabMPI_VARS, only: mpiGrid, ims_err
 #endif
     implicit none
 
@@ -105,6 +104,10 @@ subroutine TLab_Read_ASCII(fname, title, name, value, default)
     character*512 line
     character*128 str, tag1, tag2, tag3
     integer(wi) equal, comment, code, n
+
+#ifdef USE_MPI
+    integer :: ierr
+#endif
 
 ! #######################################################################
 ! make case-insensitive: title, name and default tags.
@@ -123,7 +126,7 @@ subroutine TLab_Read_ASCII(fname, title, name, value, default)
 
 ! -----------------------------------------------------------------------
 #ifdef USE_MPI
-    if (mpiGrid%rank == 0) then
+    if (rank == 0) then
 #endif
 
         open (unit=45, file=fname, status='OLD')
@@ -162,8 +165,8 @@ subroutine TLab_Read_ASCII(fname, title, name, value, default)
 #ifdef USE_MPI
     end if
     n = len(value)
-    call MPI_BCast(n, 1, MPI_INTEGER4, 0, MPI_COMM_WORLD, ims_err)
-    call MPI_BCast(value, n, MPI_CHAR, 0, MPI_COMM_WORLD, ims_err)
+    call MPI_BCast(n, 1, MPI_INTEGER4, 0, MPI_COMM_WORLD, ierr)
+    call MPI_BCast(value, n, MPI_CHAR, 0, MPI_COMM_WORLD, ierr)
 #endif
 
     return

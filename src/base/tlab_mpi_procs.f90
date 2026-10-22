@@ -4,6 +4,7 @@ module TLabMPI_PROCS
     use mpi_f08
     use TLab_Constants, only: wp, dp, sp, wi
     use TLab_Constants, only: lfile, efile
+    use TLab_WorkFlow, only: num_processors, rank
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
     use TLabMPI_VARS
     implicit none
@@ -30,6 +31,10 @@ contains
         integer ig
 
         ! #######################################################################
+        mpiGrid%comm = MPI_COMM_WORLD               ! Pass global information to mpiGrid structure
+        mpiGrid%num_processors = num_processors
+        mpiGrid%rank = rank
+
         do ig = 1, 3
             mpiGrid%axes(ig)%num_processors = subgrid%axes(ig)%parent%size/subgrid%axes(ig)%size
         end do

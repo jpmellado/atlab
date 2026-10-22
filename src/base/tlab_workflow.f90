@@ -8,8 +8,6 @@ module TLab_WorkFlow
 ! #endif
 #ifdef USE_MPI
     use mpi_f08
-    use TLabMPI_VARS, only: mpiGrid
-    use TLabMPI_VARS, only: ims_err
 #endif
     implicit none
     private
@@ -19,19 +17,22 @@ module TLab_WorkFlow
     public :: TLab_Write_ASCII
     public :: TLab_Runtime
 
+#ifdef USE_MPI
+    integer, protected, public :: num_processors
+    integer, protected, public :: rank
+    real(wp), public :: runtime_mpi             ! runtime accumulated in mpi part
+#endif
+
     integer, public :: imode_verbosity = 1      ! level of verbosity used in log files
 
     logical, public :: flow_on = .true.         ! calculate flow parts of the code
     logical, public :: scal_on = .true.         ! calculate scal parts of the code
     ! logical, public :: stagger_on = .false.     ! horizontal staggering of pressure
 
-#ifdef USE_MPI
-    real(wp), public :: runtime_mpi             ! runtime accumulated in mpi part
-#endif
-
     ! -------------------------------------------------------------------
 #ifdef USE_MPI
     real(wp) :: walltime_ref                    ! reference time in seconds
+    integer :: ierr
 #else
     integer :: clock_ref                        ! reference time in clock cycles
 #endif
@@ -48,17 +49,16 @@ contains
         !#####################################################################
         ! Initialize MPI parallel mode
 #ifdef USE_MPI
-        call MPI_INIT(ims_err)
+        call MPI_INIT(ierr)
 
-        mpiGrid%comm = MPI_COMM_WORLD
-        call MPI_COMM_SIZE(mpiGrid%comm, mpiGrid%num_processors, ims_err)
-        call MPI_COMM_RANK(mpiGrid%comm, mpiGrid%rank, ims_err)
+        call MPI_COMM_SIZE(MPI_COMM_WORLD, num_processors, ierr)
+        call MPI_COMM_RANK(MPI_COMM_WORLD, rank, ierr)
 
-        write (line, *) mpiGrid%num_processors
+        write (line, *) num_processors
         line = 'Number of MPI tasks '//trim(adjustl(line))
         call TLab_Write_ASCII(lfile, line)
 
-        if (mpiGrid%num_processors == 0) then
+        if (num_processors == 0) then
             call TLab_Write_ASCII(efile, __FILE__//'. Number of processors is zero.')
             call TLab_Stop(DNS_ERROR_MINPROC)
         end if
@@ -132,9 +132,9 @@ contains
 
 #ifdef USE_MPI
         if (error_code == 0) then
-            call MPI_FINALIZE(ims_err)
+            call MPI_FINALIZE(ierr)
         else
-            call MPI_Abort(MPI_COMM_WORLD, error_code, ims_err)
+            call MPI_Abort(MPI_COMM_WORLD, error_code, ierr)
         end if
 #else
         stop
@@ -156,7 +156,7 @@ contains
 
 #ifdef USE_MPI
         runtime = MPI_WTIME() - walltime_ref
-        call MPI_BCast(runtime, 1, MPI_REAL8, 0, MPI_COMM_WORLD, ims_err)
+        call MPI_BCast(runtime, 1, MPI_REAL8, 0, MPI_COMM_WORLD, ierr)
 #else
         ! call ETIME(tdummy, clock_loc)
         call system_clock(clock_loc, int_dummy)
@@ -177,7 +177,7 @@ contains
 
         ! #######################################################################
 #ifdef USE_MPI
-        if (mpiGrid%rank == 0 .or. present(flag_all)) then
+        if (rank == 0 .or. present(flag_all)) then
 #endif
 
             if (imode_verbosity > 0) then

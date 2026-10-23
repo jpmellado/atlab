@@ -82,6 +82,8 @@ contains
         call ScanFile_Char(bakfile, inifile, block, 'Type', 'none', sRes)
         if (trim(adjustl(sRes)) == 'none') then; evaporationProps%type = TYPE_EVA_NONE
         elseif (trim(adjustl(sRes)) == 'equilibrium') then; evaporationProps%type = TYPE_EVA_EQUILIBRIUM
+        elseif (trim(adjustl(sRes)) == 'exponential') then; evaporationProps%type = TYPE_EVA_EXPONENTIAL
+        elseif (trim(adjustl(sRes)) == 'exponential-impl') then; evaporationProps%type = TYPE_EVA_EXPONENTIAL_IMPL
         elseif (trim(adjustl(sRes)) == 'qsconst') then; evaporationProps%type = TYPE_EVA_QSCONST
         elseif (trim(adjustl(sRes)) == 'qscalc') then; evaporationProps%type = TYPE_EVA_QSCALC
         elseif (trim(adjustl(sRes)) == 'qscalc-impl') then; evaporationProps%type = TYPE_EVA_QSCALC_IMPL
@@ -116,7 +118,7 @@ contains
 !                use Thermo_Base, only: dsmooth, NEWTONRAPHSON_ERROR
                 dsmooth = evaporationProps%parameters(1)    ! Smooth factor for thermodynamic partial derivatives
 
-            case (TYPE_EVA_QSCONST, TYPE_EVA_QSCALC, TYPE_EVA_QSCALC_IMPL, TYPE_EVA_QSCALC_SEMIIMPL)
+            case (TYPE_EVA_EXPONENTIAL,TYPE_EVA_EXPONENTIAL_IMPL,TYPE_EVA_QSCONST,TYPE_EVA_QSCALC,TYPE_EVA_QSCALC_IMPL,TYPE_EVA_QSCALC_SEMIIMPL)
                 evaporationProps%active(inb_scal_ql) = .true.           ! Only ql scalars is affected
                 if (damkohler <= 0.0_wp) then
                     call TLab_Write_ASCII(efile, __FILE__//'. Damkohler number must be nonzero if non-equilibrium evaporation is retained.')

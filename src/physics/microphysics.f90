@@ -452,7 +452,12 @@ contains
                     s(:,:,inb_scal_ql) = s(:,:,inb_scal_ql) - tmp2/tmp1
                     s(:,:,inb_scal_ql) = min(max(s(:,:,inb_scal_ql), 0.0_wp), s(:,:,inb_scal_qt))
 
+#ifdef _DEBUG
+                    diff = maxval(abs(tmp2/tmp1/s(:, :, inb_scal_ql)), mask=merge(.True.,.False., abs(tmp1*s(:,:,inb_scal_ql)) > 0.0_wp))
+#else
                     diff = maxval(abs(tmp2/tmp1/s(:, :, inb_scal_ql)))
+#endif
+
 #ifdef USE_MPI
                     call MPI_ALLREDUCE(diff, diff_glob, 1, MPI_REAL8, MPI_MAX, MPI_COMM_WORLD, ims_err)
                     diff = diff_glob
@@ -593,7 +598,12 @@ contains
                     s(:,:,inb_scal_ql) = s(:,:,inb_scal_ql) - tmp2/tmp1
                     s(:,:,inb_scal_ql) = min(max(s(:,:,inb_scal_ql), 0.0_wp), s(:,:,inb_scal_qt))
 
+#ifdef _DEBUG
+                    diff = maxval(abs(tmp2/tmp1/s(:, :, inb_scal_ql)), mask=merge(.True.,.False., abs(tmp1*s(:,:,inb_scal_ql)) > 0.0_wp))
+#else
                     diff = maxval(abs(tmp2/tmp1/s(:, :, inb_scal_ql)))
+#endif
+
 #ifdef USE_MPI
                     call MPI_ALLREDUCE(diff, diff_glob, 1, MPI_REAL8, MPI_MAX, MPI_COMM_WORLD, ims_err)
                     diff = diff_glob

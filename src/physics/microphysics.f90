@@ -449,7 +449,8 @@ contains
                     ! -------------------------------------------------------------------
                     ! Newton-Raphson iteration
                     ! -------------------------------------------------------------------
-                    s(:, :, inb_scal_ql) = s(:, :, inb_scal_ql) - tmp2/tmp1
+                    s(:,:,inb_scal_ql) = s(:,:,inb_scal_ql) - tmp2/tmp1
+                    s(:,:,inb_scal_ql) = min(max(s(:,:,inb_scal_ql), 0.0_wp), s(:,:,inb_scal_qt))
 
                     diff = maxval(abs(tmp2/tmp1/s(:, :, inb_scal_ql)))
 #ifdef USE_MPI
@@ -589,7 +590,8 @@ contains
                     ! -------------------------------------------------------------------
                     ! Newton-Raphson iteration
                     ! -------------------------------------------------------------------
-                    s(:, :, inb_scal_ql) = s(:, :, inb_scal_ql) - tmp2/tmp1
+                    s(:,:,inb_scal_ql) = s(:,:,inb_scal_ql) - tmp2/tmp1
+                    s(:,:,inb_scal_ql) = min(max(s(:,:,inb_scal_ql), 0.0_wp), s(:,:,inb_scal_qt))
 
                     diff = maxval(abs(tmp2/tmp1/s(:, :, inb_scal_ql)))
 #ifdef USE_MPI

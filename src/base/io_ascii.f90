@@ -91,8 +91,8 @@ end subroutine ScanFile_Char
 ! #######################################################################
 subroutine TLab_Read_ASCII(fname, title, name, value, default)
     use TLab_Constants, only: wp, wi
-    use TLab_WorkFlow, only: rank
 #ifdef USE_MPI
+    use TLab_WorkFlow, only: rank
     use mpi_f08
 #endif
     implicit none

@@ -350,19 +350,19 @@ contains
 #define P_LOC pbackground
 #define T_LOC s(:,:,inb_scal_T)
 #define psat qsat
-#define tmp1 qsat
+#define qstmp qsat
                     psat(:, :) = THERMO_PSAT(NPSAT)
                     do ipsat = NPSAT - 1, 1, -1
                         psat(:, :) = psat(:, :)*T_LOC + THERMO_PSAT(ipsat)
                     end do
                     do k = 1, nz
-                        tmp1(:, k) = rd_ov_rv/(P_LOC(k)/psat(:, k) - 1.0_wp)
+                        qstmp(:,k) = rd_ov_rv/(P_LOC(k)/psat(:,k) - 1.0_wp)
                     end do
-                    qsat(:, :) = tmp1(:, :)/(1.0_wp + tmp1(:, :))
+                    qsat(:,:) = qstmp(:,:)/(1.0_wp + qstmp(:,:))
 #undef P_LOC
 #undef T_LOC
 #undef psat
-#undef tmp1
+#undef qstmp
                 end select
 
                 ! -------------------------------------------------------------------
@@ -414,7 +414,7 @@ contains
 
         integer(wi) :: k, ipsat, it
 
-        real(wp), dimension(nx*ny, nz) :: s_RHS, tmp1, tmp2, qsat, diqsdql, dTdql
+        real(wp), dimension(nx*ny, nz) :: s_EXPL, tmp1, tmp2, qsat, diqsdql, dTdql
 
         real(wp) :: mod_exponent, diff, eps
 
@@ -433,7 +433,7 @@ contains
         select case (locProps%type)
         case (TYPE_EVA_EXPONENTIAL_IMPL)
             if (is == inb_scal_ql) then
-                s_RHS(:, :) = s(:, :, inb_scal_ql)
+                s_EXPL(:,:) = s(:,:,inb_scal_ql)
                 it = 0
                 diff = 1.0_wp
                 do while (diff > eps .and. it <= 10)
@@ -444,7 +444,7 @@ contains
                     tmp1 = 1.0_wp - dtrkm*damkohler*locProps%parameters(1)
 
                     ! --- Source term delta f(q_l) for NRmethod ---
-                    tmp2 = s(:, :, inb_scal_ql) - s_RHS - dtrkm*damkohler*locProps%parameters(1)*s(:, :, inb_scal_ql)
+                    tmp2 = s(:,:,inb_scal_ql) - s_EXPL - dtrkm*damkohler*locProps%parameters(1)*s(:,:,inb_scal_ql)
 
                     ! -------------------------------------------------------------------
                     ! Newton-Raphson iteration
@@ -505,11 +505,11 @@ contains
                 end if
 
                 diqsdql(:, :) = 0.0_wp
-                s_RHS(:, :) = s(:, :, inb_scal_ql)
+                s_EXPL(:,:) = s(:,:,inb_scal_ql)
                 it = 0
                 diff = 1.0_wp
                 do while (diff > eps .and. it <= 10)
-                    !do while (it<=10)
+                !do while (it<=10)
                     if (locProps%type == TYPE_EVA_QSCALC_IMPL) then
                         ! -------------------------------------------------------------------
                         ! Update Temperature
@@ -586,10 +586,10 @@ contains
                         call Thermo_Anelastic_Weight_InPlace(nx, ny, nz, ribackground, tmp2)
                     end if
                     if (mod_exponent /= 0.0_wp) then ! to avoid the calculation of a power, if not necessary
-                        !tmp2 = sign(1.0_wp,s_active)*(abs(s_active))**(-mod_exponent) * (s(:,:,inb_scal_ql) - s_RHS) - dtrkm*tmp2
-                        tmp2 = s_active**(-mod_exponent)*(s(:, :, inb_scal_ql) - s_RHS) - dtrkm*tmp2
+                        !tmp2 = sign(1.0_wp,s_active)*(abs(s_active))**(-mod_exponent) * (s(:,:,inb_scal_ql) - s_EXPL) - dtrkm*tmp2
+                        tmp2 = s_active**(-mod_exponent) * (s(:,:,inb_scal_ql) - s_EXPL) - dtrkm*tmp2
                     else
-                        tmp2 = s(:, :, inb_scal_ql) - s_RHS - dtrkm*tmp2
+                        tmp2 = s(:,:,inb_scal_ql) - s_EXPL - dtrkm*tmp2
                     end if
 
                     ! -------------------------------------------------------------------

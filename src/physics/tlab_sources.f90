@@ -95,7 +95,7 @@ contains
             end if
 
             if (evaporationProps%active(is)) then
-                call Microphysics_Evaporation(evaporationProps, imax, jmax, kmax, is, s, tmp1)
+                call Microphysics_Evaporation(evaporationProps, imax, jmax, kmax, is, s, tmp1, tmp2)
                 hs(:, is) = hs(:, is) + tmp1(:)
             end if
 
@@ -116,9 +116,10 @@ contains
 
     ! #######################################################################
     ! #######################################################################
-    subroutine TLab_Sources_Scal_Implicit(time_step, s)
+    subroutine TLab_Sources_Scal_Implicit(time_step, s, tmp1, tmp2, tmp3, tmp4)
         real(wp), intent(in) :: time_step
         real(wp), intent(inout) :: s(:, :)
+        real(wp), intent(inout) :: tmp1(isize_field), tmp2(isize_field), tmp3(isize_field), tmp4(isize_field)
 
         ! -----------------------------------------------------------------------
         integer is
@@ -127,7 +128,7 @@ contains
         do is = 1, inb_scal
 
             if (evaporationProps%active(is)) then
-                call Microphysics_Evaporation_Impl(evaporationProps, imax, jmax, kmax, is, s, time_step)
+                call Microphysics_Evaporation_Impl(evaporationProps, imax, jmax, kmax, is, s, time_step, tmp1, tmp2, tmp3, tmp4)
             end if
 
         end do

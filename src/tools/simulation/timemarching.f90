@@ -248,7 +248,7 @@ contains
             end select
 
             ! Implicit part
-            call TLab_Sources_Scal_Implicit(time_step=TMarchScheme%coef_t(TMarchScheme%substep)*dtime, s=s)
+            call TLab_Sources_Scal_Implicit(TMarchScheme%coef_t(TMarchScheme%substep)*dtime, s, txc(:, 1), txc(:, 2), txc(:, 3), txc(:, 4))
             ! Update of boundary condition still missing
 
             ! Limiters

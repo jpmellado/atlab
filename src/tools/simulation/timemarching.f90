@@ -51,7 +51,6 @@ contains
     ! ###################################################################
     subroutine TMarch_Initialize(inifile)
         use TLab_Memory, only: TLab_Allocate_Real
-        use TLab_Arrays, only: wrk1d
         use TLab_Grid, only: globalGrid, x, y, z, xSubgrid, ySubgrid, zSubgrid
         use FDM, only: fdm_der1_X, fdm_der1_Y, fdm_der1_Z
 
@@ -145,6 +144,8 @@ contains
         ! Calculate inverse of Jacobian (inverse of grid spacing)
         do ig = 1, 3
             allocate (ds(ig)%one_ov_ds1(globalGrid%axes(ig)%size))
+            allocate (ds(ig)%one_ov_ds2(globalGrid%axes(ig)%size))
+
             if (globalGrid%axes(ig)%uniform) then
                 if (globalGrid%axes(ig)%size > 1) then
                     ds(ig)%one_ov_ds1(:) = 1.0_wp/(globalGrid%axes(ig)%nodes(2) - globalGrid%axes(ig)%nodes(1))
@@ -152,18 +153,20 @@ contains
                     ds(ig)%one_ov_ds1(:) = 1.0_wp   ! 2d case
                 end if
             else
-                wrk1d(1:globalGrid%axes(ig)%size, 1) = [(real(i - 1, wp), i=1, globalGrid%axes(ig)%size)]
+                ! we use one_ov_ds2 as auxiliary array here
+#define aux(i) ds(ig)%one_ov_ds2(i)
+                aux(:) = [(real(i - 1, wp), i=1, globalGrid%axes(ig)%size)]
                 select case (ig)
                 case (1)
-                    call fdm_der1_X%compute(1, wrk1d(:, 1), ds(ig)%one_ov_ds1(:))
+                    call fdm_der1_X%compute(1, aux(:), ds(ig)%one_ov_ds1(:))
                 case (2)
-                    call fdm_der1_Y%compute(1, wrk1d(:, 1), ds(ig)%one_ov_ds1(:))
+                    call fdm_der1_Y%compute(1, aux(:), ds(ig)%one_ov_ds1(:))
                 case (3)
-                    call fdm_der1_Z%compute(1, wrk1d(:, 1), ds(ig)%one_ov_ds1(:))
+                    call fdm_der1_Z%compute(1, aux(:), ds(ig)%one_ov_ds1(:))
                 end select
             end if
+#undef aux
 
-            allocate (ds(ig)%one_ov_ds2(globalGrid%axes(ig)%size))
             ds(ig)%one_ov_ds2(:) = ds(ig)%one_ov_ds1(:)*ds(ig)%one_ov_ds1(:)
 
         end do

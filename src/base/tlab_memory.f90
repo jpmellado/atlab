@@ -181,9 +181,6 @@ contains
         use TLab_Constants, only: i8
         use TLab_Arrays
         use TLab_CacheBlock
-#ifdef USE_MPI
-        use TLabMPI_VARS, only: xMpi, yMpi, zMpi
-#endif
 
         character(len=*), intent(in) :: C_FILE_LOC
         integer(i8) maxSize
@@ -205,15 +202,10 @@ contains
 
         ! auxiliar array txc for intermediate calculations
         isize_txc_field = imax*jmax*kmax
-        ! isize_txc_dimz = (imax + 2)*kmax            ! Add space for Nyquist frequency
         isize_txc_field = max(isize_txc_field, (imax + 2)*jmax*kmax) ! Add space for Nyquist frequency
 
         ! scratch arrays
-#ifdef USE_MPI
-        isize_wrk1d = max(imax*xMpi%num_processors, max(jmax*yMpi%num_processors, kmax*zMpi%num_processors))
-#else
         isize_wrk1d = max(imax, max(jmax, kmax))
-#endif
         isize_wrk2d = max(imax*jmax, max(imax*kmax, jmax*kmax))
         isize_wrk3d = max(isize_wrk3d, isize_field)
         isize_wrk3d = max(isize_wrk3d, isize_txc_field)

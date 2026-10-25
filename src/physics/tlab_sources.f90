@@ -74,11 +74,11 @@ contains
 
     ! #######################################################################
     ! #######################################################################
-    subroutine TLab_Sources_Scal(s, hs, time, tmp1, tmp2, tmp3)!, tmp4)
+    subroutine TLab_Sources_Scal(s, hs, time, tmp1, tmp2, tmp3)
         real(wp), intent(in) :: time
         real(wp), intent(in) :: s(isize_field, *)
         real(wp), intent(out) :: hs(isize_field, *)
-        real(wp), intent(inout) :: tmp1(isize_field), tmp2(isize_field), tmp3(isize_field)!, tmp4(isize_field)
+        real(wp), intent(inout) :: tmp1(isize_field), tmp2(isize_field), tmp3(isize_field)
 
         ! -----------------------------------------------------------------------
         integer is

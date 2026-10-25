@@ -105,14 +105,16 @@ contains
 ! Calculate the vorticity diffusion term as given by w_i lap w_i
 ! The kinematic viscosity \nu is not multiplied here.
 !########################################################################
-    subroutine FI_VORTICITY_DIFFUSION(nx, ny, nz, u, v, w, result, vort, tmp1, tmp2, tmp3, tmp4)
+    subroutine FI_VORTICITY_DIFFUSION(nx, ny, nz, u, v, w, result, vort, tmp1, tmp2)
         integer(wi), intent(IN) :: nx, ny, nz
         real(wp), dimension(nx*ny*nz), intent(IN) :: u, v, w
         real(wp), dimension(nx*ny*nz), intent(OUT) :: result
         real(wp), dimension(nx*ny*nz), intent(INOUT) :: vort
-        real(wp), dimension(nx*ny*nz), intent(INOUT) :: tmp1, tmp2, tmp3, tmp4
+        real(wp), dimension(nx*ny*nz), intent(INOUT) :: tmp1, tmp2
 
 ! ###################################################################
+        result = 0.0_wp
+
 ! -------------------------------------------------------------------
 ! W_z = V,x - U,y
 ! -------------------------------------------------------------------
@@ -120,10 +122,12 @@ contains
         call OPR_Partial_Y(OPR_P1, nx, ny, nz, u, tmp2)
         vort = tmp1 - tmp2
 
-        call OPR_Partial_Z(OPR_P2, nx, ny, nz, vort, tmp3, tmp4)
-        call OPR_Partial_Y(OPR_P2, nx, ny, nz, vort, tmp2, tmp4)
-        call OPR_Partial_X(OPR_P2, nx, ny, nz, vort, tmp1, tmp4)
-        result = vort*(tmp1 + tmp2 + tmp3)
+        call OPR_Partial_Z(OPR_P2, nx, ny, nz, vort, tmp1, tmp2)
+        result = result + vort*tmp1
+        call OPR_Partial_Y(OPR_P2, nx, ny, nz, vort, tmp1, tmp2)
+        result = result + vort*tmp1
+        call OPR_Partial_X(OPR_P2, nx, ny, nz, vort, tmp1, tmp2)
+        result = result + vort*tmp1
 
 ! -------------------------------------------------------------------
 ! W_y = U,z - W,x
@@ -132,10 +136,12 @@ contains
         call OPR_Partial_X(OPR_P1, nx, ny, nz, w, tmp2)
         vort = tmp1 - tmp2
 
-        call OPR_Partial_Z(OPR_P2, nx, ny, nz, vort, tmp3, tmp4)
-        call OPR_Partial_Y(OPR_P2, nx, ny, nz, vort, tmp2, tmp4)
-        call OPR_Partial_X(OPR_P2, nx, ny, nz, vort, tmp1, tmp4)
-        result = result + vort*(tmp1 + tmp2 + tmp3)
+        call OPR_Partial_Z(OPR_P2, nx, ny, nz, vort, tmp1, tmp2)
+        result = result + vort*tmp1
+        call OPR_Partial_Y(OPR_P2, nx, ny, nz, vort, tmp1, tmp2)
+        result = result + vort*tmp1
+        call OPR_Partial_X(OPR_P2, nx, ny, nz, vort, tmp1, tmp2)
+        result = result + vort*tmp1
 
 ! -------------------------------------------------------------------
 ! W_z = W,y - V,z
@@ -144,10 +150,12 @@ contains
         call OPR_Partial_Z(OPR_P1, nx, ny, nz, v, tmp2)
         vort = tmp1 - tmp2
 
-        call OPR_Partial_Z(OPR_P2, nx, ny, nz, vort, tmp3, tmp4)
-        call OPR_Partial_Y(OPR_P2, nx, ny, nz, vort, tmp2, tmp4)
-        call OPR_Partial_X(OPR_P2, nx, ny, nz, vort, tmp1, tmp4)
-        result = result + vort*(tmp1 + tmp2 + tmp3)
+        call OPR_Partial_Z(OPR_P2, nx, ny, nz, vort, tmp1, tmp2)
+        result = result + vort*tmp1
+        call OPR_Partial_Y(OPR_P2, nx, ny, nz, vort, tmp1, tmp2)
+        result = result + vort*tmp1
+        call OPR_Partial_X(OPR_P2, nx, ny, nz, vort, tmp1, tmp2)
+        result = result + vort*tmp1
 
         return
     end subroutine FI_VORTICITY_DIFFUSION

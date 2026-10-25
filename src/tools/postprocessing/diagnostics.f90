@@ -274,7 +274,7 @@ contains
         else; diff = visc/schmidt(is)
         end if
         call FI_GRADIENT_DIFFUSION(imax, jmax, kmax, s(:, is), &
-                                   tmp2, tmp3, tmp4, tmp5, tmp6, tmp7)
+                                   tmp2, tmp3, tmp4, tmp5)
 
         tmp2(:) = tmp2(:)*diff
         ifield = ifield + 1; vars(ifield)%field => tmp2; vars(ifield)%tag = 'DiffusionNuGiLapGi'
@@ -387,7 +387,7 @@ contains
                                      txc(1, 2), txc(1, 3), txc(1, 4), txc(1, 5), txc(1, 6))
 
         call FI_VORTICITY_DIFFUSION(imax, jmax, kmax, u, v, w, txc(1, 2), &
-                                    txc(1, 3), txc(1, 4), txc(1, 5), txc(1, 6), txc(1, 7))
+                                    txc(1, 3), txc(1, 4), txc(1, 5))
         txc(1:isize_field, 2) = visc*txc(1:isize_field, 2)
 
         call FI_VORTICITY(imax, jmax, kmax, u, v, w, txc(1, 3), txc(1, 4), txc(1, 5))

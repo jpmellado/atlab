@@ -63,37 +63,44 @@ contains
 ! Calculate the gradient diffusion term as given by G_i lap G_i
 ! The diffusivity D is not multiplied here.
 !########################################################################
-    subroutine FI_GRADIENT_DIFFUSION(nx, ny, nz, s, result, grad, tmp1, tmp2, tmp3, tmp4)
+    subroutine FI_GRADIENT_DIFFUSION(nx, ny, nz, s, result, grad, tmp1, tmp2)
         integer(wi), intent(in) :: nx, ny, nz
         real(wp), dimension(nx*ny*nz), intent(in) :: s
         real(wp), dimension(nx*ny*nz), intent(out) :: result
         real(wp), dimension(nx*ny*nz), intent(inout) :: grad
-        real(wp), dimension(nx*ny*nz), intent(inout) :: tmp1, tmp2, tmp3, tmp4
+        real(wp), dimension(nx*ny*nz), intent(inout) :: tmp1, tmp2
 
 ! ###################################################################
+        result = 0.0_wp
 ! G_x
         call OPR_Partial_X(OPR_P1, nx, ny, nz, s, grad)
 
-        call OPR_Partial_Z(OPR_P2, nx, ny, nz, grad, tmp3, tmp4)
-        call OPR_Partial_Y(OPR_P2, nx, ny, nz, grad, tmp2, tmp4)
-        call OPR_Partial_X(OPR_P2, nx, ny, nz, grad, tmp1, tmp4)
-        result = grad*(tmp1 + tmp2 + tmp3)
+        call OPR_Partial_Z(OPR_P2, nx, ny, nz, grad, tmp1, tmp2)
+        result = result + grad*tmp1
+        call OPR_Partial_Y(OPR_P2, nx, ny, nz, grad, tmp1, tmp2)
+        result = result + grad*tmp1
+        call OPR_Partial_X(OPR_P2, nx, ny, nz, grad, tmp1, tmp2)
+        result = result + grad*tmp1
 
 ! G_y
         call OPR_Partial_Y(OPR_P1, nx, ny, nz, s, grad)
 
-        call OPR_Partial_Z(OPR_P2, nx, ny, nz, grad, tmp3, tmp4)
-        call OPR_Partial_Y(OPR_P2, nx, ny, nz, grad, tmp2, tmp4)
-        call OPR_Partial_X(OPR_P2, nx, ny, nz, grad, tmp1, tmp4)
-        result = result + grad*(tmp1 + tmp2 + tmp3)
+        call OPR_Partial_Z(OPR_P2, nx, ny, nz, grad, tmp1, tmp2)
+        result = result + grad*tmp1
+        call OPR_Partial_Y(OPR_P2, nx, ny, nz, grad, tmp1, tmp2)
+        result = result + grad*tmp1
+        call OPR_Partial_X(OPR_P2, nx, ny, nz, grad, tmp1, tmp2)
+        result = result + grad*tmp1
 
 ! G_z
         call OPR_Partial_Z(OPR_P1, nx, ny, nz, s, grad)
 
-        call OPR_Partial_Z(OPR_P2, nx, ny, nz, grad, tmp3, tmp4)
-        call OPR_Partial_Y(OPR_P2, nx, ny, nz, grad, tmp2, tmp4)
-        call OPR_Partial_X(OPR_P2, nx, ny, nz, grad, tmp1, tmp4)
-        result = result + grad*(tmp1 + tmp2 + tmp3)
+        call OPR_Partial_Z(OPR_P2, nx, ny, nz, grad, tmp1, tmp2)
+        result = result + grad*tmp1
+        call OPR_Partial_Y(OPR_P2, nx, ny, nz, grad, tmp1, tmp2)
+        result = result + grad*tmp1
+        call OPR_Partial_X(OPR_P2, nx, ny, nz, grad, tmp1, tmp2)
+        result = result + grad*tmp1
 
         return
     end subroutine FI_GRADIENT_DIFFUSION

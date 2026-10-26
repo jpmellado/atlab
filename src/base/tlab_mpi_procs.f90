@@ -2,7 +2,7 @@
 
 module TLabMPI_PROCS
     use mpi_f08
-    use TLab_Constants, only: wp, dp, sp, wi
+    use TLab_Constants, only: wp, wi
     use TLab_Constants, only: lfile, efile
     use TLab_WorkFlow, only: num_processors, rank
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
@@ -80,15 +80,6 @@ contains
         ! local offset in grid points
         xSubgrid%offset = xSubgrid%size*xMpi%rank
         ySubgrid%offset = ySubgrid%size*yMpi%rank
-
-        ! #######################################################################
-        ! Control of MPI type
-        select case (wp)
-        case (dp)
-            TLAB_MPI_REAL_TYPE = MPI_REAL8
-        case (sp)
-            TLAB_MPI_REAL_TYPE = MPI_REAL4
-        end select
 
         return
     end subroutine TLabMPI_Initialize

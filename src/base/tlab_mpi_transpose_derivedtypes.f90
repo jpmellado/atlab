@@ -7,7 +7,6 @@ module TLabMPI_Transpose_DerivedTypes
     use TLab_Constants, only: wp, dp, sp, wi, sizeofreal
     use TLab_Constants, only: lfile, efile
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, runtime_mpi
-    use TLabMPI_VARS, only: ims_err
     implicit none
     private
 
@@ -93,6 +92,7 @@ module TLabMPI_Transpose_DerivedTypes
     type(MPI_Status), allocatable :: status(:)
     type(MPI_Request), allocatable :: request(:)
     integer ims_tag
+    integer ierror
 
 contains
     ! ######################################################################
@@ -255,16 +255,16 @@ contains
         self%recv%count = 1
 
         stride = block_length                   ! stride = block_length because things are together
-        call MPI_TYPE_VECTOR(block_count, block_length, stride, datatype, self%send%type, ims_err)
-        call MPI_TYPE_COMMIT(self%send%type, ims_err)
+        call MPI_TYPE_VECTOR(block_count, block_length, stride, datatype, self%send%type, ierror)
+        call MPI_TYPE_COMMIT(self%send%type, ierror)
 
         stride = nmax*xMpi%num_processors       ! stride is a multiple of nmax_total=nmax*xMpi%num_processors
-        call MPI_TYPE_VECTOR(block_count, block_length, stride, datatype, self%recv%type, ims_err)
-        call MPI_TYPE_COMMIT(self%recv%type, ims_err)
+        call MPI_TYPE_VECTOR(block_count, block_length, stride, datatype, self%recv%type, ierror)
+        call MPI_TYPE_COMMIT(self%recv%type, ierror)
 
         ! check
-        call MPI_TYPE_SIZE(self%send%type, ims_ss, ims_err)
-        call MPI_TYPE_SIZE(self%recv%type, ims_rs, ims_err)
+        call MPI_TYPE_SIZE(self%send%type, ims_ss, ierror)
+        call MPI_TYPE_SIZE(self%recv%type, ims_rs, ierror)
 
         if (ims_ss /= ims_rs) then
             write (str, *) ims_ss; write (line, *) ims_rs
@@ -338,16 +338,16 @@ contains
         self%recv%count = 1
 
         stride = npage
-        call MPI_TYPE_VECTOR(block_count, block_length, stride, datatype, self%send%type, ims_err)
-        call MPI_TYPE_COMMIT(self%send%type, ims_err)
+        call MPI_TYPE_VECTOR(block_count, block_length, stride, datatype, self%send%type, ierror)
+        call MPI_TYPE_COMMIT(self%send%type, ierror)
 
         stride = block_length       ! stride = block_length to put things together
-        call MPI_TYPE_VECTOR(block_count, block_length, stride, datatype, self%recv%type, ims_err)
-        call MPI_TYPE_COMMIT(self%recv%type, ims_err)
+        call MPI_TYPE_VECTOR(block_count, block_length, stride, datatype, self%recv%type, ierror)
+        call MPI_TYPE_COMMIT(self%recv%type, ierror)
 
         ! check
-        call MPI_TYPE_SIZE(self%send%type, ims_ss, ims_err)
-        call MPI_TYPE_SIZE(self%recv%type, ims_rs, ims_err)
+        call MPI_TYPE_SIZE(self%send%type, ims_ss, ierror)
+        call MPI_TYPE_SIZE(self%recv%type, ims_rs, ierror)
 
         if (ims_ss /= ims_rs) then
             write (str, *) ims_ss; write (line, *) ims_rs
@@ -526,11 +526,11 @@ contains
                     ns = send%map(m) + 1; ips = ns - 1
                     nr = recv%map(m) + 1; ipr = nr - 1
                     l = l + 1
-                    call MPI_ISEND(in(send%disp(ns) + 1), send%count, send%type, ips, ims_tag, comm, request(l), ims_err)
+                    call MPI_ISEND(in(send%disp(ns) + 1), send%count, send%type, ips, ims_tag, comm, request(l), ierror)
                     l = l + 1
-                    call MPI_IRECV(out(recv%disp(nr) + 1), recv%count, recv%type, ipr, ims_tag, comm, request(l), ims_err)
+                    call MPI_IRECV(out(recv%disp(nr) + 1), recv%count, recv%type, ipr, ims_tag, comm, request(l), ierror)
                 end do
-                call MPI_WAITALL(l, request, status, ims_err)
+                call MPI_WAITALL(l, request, status, ierror)
             end do
 
         case (TLAB_MPI_TRP_SENDRECV)
@@ -539,7 +539,7 @@ contains
                     ns = send%map(m) + 1; ips = ns - 1
                     nr = recv%map(m) + 1; ipr = nr - 1
                     call MPI_SENDRECV(in(send%disp(ns) + 1), send%count, send%type, ips, ims_tag, &
-                                      out(recv%disp(nr) + 1), recv%count, recv%type, ipr, ims_tag, comm, status(1), ims_err)
+                                      out(recv%disp(nr) + 1), recv%count, recv%type, ipr, ims_tag, comm, status(1), ierror)
                 end do
             end do
 
@@ -547,9 +547,9 @@ contains
             types_send(1:npro) = send%type
             types_recv(1:npro) = recv%type
             call MPI_ALLTOALLW(in, counts, send%disp*int(sizeof(1.0_wp)), types_send, &
-                               out, counts, recv%disp*int(sizeof(1.0_wp)), types_recv, comm, ims_err)
+                               out, counts, recv%disp*int(sizeof(1.0_wp)), types_recv, comm, ierror)
             ! call MPI_ALLTOALLW(in, spread(1, 1, npro), send%disp*int(sizeof(1.0_wp)), spread(send%type, 1, npro), &
-            !                    out, spread(1, 1, npro), recv%disp*int(sizeof(1.0_wp)), spread(recv%type, 1, npro), comm, ims_err)
+            !                    out, spread(1, 1, npro), recv%disp*int(sizeof(1.0_wp)), spread(recv%type, 1, npro), comm, ierror)
 
         end select
 
@@ -582,11 +582,11 @@ contains
                     ns = send%map(m) + 1; ips = ns - 1
                     nr = recv%map(m) + 1; ipr = nr - 1
                     l = l + 1
-                    call MPI_ISEND(in(send%disp(ns) + 1), send%count, send%type, ips, ims_tag, comm, request(l), ims_err)
+                    call MPI_ISEND(in(send%disp(ns) + 1), send%count, send%type, ips, ims_tag, comm, request(l), ierror)
                     l = l + 1
-                    call MPI_IRECV(out(recv%disp(nr) + 1), recv%count, recv%type, ipr, ims_tag, comm, request(l), ims_err)
+                    call MPI_IRECV(out(recv%disp(nr) + 1), recv%count, recv%type, ipr, ims_tag, comm, request(l), ierror)
                 end do
-                call MPI_WAITALL(l, request, status, ims_err)
+                call MPI_WAITALL(l, request, status, ierror)
             end do
 
         case (TLAB_MPI_TRP_SENDRECV)
@@ -595,7 +595,7 @@ contains
                     ns = send%map(m) + 1; ips = ns - 1
                     nr = recv%map(m) + 1; ipr = nr - 1
                     call MPI_SENDRECV(in(send%disp(ns) + 1), send%count, send%type, ips, ims_tag, &
-                                      out(recv%disp(nr) + 1), recv%count, recv%type, ipr, ims_tag, comm, status(1), ims_err)
+                                      out(recv%disp(nr) + 1), recv%count, recv%type, ipr, ims_tag, comm, status(1), ierror)
                 end do
             end do
 
@@ -603,9 +603,9 @@ contains
             types_send(1:npro) = send%type
             types_recv(1:npro) = recv%type
             call MPI_ALLTOALLW(in, counts, send%disp*int(sizeof(1.0_sp)), types_send, &
-                               out, counts, recv%disp*int(sizeof(1.0_sp)), types_recv, comm, ims_err)
+                               out, counts, recv%disp*int(sizeof(1.0_sp)), types_recv, comm, ierror)
             ! call MPI_ALLTOALLW(in, spread(1, 1, npro), send%disp*int(sizeof(1.0_wp)), spread(send%type, 1, npro), &
-            !                    out, spread(1, 1, npro), recv%disp*int(sizeof(1.0_wp)), spread(recv%type, 1, npro), comm, ims_err)
+            !                    out, spread(1, 1, npro), recv%disp*int(sizeof(1.0_wp)), spread(recv%type, 1, npro), comm, ierror)
 
         end select
 
@@ -638,11 +638,11 @@ contains
                     ns = send%map(m) + 1; ips = ns - 1
                     nr = recv%map(m) + 1; ipr = nr - 1
                     l = l + 1
-                    call MPI_ISEND(in(send%disp(ns) + 1), send%count, send%type, ips, ims_tag, comm, request(l), ims_err)
+                    call MPI_ISEND(in(send%disp(ns) + 1), send%count, send%type, ips, ims_tag, comm, request(l), ierror)
                     l = l + 1
-                    call MPI_IRECV(out(recv%disp(nr) + 1), recv%count, recv%type, ipr, ims_tag, comm, request(l), ims_err)
+                    call MPI_IRECV(out(recv%disp(nr) + 1), recv%count, recv%type, ipr, ims_tag, comm, request(l), ierror)
                 end do
-                call MPI_WAITALL(l, request, status, ims_err)
+                call MPI_WAITALL(l, request, status, ierror)
             end do
 
         case (TLAB_MPI_TRP_SENDRECV)
@@ -651,7 +651,7 @@ contains
                     ns = send%map(m) + 1; ips = ns - 1
                     nr = recv%map(m) + 1; ipr = nr - 1
                     call MPI_SENDRECV(in(send%disp(ns) + 1), send%count, send%type, ips, ims_tag, &
-                                      out(recv%disp(nr) + 1), recv%count, recv%type, ipr, ims_tag, comm, status(1), ims_err)
+                                      out(recv%disp(nr) + 1), recv%count, recv%type, ipr, ims_tag, comm, status(1), ierror)
                 end do
             end do
 
@@ -659,9 +659,9 @@ contains
             types_send(1:npro) = send%type
             types_recv(1:npro) = recv%type
             call MPI_ALLTOALLW(in, counts, send%disp*int(2*sizeof(1.0_wp)), types_send, &
-                               out, counts, recv%disp*int(2*sizeof(1.0_wp)), types_recv, comm, ims_err)
+                               out, counts, recv%disp*int(2*sizeof(1.0_wp)), types_recv, comm, ierror)
             ! call MPI_ALLTOALLW(in, spread(1, 1, npro), send%disp*int(sizeof(1.0_wp)), spread(send%type, 1, npro), &
-            !                    out, spread(1, 1, npro), recv%disp*int(sizeof(1.0_wp)), spread(recv%type, 1, npro), comm, ims_err)
+            !                    out, spread(1, 1, npro), recv%disp*int(sizeof(1.0_wp)), spread(recv%type, 1, npro), comm, ierror)
 
         end select
 

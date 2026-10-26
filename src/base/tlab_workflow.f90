@@ -1,7 +1,7 @@
 #include "tlab_error.h"
 
 module TLab_WorkFlow
-    use TLab_Constants, only: wp, wi
+    use TLab_Constants, only: wp, dp, sp, wi
     use TLab_Constants, only: lfile, efile, fmt_r
 ! #ifdef USE_OPENMP
 !     use OMP_LIB
@@ -18,6 +18,8 @@ module TLab_WorkFlow
     public :: TLab_Runtime
 
 #ifdef USE_MPI
+    type(MPI_Datatype), public :: TLAB_MPI_REAL_TYPE        ! MPI Type control
+    !
     integer, protected, public :: num_processors
     integer, protected, public :: rank
     real(wp), public :: runtime_mpi             ! runtime accumulated in mpi part
@@ -62,6 +64,14 @@ contains
             call TLab_Write_ASCII(efile, __FILE__//'. Number of processors is zero.')
             call TLab_Stop(DNS_ERROR_MINPROC)
         end if
+
+        ! Control of MPI type
+        select case (wp)
+        case (dp)
+            TLAB_MPI_REAL_TYPE = MPI_REAL8
+        case (sp)
+            TLAB_MPI_REAL_TYPE = MPI_REAL4
+        end select
 
 #endif
 

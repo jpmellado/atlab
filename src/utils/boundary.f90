@@ -1,6 +1,5 @@
 subroutine SL_LOWER_BOUNDARY(imax, jmax, kmax, jmin_loc, amin, y, a, at, surface, wrk2d)
     use TLab_Constants, only: wp, wi
-    use TLab_Transpose
     implicit none
 
     integer(wi) imax, jmax, kmax, jmin_loc

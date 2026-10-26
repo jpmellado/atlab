@@ -8,7 +8,7 @@ module TLabMPI_Transpose_Elementary
     use TLab_Constants, only: wp, dp, wi
     use TLab_Constants, only: lfile, efile
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
-    use TLabMPI_VARS, only: TLAB_MPI_REAL_TYPE
+    use TLab_WorkFlow, only: TLAB_MPI_REAL_TYPE
     implicit none
     private
 

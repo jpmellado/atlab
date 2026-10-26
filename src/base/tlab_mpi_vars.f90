@@ -18,8 +18,6 @@ module TLabMPI_VARS
     type(mpi_axis_dt), pointer :: yMpi => null()
     type(mpi_axis_dt), pointer :: zMpi => null()
 
-    type(MPI_Datatype) :: TLAB_MPI_REAL_TYPE        ! MPI Type control
-
     integer :: ims_err
 
 end module TLabMPI_VARS

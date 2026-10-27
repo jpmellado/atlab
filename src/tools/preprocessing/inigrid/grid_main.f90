@@ -10,7 +10,7 @@ program INIGRID
     use TLab_Grid, only: axis_dt, TLab_Grid_Write
     use GRID_LOCAL
 #ifdef USE_MPI
-    use TLabMPI_VARS, only: mpiGrid
+    use TLabMPI_Grid, only: mpiGrid
 #endif
     implicit none
 

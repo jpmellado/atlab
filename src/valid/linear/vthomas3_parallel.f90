@@ -6,7 +6,7 @@ program vThomas3_Parallel
     use TLab_Arrays, only: wrk2d
 #ifdef USE_MPI
     use mpi_f08
-    use TLabMPI_VARS, only: mpiGrid, yMpi, xMpi
+    use TLabMPI_Grid, only: mpiGrid, yMpi, xMpi
     use TLabMPI_Transpose_DerivedTypes
 #endif
     implicit none

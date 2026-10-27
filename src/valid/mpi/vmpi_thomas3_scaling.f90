@@ -1,7 +1,7 @@
 program vMpi_Thomas3_Scaling
     use TLab_Constants, only: wp, wi
     use mpi_f08
-    use TLabMPI_VARS, only: mpiGrid, xMpi, yMpi
+    use TLabMPI_Grid, only: mpiGrid, xMpi, yMpi
     use TLab_WorkFlow, only: runtime_mpi
     use Thomas_Parallel
     use Thomas_Circulant

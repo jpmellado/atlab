@@ -45,7 +45,7 @@ contains
     ! ###################################################################
     ! ###################################################################
     subroutine der_periodic_initialize(self, ref, mpiAxis)
-        use TLabMPI_VARS, only: mpi_axis_dt
+        use TLabMPI_Grid, only: mpi_axis_dt
         class(der_periodic_mpisplit), intent(out) :: self
         class(der_periodic), intent(in), target :: ref
         type(mpi_axis_dt) mpiAxis

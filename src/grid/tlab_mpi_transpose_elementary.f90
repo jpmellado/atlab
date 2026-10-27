@@ -81,7 +81,7 @@ contains
     ! ######################################################################
     ! ######################################################################
     subroutine tmpi_trpX_initialize(self, nmax, npage, axis, locType, message)
-        use TLabMPI_VARS, only: mpi_axis_dt
+        use TLabMPI_Grid, only: mpi_axis_dt
         class(tmpi_transposeX_dt), intent(out) :: self
         integer(wi), intent(in) :: npage, nmax
         type(mpi_axis_dt), intent(in) :: axis
@@ -146,7 +146,7 @@ contains
     end subroutine tmpi_trpX_initialize
 
     subroutine explicit_mapping(send, recv, axis)
-        use TLabMPI_VARS, only: mpi_axis_dt
+        use TLabMPI_Grid, only: mpi_axis_dt
         type(trp_mem_dt), intent(inout) :: send                ! send information
         type(trp_mem_dt), intent(inout) :: recv                ! recv information
         type(mpi_axis_dt), intent(in) :: axis

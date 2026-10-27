@@ -312,7 +312,7 @@ contains
     subroutine anelastic_initialize_rho(rho, axis, rbackground)
         use TLab_Memory, only: imax, jmax, kmax
 #ifdef USE_MPI
-        use TLabMPI_VARS, only: xMpi, yMpi
+        use TLabMPI_Grid, only: xMpi, yMpi
         use TLabMPI_Transpose_DerivedTypes, only: tmpi_trp_X, tmpi_trp_Y
         use OPR_Partial, only: der_mode_i, der_mode_j, TYPE_TRANSPOSE
 #endif

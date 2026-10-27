@@ -2,7 +2,7 @@ module Averages
     use TLab_Constants, only: wp, wi
 #ifdef USE_MPI
     use mpi_f08
-    use TLabMPI_VARS, only: xMpi, yMpi
+    use TLabMPI_Grid, only: xMpi, yMpi
     use TLab_WorkFlow, only: ims_err
 #endif
     implicit none

@@ -7,7 +7,7 @@ subroutine OPR_Check()
 #ifdef USE_MPI
     use TLab_Time, only: itime
     use mpi_f08
-    use TLabMPI_VARS, only: xMpi, yMpi
+    use TLabMPI_Grid, only: xMpi, yMpi
     ! use TLabMPI_Transpose_DerivedTypes
     use TLabMPI_Transpose_DerivedTypes, only: tmpi_trp_X, tmpi_trp_Y
 #endif

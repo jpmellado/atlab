@@ -1,9 +1,9 @@
 program vMpi_Thomas3_Scaling
     use TLab_Constants, only: wp, wi
     use mpi_f08
-    use TLabMPI_VARS, only: mpiGrid, xMpi
+    use TLabMPI_Grid, only: mpiGrid, xMpi
     use TLab_WorkFlow, only: runtime_mpi
-    use TLabMPI_PROCS, only: TLabMPI_Halos_X
+    use TLabMPI_Grid, only: TLabMPI_Halos_X
     use TLab_Grid, only: axis_dt
     use FDM_Derivative_1order
     use FDM_Derivative_MPISplit

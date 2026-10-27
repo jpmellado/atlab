@@ -99,7 +99,7 @@ contains
     ! ######################################################################
     subroutine TLabMPI_Trp_Initialize(inifile)
         use, intrinsic :: iso_c_binding, only: c_f_pointer, c_loc
-        use TLabMPI_VARS, only: xMpi, yMpi
+        use TLabMPI_Grid, only: xMpi, yMpi
         use TLab_Memory, only: imax, jmax, kmax
         use TLab_Memory, only: TLab_Allocate_Real
         character(len=*), intent(in), optional :: inifile
@@ -203,7 +203,7 @@ contains
     ! ######################################################################
     ! ######################################################################
     subroutine tmpi_trp_initialize_x(self, nmax, npage, locType, message)
-        use TLabMPI_VARS, only: xMpi
+        use TLabMPI_Grid, only: xMpi
         class(tmpi_transpose_x_dt), intent(out) :: self
         integer(wi), intent(in) :: npage, nmax
         type(MPI_Datatype), intent(in), optional :: locType
@@ -286,7 +286,7 @@ contains
     ! ######################################################################
     ! ######################################################################
     subroutine tmpi_trp_initialize_y(self, nmax, npage, locType, message)
-        use TLabMPI_VARS, only: yMpi
+        use TLabMPI_Grid, only: yMpi
         class(tmpi_transpose_y_dt), intent(out) :: self
         integer(wi), intent(in) :: npage, nmax
         type(MPI_Datatype), intent(in), optional :: locType
@@ -369,7 +369,7 @@ contains
     ! ######################################################################
     ! ######################################################################
     subroutine explicit_mapping(send, recv, axis)
-        use TLabMPI_VARS, only: mpi_axis_dt
+        use TLabMPI_Grid, only: mpi_axis_dt
         type(trp_mem_dt), intent(inout) :: send                ! send information
         type(trp_mem_dt), intent(inout) :: recv                ! recv information
         type(mpi_axis_dt), intent(in) :: axis

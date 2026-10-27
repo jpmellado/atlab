@@ -5,7 +5,7 @@ module OPR_Partial
     use TLab_Arrays, only: wrk2d, wrk3d
     use TLab_Transpose
 #ifdef USE_MPI
-    use TLabMPI_VARS, only: xMpi, yMpi
+    use TLabMPI_Grid, only: xMpi, yMpi
     use TLabMPI_Transpose_DerivedTypes, only: tmpi_trp_X, tmpi_trp_Y
     use FDM_Derivative_MPISplit
     use FDM_Derivative_1order
@@ -181,7 +181,7 @@ contains
     ! ###################################################################
     subroutine OPR_Partial_X_Serial(type, nx, ny, nz, u, result, aux)
 #ifdef USE_MPI
-        use TLabMPI_PROCS, only: TLabMPI_Halos_X
+        use TLabMPI_Grid, only: TLabMPI_Halos_X
 #endif
         integer(wi), intent(in) :: type                         ! OPR_P1, OPR_P2, OPR_P2_P1
         integer(wi), intent(in) :: nx, ny, nz
@@ -346,7 +346,7 @@ contains
     !########################################################################
     subroutine OPR_Partial_Y_Serial(type, nx, ny, nz, u, result, aux)
 #ifdef USE_MPI
-        use TLabMPI_PROCS, only: TLabMPI_Halos_Y
+        use TLabMPI_Grid, only: TLabMPI_Halos_Y
 #endif
         integer(wi), intent(in) :: type                         ! OPR_P1, OPR_P2, OPR_P2_P1
         integer(wi), intent(in) :: nx, ny, nz

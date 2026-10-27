@@ -7,7 +7,7 @@ module Thomas_Parallel
     use TLab_Constants, only: efile, wfile, lfile, fmt_r
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
 #ifdef USE_MPI
-    use TLabMPI_VARS, only: mpi_axis_dt
+    use TLabMPI_Grid, only: mpi_axis_dt
     use TLab_WorkFlow, only: runtime_mpi
 #endif
     use Thomas_Split

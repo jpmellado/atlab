@@ -10,7 +10,7 @@ program PDFS
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Start
     use TLab_Memory, only: TLab_Initialize_Memory
 #ifdef USE_MPI
-    use TLabMPI_PROCS, only: TLabMPI_Initialize
+    use TLabMPI_Grid, only: TLabMPI_Grid_Initialize
     use TLabMPI_Transpose_DerivedTypes, only: TLabMPI_Trp_Initialize
 #endif
     use IO_Fields
@@ -94,7 +94,7 @@ program PDFS
     call TLab_Grid_Initialize()
 
 #ifdef USE_MPI
-    call TLabMPI_Initialize(ifile)
+    call TLabMPI_Grid_Initialize(ifile)
     ! call TLabMPI_Trp_Initialize(ifile)
     call TLabMPI_Trp_Initialize(ifile)
 #endif

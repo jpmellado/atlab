@@ -23,7 +23,7 @@ module OPR_Fourier
     use TLab_Grid, only: x, y, z, xSubgrid, ySubgrid, zSubgrid
     use, intrinsic :: iso_c_binding
 #ifdef USE_MPI
-    use TLabMPI_VARS, only: xMpi, yMpi
+    use TLabMPI_Grid, only: xMpi, yMpi
     use TLabMPI_Transpose_DerivedTypes, only: tmpi_transpose_y_dt
     use TLabMPI_Transpose_Elementary
 #endif

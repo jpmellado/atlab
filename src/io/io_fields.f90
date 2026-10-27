@@ -154,7 +154,7 @@ contains
     !########################################################################
     !########################################################################
     function IO_Create_Subarray_XOZ(nx, nz, locType) result(locSubarray)
-        use TLabMPI_Vars, only: xMpi
+        use TLabMPI_Grid, only: xMpi
         integer(wi), intent(in) :: nx, nz
         type(MPI_Datatype), intent(in) :: locType
 
@@ -174,7 +174,7 @@ contains
     !########################################################################
     !########################################################################
     function IO_Create_Subarray_XOY(nx, ny, nz, locType) result(locSubarray)
-        use TLabMPI_Vars, only: xMpi, yMpi
+        use TLabMPI_Grid, only: xMpi, yMpi
         integer(wi), intent(in) :: nx, ny, nz
         type(MPI_Datatype), intent(in) :: locType
 
@@ -194,7 +194,7 @@ contains
     !########################################################################
     !########################################################################
     function IO_Create_Subarray_YOZ(ny, nz, locType) result(locSubarray)
-        use TLabMPI_Vars, only: yMpi
+        use TLabMPI_Grid, only: yMpi
         integer(wi), intent(in) :: ny, nz
         type(MPI_Datatype), intent(in) :: locType
 
@@ -539,7 +539,7 @@ contains
     !########################################################################
     subroutine Write_Log(tag, nx, ny, nz)
 #ifdef USE_MPI
-        use TLabMPI_Vars, only: xMpi, yMPi
+        use TLabMPI_Grid, only: xMpi, yMPi
 #endif
         character(len=*), intent(in) :: tag
         integer, intent(in) :: nx, ny, nz
@@ -655,7 +655,7 @@ contains
     !########################################################################
     subroutine Read_Header(offset, nx, ny, nz, nt, params)
 #ifdef USE_MPI
-        use TLabMPI_Vars, only: mpiGrid
+        use TLabMPI_Grid, only: mpiGrid
 #endif
         integer(wi), intent(out) :: offset
         integer(wi), intent(in) :: nx, ny, nz, nt
@@ -804,7 +804,7 @@ contains
     !########################################################################
     subroutine Write_Header(nx, ny, nz, nt, params)
 #ifdef USE_MPI
-        use TLabMPI_Vars, only: mpiGrid
+        use TLabMPI_Grid, only: mpiGrid
 #endif
         integer(wi), intent(in) :: nx, ny, nz, nt
         real(wp), intent(in), optional :: params(:)

@@ -10,7 +10,7 @@ program VISUALS
     use TLab_Memory, only: TLab_Initialize_Memory
     use TLab_Pointers, only: pointers_dt
 #ifdef USE_MPI
-    use TLabMPI_PROCS, only: TLabMPI_Initialize
+    use TLabMPI_Grid, only: TLabMPI_Grid_Initialize
     use TLabMPI_Transpose_DerivedTypes, only: TLabMPI_Trp_Initialize
 #endif
     use IO_Fields
@@ -91,7 +91,7 @@ program VISUALS
     call TLab_Grid_Initialize()
 
 #ifdef USE_MPI
-    call TLabMPI_Initialize(ifile)
+    call TLabMPI_Grid_Initialize(ifile)
     call TLabMPI_Trp_Initialize(ifile)
 #endif
 
@@ -438,7 +438,7 @@ contains
     subroutine Visuals_Initialize()
 #ifdef USE_MPI
         use mpi_f08, only: MPI_COMM_WORLD, MPI_REAL4
-        use TLabMPI_VARS
+        use TLabMPI_Grid
 #endif
         character(len=32) bakfile, block
         character(len=128) eStr

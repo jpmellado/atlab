@@ -11,7 +11,7 @@ module NSE_Burgers
     use TLab_Arrays, only: wrk3d
     use TLab_Transpose
 #ifdef USE_MPI
-    use TLabMPI_VARS, only: xMpi, yMpi
+    use TLabMPI_Grid, only: xMpi, yMpi
 #endif
     use TLab_Grid, only: x, y, z
     use FDM, only: fdm_der1_X, fdm_der1_Y, fdm_der1_Z
@@ -205,7 +205,7 @@ contains
     !########################################################################
     subroutine NSE_AddBurgers_PerVolume_X_Serial(is, nx, ny, nz, s, rhs, tmp2, tmp1, rhou_in)
 #ifdef USE_MPI
-        use TLabMPI_PROCS, only: TLabMPI_Halos_X
+        use TLabMPI_Grid, only: TLabMPI_Halos_X
 #endif
         integer, intent(in) :: is                           ! scalar index; if 0, then velocity
         integer(wi), intent(in) :: nx, ny, nz
@@ -335,7 +335,7 @@ contains
     !########################################################################
     subroutine NSE_AddBurgers_PerVolume_Y_Serial(is, nx, ny, nz, s, rhs, tmp2, tmp1, rhou_in)
 #ifdef USE_MPI
-        use TLabMPI_PROCS, only: TLabMPI_Halos_Y
+        use TLabMPI_Grid, only: TLabMPI_Halos_Y
 #endif
         integer, intent(in) :: is                           ! scalar index; if 0, then velocity
         integer(wi), intent(in) :: nx, ny, nz

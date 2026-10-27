@@ -179,7 +179,7 @@ end subroutine TLab_Read_ASCII
 !     use TLab_Constants, only: wp, wi
 
 ! #ifdef USE_MPI
-!     use TLabMPI_VARS, only: mpiGrid%rank
+!     use TLabMPI_Grid, only: mpiGrid%rank
 ! #endif
 
 !     implicit none

@@ -61,7 +61,7 @@ contains
         use IO_Fields, only: IO_TYPE_SINGLE
 #ifdef USE_MPI
         use mpi_f08, only: MPI_REAL4
-        use TLabMPI_VARS, only: xMpi, yMpi
+        use TLabMPI_Grid, only: xMpi, yMpi
         use IO_Fields, only: IO_Create_Subarray_YOZ, IO_TYPE_SINGLE
 #endif
         class(planesX_dt), intent(out) :: self
@@ -100,7 +100,7 @@ contains
         use IO_Fields, only: IO_TYPE_SINGLE
 #ifdef USE_MPI
         use mpi_f08, only: MPI_REAL4
-        use TLabMPI_VARS, only: xMpi, yMpi
+        use TLabMPI_Grid, only: xMpi, yMpi
         use IO_Fields, only: IO_Create_Subarray_XOZ, IO_TYPE_SINGLE
 #endif
         class(planesY_dt), intent(out) :: self

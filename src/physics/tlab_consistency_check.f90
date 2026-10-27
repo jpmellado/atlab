@@ -7,7 +7,7 @@ subroutine TLab_Consistency_Check()
     use TLab_Memory, only: inb_flow, inb_scal
     use TLab_Memory, only: imax, jmax, kmax
 #ifdef USE_MPI
-    use TLabMPI_VARS, only: xMpi, yMpi, zMpi
+    use TLabMPI_Grid, only: xMpi, yMpi, zMpi
 #endif
     use IO_Fields
     use TLab_Time, only: rtime

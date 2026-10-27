@@ -1,24 +1,39 @@
 #include "tlab_error.h"
 
-module TLabMPI_PROCS
+module TLabMPI_Grid
     use mpi_f08
     use TLab_Constants, only: wp, wi
     use TLab_Constants, only: lfile, efile
     use TLab_WorkFlow, only: num_processors, rank
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
-    use TLabMPI_VARS
     implicit none
     private
 
-    public :: TLabMPI_Initialize
+    public :: TLabMPI_Grid_Initialize
     public :: TLabMPI_Halos_X, TLabMPI_Halos_Y
 
+    type, public :: mpi_axis_dt
+        type(MPI_Comm) :: comm
+        integer :: num_processors       ! we could name it size, in analogy to spatial grid, but this might be clearer
+        integer :: rank
+    end type
+
+    type, extends(mpi_axis_dt) :: mpi_grid_dt
+        type(mpi_axis_dt) axes(3)
+    end type
+
+    type(mpi_grid_dt), target, public :: mpiGrid
+    type(mpi_axis_dt), pointer, public :: xMpi => null()    ! For readability in the code
+    type(mpi_axis_dt), pointer, public :: yMpi => null()
+    type(mpi_axis_dt), pointer, public :: zMpi => null()
+
+    ! -----------------------------------------------------------------------
     integer ierr
     
 contains
     ! ######################################################################
     ! ######################################################################
-    subroutine TLabMPI_Initialize(inifile)
+    subroutine TLabMPI_Grid_Initialize(inifile)
         use TLab_Grid, only: xSubgrid, ySubgrid, zSubgrid, subgrid
         character(len=*), intent(in) :: inifile
 
@@ -83,7 +98,7 @@ contains
         ySubgrid%offset = ySubgrid%size*yMpi%rank
 
         return
-    end subroutine TLabMPI_Initialize
+    end subroutine TLabMPI_Grid_Initialize
 
     ! ###################################################################
     ! ###################################################################
@@ -153,4 +168,4 @@ contains
         return
     end subroutine TLabMPI_Halos_Y
 
-end module TLabMPI_PROCS
+end module TLabMPI_Grid

@@ -8,8 +8,8 @@ program VPARTIAL3D
     use TLab_Arrays
 #ifdef USE_MPI
     use mpi_f08
-    use TLabMPI_VARS
-    use TLabMPI_PROCS, only: TLabMPI_Initialize
+    use TLabMPI_Grid
+    use TLabMPI_Grid, only: TLabMPI_Grid_Initialize
     ! use TLabMPI_Transpose_DerivedTypes, only: TLabMPI_Trp_Initialize
     use TLabMPI_Transpose_DerivedTypes, only: TLabMPI_Trp_Initialize
 #endif
@@ -42,7 +42,7 @@ program VPARTIAL3D
     call FDM_Initialize(ifile)
 
 #ifdef USE_MPI
-    call TLabMPI_Initialize(ifile)
+    call TLabMPI_Grid_Initialize(ifile)
     ! call TLabMPI_Trp_Initialize(ifile)
     call TLabMPI_Trp_Initialize(ifile)
 #endif

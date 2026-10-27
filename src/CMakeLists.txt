@@ -107,11 +107,13 @@ else()
     message(WARNING "IPO not supported: ${error}")
 endif()
 
-# produce base library
+# produce base libraries
 add_subdirectory(base)
 
-# produce libraries
+add_subdirectory(io)
 add_subdirectory(utils)
+
+# produce libraries
 add_subdirectory(finitedifferences)
 add_subdirectory(thermodynamics)
 # add_subdirectory(ibm)

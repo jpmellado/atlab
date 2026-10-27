@@ -1,3 +1,3 @@
 FILE(GLOB sourcefiles "*.f90")
 add_library(io STATIC ${sourcefiles})
-add_dependencies(io base)
+add_dependencies(io grid base)

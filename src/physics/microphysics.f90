@@ -419,7 +419,7 @@ contains
         use TLab_Arrays, only: wrk2d
 #ifdef USE_MPI
         use mpi_f08
-        use TLabMPI_VARS, only: ims_err
+        use TLab_WorkFlow, only: ims_err
         real(wp) diff_glob
         integer(wi) it_glob
 #endif

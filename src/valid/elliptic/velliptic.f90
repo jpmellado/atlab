@@ -9,7 +9,7 @@ program VELLIPTIC
     use TLab_Arrays
 #ifdef USE_MPI
     use mpi_f08
-    use TLabMPI_VARS, only: ims_err, mpiGrid
+    use TLabMPI_VARS, only: mpiGrid
     use TLabMPI_PROCS, only: TLabMPI_Initialize
     ! use TLabMPI_Transpose_DerivedTypes, only: TLabMPI_Trp_Initialize
     use TLabMPI_Transpose_DerivedTypes, only: TLabMPI_Trp_Initialize
@@ -44,6 +44,9 @@ program VELLIPTIC
     real(wp) mean, lambda
     real(wp) wk, x_0
     real(wp) delta
+#ifdef USE_MPI
+    integer ierr
+#endif
 
 ! ###################################################################
     call TLab_Start()
@@ -283,9 +286,9 @@ contains
         end do
 #ifdef USE_MPI
         sum_mpi = error
-        call MPI_ALLREDUCE(sum_mpi, error, 1, MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ims_err)
+        call MPI_ALLREDUCE(sum_mpi, error, 1, MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
         sum_mpi = dummy
-        call MPI_ALLREDUCE(sum_mpi, dummy, 1, MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ims_err)
+        call MPI_ALLREDUCE(sum_mpi, dummy, 1, MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
 
         if (mpiGrid%rank == 0) then
 #endif

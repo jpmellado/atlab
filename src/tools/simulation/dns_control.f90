@@ -453,7 +453,7 @@ contains
         use Microphysics
 #ifdef USE_MPI
         use mpi_f08
-        use TLabMPI_VARS, only: ims_err
+        use TLab_WorkFlow, only: ims_err
         real(wp) dummy
 #endif
 

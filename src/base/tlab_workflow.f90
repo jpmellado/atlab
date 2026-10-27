@@ -16,9 +16,13 @@ module TLab_WorkFlow
     public :: TLab_Stop
     public :: TLab_Write_ASCII
     public :: TLab_Runtime
+#ifdef USE_MPI
+    public :: TLabMPI_Panic
+#endif
 
 #ifdef USE_MPI
     type(MPI_Datatype), public :: TLAB_MPI_REAL_TYPE        ! MPI Type control
+    integer, public :: ims_err
     !
     integer, protected, public :: num_processors
     integer, protected, public :: rank
@@ -215,5 +219,27 @@ contains
 
         return
     end subroutine TLab_Write_ASCII
+
+    ! ###################################################################
+    ! ###################################################################
+#ifdef USE_MPI
+    subroutine TLabMPI_Panic(location, mpi_error_code)
+        character(len=*), intent(in) :: location
+        integer, intent(in) :: mpi_error_code
+
+        character error_string*1024
+        integer error_local, error_len
+
+        !##############################
+        call MPI_Error_String(mpi_error_code, error_string, error_len, error_local)
+        call TLab_Write_ASCII(efile, 'MPI-ERROR: Source file'//trim(adjustl(LOCATION)), .true.)
+        call TLab_Write_ASCII(efile, error_string, .true.)
+
+        call TLab_Stop(mpi_error_code)
+        ! Not supposed to return from this subroutine
+
+        return
+    end subroutine TLabMPI_Panic
+#endif
 
 end module TLab_WorkFlow

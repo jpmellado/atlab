@@ -31,6 +31,9 @@ program VBURGERS
 
     integer(wi) i, j, k
     ! real(wp) params(0)
+#ifdef USE_MPI
+    integer ierr
+#endif
 
 ! ###################################################################
     call TLab_Start()
@@ -184,9 +187,9 @@ contains
         dummy = sum(a1**2)/real(size(a1), wp)
 #ifdef USE_MPI
         sum_mpi = error/real(mpiGrid%num_processors, wp)
-        call MPI_ALLREDUCE(sum_mpi, error, 1, MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ims_err)
+        call MPI_ALLREDUCE(sum_mpi, error, 1, MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
         sum_mpi = dummy/real(mpiGrid%num_processors, wp)
-        call MPI_ALLREDUCE(sum_mpi, dummy, 1, MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ims_err)
+        call MPI_ALLREDUCE(sum_mpi, dummy, 1, MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
 
         if (mpiGrid%rank == 0) then
 #endif

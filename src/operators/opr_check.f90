@@ -7,7 +7,6 @@ subroutine OPR_Check()
 #ifdef USE_MPI
     use TLab_Time, only: itime
     use mpi_f08
-    use TLabMPI_VARS, only: ims_err
     use TLabMPI_VARS, only: xMpi, yMpi
     ! use TLabMPI_Transpose_DerivedTypes
     use TLabMPI_Transpose_DerivedTypes, only: tmpi_trp_X, tmpi_trp_Y
@@ -25,6 +24,7 @@ subroutine OPR_Check()
     character*256 line
 
 #ifdef USE_MPI
+    integer ierr
     real(wp) dummy
     integer(wi) idummy
 #endif
@@ -47,11 +47,11 @@ subroutine OPR_Check()
         call system_clock(t_end, PROC_CYCLES, MAX_CYCLES)
 
         idummy = t_end - t_srt
-        call MPI_REDUCE(idummy, t_dif, 1, MPI_INT, MPI_MAX, 0, MPI_COMM_WORLD, ims_err)
+        call MPI_REDUCE(idummy, t_dif, 1, MPI_INT, MPI_MAX, 0, MPI_COMM_WORLD, ierr)
         write (str, fmt_r) real(t_dif, wp)/PROC_CYCLES
 
         dummy = maxval(abs(q(1:isize_field, 1) - q(1:isize_field, 2)))
-        call MPI_REDUCE(dummy, residual, 1, MPI_REAL8, MPI_MAX, 0, MPI_COMM_WORLD, ims_err)
+        call MPI_REDUCE(dummy, residual, 1, MPI_REAL8, MPI_MAX, 0, MPI_COMM_WORLD, ierr)
 
         write (line, fmt_r) residual
         line = 'Checking MPI-x transposition. Residual ' &
@@ -69,11 +69,11 @@ subroutine OPR_Check()
         call system_clock(t_end, PROC_CYCLES, MAX_CYCLES)
 
         idummy = t_end - t_srt
-        call MPI_REDUCE(idummy, t_dif, 1, MPI_INT, MPI_MAX, 0, MPI_COMM_WORLD, ims_err)
+        call MPI_REDUCE(idummy, t_dif, 1, MPI_INT, MPI_MAX, 0, MPI_COMM_WORLD, ierr)
         write (str, fmt_r) real(t_dif, wp)/PROC_CYCLES
 
         dummy = maxval(abs(q(1:isize_field, 1) - q(1:isize_field, 2)))
-        call MPI_REDUCE(dummy, residual, 1, MPI_REAL8, MPI_MAX, 0, MPI_COMM_WORLD, ims_err)
+        call MPI_REDUCE(dummy, residual, 1, MPI_REAL8, MPI_MAX, 0, MPI_COMM_WORLD, ierr)
 
         write (line, fmt_r) residual
         line = 'Checking MPI-y transposition. Residual ' &
@@ -97,7 +97,7 @@ subroutine OPR_Check()
 
 #ifdef USE_MPI
     idummy = t_end - t_srt
-    call MPI_REDUCE(idummy, t_dif, 1, MPI_INT, MPI_MAX, 0, MPI_COMM_WORLD, ims_err)
+    call MPI_REDUCE(idummy, t_dif, 1, MPI_INT, MPI_MAX, 0, MPI_COMM_WORLD, ierr)
 #else
     t_dif = t_end - t_srt
 #endif
@@ -112,7 +112,7 @@ subroutine OPR_Check()
 
 #ifdef USE_MPI
     dummy = maxval(abs(norm*q(1:isize_field, 2) - q(1:isize_field, 1)))
-    call MPI_REDUCE(dummy, residual, 1, MPI_REAL8, MPI_MAX, 0, MPI_COMM_WORLD, ims_err)
+    call MPI_REDUCE(dummy, residual, 1, MPI_REAL8, MPI_MAX, 0, MPI_COMM_WORLD, ierr)
 #else
     residual = maxval(abs(norm*q(1:isize_field, 2) - q(1:isize_field, 1)))
 #endif

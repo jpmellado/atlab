@@ -6,7 +6,7 @@ program vThomas3_Parallel
     use TLab_Arrays, only: wrk2d
 #ifdef USE_MPI
     use mpi_f08
-    use TLabMPI_VARS, only: mpiGrid, yMpi, xMpi, ims_err
+    use TLabMPI_VARS, only: mpiGrid, yMpi, xMpi
     use TLabMPI_Transpose_DerivedTypes
 #endif
     implicit none
@@ -27,6 +27,7 @@ program vThomas3_Parallel
     type(thomas_dt) :: thomas1
     type(thomas_circulant_dt) :: thomas_circulant1
 #ifdef USE_MPI
+    integer ierr
     type(thomas_parallel_dt) split_mpi
     !
     integer nsize_loc, nlines_loc
@@ -41,17 +42,17 @@ program vThomas3_Parallel
 
     ! ###################################################################
 #ifdef USE_MPI
-    call MPI_INIT(ims_err)
+    call MPI_INIT(ierr)
 
     mpiGrid%comm = MPI_COMM_WORLD
-    call MPI_COMM_SIZE(mpiGrid%comm, mpiGrid%num_processors, ims_err)
-    call MPI_COMM_RANK(mpiGrid%comm, mpiGrid%rank, ims_err)
+    call MPI_COMM_SIZE(mpiGrid%comm, mpiGrid%num_processors, ierr)
+    call MPI_COMM_RANK(mpiGrid%comm, mpiGrid%rank, ierr)
 
     if (mod(nsize, mpiGrid%num_processors) /= 0) then
         if (mpiGrid%rank == 0) then
             print *, new_line('a'), 'System size needs to be multiple of number of ranks.'
         end if
-        call MPI_FINALIZE(ims_err)
+        call MPI_FINALIZE(ierr)
         stop
     end if
 
@@ -152,7 +153,7 @@ program vThomas3_Parallel
 
 #ifdef USE_MPI
     end if
-    call MPI_BARRIER(MPI_COMM_WORLD, ims_err)
+    call MPI_BARRIER(MPI_COMM_WORLD, ierr)
 #endif
 
     ! ###################################################################
@@ -182,7 +183,7 @@ program vThomas3_Parallel
     call check(u_loc(1:nlines, split_mpi%nmin:split_mpi%nmax), &
                u(1:nlines, split_mpi%nmin:split_mpi%nmax))
 
-    call MPI_BARRIER(MPI_COMM_WORLD, ims_err)
+    call MPI_BARRIER(MPI_COMM_WORLD, ierr)
 
     ! -------------------------------------------------------------------
     if (mpiGrid%rank == 0) then
@@ -218,7 +219,7 @@ program vThomas3_Parallel
                u(1:nlines, split_mpi%nmin:split_mpi%nmax))
 
     ! -------------------------------------------------------------------
-    call MPI_FINALIZE(ims_err)
+    call MPI_FINALIZE(ierr)
 
 #endif
 

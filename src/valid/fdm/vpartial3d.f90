@@ -29,6 +29,9 @@ program VPARTIAL3D
     integer(wi) i
     integer(wi) type_of_problem
     real(wp) wk, x_0!, params(0)
+#ifdef USE_MPI
+    integer ierr
+#endif
 
     ! ###################################################################
     call TLab_Start()
@@ -82,7 +85,7 @@ program VPARTIAL3D
     !         ! print *, i, der2_split_x%thomas3%y(i, :)
     !     end do
     ! end if
-    ! call MPI_BARRIER(MPI_COMM_WORLD, ims_err)
+    ! call MPI_BARRIER(MPI_COMM_WORLD, ierr)
     !
 #endif
 
@@ -176,9 +179,9 @@ contains
         end do
 #ifdef USE_MPI
         sum_mpi = error
-        call MPI_ALLREDUCE(sum_mpi, error, 1, MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ims_err)
+        call MPI_ALLREDUCE(sum_mpi, error, 1, MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
         sum_mpi = dummy
-        call MPI_ALLREDUCE(sum_mpi, dummy, 1, MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ims_err)
+        call MPI_ALLREDUCE(sum_mpi, dummy, 1, MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
 
         if (mpiGrid%rank == 0) then
 #endif

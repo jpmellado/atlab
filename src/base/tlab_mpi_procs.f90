@@ -12,8 +12,9 @@ module TLabMPI_PROCS
 
     public :: TLabMPI_Initialize
     public :: TLabMPI_Halos_X, TLabMPI_Halos_Y
-    public :: TLabMPI_Panic
 
+    integer ierr
+    
 contains
     ! ######################################################################
     ! ######################################################################
@@ -64,15 +65,15 @@ contains
         dims(1) = yMpi%num_processors
         dims(2) = xMpi%num_processors
         period = .true.; reorder = .false.
-        call MPI_CART_CREATE(MPI_COMM_WORLD, 2, dims, period, reorder, mpi_comm_xy, ims_err)
+        call MPI_CART_CREATE(MPI_COMM_WORLD, 2, dims, period, reorder, mpi_comm_xy, ierr)
 
         remain_dims(1) = .false.; remain_dims(2) = .true.
-        call MPI_CART_SUB(mpi_comm_xy, remain_dims, xMpi%comm, ims_err)
+        call MPI_CART_SUB(mpi_comm_xy, remain_dims, xMpi%comm, ierr)
 
         remain_dims(1) = .true.; remain_dims(2) = .false.
-        call MPI_CART_SUB(mpi_comm_xy, remain_dims, yMpi%comm, ims_err)
+        call MPI_CART_SUB(mpi_comm_xy, remain_dims, yMpi%comm, ierr)
 
-        call MPI_CART_COORDS(mpi_comm_xy, mpiGrid%rank, 2, coord, ims_err)
+        call MPI_CART_COORDS(mpi_comm_xy, mpiGrid%rank, 2, coord, ierr)
         xMpi%rank = coord(2)
         yMpi%rank = coord(1)
 
@@ -83,25 +84,6 @@ contains
 
         return
     end subroutine TLabMPI_Initialize
-
-    ! ###################################################################
-    ! ###################################################################
-    subroutine TLabMPI_Panic(location, mpi_error_code)
-        character(len=*), intent(in) :: location
-        integer, intent(in) :: mpi_error_code
-
-        !##############################
-        character error_string*1024
-        integer error_local, error_len
-
-        call MPI_Error_String(mpi_error_code, error_string, error_len, error_local)
-        call TLab_Write_ASCII(efile, 'MPI-ERROR: Source file'//trim(adjustl(LOCATION)), .true.)
-        call TLab_Write_ASCII(efile, error_string, .true.)
-
-        call TLab_Stop(mpi_error_code)
-        ! Not supposed to return from this subroutine
-
-    end subroutine TLabMPI_Panic
 
     ! ###################################################################
     ! ###################################################################
@@ -124,7 +106,7 @@ contains
         disp = 1
         call MPI_Sendrecv(a(disp), counts, MPI_REAL8, dest, 0, &
                           halo_p, counts, MPI_REAL8, source, 0, &
-                          xMpi%comm, MPI_STATUS_IGNORE, ims_err)
+                          xMpi%comm, MPI_STATUS_IGNORE, ierr)
 
         ! pass to following processor
         dest = mod(xMpi%rank + 1, xMpi%num_processors)
@@ -132,7 +114,7 @@ contains
         disp = size(a) - counts + 1
         call MPI_Sendrecv(a(disp), counts, MPI_REAL8, dest, 1, &
                           halo_m, counts, MPI_REAL8, source, 1, &
-                          xMpi%comm, MPI_STATUS_IGNORE, ims_err)
+                          xMpi%comm, MPI_STATUS_IGNORE, ierr)
 
         return
     end subroutine TLabMPI_Halos_X
@@ -158,7 +140,7 @@ contains
         disp = 1
         call MPI_Sendrecv(a(disp), counts, MPI_REAL8, dest, 0, &
                           halo_p, counts, MPI_REAL8, source, 0, &
-                          yMpi%comm, MPI_STATUS_IGNORE, ims_err)
+                          yMpi%comm, MPI_STATUS_IGNORE, ierr)
 
         ! pass to following processor
         dest = mod(yMpi%rank + 1, yMpi%num_processors)
@@ -166,7 +148,7 @@ contains
         disp = size(a) - counts + 1
         call MPI_Sendrecv(a(disp), counts, MPI_REAL8, dest, 1, &
                           halo_m, counts, MPI_REAL8, source, 1, &
-                          yMpi%comm, MPI_STATUS_IGNORE, ims_err)
+                          yMpi%comm, MPI_STATUS_IGNORE, ierr)
 
         return
     end subroutine TLabMPI_Halos_Y

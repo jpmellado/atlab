@@ -1,7 +1,7 @@
 program vMpi_Thomas3_Scaling
     use TLab_Constants, only: wp, wi
     use mpi_f08
-    use TLabMPI_VARS, only: mpiGrid, xMpi, ims_err
+    use TLabMPI_VARS, only: mpiGrid, xMpi
     use TLab_WorkFlow, only: runtime_mpi
     use TLabMPI_PROCS, only: TLabMPI_Halos_X
     use TLab_Grid, only: axis_dt
@@ -40,13 +40,16 @@ program vMpi_Thomas3_Scaling
 
     integer, parameter :: num_iterations = 10   ! Number of iterations to obtain a more representative time
     real(wp) time_loc_1, time_loc_2
+#ifdef USE_MPI
+    integer ierr
+#endif
 
     ! -------------------------------------------------------------------
-    call MPI_INIT(ims_err)
+    call MPI_INIT(ierr)
 
     mpiGrid%comm = MPI_COMM_WORLD
-    call MPI_COMM_SIZE(mpiGrid%comm, mpiGrid%num_processors, ims_err)
-    call MPI_COMM_RANK(mpiGrid%comm, mpiGrid%rank, ims_err)
+    call MPI_COMM_SIZE(mpiGrid%comm, mpiGrid%num_processors, ierr)
+    call MPI_COMM_RANK(mpiGrid%comm, mpiGrid%rank, ierr)
 
     ! -------------------------------------------------------------------
     ! Initialize
@@ -84,7 +87,7 @@ program vMpi_Thomas3_Scaling
     ! -------------------------------------------------------------------
     ! Solve using splitting algorithm
 
-    call MPI_BARRIER(MPI_COMM_WORLD, ims_err)
+    call MPI_BARRIER(MPI_COMM_WORLD, ierr)
 
     runtime_mpi = 0.0_wp
     time_loc_1 = MPI_WTIME()
@@ -103,10 +106,10 @@ program vMpi_Thomas3_Scaling
         print *, 'Serial time in processor with rank 0 (seconds): ', time_loc_2 - time_loc_1 - runtime_mpi
     end if
 
-    call MPI_BARRIER(MPI_COMM_WORLD, ims_err)
+    call MPI_BARRIER(MPI_COMM_WORLD, ierr)
 
     ! -------------------------------------------------------------------
-    call MPI_FINALIZE(ims_err)
+    call MPI_FINALIZE(ierr)
 
     stop
 

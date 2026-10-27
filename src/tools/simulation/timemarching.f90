@@ -9,7 +9,7 @@ module TimeMarching
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
 #ifdef USE_MPI
     use mpi_f08
-    use TLabMPI_VARS
+    use TLab_WorkFlow, only: ims_err
 #endif
     use NavierStokes, only: nse_eqns, DNS_EQNS_COMPRESSIBLE, DNS_EQNS_BOUSSINESQ, DNS_EQNS_ANELASTIC
     use NavierStokes, only: visc, schmidt, prandtl

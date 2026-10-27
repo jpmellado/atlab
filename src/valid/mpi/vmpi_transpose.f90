@@ -1,7 +1,7 @@
 program vMpi_Transpose
     use TLab_Constants, only: wp, wi
     use mpi_f08
-    use TLabMPI_VARS, only: mpiGrid, xMpi, yMpi, ims_err
+    use TLabMPI_VARS, only: mpiGrid, xMpi, yMpi
     use TLabMPI_Transpose_DerivedTypes
     use TLabMPI_Transpose_Elementary
     implicit none
@@ -27,13 +27,16 @@ program vMpi_Transpose
     integer it
 
     real(wp) time_loc_1, time_loc_2
+#ifdef USE_MPI
+    integer ierr
+#endif
 
     ! -------------------------------------------------------------------
-    call MPI_INIT(ims_err)
+    call MPI_INIT(ierr)
 
     mpiGrid%comm = MPI_COMM_WORLD
-    call MPI_COMM_SIZE(mpiGrid%comm, mpiGrid%num_processors, ims_err)
-    call MPI_COMM_RANK(mpiGrid%comm, mpiGrid%rank, ims_err)
+    call MPI_COMM_SIZE(mpiGrid%comm, mpiGrid%num_processors, ierr)
+    call MPI_COMM_RANK(mpiGrid%comm, mpiGrid%rank, ierr)
 
     ! -------------------------------------------------------------------
     nxLoc = nx/mpiGrid%num_processors     ! task-local number of grid points along X
@@ -156,7 +159,7 @@ program vMpi_Transpose
     end if
 
     ! -------------------------------------------------------------------
-    call MPI_FINALIZE(ims_err)
+    call MPI_FINALIZE(ierr)
 
     stop
 

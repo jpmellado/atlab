@@ -18,6 +18,4 @@ module TLabMPI_VARS
     type(mpi_axis_dt), pointer :: yMpi => null()
     type(mpi_axis_dt), pointer :: zMpi => null()
 
-    integer :: ims_err
-
 end module TLabMPI_VARS

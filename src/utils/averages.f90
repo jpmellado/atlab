@@ -3,7 +3,7 @@ module Averages
 #ifdef USE_MPI
     use mpi_f08
     use TLabMPI_VARS, only: xMpi, yMpi
-    use TLabMPI_VARS, only: ims_err
+    use TLab_WorkFlow, only: ims_err
 #endif
     implicit none
     private

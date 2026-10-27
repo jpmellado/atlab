@@ -19,8 +19,7 @@ module IO_Fields
     use, intrinsic :: iso_c_binding, only: c_f_pointer, c_loc
 #ifdef USE_MPI
     use mpi_f08
-    use TLabMPI_VARS, only: ims_err
-    use TLabMPI_PROCS, only: TLabMPI_Panic
+    use TLab_WorkFlow, only: TLabMPI_Panic
 #endif
     implicit none
     private
@@ -39,6 +38,7 @@ module IO_Fields
 
     public :: io_subarray_dt
 #ifdef USE_MPI
+    integer ierr
     public :: IO_Create_Subarray_XOY, IO_Create_Subarray_XOZ, IO_Create_Subarray_YOZ
 #endif
 
@@ -166,8 +166,8 @@ contains
         locsize = [nx, nz]
         offset = [nx*xMpi%rank, 0]
 
-        call MPI_Type_create_subarray(ndims, sizes, locsize, offset, MPI_ORDER_FORTRAN, locType, locSubarray, ims_err)
-        call MPI_Type_commit(locSubarray, ims_err)
+        call MPI_Type_create_subarray(ndims, sizes, locsize, offset, MPI_ORDER_FORTRAN, locType, locSubarray, ierr)
+        call MPI_Type_commit(locSubarray, ierr)
 
     end function IO_Create_Subarray_XOZ
 
@@ -186,8 +186,8 @@ contains
         locsize = [nx, ny, nz]
         offset = [nx*xMpi%rank, ny*yMpi%rank, 0]
 
-        call MPI_Type_create_subarray(ndims, sizes, locsize, offset, MPI_ORDER_FORTRAN, locType, locSubarray, ims_err)
-        call MPI_Type_commit(locSubarray, ims_err)
+        call MPI_Type_create_subarray(ndims, sizes, locsize, offset, MPI_ORDER_FORTRAN, locType, locSubarray, ierr)
+        call MPI_Type_commit(locSubarray, ierr)
 
     end function IO_Create_Subarray_XOY
 
@@ -206,8 +206,8 @@ contains
         locsize = [ny, nz]
         offset = [ny*yMpi%rank, 0]
 
-        call MPI_Type_create_subarray(ndims, sizes, locsize, offset, MPI_ORDER_FORTRAN, locType, locSubarray, ims_err)
-        call MPI_Type_commit(locSubarray, ims_err)
+        call MPI_Type_create_subarray(ndims, sizes, locsize, offset, MPI_ORDER_FORTRAN, locType, locSubarray, ierr)
+        call MPI_Type_commit(locSubarray, ierr)
 
     end function IO_Create_Subarray_YOZ
 #endif
@@ -282,7 +282,7 @@ contains
             ! process header info
             isize = (header_offset - 5*SIZEOFINT)/SIZEOFREAL ! Size of array params
 #ifdef USE_MPI
-            if (isize > 0) call MPI_BCAST(params, size(params), MPI_REAL8, 0, MPI_COMM_WORLD, ims_err)
+            if (isize > 0) call MPI_BCAST(params, size(params), MPI_REAL8, 0, MPI_COMM_WORLD, ierr)
 #endif
 
         end select
@@ -321,7 +321,7 @@ contains
         ! process header info
         isize = (header_offset - 5*SIZEOFINT)/SIZEOFREAL ! Size of array params
 #ifdef USE_MPI
-        if (isize > 0) call MPI_BCAST(params, size(params), MPI_REAL8, 0, MPI_COMM_WORLD, ims_err)
+        if (isize > 0) call MPI_BCAST(params, size(params), MPI_REAL8, 0, MPI_COMM_WORLD, ierr)
 #endif
 
         return
@@ -581,14 +581,14 @@ contains
         integer(wi) isize
         isize = size(field)
         call MPI_File_open(self%communicator, trim(adjustl(name)), &
-                           MPI_MODE_RDONLY, MPI_INFO_NULL, mpio_fh, ims_err)
-        if (ims_err /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ims_err)
-        call MPI_File_set_view(mpio_fh, self%offset, MPI_REAL4, self%subarray, 'native', MPI_INFO_NULL, ims_err)
-        if (ims_err /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ims_err)
-        call MPI_File_read_all(mpio_fh, field, isize, MPI_REAL4, status, ims_err)
-        if (ims_err /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ims_err)
-        call MPI_File_close(mpio_fh, ims_err)
-        if (ims_err /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ims_err)
+                           MPI_MODE_RDONLY, MPI_INFO_NULL, mpio_fh, ierr)
+        if (ierr /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ierr)
+        call MPI_File_set_view(mpio_fh, self%offset, MPI_REAL4, self%subarray, 'native', MPI_INFO_NULL, ierr)
+        if (ierr /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ierr)
+        call MPI_File_read_all(mpio_fh, field, isize, MPI_REAL4, status, ierr)
+        if (ierr /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ierr)
+        call MPI_File_close(mpio_fh, ierr)
+        if (ierr /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ierr)
 #else
         call IO_Open_File(name, LOC_STATUS, LOC_UNIT_ID)
         read (LOC_UNIT_ID, POS=self%offset + 1) field(:)
@@ -608,14 +608,14 @@ contains
         integer(wi) isize
         isize = size(field)
         call MPI_File_open(self%communicator, trim(adjustl(name)), &
-                           MPI_MODE_RDONLY, MPI_INFO_NULL, mpio_fh, ims_err)
-        if (ims_err /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ims_err)
-        call MPI_File_set_view(mpio_fh, self%offset, MPI_REAL8, self%subarray, 'native', MPI_INFO_NULL, ims_err)
-        if (ims_err /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ims_err)
-        call MPI_File_read_all(mpio_fh, field, isize, MPI_REAL8, status, ims_err)
-        if (ims_err /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ims_err)
-        call MPI_File_close(mpio_fh, ims_err)
-        if (ims_err /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ims_err)
+                           MPI_MODE_RDONLY, MPI_INFO_NULL, mpio_fh, ierr)
+        if (ierr /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ierr)
+        call MPI_File_set_view(mpio_fh, self%offset, MPI_REAL8, self%subarray, 'native', MPI_INFO_NULL, ierr)
+        if (ierr /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ierr)
+        call MPI_File_read_all(mpio_fh, field, isize, MPI_REAL8, status, ierr)
+        if (ierr /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ierr)
+        call MPI_File_close(mpio_fh, ierr)
+        if (ierr /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ierr)
 #else
         call IO_Open_File(name, LOC_STATUS, LOC_UNIT_ID)
         read (LOC_UNIT_ID, POS=self%offset + 1) field(:)
@@ -635,14 +635,14 @@ contains
         integer(wi) isize
         isize = size(field)
         call MPI_File_open(self%communicator, trim(adjustl(name)), &
-                           MPI_MODE_RDONLY, MPI_INFO_NULL, mpio_fh, ims_err)
-        if (ims_err /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ims_err)
-        call MPI_File_set_view(mpio_fh, self%offset, MPI_INTEGER1, self%subarray, 'native', MPI_INFO_NULL, ims_err)
-        if (ims_err /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ims_err)
-        call MPI_File_read_all(mpio_fh, field, isize, MPI_INTEGER1, status, ims_err)
-        if (ims_err /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ims_err)
-        call MPI_File_close(mpio_fh, ims_err)
-        if (ims_err /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ims_err)
+                           MPI_MODE_RDONLY, MPI_INFO_NULL, mpio_fh, ierr)
+        if (ierr /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ierr)
+        call MPI_File_set_view(mpio_fh, self%offset, MPI_INTEGER1, self%subarray, 'native', MPI_INFO_NULL, ierr)
+        if (ierr /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ierr)
+        call MPI_File_read_all(mpio_fh, field, isize, MPI_INTEGER1, status, ierr)
+        if (ierr /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ierr)
+        call MPI_File_close(mpio_fh, ierr)
+        if (ierr /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ierr)
 #else
         call IO_Open_File(name, LOC_STATUS, LOC_UNIT_ID)
         read (LOC_UNIT_ID, POS=self%offset + 1) field(:)
@@ -707,7 +707,7 @@ contains
 
 #ifdef USE_MPI
         end if
-        call MPI_BCAST(offset, 1, MPI_INTEGER4, 0, MPI_COMM_WORLD, ims_err)
+        call MPI_BCAST(offset, 1, MPI_INTEGER4, 0, MPI_COMM_WORLD, ierr)
 #endif
 
         return
@@ -729,14 +729,14 @@ contains
         integer(wi) isize
         isize = size(field)
         call MPI_File_open(self%communicator, trim(adjustl(name)), &
-                           ior(MPI_MODE_WRONLY, MPI_MODE_CREATE), MPI_INFO_NULL, mpio_fh, ims_err)
-        if (ims_err /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ims_err)
-        call MPI_File_set_view(mpio_fh, self%offset, MPI_REAL4, self%subarray, 'native', MPI_INFO_NULL, ims_err)
-        if (ims_err /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ims_err)
-        call MPI_File_write_all(mpio_fh, field, isize, MPI_REAL4, status, ims_err)
-        if (ims_err /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ims_err)
-        call MPI_File_close(mpio_fh, ims_err)
-        if (ims_err /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ims_err)
+                           ior(MPI_MODE_WRONLY, MPI_MODE_CREATE), MPI_INFO_NULL, mpio_fh, ierr)
+        if (ierr /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ierr)
+        call MPI_File_set_view(mpio_fh, self%offset, MPI_REAL4, self%subarray, 'native', MPI_INFO_NULL, ierr)
+        if (ierr /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ierr)
+        call MPI_File_write_all(mpio_fh, field, isize, MPI_REAL4, status, ierr)
+        if (ierr /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ierr)
+        call MPI_File_close(mpio_fh, ierr)
+        if (ierr /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ierr)
 #else
         call IO_Open_File(name, LOC_STATUS, LOC_UNIT_ID)
         write (LOC_UNIT_ID, POS=self%offset + 1) field(:)
@@ -756,14 +756,14 @@ contains
         integer(wi) isize
         isize = size(field)
         call MPI_File_open(self%communicator, trim(adjustl(name)), &
-                           ior(MPI_MODE_WRONLY, MPI_MODE_CREATE), MPI_INFO_NULL, mpio_fh, ims_err)
-        if (ims_err /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ims_err)
-        call MPI_File_set_view(mpio_fh, self%offset, MPI_REAL8, self%subarray, 'native', MPI_INFO_NULL, ims_err)
-        if (ims_err /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ims_err)
-        call MPI_File_write_all(mpio_fh, field, isize, MPI_REAL8, status, ims_err)
-        if (ims_err /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ims_err)
-        call MPI_File_close(mpio_fh, ims_err)
-        if (ims_err /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ims_err)
+                           ior(MPI_MODE_WRONLY, MPI_MODE_CREATE), MPI_INFO_NULL, mpio_fh, ierr)
+        if (ierr /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ierr)
+        call MPI_File_set_view(mpio_fh, self%offset, MPI_REAL8, self%subarray, 'native', MPI_INFO_NULL, ierr)
+        if (ierr /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ierr)
+        call MPI_File_write_all(mpio_fh, field, isize, MPI_REAL8, status, ierr)
+        if (ierr /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ierr)
+        call MPI_File_close(mpio_fh, ierr)
+        if (ierr /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ierr)
 #else
         call IO_Open_File(name, LOC_STATUS, LOC_UNIT_ID)
         write (LOC_UNIT_ID, POS=self%offset + 1) field(:)
@@ -783,14 +783,14 @@ contains
         integer(wi) isize
         isize = size(field)
         call MPI_File_open(self%communicator, trim(adjustl(name)), &
-                           ior(MPI_MODE_WRONLY, MPI_MODE_CREATE), MPI_INFO_NULL, mpio_fh, ims_err)
-        if (ims_err /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ims_err)
-        call MPI_File_set_view(mpio_fh, self%offset, MPI_INTEGER1, self%subarray, 'native', MPI_INFO_NULL, ims_err)
-        if (ims_err /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ims_err)
-        call MPI_File_write_all(mpio_fh, field, isize, MPI_INTEGER1, status, ims_err)
-        if (ims_err /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ims_err)
-        call MPI_File_close(mpio_fh, ims_err)
-        if (ims_err /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ims_err)
+                           ior(MPI_MODE_WRONLY, MPI_MODE_CREATE), MPI_INFO_NULL, mpio_fh, ierr)
+        if (ierr /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ierr)
+        call MPI_File_set_view(mpio_fh, self%offset, MPI_INTEGER1, self%subarray, 'native', MPI_INFO_NULL, ierr)
+        if (ierr /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ierr)
+        call MPI_File_write_all(mpio_fh, field, isize, MPI_INTEGER1, status, ierr)
+        if (ierr /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ierr)
+        call MPI_File_close(mpio_fh, ierr)
+        if (ierr /= MPI_SUCCESS) call TLabMPI_Panic(__FILE__, ierr)
 #else
         call IO_Open_File(name, LOC_STATUS, LOC_UNIT_ID)
         write (LOC_UNIT_ID, POS=self%offset + 1) field(:)
@@ -840,7 +840,7 @@ contains
             close (LOC_UNIT_ID)
 #ifdef USE_MPI
         end if
-        call MPI_BARRIER(MPI_COMM_WORLD, ims_err)
+        call MPI_BARRIER(MPI_COMM_WORLD, ierr)
 #endif
         return
     end subroutine Write_Header

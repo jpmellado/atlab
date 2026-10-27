@@ -6,7 +6,7 @@ else()
   list(REMOVE_ITEM sourcefiles ${to_remove})
 endif()
 add_library(finitedifferences STATIC ${sourcefiles})
-add_dependencies(finitedifferences utils base)
+add_dependencies(finitedifferences utils grid base)
 
 # FILE(GLOB sourcefiles "fdm_derivative_X1.f90")
 # add_executable(vfdm1.x ${sourcefiles})

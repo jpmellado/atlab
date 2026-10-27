@@ -110,6 +110,7 @@ endif()
 # produce base libraries
 add_subdirectory(base)
 
+add_subdirectory(grid)
 add_subdirectory(io)
 add_subdirectory(utils)
 

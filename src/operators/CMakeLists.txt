@@ -1,3 +1,3 @@
 FILE(GLOB sourcefiles "*.f90")
 add_library(operators STATIC ${sourcefiles})
-add_dependencies(operators finitedifferences base)
+add_dependencies(operators finitedifferences grid base)

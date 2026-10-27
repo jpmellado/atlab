@@ -1,4 +1,4 @@
-set(LEVEL1_LIBS utils io grid base)
+set(LEVEL1_LIBS utils io grid memory base)
 
 FILE(GLOB sourcefiles "linear/vlinsys.f90")
 add_executable(vlinsys.x ${sourcefiles})

@@ -1,4 +1,4 @@
-set(LEVEL1_LIBS utils io grid base)
+set(LEVEL1_LIBS utils io grid memory base)
 
 # Preprocessing
 FILE(GLOB sourcefiles "preprocessing/inigrid/*.f90")

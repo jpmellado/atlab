@@ -1,5 +1,5 @@
 module TLab_Time
-    use TLab_Constants, only: wp, wi, sp
+    use TLab_Constants, only: wp, wi
     implicit none
 
     integer(wi) :: itime                ! iteration number

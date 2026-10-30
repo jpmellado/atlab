@@ -18,7 +18,7 @@ subroutine AVG_SCAL_XZ(is, q, s, s_local, dsdx, dsdy, dsdz, tmp1, tmp2, tmp3, me
     use TLab_Time, only: itime, rtime
     use TLab_Arrays, only: wrk1d
     use TLab_Pointers_3D, only: p_wrk3d, u, v, w
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log, TLab_Error
+    use TLab_WorkFlow, only: TLab_Stop, TLab_Log, TLab_Error
     use TLab_Grid, only: z
     use OPR_Partial
     use NavierStokes

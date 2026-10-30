@@ -2,7 +2,7 @@
 
 module Planes
     use TLab_Constants, only: wp, wi
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Error
+    use TLab_WorkFlow, only: TLab_Stop, TLab_Error
     use TLab_Memory, only: imax, jmax, kmax
     use TLab_Memory, only: inb_flow_array, inb_scal_array, inb_txc
     use TLab_Arrays, only: txc

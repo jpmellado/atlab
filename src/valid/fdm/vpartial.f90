@@ -2,7 +2,6 @@ program VPARTIAL
     use TLab_Constants, only: wp, wi, pi_wp, roundoff_wp
     use TLab_Constants, only: BCS_DD, BCS_DN, BCS_ND, BCS_NN, BCS_NONE, BCS_MIN, BCS_MAX, BCS_BOTH
     use TLab_Memory, only: imax, jmax, kmax, isize_field, isize_wrk1d, isize_wrk2d, isize_wrk3d, inb_txc, isize_txc_field
-    use TLab_WorkFlow, only: TLab_Write_ASCII
     use TLab_Memory, only: TLab_Initialize_Memory, TLab_Allocate_Real
     use TLab_Arrays, only: wrk1d, wrk2d, txc
     use TLab_Grid, only: axis_dt

@@ -7,7 +7,7 @@ module OPR_Elliptic
     use TLab_Constants, only: BCS_DD, BCS_DN, BCS_ND, BCS_NN, BCS_NONE, BCS_MIN, BCS_MAX, BCS_BOTH
     use TLab_Memory, only: TLab_Allocate_Real
     use TLab_Memory, only: imax, jmax, kmax, isize_txc_field
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Error
+    use TLab_WorkFlow, only: TLab_Stop, TLab_Error
     use TLab_Arrays, only: wrk1d, wrk2d, wrk3d
     use TLab_Grid, only: x, y, z
     use FDM, only: fdm_der1_Z, FDM_CreatePlan_Der2

@@ -1,6 +1,6 @@
 module Thermo_Base
     use TLab_Constants, only: wi, wp
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
+    use TLab_WorkFlow, only: TLab_Stop
     implicit none
     private
 

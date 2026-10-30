@@ -3,7 +3,7 @@
 ! Split algorithm assumes periodic case over uniform grid
 module FDM_Derivative_MPISplit
     use TLab_Constants, only: wp, wi
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Error
+    use TLab_WorkFlow, only: TLab_Stop, TLab_Error
     use FDM_Derivative_Base, only: der_periodic
     use FDM_Derivative_Base, only: matmul_halo_thomas_ice, matmul_halo_thomas_combined_ice
     use FDM_Derivative_1order, only: der1_periodic

@@ -7,7 +7,7 @@ program PDFS
     use TLab_Time, only: itime, rtime
     use TLab_Memory, only: imax, jmax, kmax, inb_scal_array, inb_txc, inb_flow, inb_scal, isize_field, inb_wrk2d
     use TLab_Arrays
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log, TLab_Error, TLab_Start
+    use TLab_WorkFlow, only: TLab_Stop, TLab_Log, TLab_Error, TLab_Start
     use TLab_Memory, only: TLab_Initialize_Memory
 #ifdef USE_MPI
     use TLabMPI_Grid, only: TLabMPI_Grid_Initialize

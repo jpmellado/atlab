@@ -1,6 +1,6 @@
 module StatsPDFs
     use TLab_Constants, only: wp, wi
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Log
+    use TLab_WorkFlow, only: TLab_Log
     use TLab_Time, only: itime, rtime
     use PDF_kernels
     use IO_PDFS

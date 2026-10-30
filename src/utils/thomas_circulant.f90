@@ -73,7 +73,7 @@ contains
 
     subroutine ThomasCirculant_5_Initialize(L, U, z_mem)
         use TLab_Constants, only: small_wp
-        use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Error
+        use TLab_WorkFlow, only: TLab_Stop, TLab_Error
         use Thomas, only: Thomas5_FactorLU_InPlace, Thomas5_SolveL, Thomas5_SolveU
         real(wp), intent(inout) :: L(:, :), U(:, :)
         real(wp), intent(inout) :: z_mem(2, size(L, 1))

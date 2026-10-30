@@ -1,6 +1,6 @@
 program vThermo
     use TLab_Constants, only: wp, wi, fmt_r
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Start
+    use TLab_WorkFlow, only: TLab_Stop, TLab_Start
     use Thermodynamics
     use Thermo_Anelastic
 

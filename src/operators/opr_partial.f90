@@ -68,7 +68,7 @@ contains
     ! ###################################################################
     ! ###################################################################
     subroutine OPR_Partial_Initialize(inifile)
-        use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Error
+        use TLab_WorkFlow, only: TLab_Stop, TLab_Error
         use TLab_ScanFiles
 #ifdef USE_MPI
         use TLab_Memory, only: imax, jmax, kmax

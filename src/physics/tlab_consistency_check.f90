@@ -17,7 +17,7 @@ subroutine TLab_Consistency_Check()
     use Rotation, only: rossby
     use Thermodynamics
     use Thermo_Base, only: gamma0
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Error
+    use TLab_WorkFlow, only: TLab_Stop, TLab_Error
     implicit none
 
     ! -------------------------------------------------------------------

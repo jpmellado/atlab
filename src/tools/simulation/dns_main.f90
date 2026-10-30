@@ -2,7 +2,7 @@
 
 program DNS
     use TLab_Constants, only: ifile, tag_flow, tag_scal
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log, TLab_Error, TLab_Start, TLab_Runtime
+    use TLab_WorkFlow, only: TLab_Stop, TLab_Log, TLab_Error, TLab_Start, TLab_Runtime
     use TLab_WorkFlow, only: scal_on, flow_on
     use TLab_Time, only: itime, rtime
     use TLab_Arrays

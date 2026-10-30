@@ -19,7 +19,7 @@ module OPR_Fourier
     use TLab_Arrays, only: wrk3d
     use TLab_Pointers_C, only: c_wrk3d
     use TLab_Transpose
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Error
+    use TLab_WorkFlow, only: TLab_Stop, TLab_Error
     use TLab_Grid, only: x, y, z, xSubgrid, ySubgrid, zSubgrid
     use, intrinsic :: iso_c_binding
 #ifdef USE_MPI

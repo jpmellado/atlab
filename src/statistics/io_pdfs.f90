@@ -5,7 +5,7 @@
 !########################################################################
 module IO_PDFS
     use TLab_Constants, only: wp, sp, wi
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Log
+    use TLab_WorkFlow, only: TLab_Log
 #ifdef USE_NETCDF
     use NETCDF
 #else

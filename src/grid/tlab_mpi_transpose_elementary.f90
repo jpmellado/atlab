@@ -6,7 +6,7 @@
 module TLabMPI_Transpose_Elementary
     use mpi_f08
     use TLab_Constants, only: wp, dp, wi
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log, TLab_Error
+    use TLab_WorkFlow, only: TLab_Stop, TLab_Log, TLab_Error
     use TLab_WorkFlow, only: TLAB_MPI_REAL_TYPE
     implicit none
     private

@@ -27,7 +27,7 @@
 module FDM_Integral_1
     use TLab_Constants, only: wp, wi
     use TLab_Constants, only: BCS_DD, BCS_ND, BCS_DN, BCS_NN, BCS_MIN, BCS_MAX, BCS_BOTH
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Error
+    use TLab_WorkFlow, only: TLab_Stop, TLab_Error
     use Thomas
     use MatMul
     use MatMul_Thomas

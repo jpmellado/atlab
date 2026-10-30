@@ -16,6 +16,8 @@ module TLab_Grid
     public :: subaxis_dt
     public :: subgrid, xSubgrid, ySubgrid, zSubgrid
 
+    character(len=*), parameter, public :: gfile = 'grid'
+
     ! -----------------------------------------------------------------------
     type :: axis_dt
         ! sequence
@@ -70,7 +72,7 @@ contains
     !########################################################################
     !########################################################################
     subroutine TLab_Grid_Initialize(locInifile)
-        use TLab_Constants, only: ifile, gfile
+        use TLab_Constants, only: ifile
         use TLab_ScanFiles
         use TLab_Memory, only: imax, jmax, kmax
         character(len=*), optional, intent(in) :: locInifile

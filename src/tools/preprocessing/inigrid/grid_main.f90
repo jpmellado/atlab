@@ -4,10 +4,10 @@
 #define C_FILE_LOC "INIGRID"
 
 program INIGRID
-    use TLab_Constants, only: wp, gfile, ifile, lfile, efile
+    use TLab_Constants, only: wp, ifile, lfile, efile
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Start
     use TLab_Arrays, only: wrk1d, wrk2d
-    use TLab_Grid, only: axis_dt, TLab_Grid_Write
+    use TLab_Grid, only: gfile, axis_dt, TLab_Grid_Write
     use GRID_LOCAL
 #ifdef USE_MPI
     use TLabMPI_Grid, only: mpiGrid

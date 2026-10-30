@@ -2,7 +2,7 @@
 
 program PDFS
     use TLab_Constants, only: wp, wi, small_wp, MAX_PARS
-    use TLab_Constants, only: ifile, efile, lfile, gfile, tag_flow, tag_scal
+    use TLab_Constants, only: ifile, efile, lfile, tag_flow, tag_scal
     use TLab_Pointers, only: pointers_dt
     use TLab_Time, only: itime, rtime
     use TLab_Memory, only: imax, jmax, kmax, inb_scal_array, inb_txc, inb_flow, inb_scal, isize_field, inb_wrk2d

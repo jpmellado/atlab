@@ -1,6 +1,6 @@
 program IniFlow
     use TLab_Constants, only: wp, wi
-    use TLab_Constants, only: ifile, gfile, lfile, tag_flow
+    use TLab_Constants, only: ifile, lfile, tag_flow
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Start
     use TLab_Time, only: itime, rtime
     use TLab_Arrays

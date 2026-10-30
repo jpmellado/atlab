@@ -1,7 +1,7 @@
 program VELLIPTIC
     use TLab_Constants, only: wp, wi, pi_wp
     use TLab_Constants, only: BCS_DD, BCS_DN, BCS_ND, BCS_NN, BCS_NONE, BCS_MIN, BCS_MAX, BCS_BOTH
-    use TLab_Constants, only: ifile, gfile
+    use TLab_Constants, only: ifile
     use TLab_Time, only: itime
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Start
     use TLab_Memory, only: imax, jmax, kmax, inb_txc

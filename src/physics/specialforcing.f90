@@ -50,6 +50,7 @@ contains
     !########################################################################
     !########################################################################
     subroutine SpecialForcing_Initialize(inifile)
+        use TLab_ScanFiles
         use TLab_Grid, only: xSubgrid, ySubgrid
         use TLab_Memory, only: imax, jmax, kmax
         use IO_Fields, only: IO_Read_Fields

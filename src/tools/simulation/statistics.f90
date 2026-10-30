@@ -26,8 +26,11 @@ contains
     ! ###################################################################
     ! ###################################################################
     subroutine Statistics_Initialize(inifile)
+        use TLab_Constants, only: wp, wi, big_wp
+        use TLab_Constants, only: efile, lfile, wfile
+        use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
+        use TLab_ScanFiles
         use TLab_Memory, only: TLab_Allocate_Real
-        use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Start
 
         character(len=*), intent(in) :: inifile
 

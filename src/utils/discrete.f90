@@ -19,6 +19,7 @@ module Discrete
 contains
     subroutine Discrete_ReadBlock(bakfile, inifile, block, var)
         use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
+        use TLab_ScanFiles
         use Profiles, only: PROFILE_NONE, PROFILE_TANH_COS, PROFILE_GAUSSIAN, PROFILE_GAUSSIAN_SYM, PROFILE_GAUSSIAN_ANTISYM
 
         character(LEN=*), intent(in) :: bakfile, inifile, block

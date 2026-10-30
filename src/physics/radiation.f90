@@ -55,6 +55,7 @@ contains
     !########################################################################
     subroutine Radiation_Initialize(inifile)
         use TLab_Memory, only: imax, jmax
+        use TLab_ScanFiles
         character(len=*), intent(in) :: inifile
 
         ! -------------------------------------------------------------------

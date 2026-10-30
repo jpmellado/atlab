@@ -137,6 +137,7 @@ contains
 ! ###################################################################
 ! ###################################################################
     subroutine initialize_flow_dt(self, inifile, tag, idir)
+        use TLab_ScanFiles
         class(bcs_flow_dt), intent(inout) :: self
         character(len=*), intent(in) :: inifile
         character(len=*), intent(in) :: tag
@@ -195,6 +196,7 @@ contains
 ! ###################################################################
 ! ###################################################################
     subroutine initialize_scal_dt(self, inifile, tag, is)
+        use TLab_ScanFiles
         class(bcs_scal_dt), intent(inout) :: self
         character(len=*), intent(in) :: inifile
         character(len=*), intent(in) :: tag

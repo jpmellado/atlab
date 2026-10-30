@@ -436,6 +436,7 @@ contains
     ! ###################################################################
     ! ###################################################################
     subroutine Visuals_Initialize()
+        use TLab_ScanFiles
 #ifdef USE_MPI
         use mpi_f08, only: MPI_COMM_WORLD, MPI_REAL4
         use TLabMPI_Grid

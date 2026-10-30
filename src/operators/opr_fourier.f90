@@ -68,6 +68,7 @@ contains
     ! #######################################################################
     ! #######################################################################
     subroutine OPR_Fourier_Initialize(locIniFile)
+        use TLab_ScanFiles
 #ifdef USE_MPI
         use mpi_f08, only: MPI_DOUBLE_COMPLEX, MPI_REAL8
 #endif

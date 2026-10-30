@@ -99,6 +99,7 @@ contains
     ! ######################################################################
     subroutine TLabMPI_Trp_Initialize(inifile)
         use, intrinsic :: iso_c_binding, only: c_f_pointer, c_loc
+        use TLab_ScanFiles
         use TLabMPI_Grid, only: xMpi, yMpi
         use TLab_Memory, only: imax, jmax, kmax
         use TLab_Memory, only: TLab_Allocate_Real

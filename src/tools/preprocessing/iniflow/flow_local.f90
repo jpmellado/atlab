@@ -52,6 +52,7 @@ contains
 
     ! ###################################################################
     subroutine Iniflow_Initialize_Parameters(inifile)
+        use TLab_ScanFiles
         character(len=*), intent(in) :: inifile
 
         ! -------------------------------------------------------------------

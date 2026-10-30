@@ -69,10 +69,11 @@ contains
     ! ###################################################################
     subroutine OPR_Partial_Initialize(inifile)
         use TLab_Constants, only: efile
+        use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
+        use TLab_ScanFiles
 #ifdef USE_MPI
         use TLab_Memory, only: imax, jmax, kmax
 #endif
-        use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
 
         character(len=*), intent(in) :: inifile
 

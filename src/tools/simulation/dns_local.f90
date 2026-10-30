@@ -22,7 +22,9 @@ contains
     ! ###################################################################
     ! ###################################################################
     subroutine DNS_Initialize_Parameters(inifile)
-        use TLab_Constants, only: wp, wi, big_wp, efile, lfile, wfile
+        use TLab_Constants, only: wp, wi, big_wp
+        use TLab_Constants, only: efile, lfile, wfile
+        use TLab_ScanFiles
         use TLab_Memory, only: inb_txc
         use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
         ! use OPR_Filters, only: FilterDomain, PressureFilter, DNS_FILTER_NONE

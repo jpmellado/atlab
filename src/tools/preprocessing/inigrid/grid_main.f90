@@ -166,7 +166,7 @@ contains
     ! #######################################################################
     ! #######################################################################
     subroutine GRID_READBLOCK(bakfile, inifile, block, var, periodic)
-
+        use TLab_ScanFiles
         character(LEN=*), intent(in) :: bakfile, inifile, block
         type(grid_build_dt), intent(out) :: var
         logical, intent(OUT) :: periodic

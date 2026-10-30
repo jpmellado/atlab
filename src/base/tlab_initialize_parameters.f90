@@ -10,6 +10,7 @@ subroutine TLab_Initialize_Parameters(inifile)
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
     use TLab_WorkFlow, only: imode_verbosity
     use TLab_WorkFlow, only: flow_on, scal_on
+    use TLab_ScanFiles
     implicit none
 
     character(len=*), intent(in) :: inifile

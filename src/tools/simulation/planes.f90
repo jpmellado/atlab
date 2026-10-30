@@ -167,6 +167,9 @@ contains
     ! ###################################################################
     ! ###################################################################
     subroutine planes_initialize(self, inifile, subaxis)
+        use TLab_Constants, only: wp, wi, big_wp
+        use TLab_Constants, only: efile, lfile, wfile
+        use TLab_ScanFiles
         use TLab_Grid, only: subaxis_dt
         class(planes_dt), intent(out) :: self
         character(len=*), intent(in) :: inifile

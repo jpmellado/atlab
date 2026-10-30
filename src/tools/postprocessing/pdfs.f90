@@ -433,6 +433,7 @@ contains
     ! #######################################################################
     ! #######################################################################
     subroutine Pdfs_Initialize()
+        use TLab_ScanFiles
 
         character(len=32) bakfile, block
         character(len=128) eStr

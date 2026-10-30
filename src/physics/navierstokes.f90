@@ -33,6 +33,7 @@ contains
     subroutine NavierStokes_Initialize_Parameters(inifile)
         use TLab_Constants, only: lfile, efile, wfile
         use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
+        use TLab_ScanFiles
         use TLab_Memory, only: inb_flow, inb_flow_array, inb_scal, inb_scal_array
         ! use Thermodynamics, only: mach
 

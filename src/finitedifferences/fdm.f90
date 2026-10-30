@@ -25,6 +25,7 @@ contains
     ! ###################################################################
     ! ###################################################################
     subroutine FDM_Initialize(inifile)
+        use TLab_ScanFiles
         use TLab_Grid, only: x, y, z
         character(len=*), optional, intent(in) :: inifile
 
@@ -71,7 +72,7 @@ contains
         end if
 
         if (der1_type == FDM_COM6_JACOBIAN_PENTA) then     ! CFL_max depends on max[g(ig)%der1%mwn(:)]
-            call TLab_Write_ASCII(wfile, trim(adjustl(eStr))//'CompactJacobian6Penta requires adjusted CFL-number depending on alpha and beta values.')
+           call TLab_Write_ASCII(wfile, trim(adjustl(eStr))//'CompactJacobian6Penta requires adjusted CFL-number depending on alpha and beta values.')
         end if
 
         !########################################################################

@@ -54,6 +54,7 @@ contains
 !########################################################################
 !########################################################################
     subroutine Profiles_ReadBlock(bakfile, inifile, block, tag, var, default)
+        use TLab_ScanFiles
         character(len=*), intent(in) :: bakfile, inifile, block, tag
         type(profiles_dt), intent(out) :: var
         character(len=*), intent(in), optional :: default

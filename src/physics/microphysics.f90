@@ -60,6 +60,7 @@ contains
 !########################################################################
 !########################################################################
     subroutine Microphysics_Initialize(inifile)
+        use TLab_ScanFiles
         use TLab_Memory, only: imax, jmax, kmax
         character(len=*), intent(in) :: inifile
 

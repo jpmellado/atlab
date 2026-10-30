@@ -26,6 +26,7 @@ contains
 
     ! ###################################################################
     subroutine Inirand_Initialize_Parameters(inifile)
+        use TLab_ScanFiles
         character*(*) inifile
 
         ! -------------------------------------------------------------------

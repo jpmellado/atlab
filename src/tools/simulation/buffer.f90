@@ -49,6 +49,7 @@ contains
     !########################################################################
     !########################################################################
     subroutine Buffer_Initialize(inifile)
+        use TLab_ScanFiles
         use TLab_Arrays, only: q, s
         use TLab_Grid, only: z
 
@@ -143,6 +144,7 @@ contains
     ! ###################################################################
     ! ###################################################################
     subroutine readblock_dt(self, bakfile, inifile, block, tag)
+        use TLab_ScanFiles
         class(buffer_dt), intent(inout) :: self
         character(len=*) bakfile, inifile, block, tag
 

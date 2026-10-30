@@ -50,6 +50,7 @@ contains
     ! ###################################################################
     ! ###################################################################
     subroutine TMarch_Initialize(inifile)
+        use TLab_ScanFiles
         use TLab_Memory, only: TLab_Allocate_Real
         use TLab_Grid, only: globalGrid, x, y, z, xSubgrid, ySubgrid, zSubgrid
         use FDM, only: fdm_der1_X, fdm_der1_Y, fdm_der1_Z

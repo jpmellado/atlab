@@ -251,7 +251,6 @@ contains
     ! ###################################################################
 #ifdef USE_MPI
     subroutine TLabMPI_Panic(location, mpi_error_code)
-        use TLab_Constants, only: efile
         character(len=*), intent(in) :: location
         integer, intent(in) :: mpi_error_code
 

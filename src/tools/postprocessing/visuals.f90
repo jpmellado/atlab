@@ -130,7 +130,7 @@ program VISUALS
         itime = itime_vec(it)
 
         write (str, *) itime; str = 'Processing iteration It'//trim(adjustl(str))//'.'
-        call TLab_Write_ASCII(lfile, str)
+        call TLab_Log(str)
 
         if (scal_on .and. iread_scal) then ! Scalar variables
             write (scal_file, *) itime; scal_file = trim(adjustl(tag_scal))//trim(adjustl(scal_file))
@@ -149,7 +149,7 @@ program VISUALS
         call TLab_Diagnostic(imax, jmax, kmax, s)
 
         write (str, fmt_r) rtime; str = 'Physical time '//trim(adjustl(str))
-        call TLab_Write_ASCII(lfile, str)
+        call TLab_Log(str)
 
         ! ! -------------------------------------------------------------------
         ! ! Calculate intermittency
@@ -165,7 +165,7 @@ program VISUALS
         !         opt_cond_scal = inb_scal_array
         !     end if
 
-        !     call TLab_Write_ASCII(lfile, 'Calculating partition...')
+        !     call TLab_Log('Calculating partition...')
         !     call FI_GATE(opt_cond, opt_cond_relative, opt_cond_scal, &
         !                  imax, jmax, kmax, igate_size, gate_threshold, q, s, txc, gate)
         ! end if

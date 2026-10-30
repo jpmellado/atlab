@@ -4,7 +4,7 @@ module Buffer
     use TLab_Constants, only: wp, wi, MAX_PARS
     use TLab_Constants, only: efile, lfile
     use TLab_Constants, only: tag_flow, tag_scal, fmt_r
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log
     use TLab_Memory, only: inb_flow, inb_scal
     implicit none
     private
@@ -238,7 +238,7 @@ contains
         line = 'Checking bounds of field '//trim(adjustl(tag))//':'
         write (str, fmt_r) minval(self%ref(:, :, :)); line = trim(adjustl(line))//' '//trim(adjustl(str))//','
         write (str, fmt_r) maxval(self%ref(:, :, :)); line = trim(adjustl(line))//' '//trim(adjustl(str))//'.'
-        call TLab_Write_ASCII(lfile, line)
+        call TLab_Log(line)
 
         ! ###################################################################
         ! Inverse of relaxation time

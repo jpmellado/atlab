@@ -6,7 +6,7 @@
 subroutine AVG_N_XZ(fname, itime, rtime, nx, ny, nz, nv, nm, vars, igate, gate, z, avg)
     use TLab_Constants, only: efile, lfile, wp, wi
     use TLab_Pointers, only: pointers_dt
-    use TLab_WorkFlow, only: TLab_Write_ASCII
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Log
     use Averages, only: AVG1V2D, AVG1V2D1G
 
     implicit none
@@ -29,7 +29,7 @@ subroutine AVG_N_XZ(fname, itime, rtime, nx, ny, nz, nv, nm, vars, igate, gate, 
     character*250 varname(1)  ! to be reduce to just 1 group in the future
 
     ! ###################################################################
-    call TLab_Write_ASCII(lfile, 'Calculating '//trim(adjustl(fname))//'...')
+    call TLab_Log('Calculating '//trim(adjustl(fname))//'...')
 
     do k = 1, nz
         do iv = 1, nv
@@ -102,7 +102,7 @@ end subroutine RAW_TO_CENTRAL
 !########################################################################
 subroutine INTER_N_XZ(fname, itime, rtime, nx, ny, nz, np, parname, gate, z, inter)
     use TLab_Constants, only: efile, lfile, wp, wi
-    use TLab_WorkFlow, only: TLab_Write_ASCII
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Log
     use Averages, only: INTER1V2D
 
     implicit none
@@ -123,7 +123,7 @@ subroutine INTER_N_XZ(fname, itime, rtime, nx, ny, nz, np, parname, gate, z, int
     character*250 varname(1)  ! to be reduce to just 1 group in the future
 
     ! ###################################################################
-    call TLab_Write_ASCII(lfile, 'Calculating '//trim(adjustl(fname))//'...')
+    call TLab_Log('Calculating '//trim(adjustl(fname))//'...')
 
     do k = 1, nz
         do ip = 1, np

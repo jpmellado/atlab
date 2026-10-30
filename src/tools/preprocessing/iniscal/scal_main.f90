@@ -1,7 +1,7 @@
 program IniScal
     use TLab_Constants, only: wp, wi
     use TLab_Constants, only: ifile, lfile, tag_scal
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Start
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log, TLab_Start
     use TLab_Time, only: itime, rtime
     use TLab_Arrays
     use TLab_Memory, only: imax, jmax, kmax, inb_scal
@@ -66,7 +66,7 @@ program IniScal
     itime = 0; rtime = 0.0_wp
 
     ! ###################################################################
-    call TLab_Write_ASCII(lfile, 'Initializing scalar fields.')
+    call TLab_Log('Initializing scalar fields.')
 
     do is = 1, inb_scal
         ! Mean

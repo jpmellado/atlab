@@ -40,7 +40,7 @@ contains
         use TLab_Constants, only: lfile, fmt_r
         use TLab_Memory, only: imax, jmax, kmax
         use TLab_Pointers, only: tmp1, tmp2
-        use TLab_WorkFlow, only: TLab_Write_ASCII
+        use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Log
 
         ! -----------------------------------------------------------------------
         ! Scanning values
@@ -57,27 +57,27 @@ contains
         tmp1(:) = 0.0_wp                ! particular value not important
 
         if (imax > 1) then
-            call TLab_Write_ASCII(lfile, 'Optimizing cache-blocking for array forward transposition along X...')
+            call TLab_Log('Optimizing cache-blocking for array forward transposition along X...')
             call scan(imax, jmax*kmax, trans_x_forward)
-            call TLab_Write_ASCII(lfile, 'Optimizing cache-blocking for array backward transposition along X...')
+            call TLab_Log('Optimizing cache-blocking for array backward transposition along X...')
             call scan(jmax*kmax, imax, trans_x_backward)
 
-            call TLab_Write_ASCII(lfile, 'Optimizing cache-blocking for complex array forward transposition along Y...')
+            call TLab_Log('Optimizing cache-blocking for complex array forward transposition along Y...')
             call scan((imax + 2), jmax*kmax, trans_cx_forward)
-            call TLab_Write_ASCII(lfile, 'Optimizing cache-blocking for complex array backward transposition along Y...')
+            call TLab_Log('Optimizing cache-blocking for complex array backward transposition along Y...')
             call scan(jmax*kmax, (imax + 2), trans_cx_backward)
 
         end if
 
         if (jmax > 1) then
-            call TLab_Write_ASCII(lfile, 'Optimizing cache-blocking for array forward transposition along Y...')
+            call TLab_Log('Optimizing cache-blocking for array forward transposition along Y...')
             call scan(imax*jmax, kmax, trans_y_forward)
-            call TLab_Write_ASCII(lfile, 'Optimizing cache-blocking for array backward transposition along Y...')
+            call TLab_Log('Optimizing cache-blocking for array backward transposition along Y...')
             call scan(kmax, imax*jmax, trans_y_backward)
 
-            call TLab_Write_ASCII(lfile, 'Optimizing cache-blocking for complex array forward transposition along Y...')
+            call TLab_Log('Optimizing cache-blocking for complex array forward transposition along Y...')
             call scan((imax + 2)*jmax, kmax, trans_cy_forward)
-            call TLab_Write_ASCII(lfile, 'Optimizing cache-blocking for complex array backward transposition along Y...')
+            call TLab_Log('Optimizing cache-blocking for complex array backward transposition along Y...')
             call scan(kmax, (imax + 2)*jmax, trans_cy_backward)
 
         end if
@@ -119,7 +119,7 @@ contains
                     write (str, fmt_r) times(j, k)
                     line = trim(adjustl(line))//' '//trim(adjustl(str))
                 end do
-                call TLab_Write_ASCII(lfile, trim(adjustl(line)))
+                call TLab_Log(trim(adjustl(line)))
                 ! print *, trim(adjustl(line))
             end do
 
@@ -135,7 +135,7 @@ contains
             line = 'Transposition block '//trim(adjustl(str))
             write (str, *) trans_loc%kb
             line = trim(adjustl(line))//'x'//trim(adjustl(str))//'.'
-            call TLab_Write_ASCII(lfile, trim(adjustl(line)))
+            call TLab_Log(trim(adjustl(line)))
             ! print *, trim(adjustl(line))
 
             return

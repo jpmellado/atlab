@@ -6,7 +6,7 @@ module TimeMarching
     use TLab_Memory, only: imax, jmax, kmax, isize_field
     use TLab_Memory, only: inb_flow, inb_scal
     use TLab_Time, only: rtime
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log
 #ifdef USE_MPI
     use mpi_f08
     use TLab_WorkFlow, only: ims_err
@@ -275,13 +275,13 @@ contains
             if (mpiGrid%rank == 0) then
          write (time_string, 999) mpiGrid%num_processors, xMpi%num_processors, zMpi%num_processors, rkm_substep, t_dif/1.0_wp/PROC_CYCLES/mpiGrid%num_processors
 999             format(I5.5, ' (xMpi%num_processors X zMpi%num_processors:', I4.4, 'x', I4.4, 1x, ') RK-Substep', I1, ':', E13.5, 's')
-                call TLab_Write_ASCII(lfile, time_string)
+                call TLab_Log(time_string)
             end if
 #else
             t_dif = idummy
             write (time_string, 999) rkm_substep, t_dif/1.0_wp/PROC_CYCLES/mpiGrid%num_processors
 999         format('RK-Substep', I1, ':', E13.5, 's')
-            call TLab_Write_ASCII(lfile, time_string)
+            call TLab_Log(time_string)
 #endif
 
 #endif

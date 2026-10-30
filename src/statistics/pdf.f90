@@ -1,7 +1,7 @@
 module StatsPDFs
     use TLab_Constants, only: wp, wi
     use TLab_Constants, only: lfile
-    use TLab_WorkFlow, only: TLab_Write_ASCII
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Log
     use TLab_Time, only: itime, rtime
     use PDF_kernels
     use IO_PDFS
@@ -43,7 +43,7 @@ contains
         real(wp) plim, umin_loc, umax_loc
 
         ! ###################################################################
-        call TLab_Write_ASCII(lfile, 'Calculating '//trim(adjustl(fname))//'...')
+        call TLab_Log('Calculating '//trim(adjustl(fname))//'...')
 
         plim = 1.0e-4_wp                    ! relative threshold in PDF analysis; adapt to sample size
 
@@ -99,7 +99,7 @@ contains
         real(wp), pointer :: ranges(:, :, :) => null()
 
         ! ###################################################################
-        call TLab_Write_ASCII(lfile, 'Calculating '//trim(adjustl(fname))//'...')
+        call TLab_Log('Calculating '//trim(adjustl(fname))//'...')
 
         offset = nbins(1)*nbins(2)*(nz + 1)
 

@@ -18,7 +18,7 @@ subroutine AVG_SCAL_XZ(is, q, s, s_local, dsdx, dsdy, dsdz, tmp1, tmp2, tmp3, me
     use TLab_Time, only: itime, rtime
     use TLab_Arrays, only: wrk1d
     use TLab_Pointers_3D, only: p_wrk3d, u, v, w
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log
     use TLab_Grid, only: z
     use OPR_Partial
     use NavierStokes
@@ -275,7 +275,7 @@ subroutine AVG_SCAL_XZ(is, q, s, s_local, dsdx, dsdy, dsdz, tmp1, tmp2, tmp3, me
 
     ! #######################################################################
     write (line1, *) itime; line1 = 'Calculating scal statistics at It'//trim(adjustl(line1))//'...'
-    call TLab_Write_ASCII(lfile, line1)
+    call TLab_Log(line1)
 
     ! #######################################################################
     ! Preliminary data of velocity and density

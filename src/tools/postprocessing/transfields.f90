@@ -6,7 +6,7 @@ program TransFields
     use TLab_Memory, only: imax, jmax, kmax, inb_txc, inb_flow, inb_scal
     use TLab_Time, only: itime, rtime
     use TLab_Arrays
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Start, flow_on, scal_on
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log, TLab_Start, flow_on, scal_on
     use TLab_Memory, only: TLab_Initialize_Memory
 #ifdef USE_MPI
     use TLabMPI_Grid, only: yMpi
@@ -78,7 +78,7 @@ program TransFields
 
         write (time_str, *) itime
 
-        call TLab_Write_ASCII(lfile, 'Processing iteration It'//trim(adjustl(time_str)))
+        call TLab_Log('Processing iteration It'//trim(adjustl(time_str)))
 
         select case (trim(adjustl(opt_name(opt_vec(iv)))))
         case ('Swap Y-Z coordinates')

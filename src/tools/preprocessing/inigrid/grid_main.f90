@@ -5,7 +5,7 @@
 
 program INIGRID
     use TLab_Constants, only: wp, ifile, lfile, efile
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Start
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log, TLab_Start
     use TLab_Arrays, only: wrk1d, wrk2d
     use TLab_Grid, only: gfile, axis_dt, TLab_Grid_Write
     use GRID_LOCAL
@@ -149,7 +149,7 @@ program INIGRID
         ! #######################################################################
         ! Writing data
         ! #######################################################################
-        call TLab_Write_ASCII(lfile, 'Writing grid.')
+        call TLab_Log('Writing grid.')
         call TLab_Grid_Write(gfile, g(1), g(2), g(3))
 
 #ifdef USE_MPI

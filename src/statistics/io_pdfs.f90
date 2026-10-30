@@ -6,7 +6,7 @@
 module IO_PDFS
     use TLab_Constants, only: wp, sp, wi
     use TLab_Constants, only: lfile
-    use TLab_WorkFlow, only: TLab_Write_ASCII
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Log
 #ifdef USE_NETCDF
     use NETCDF
 #else
@@ -49,7 +49,7 @@ contains
 #endif
 
         ! ###################################################################
-        call TLab_Write_ASCII(lfile, 'Writing '//trim(adjustl(fname))//'...')
+        call TLab_Log('Writing '//trim(adjustl(fname))//'...')
 
 #ifdef USE_MPI
         if (locRank == 0) then
@@ -111,7 +111,7 @@ contains
             do iv = 1, nv
                 name = trim(adjustl(fname))
                 if (varnames(iv) /= '') name = trim(adjustl(fname))//'.'//trim(adjustl(varnames(iv)))
-                call TLab_Write_ASCII(lfile, 'Writing field '//trim(adjustl(name))//'...')
+                call TLab_Log('Writing field '//trim(adjustl(name))//'...')
                 call IO_Open_File(name, LOC_STATUS, LOC_UNIT_ID)
                 if (nz > 1) then
                     write (LOC_UNIT_ID) real(rtime, sp), nz, nbins, real(z(:), sp), real(pdf(:, :, iv), sp)
@@ -155,7 +155,7 @@ contains
 #endif
 
         ! ###################################################################
-        call TLab_Write_ASCII(lfile, 'Writing '//trim(adjustl(fname))//'...')
+        call TLab_Log('Writing '//trim(adjustl(fname))//'...')
 
 #ifdef USE_MPI
         if (locRank == 0) then
@@ -175,7 +175,7 @@ contains
 
 #define LOC_UNIT_ID 21
 #define LOC_STATUS 'unknown'
-            call TLab_Write_ASCII(lfile, 'Writing field '//trim(adjustl(fname))//'...')
+            call TLab_Log('Writing field '//trim(adjustl(fname))//'...')
             call IO_Open_File(fname, LOC_STATUS, LOC_UNIT_ID)
             ! if (nz > 1) then
                 write (LOC_UNIT_ID) real(time, sp), nz, nbins, real(z(:), sp), real(pdf(:, :), sp)

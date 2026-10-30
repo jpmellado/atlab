@@ -1,7 +1,7 @@
 subroutine OPR_Check()
     use TLab_Constants, only: lfile, wp, wi, fmt_r
     use TLab_Memory, only: isize_field, isize_txc_field, inb_flow_array, inb_txc
-    use TLab_WorkFlow, only: TLab_Write_ASCII
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Log
     use TLab_Arrays
     use, intrinsic :: iso_c_binding, only: c_f_pointer, c_loc
 #ifdef USE_MPI
@@ -56,7 +56,7 @@ subroutine OPR_Check()
         write (line, fmt_r) residual
         line = 'Checking MPI-x transposition. Residual ' &
                //trim(adjustl(line))//'. Max. elapsed time '//trim(adjustl(str))//' sec.'
-        call TLab_Write_ASCII(lfile, line)
+        call TLab_Log(line)
 
     end if
 
@@ -78,7 +78,7 @@ subroutine OPR_Check()
         write (line, fmt_r) residual
         line = 'Checking MPI-y transposition. Residual ' &
                //trim(adjustl(line))//'. Max. elapsed time '//trim(adjustl(str))//' sec.'
-        call TLab_Write_ASCII(lfile, line)
+        call TLab_Log(line)
 
     end if
 #endif
@@ -120,7 +120,7 @@ subroutine OPR_Check()
     write (line, fmt_r) residual
     line = 'Checking FFT routines. Residual ' &
            //trim(adjustl(line))//'. Max. elapsed time '//trim(adjustl(str))//' sec.'
-    call TLab_Write_ASCII(lfile, line)
+    call TLab_Log(line)
 
     return
 end subroutine OPR_Check

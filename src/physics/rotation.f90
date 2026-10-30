@@ -3,7 +3,7 @@
 module Rotation
     use TLab_Constants, only: wp, wi, pi_wp, big_wp
     use TLab_Constants, only: efile, lfile, MAX_VARS, MAX_PARS
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log
     implicit none
     private
 
@@ -75,9 +75,9 @@ contains
         end if
 
         ! coriolisProps%active = .false.
-        ! if (abs(coriolisProps%vector(1)) > 0.0_wp) then; coriolisProps%active(2) = .true.; coriolisProps%active(3) = .true.; call TLab_Write_ASCII(lfile, 'Angular velocity along Ox.'); end if
-        ! if (abs(coriolisProps%vector(2)) > 0.0_wp) then; coriolisProps%active(3) = .true.; coriolisProps%active(1) = .true.; call TLab_Write_ASCII(lfile, 'Angular velocity along Oy.'); end if
-        ! if (abs(coriolisProps%vector(3)) > 0.0_wp) then; coriolisProps%active(1) = .true.; coriolisProps%active(2) = .true.; call TLab_Write_ASCII(lfile, 'Angular velocity along Oz.'); end if
+        ! if (abs(coriolisProps%vector(1)) > 0.0_wp) then; coriolisProps%active(2) = .true.; coriolisProps%active(3) = .true.; call TLab_Log('Angular velocity along Ox.'); end if
+        ! if (abs(coriolisProps%vector(2)) > 0.0_wp) then; coriolisProps%active(3) = .true.; coriolisProps%active(1) = .true.; call TLab_Log('Angular velocity along Oy.'); end if
+        ! if (abs(coriolisProps%vector(3)) > 0.0_wp) then; coriolisProps%active(1) = .true.; coriolisProps%active(2) = .true.; call TLab_Log('Angular velocity along Oz.'); end if
 
         if (rossby > 0.0_wp) then
             coriolisProps%vector(:) = coriolisProps%vector(:)/rossby ! adding the rossby number into the vector

@@ -7,7 +7,7 @@ module TLabMPI_Transpose_Elementary
     use mpi_f08
     use TLab_Constants, only: wp, dp, wi
     use TLab_Constants, only: lfile, efile
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log
     use TLab_WorkFlow, only: TLAB_MPI_REAL_TYPE
     implicit none
     private
@@ -95,7 +95,7 @@ contains
         self%comm = axis%comm
 
         if (present(message)) &
-            call TLab_Write_ASCII(lfile, 'Creating derived MPI types for '//trim(adjustl(message)))
+            call TLab_Log('Creating derived MPI types for '//trim(adjustl(message)))
 
         if (mod(npage, axis%num_processors) == 0) then
             self%nlines = npage/axis%num_processors

@@ -3,7 +3,7 @@
 module SpecialForcing
     use TLab_Constants, only: wp, wi, pi_wp, tag_scal
     use TLab_Constants, only: efile, lfile, MAX_VARS, MAX_PARS
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log
     use TLab_Memory, only: TLab_Allocate_Real
     use TLab_Grid, only: x, y, z
     use Tlab_Background, only: qbg, sbg
@@ -97,9 +97,9 @@ contains
             idummy = 3
             call LIST_REAL(sRes, idummy, forcingProps%vector)
 
-            if (abs(forcingProps%vector(1)) > 0.0_wp) then; forcingProps%active(1) = .true.; call TLab_Write_ASCII(lfile, 'Forcing along Ox.'); end if
-            if (abs(forcingProps%vector(2)) > 0.0_wp) then; forcingProps%active(2) = .true.; call TLab_Write_ASCII(lfile, 'Forcing along Oy.'); end if
-            if (abs(forcingProps%vector(3)) > 0.0_wp) then; forcingProps%active(3) = .true.; call TLab_Write_ASCII(lfile, 'Forcing along Oz.'); end if
+            if (abs(forcingProps%vector(1)) > 0.0_wp) then; forcingProps%active(1) = .true.; call TLab_Log('Forcing along Ox.'); end if
+            if (abs(forcingProps%vector(2)) > 0.0_wp) then; forcingProps%active(2) = .true.; call TLab_Log('Forcing along Oy.'); end if
+            if (abs(forcingProps%vector(3)) > 0.0_wp) then; forcingProps%active(3) = .true.; call TLab_Log('Forcing along Oz.'); end if
 
             forcingProps%parameters(:) = 0.0_wp
             call ScanFile_Char(bakfile, inifile, block, 'Parameters', '1.0, 1.0, 0.0', sRes)
@@ -160,7 +160,7 @@ contains
             ! Add a random perturbation to the envelope in order to support turbulence onset
             call ScanFile_Char(bakfile, inifile, block, 'EnvelopePerturbation', 'yes', sRes)
             if (trim(adjustl(sRes)) == 'yes') then
-                call TLab_Write_ASCII(lfile, 'Applying envelope perturbation.')
+                call TLab_Log('Applying envelope perturbation.')
                 call IO_Read_Fields(trim(adjustl(tag_scal))//'rand', imax, jmax, kmax, itime, 1, 1, tmp_envelope, params)
             end if
         end select

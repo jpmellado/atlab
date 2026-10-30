@@ -65,7 +65,7 @@ contains
 
         write (line, *) num_processors
         line = 'Number of MPI tasks '//trim(adjustl(line))
-        call TLab_Write_ASCII(lfile, line)
+        call TLab_Log(line)
 
         if (num_processors == 0) then
             call TLab_Write_ASCII(efile, __FILE__//'. Number of processors is zero.')
@@ -97,13 +97,13 @@ contains
         ! First output
         call date_and_time(clock(1), clock(2))
         line = 'Starting on '//trim(adjustl(clock(1) (1:8)))//' at '//trim(adjustl(clock(2)))
-        call TLab_Write_ASCII(lfile, line)
+        call TLab_Log(line)
 
         line = 'Git-hash '//GITHASH
-        call TLab_Write_ASCII(lfile, line)
+        call TLab_Log(line)
 
         line = 'Git-branch '//GITBRANCH
-        call TLab_Write_ASCII(lfile, line)
+        call TLab_Log(line)
 
         return
     end subroutine TLab_Start
@@ -129,23 +129,23 @@ contains
         else
             line = trim(adjustl(line))//' abnormally. Check '//trim(adjustl(efile))
         end if
-        call TLab_Write_ASCII(lfile, line)
+        call TLab_Log(line)
 
         !#####################################################################
         runtime = TLab_Runtime()
         write (line, fmt_r) runtime
         line = 'Time elapse ....................: '//trim(adjustl(line))
-        call TLab_Write_ASCII(lfile, line)
+        call TLab_Log(line)
 
 #ifdef USE_MPI
 #ifdef PROFILE_ON
         write (line, fmt_r) runtime_mpi
         line = 'Time in mpi transposition ......: '//trim(ADJUST(line))
-        call TLab_Write_ASCII(lfile, line)
+        call TLab_Log(line)
 #endif
 #endif
         !#####################################################################
-        call TLab_Write_ASCII(lfile, '########################################')
+        call TLab_Log('########################################')
 
 #ifdef USE_MPI
         if (error_code == 0) then

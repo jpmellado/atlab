@@ -8,7 +8,7 @@ module Gravity
     use TLab_Constants, only: wp, wi, small_wp, big_wp
     use TLab_Constants, only: efile, lfile, wfile, MAX_PROF, MAX_VARS, MAX_PARS
     use TLab_Memory, only: inb_scal, inb_scal_array, inb_flow, inb_flow_array
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log
     implicit none
     private
 
@@ -85,9 +85,9 @@ contains
         call LIST_REAL(sRes, idummy, gravityProps%vector)
 
         gravityProps%active = .false.
-        if (abs(gravityProps%vector(1)) > 0.0_wp) then; gravityProps%active(1) = .true.; call TLab_Write_ASCII(lfile, 'Gravity along Ox.'); end if
-        if (abs(gravityProps%vector(2)) > 0.0_wp) then; gravityProps%active(2) = .true.; call TLab_Write_ASCII(lfile, 'Gravity along Oy.'); end if
-        if (abs(gravityProps%vector(3)) > 0.0_wp) then; gravityProps%active(3) = .true.; call TLab_Write_ASCII(lfile, 'Gravity along Oz.'); end if
+        if (abs(gravityProps%vector(1)) > 0.0_wp) then; gravityProps%active(1) = .true.; call TLab_Log('Gravity along Ox.'); end if
+        if (abs(gravityProps%vector(2)) > 0.0_wp) then; gravityProps%active(2) = .true.; call TLab_Log('Gravity along Oy.'); end if
+        if (abs(gravityProps%vector(3)) > 0.0_wp) then; gravityProps%active(3) = .true.; call TLab_Log('Gravity along Oz.'); end if
 
         if (froude > 0.0_wp) then   ! adding the froude number into the vector g
             gravityProps%vector(:) = gravityProps%vector(:)/froude

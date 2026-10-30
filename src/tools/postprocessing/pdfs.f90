@@ -7,7 +7,7 @@ program PDFS
     use TLab_Time, only: itime, rtime
     use TLab_Memory, only: imax, jmax, kmax, inb_scal_array, inb_txc, inb_flow, inb_scal, isize_field, inb_wrk2d
     use TLab_Arrays
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Start
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log, TLab_Start
     use TLab_Memory, only: TLab_Initialize_Memory
 #ifdef USE_MPI
     use TLabMPI_Grid, only: TLabMPI_Grid_Initialize
@@ -152,7 +152,7 @@ program PDFS
 
         write (time_str, *) itime
 
-        call TLab_Write_ASCII(lfile, 'Processing iteration It'//trim(adjustl(time_str)))
+        call TLab_Log('Processing iteration It'//trim(adjustl(time_str)))
 
         if (iread_scal) then
             write (fname, *) itime; fname = trim(adjustl(tag_scal))//trim(adjustl(fname))
@@ -182,7 +182,7 @@ program PDFS
         !         opt_cond_scal = inb_scal_array
         !     end if
 
-        !     call TLab_Write_ASCII(lfile, 'Calculating partition...')
+        !     call TLab_Log('Calculating partition...')
         !     call FI_GATE(opt_cond, opt_cond_relative, opt_cond_scal, &
         !                  imax, jmax, kmax, igate_size, gate_threshold, q, s, txc, gate)
 
@@ -358,7 +358,7 @@ program PDFS
             ! ###################################################################
         case ('Joint enstrophy and strain')
             write (fname, *) itime; fname = 'pdf.'//trim(adjustl(fname))
-            ! call TLab_Write_ASCII(lfile, 'Computing enstrophy-strain pdf...')
+            ! call TLab_Log('Computing enstrophy-strain pdf...')
 
             call FI_VORTICITY(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), txc(1, 1), txc(1, 2), txc(1, 3))
             call FI_STRAIN(imax, jmax, kmax, q(1, 1), q(1, 2), q(1, 3), txc(1, 2), txc(1, 3), txc(1, 4))

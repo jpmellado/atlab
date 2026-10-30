@@ -4,7 +4,7 @@ module DNS_Control
     use TLab_Constants, only: MAX_VARS, wp, wi, sp, big_wp
     use TLab_Constants, only: efile, lfile
     use TLab_Memory, only: inb_flow, inb_scal
-    use TLab_WorkFlow, only: scal_on, flow_on, TLab_Stop, TLab_Write_ASCII
+    use TLab_WorkFlow, only: scal_on, flow_on, TLab_Stop, TLab_Log, TLab_Write_ASCII
     use TLab_Time
     use NavierStokes
     implicit none

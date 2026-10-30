@@ -7,7 +7,7 @@
 !########################################################################
 subroutine IO_WRITE_AVERAGES(fname, itime, rtime, nz, nv, ng, z, varnames, groupnames, avg)
     use TLab_Constants, only: lfile, efile, wp, wi
-    use TLab_WorkFlow, only: TLab_Write_ASCII
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Log
 #ifdef USE_MPI
     use mpi_f08, only: MPI_COMM_WORLD, MPI_COMM_RANK
 #endif
@@ -42,7 +42,7 @@ subroutine IO_WRITE_AVERAGES(fname, itime, rtime, nz, nv, ng, z, varnames, group
 #endif
 
     ! ###################################################################
-    call TLab_Write_ASCII(lfile, 'Writing '//trim(adjustl(fname))//'...')
+    call TLab_Log('Writing '//trim(adjustl(fname))//'...')
 
 #ifdef USE_MPI
     if (locRank == 0) then

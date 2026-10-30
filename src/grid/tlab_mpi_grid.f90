@@ -5,7 +5,7 @@ module TLabMPI_Grid
     use TLab_Constants, only: wp, wi
     use TLab_Constants, only: lfile, efile
     use TLab_WorkFlow, only: num_processors, rank
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log
     implicit none
     private
 
@@ -66,14 +66,14 @@ contains
             line = trim(adjustl(line))//' '//trim(adjustl(lstr))
             write (lstr, *) yMpi%num_processors
             line = trim(adjustl(line))//'x'//trim(adjustl(lstr))
-            call TLab_Write_ASCII(lfile, trim(adjustl(line)))
+            call TLab_Log(trim(adjustl(line)))
         else
             call TLab_Write_ASCII(efile, __FILE__//'. Inconsistency in total number of PEs')
             call TLab_Stop(DNS_ERROR_DIMGRID)
         end if
 
         ! #######################################################################
-        call TLab_Write_ASCII(lfile, 'Creating MPI communicators.')
+        call TLab_Log('Creating MPI communicators.')
 
         ! the first index in the grid corresponds to j, the second to i
         ! we tried transposing the mpi axes, but similar time

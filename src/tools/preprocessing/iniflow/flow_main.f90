@@ -1,7 +1,7 @@
 program IniFlow
     use TLab_Constants, only: wp, wi
     use TLab_Constants, only: ifile, lfile, tag_flow
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Start
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log, TLab_Start
     use TLab_Time, only: itime, rtime
     use TLab_Arrays
     use TLab_Memory, only: imax, jmax, kmax, inb_flow, isize_field
@@ -68,7 +68,7 @@ program IniFlow
     itime = 0; rtime = 0.0_wp
 
     ! ###################################################################
-    call TLab_Write_ASCII(lfile, 'Initializing velocity fields.')
+    call TLab_Log('Initializing velocity fields.')
 
     ! Mean
     do iq = 1, 3
@@ -92,7 +92,7 @@ program IniFlow
     ! ###################################################################
     ! Compressible formulation
     ! if (nse_eqns == DNS_EQNS_COMPRESSIBLE) then
-    !     call TLab_Write_ASCII(lfile, 'Initializing pressure and density.')
+    !     call TLab_Log('Initializing pressure and density.')
 
     !     call PRESSURE_MEAN(p, T, s)
     !     call DENSITY_MEAN(rho, p, T, s, txc)

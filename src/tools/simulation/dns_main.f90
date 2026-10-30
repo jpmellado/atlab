@@ -2,7 +2,7 @@
 
 program DNS
     use TLab_Constants, only: ifile, efile, wfile, lfile, tag_flow, tag_scal
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Start, TLab_Runtime
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log, TLab_Start, TLab_Runtime
     use TLab_WorkFlow, only: scal_on, flow_on
     use TLab_Time, only: itime, rtime
     use TLab_Arrays
@@ -117,7 +117,7 @@ program DNS
     flag_viscosity = .false.
     if (visc /= visc_stop) then
         write (str, *) visc
-        call TLab_Write_ASCII(lfile, 'Changing original viscosity '//trim(adjustl(str))//' to new value.')
+        call TLab_Log('Changing original viscosity '//trim(adjustl(str))//' to new value.')
         if (visc_time > 0.0_wp) then
             visc_rate = (visc_stop - visc)/visc_time
             visc_time = rtime + visc_time               ! Stop when this time is reached
@@ -150,7 +150,7 @@ program DNS
     itime = nitera_first
 
     write (str, *) itime
-    call TLab_Write_ASCII(lfile, 'Starting time integration at It'//trim(adjustl(str))//'.')
+    call TLab_Log('Starting time integration at It'//trim(adjustl(str))//'.')
 
     do
         if (itime >= nitera_last) exit

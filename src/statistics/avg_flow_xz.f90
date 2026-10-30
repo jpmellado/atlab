@@ -20,7 +20,7 @@ subroutine AVG_FLOW_XZ(q, s, dudx, dvdx, dvdy, dvdz, dwdx, dwdy, dwdz, mean2d)
 #endif
     use TLab_Time, only: itime, rtime
     use TLab_Memory, only: imax, jmax, kmax, inb_flow_array, inb_scal_array
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log
     use TLab_Arrays, only: wrk1d
     use TLab_Pointers_3D, only: u, v, w, p_wrk3d
     use Thermo_Compressible, only: rho, vis
@@ -395,7 +395,7 @@ subroutine AVG_FLOW_XZ(q, s, dudx, dvdx, dvdy, dvdz, dwdx, dwdy, dwdz, mean2d)
 
     ! #######################################################################
     write (line1, *) itime; line1 = 'Calculating flow statistics at It'//trim(adjustl(line1))//'...'
-    call TLab_Write_ASCII(lfile, line1)
+    call TLab_Log(line1)
 
     ! ###################################################################
     ! Averages (do not overwrite dudx; it contains p for incompressible case)

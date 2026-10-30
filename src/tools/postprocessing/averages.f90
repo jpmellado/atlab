@@ -6,7 +6,7 @@ program AVERAGES
     use TLab_Memory, only: imax, jmax, kmax, inb_scal_array, inb_txc, isize_wrk3d, inb_flow, inb_scal, isize_field
     use TLab_Time, only: itime, rtime
     use TLab_Arrays
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Start, flow_on, scal_on
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log, TLab_Start, flow_on, scal_on
     use TLab_Memory, only: TLab_Initialize_Memory
     use TLab_Pointers, only: pointers_dt, u, v, w
 #ifdef USE_MPI
@@ -149,7 +149,7 @@ program AVERAGES
 
         write (time_str, *) itime
 
-        call TLab_Write_ASCII(lfile, 'Processing iteration It'//trim(adjustl(time_str)))
+        call TLab_Log('Processing iteration It'//trim(adjustl(time_str)))
 
         if (iread_scal) then
             fname = trim(adjustl(tag_scal))//trim(adjustl(time_str))
@@ -181,7 +181,7 @@ program AVERAGES
         !         opt_cond_scal = inb_scal_array
         !     end if
 
-        !     call TLab_Write_ASCII(lfile, 'Calculating partition...')
+        !     call TLab_Log('Calculating partition...')
         !     call FI_GATE(opt_cond, opt_cond_relative, opt_cond_scal, &
         !                  imax, jmax, kmax, igate_size, gate_threshold, q, s, txc, gate)
 
@@ -225,7 +225,7 @@ program AVERAGES
         case ('Intermittency or gate function')
             fname = 'int'
             ! write (fname, *) itime; fname = 'int'//trim(adjustl(fname))
-            ! call TLab_Write_ASCII(lfile, 'Computing '//trim(adjustl(fname))//'...')
+            ! call TLab_Log('Computing '//trim(adjustl(fname))//'...')
 
             ! do is = 1, igate_size
             !     write (varname(is), *) is; varname(is) = 'Partition'//trim(adjustl(varname(is)))
@@ -404,7 +404,7 @@ program AVERAGES
         case ('Momentum equation')    ! To be checked
             fname = 'avgMom'
             ! write (fname, *) itime; fname = 'avgMom'//trim(adjustl(fname))
-            ! call TLab_Write_ASCII(lfile, 'Computing '//trim(adjustl(fname))//'...')
+            ! call TLab_Log('Computing '//trim(adjustl(fname))//'...')
 
             ifield = ifield + 1; vars(ifield)%field => q(:, 1); vars(ifield)%tag = 'U'
             ifield = ifield + 1; vars(ifield)%field => q(:, 2); vars(ifield)%tag = 'V'
@@ -445,7 +445,7 @@ program AVERAGES
         case ('Vertical fluxes')
             fname = 'avgFluxZ'
             ! write (fname, *) itime; fname = 'avgFluxZ'//trim(adjustl(fname))
-            ! call TLab_Write_ASCII(lfile, 'Computing '//trim(adjustl(fname))//'...')
+            ! call TLab_Log('Computing '//trim(adjustl(fname))//'...')
 
             call OPR_Partial_Z(OPR_P1, imax, jmax, kmax, u, txc(:, 1))
             call OPR_Partial_X(OPR_P1, imax, jmax, kmax, v, txc(:, 2))

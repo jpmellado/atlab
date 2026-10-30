@@ -14,7 +14,7 @@ module IO_Fields
     use TLab_Constants, only: wp, wi, sp, dp, sizeofint, sizeofreal
     use TLab_Constants, only: lfile, wfile, efile
     use TLab_Constants, only: MAX_PARS, MAX_VARS
-    use TLab_WorkFlow, only: TLab_Stop, TLab_Write_ASCII, TLab_Warning
+    use TLab_WorkFlow, only: TLab_Stop, TLab_Write_ASCII, TLab_Warning, TLab_Log
     use TLab_Arrays, only: wrk3d
     use, intrinsic :: iso_c_binding, only: c_f_pointer, c_loc
 #ifdef USE_MPI
@@ -359,7 +359,7 @@ contains
             do iv = 1, sizes(5)
                 name = trim(adjustl(fname))
                 if (varname(iv) /= '') name = trim(adjustl(fname))//'.'//trim(adjustl(varname(iv)))
-                call TLab_Write_ASCII(lfile, trim(adjustl(line))//' '//trim(adjustl(name))//'...')
+                call TLab_Log(trim(adjustl(line))//' '//trim(adjustl(name))//'...')
 
                 if (locSubarrayPlan%precision == IO_TYPE_SINGLE) then
                     call locSubarrayPlan%read(s_wrk(:))
@@ -517,7 +517,7 @@ contains
             do iv = 1, sizes(5)
                 name = trim(adjustl(fname))
                 if (varname(iv) /= '') name = trim(adjustl(fname))//'.'//trim(adjustl(varname(iv)))
-                call TLab_Write_ASCII(lfile, trim(adjustl(line))//' '//trim(adjustl(name))//'...')
+                call TLab_Log(trim(adjustl(line))//' '//trim(adjustl(name))//'...')
 
                 if (locSubarrayPlan%precision == IO_TYPE_SINGLE) then
                     s_wrk(1:isize) = real(data(sizes(2):sizes(3):sizes(4), iv), sp)
@@ -564,7 +564,7 @@ contains
         write (str, *) nx_total; line = trim(adjustl(line))//' '//trim(adjustl(str))
         write (str, *) ny_total; line = trim(adjustl(line))//'x'//trim(adjustl(str))
         write (str, *) nz_total; line = trim(adjustl(line))//'x'//trim(adjustl(str))//'...'
-        call TLab_Write_ASCII(lfile, line)
+        call TLab_Log(line)
 
         return
     end subroutine
@@ -901,7 +901,7 @@ contains
         call TLab_Stop(DNS_ERROR_UNDEVELOP)
 #endif
 
-        call TLab_Write_ASCII(lfile, 'Writing '//trim(adjustl(fname))//'...')
+        call TLab_Log('Writing '//trim(adjustl(fname))//'...')
 
         call NC_CHECK(NF90_CREATE(trim(adjustl(fname))//'.nc', NF90_NETCDF4, fid))
 

@@ -14,7 +14,7 @@
 module Thermodynamics
     use TLab_Constants, only: wi, wp
     use TLab_Constants, only: efile, lfile, fmt_r
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log
     use Thermo_Base
     use Thermo_AirWater
     use Thermo_Anelastic
@@ -149,29 +149,29 @@ contains
         ! ###################################################################
         if (imixture /= MIXT_TYPE_NONE) then
 
-            call TLab_Write_ASCII(lfile, 'Thermodynamic properties have been initialized.')
+            call TLab_Log('Thermodynamic properties have been initialized.')
             do is = 1, NSP
                 write (str, *) is; str = 'Setting Species'//trim(adjustl(str))//'='//trim(adjustl(THERMO_SPNAME(is)))
-                call TLab_Write_ASCII(lfile, str)
+                call TLab_Log(str)
             end do
 
             write (str, fmt_r) TREF
-            call TLab_Write_ASCII(lfile, 'Setting TRef = '//trim(adjustl(str)))
+            call TLab_Log('Setting TRef = '//trim(adjustl(str)))
 
             write (str, fmt_r) PREF
-            call TLab_Write_ASCII(lfile, 'Setting pRef = '//trim(adjustl(str)))
+            call TLab_Log('Setting pRef = '//trim(adjustl(str)))
 
             write (str, fmt_r) PREF/(RREF*TREF)
-            call TLab_Write_ASCII(lfile, 'Setting rhoRef = '//trim(adjustl(str)))
+            call TLab_Log('Setting rhoRef = '//trim(adjustl(str)))
 
             write (str, fmt_r) RREF
-            call TLab_Write_ASCII(lfile, 'Setting RRef = '//trim(adjustl(str)))
+            call TLab_Log('Setting RRef = '//trim(adjustl(str)))
 
             write (str, fmt_r) CPREF
-            call TLab_Write_ASCII(lfile, 'Setting CpRef = '//trim(adjustl(str)))
+            call TLab_Log('Setting CpRef = '//trim(adjustl(str)))
 
             write (str, fmt_r) gamma0
-            call TLab_Write_ASCII(lfile, 'Setting Gamma0 = '//trim(adjustl(str)))
+            call TLab_Log('Setting Gamma0 = '//trim(adjustl(str)))
 
         end if
 

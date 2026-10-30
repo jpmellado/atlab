@@ -6,7 +6,7 @@ module TLabMPI_Transpose_DerivedTypes
     use mpi_f08
     use TLab_Constants, only: wp, dp, sp, wi, sizeofreal
     use TLab_Constants, only: lfile, efile
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, runtime_mpi
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log, runtime_mpi
     implicit none
     private
 
@@ -161,13 +161,13 @@ contains
         if (xMpi%num_processors > trp_sizBlock_i) then
             write (line, *) trp_sizBlock_i
             line = 'Using blocking of '//trim(adjustl(line))//' in tmpi_transpose_x'
-            call TLab_Write_ASCII(lfile, line)
+            call TLab_Log(line)
         end if
 
         if (yMpi%num_processors > trp_sizBlock_j) then
             write (line, *) trp_sizBlock_j
             line = 'Using blocking of '//trim(adjustl(line))//' in tmpi_transpose_y'
-            call TLab_Write_ASCII(lfile, line)
+            call TLab_Log(line)
         end if
 
         allocate (status(2*max(trp_sizBlock_i, trp_sizBlock_j, xMpi%num_processors, yMpi%num_processors)))
@@ -222,7 +222,7 @@ contains
         self%comm = xMpi%comm
 
         if (present(message)) &
-            call TLab_Write_ASCII(lfile, 'Creating derived MPI types for '//trim(adjustl(message)))
+            call TLab_Log('Creating derived MPI types for '//trim(adjustl(message)))
 
         if (mod(npage, xMpi%num_processors) == 0) then
             self%nlines = npage/xMpi%num_processors
@@ -305,7 +305,7 @@ contains
         self%comm = yMpi%comm
 
         if (present(message)) &
-            call TLab_Write_ASCII(lfile, 'Creating derived MPI types for '//trim(adjustl(message)))
+            call TLab_Log('Creating derived MPI types for '//trim(adjustl(message)))
 
         if (mod(npage, yMpi%num_processors) == 0) then
             self%nlines = npage/yMpi%num_processors

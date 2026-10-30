@@ -3,7 +3,7 @@
 ! Everything has been read from input file.
 ! Check for cross dependencies and undeveloped options.
 subroutine TLab_Consistency_Check()
-    use TLab_Constants, only: wi, wp, efile, MAX_VARS
+    use TLab_Constants, only: wi, wp, MAX_VARS
     use TLab_Memory, only: inb_flow, inb_scal
     use TLab_Memory, only: imax, jmax, kmax
 #ifdef USE_MPI

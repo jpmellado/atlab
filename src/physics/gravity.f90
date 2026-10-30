@@ -6,7 +6,7 @@
 
 module Gravity
     use TLab_Constants, only: wp, wi, small_wp, big_wp
-    use TLab_Constants, only: efile, MAX_PROF, MAX_VARS, MAX_PARS
+    use TLab_Constants, only: MAX_PROF, MAX_VARS, MAX_PARS
     use TLab_Memory, only: inb_scal, inb_scal_array, inb_flow, inb_flow_array
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log, TLab_Error
     implicit none

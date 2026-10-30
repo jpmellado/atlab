@@ -1,8 +1,7 @@
 #include "tlab_error.h"
 
 module DNS_Control
-    use TLab_Constants, only: MAX_VARS, wp, wi, sp, big_wp
-    use TLab_Constants, only: efile, lfile
+    use TLab_Constants, only: wp, wi, sp, big_wp, MAX_VARS
     use TLab_Memory, only: inb_flow, inb_scal
     use TLab_WorkFlow, only: scal_on, flow_on, TLab_Stop, TLab_Log, TLab_Error, TLab_Write_ASCII
     use TLab_Time
@@ -202,7 +201,7 @@ contains
     !########################################################################
     !########################################################################
     subroutine DNS_Control_Bounds()
-        use TLab_Constants, only: efile, lfile, fmt_r
+        use TLab_Constants, only: lfile, fmt_r
         use TLab_Grid, only: xSubgrid, ySubgrid
         use NavierStokes, only: nse_eqns, DNS_EQNS_COMPRESSIBLE, DNS_EQNS_ANELASTIC, DNS_EQNS_BOUSSINESQ
         use TLab_Memory, only: imax, jmax, kmax

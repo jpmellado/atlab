@@ -25,7 +25,6 @@ contains
     ! ###################################################################
     ! ###################################################################
     subroutine der_burgers_periodic_initialize(self, fdm_der1, fdm_der2)
-        use TLab_Constants, only: efile
         use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Error
         use Matmul_Halo_Thomas, only: MatMul_Halo_5_antisym_7_sym_ThomasL_3
         class(der_burgers), intent(out) :: self

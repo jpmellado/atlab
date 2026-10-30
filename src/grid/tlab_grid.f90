@@ -2,7 +2,6 @@
 
 module TLab_Grid
     use TLab_Constants, only: wp, wi
-    use TLab_Constants, only: efile
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Error
     implicit none
     private

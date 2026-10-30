@@ -13,7 +13,7 @@
 
 module Thermodynamics
     use TLab_Constants, only: wi, wp
-    use TLab_Constants, only: efile, fmt_r
+    use TLab_Constants, only: fmt_r
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log, TLab_Error
     use Thermo_Base
     use Thermo_AirWater

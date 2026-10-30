@@ -5,7 +5,6 @@
 module TLabMPI_Transpose_DerivedTypes
     use mpi_f08
     use TLab_Constants, only: wp, dp, sp, wi, sizeofreal
-    use TLab_Constants, only: efile
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log, TLab_Error, runtime_mpi
     implicit none
     private

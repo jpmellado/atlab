@@ -244,6 +244,7 @@ contains
     ! ###################################################################
 #ifdef USE_MPI
     subroutine TLabMPI_Panic(location, mpi_error_code)
+        use TLab_Constants, only: efile
         character(len=*), intent(in) :: location
         integer, intent(in) :: mpi_error_code
 
@@ -252,8 +253,8 @@ contains
 
         !##############################
         call MPI_Error_String(mpi_error_code, error_string, error_len, error_local)
-        call TLab_Error('MPI-ERROR: Source file'//trim(adjustl(LOCATION)), .true.)
-        call TLab_Error(error_string, .true.)
+        call TLab_Write_ASCII(efile, 'MPI-ERROR: Source file'//trim(adjustl(LOCATION)), .true.)
+        call TLab_Write_ASCII(efile, error_string, .true.)
 
         call TLab_Stop(mpi_error_code)
         ! Not supposed to return from this subroutine

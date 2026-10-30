@@ -2,7 +2,7 @@
 
 ! Definining functions f=f(x) to be used in bcs, ics, and reference background profiles
 module Profiles
-    use TLab_Constants, only: wp, i4, pi_wp, efile, MAX_PARS
+    use TLab_Constants, only: wp, i4, pi_wp, MAX_PARS
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Error
     implicit none
     private

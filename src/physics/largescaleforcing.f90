@@ -1,7 +1,7 @@
 #include "tlab_error.h"
 
 module LargeScaleForcing
-    use TLab_Constants, only: wp, wi, efile, MAX_PROF, MAX_VARS, MAX_PARS
+    use TLab_Constants, only: wp, wi, MAX_PROF, MAX_VARS, MAX_PARS
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Error
     use TLab_Grid, only: z
     implicit none

@@ -2,7 +2,6 @@
 
 module RAND_LOCAL
     use TLab_Constants, only: wp, wi, big_wp
-    use TLab_Constants, only: efile
     use TLab_Memory, only: imax, jmax, kmax, isize_field, isize_txc_field, inb_txc
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Error
 #ifdef USE_MPI

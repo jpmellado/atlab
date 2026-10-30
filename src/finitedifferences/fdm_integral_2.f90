@@ -25,7 +25,7 @@
 !########################################################################
 
 module FDM_Integral_2
-    use TLab_Constants, only: wp, wi, efile
+    use TLab_Constants, only: wp, wi
     use TLab_Constants, only: BCS_DD, BCS_ND, BCS_DN, BCS_NN, BCS_MIN, BCS_MAX, BCS_BOTH
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Error
     use Thomas

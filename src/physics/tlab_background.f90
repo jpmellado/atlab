@@ -3,7 +3,7 @@
 ! information to set up bcs, ics, and reference background profiles
 
 module Tlab_Background
-    use TLab_Constants, only: wp, wi, efile, MAX_VARS
+    use TLab_Constants, only: wp, wi, MAX_VARS
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
     use Profiles, only: profiles_dt, Profiles_Calculate
     implicit none

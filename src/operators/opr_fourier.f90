@@ -14,7 +14,7 @@
 
 module OPR_Fourier
     use TLab_Constants, only: wp, wi, pi_wp
-    use TLab_Constants, only: efile, ifile
+    use TLab_Constants, only: ifile
     use TLab_Memory, only: imax, jmax, kmax, isize_txc_field
     use TLab_Arrays, only: wrk3d
     use TLab_Pointers_C, only: c_wrk3d

@@ -31,7 +31,6 @@ module NavierStokes
 
 contains
     subroutine NavierStokes_Initialize_Parameters(inifile)
-        use TLab_Constants, only: efile
         use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Error
         use TLab_ScanFiles
         use TLab_Memory, only: inb_flow, inb_flow_array, inb_scal, inb_scal_array

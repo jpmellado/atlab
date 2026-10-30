@@ -74,7 +74,6 @@ contains
     !########################################################################
     !########################################################################
     subroutine NSE_Burgers_Initialize(inifile)
-        use TLab_Constants, only: efile
         use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Error
         use TLab_Memory, only: inb_scal
         use NavierStokes, only: nse_eqns, DNS_EQNS_ANELASTIC, DNS_EQNS_BOUSSINESQ

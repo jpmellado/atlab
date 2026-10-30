@@ -2,7 +2,6 @@
 
 module TimeMarching
     use TLab_Constants, only: wp, wi, big_wp
-    use TLab_Constants, only: efile
     use TLab_Memory, only: imax, jmax, kmax, isize_field
     use TLab_Memory, only: inb_flow, inb_scal
     use TLab_Time, only: rtime

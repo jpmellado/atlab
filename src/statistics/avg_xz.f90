@@ -4,7 +4,7 @@
 
 !# Calculating the first nm moments of the nv fields defined by the pointers array vars
 subroutine AVG_N_XZ(fname, itime, rtime, nx, ny, nz, nv, nm, vars, igate, gate, z, avg)
-    use TLab_Constants, only: efile, wp, wi
+    use TLab_Constants, only: wp, wi
     use TLab_Pointers, only: pointers_dt
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Log
     use Averages, only: AVG1V2D, AVG1V2D1G
@@ -101,7 +101,7 @@ end subroutine RAW_TO_CENTRAL
 !#
 !########################################################################
 subroutine INTER_N_XZ(fname, itime, rtime, nx, ny, nz, np, parname, gate, z, inter)
-    use TLab_Constants, only: efile, wp, wi
+    use TLab_Constants, only: wp, wi
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Log
     use Averages, only: INTER1V2D
 

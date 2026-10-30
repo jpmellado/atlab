@@ -1,7 +1,7 @@
 #include "tlab_error.h"
 
 module Discrete
-    use TLab_Constants, only: wp, wi, efile, MAX_PARS, MAX_MODES
+    use TLab_Constants, only: wp, wi, MAX_PARS, MAX_MODES
     implicit none
     private
 

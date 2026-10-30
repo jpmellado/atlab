@@ -1,7 +1,7 @@
 ! Distributions and density functions
 
 module Distributions
-    use TLab_Constants, only: wi, wp, pi_wp, efile, MAX_PARS
+    use TLab_Constants, only: wi, wp, pi_wp, MAX_PARS
     implicit none
     private
 

@@ -3,7 +3,6 @@
 module Radiation
     use TLab_Constants, only: wp, wi
     use TLab_Constants, only: MAX_PARS, MAX_VARS
-    use TLab_Constants, only: efile
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Error
     use TLab_Memory, only: TLab_Allocate_Real
     use FDM, only: fdm_Int0

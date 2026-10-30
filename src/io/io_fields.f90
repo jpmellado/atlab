@@ -12,7 +12,6 @@
 
 module IO_Fields
     use TLab_Constants, only: wp, wi, sp, dp, sizeofint, sizeofreal
-    use TLab_Constants, only: efile
     use TLab_Constants, only: MAX_PARS, MAX_VARS
     use TLab_WorkFlow, only: TLab_Stop, TLab_Write_ASCII, TLab_Warning, TLab_Log, TLab_Error
     use TLab_Arrays, only: wrk3d

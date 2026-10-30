@@ -198,7 +198,6 @@ contains
 
 #ifdef USE_NETCDF
     subroutine NC_CHECK(status)
-        use TLab_Constants, only: efile
         use TLab_WorkFlow, only: TLab_Stop, TLab_Error
         integer, intent(in) :: status
 

@@ -2,8 +2,7 @@
 
 module TLab_Memory
     use TLab_Constants, only: sp, wp, wi, longi
-    use TLab_WorkFlow, only: lfile, efile
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Error
+    use TLab_WorkFlow, only: TLab_Stop, TLab_Warning, TLab_Error
     implicit none
     private
     save
@@ -229,7 +228,7 @@ contains
 
         !#####################################################################
         ! if (any(dims <= 0)) return; better allocate to zero than not allocate; error in supermuc
-        call TLAB_ALLOCATE_LOG(lfile, dims, s)
+        call TLAB_ALLOCATE_LOG(dims, s)
         select rank (a)
         rank (1)
             allocate (a(dims(1)), stat=ierr)
@@ -243,7 +242,7 @@ contains
             call TLab_Error(C_FILE_LOC//'. Rank too large while allocating memory space for '//trim(adjustl(s))//'.')
             call TLab_Stop(DNS_ERROR_ALLOC)
         end select
-        call TLAB_ALLOCATE_ERR(C_FILE_LOC, efile, s)
+        call TLAB_ALLOCATE_ERR(C_FILE_LOC, s)
 
     end subroutine TLab_Allocate_Real
 
@@ -254,9 +253,9 @@ contains
         integer(8), intent(in) :: dims(1)
 
         !#####################################################################
-        call Tlab_Allocate_Log_LONG(lfile, dims, s)
+        call Tlab_Allocate_Log_LONG(dims, s)
         allocate (a(dims(1)), stat=ierr)
-        call TLAB_ALLOCATE_ERR(C_FILE_LOC, efile, s)
+        call TLAB_ALLOCATE_ERR(C_FILE_LOC, s)
 
     end subroutine Tlab_Allocate_Real_LONG
 
@@ -270,7 +269,7 @@ contains
         character(len=*), intent(in) :: s
 
         !#####################################################################
-        call TLAB_ALLOCATE_LOG(lfile, dims, s)
+        call TLAB_ALLOCATE_LOG(dims, s)
         select rank (a)
         rank (1)
             allocate (a(dims(1)), stat=ierr)
@@ -279,7 +278,7 @@ contains
         rank (3)
             allocate (a(dims(1), dims(2), dims(3)), stat=ierr)
         end select
-        call TLAB_ALLOCATE_ERR(C_FILE_LOC, efile, s)
+        call TLAB_ALLOCATE_ERR(C_FILE_LOC, s)
 
     end subroutine TLab_Allocate_SINGLE
 
@@ -292,7 +291,7 @@ contains
         character(len=*), intent(in) :: s
 
         !#####################################################################
-        call TLAB_ALLOCATE_LOG(lfile, dims, s)
+        call TLAB_ALLOCATE_LOG(dims, s)
         select rank (a)
         rank (1)
             allocate (a(dims(1)), stat=ierr)
@@ -301,7 +300,7 @@ contains
         rank (3)
             allocate (a(dims(1), dims(2), dims(3)), stat=ierr)
         end select
-        call TLAB_ALLOCATE_ERR(C_FILE_LOC, efile, s)
+        call TLAB_ALLOCATE_ERR(C_FILE_LOC, s)
 
     end subroutine TLab_Allocate_INT
 
@@ -314,7 +313,7 @@ contains
         character(len=*), intent(in) :: s
 
         !#####################################################################
-        call TLAB_ALLOCATE_LOG(lfile, dims, s)
+        call TLAB_ALLOCATE_LOG(dims, s)
         select rank (a)
         rank (1)
             allocate (a(dims(1)), stat=ierr)
@@ -323,7 +322,7 @@ contains
         rank (3)
             allocate (a(dims(1), dims(2), dims(3)), stat=ierr)
         end select
-        call TLAB_ALLOCATE_ERR(C_FILE_LOC, efile, s)
+        call TLAB_ALLOCATE_ERR(C_FILE_LOC, s)
 
     end subroutine TLab_Allocate_LONG_INT
 #endif
@@ -339,9 +338,9 @@ contains
         integer(wi), intent(in) :: dims(:)
         integer id
         !#####################################################################
-        call TLAB_ALLOCATE_LOG(lfile, dims, s)
+        call TLAB_ALLOCATE_LOG(dims, s)
         allocate (a(dims(1)), stat=ierr)
-        call TLAB_ALLOCATE_ERR(C_FILE_LOC, efile, s)
+        call TLAB_ALLOCATE_ERR(C_FILE_LOC, s)
     end subroutine TLab_Allocate_SINGLE1
 
     subroutine TLab_Allocate_SINGLE2(C_FILE_LOC, a, dims, s)
@@ -350,9 +349,9 @@ contains
         integer(wi), intent(in) :: dims(2)
         integer id
         !#####################################################################
-        call TLAB_ALLOCATE_LOG(lfile, dims, s)
+        call TLAB_ALLOCATE_LOG(dims, s)
         allocate (a(dims(1), dims(2)), stat=ierr)
-        call TLAB_ALLOCATE_ERR(C_FILE_LOC, efile, s)
+        call TLAB_ALLOCATE_ERR(C_FILE_LOC, s)
     end subroutine TLab_Allocate_SINGLE2
 
     subroutine TLab_Allocate_SINGLE3(C_FILE_LOC, a, dims, s)
@@ -361,9 +360,9 @@ contains
         integer(wi), intent(in) :: dims(3)
         integer id
         !#####################################################################
-        call TLAB_ALLOCATE_LOG(lfile, dims, s)
+        call TLAB_ALLOCATE_LOG(dims, s)
         allocate (a(dims(1), dims(2), dims(3)), stat=ierr)
-        call TLAB_ALLOCATE_ERR(C_FILE_LOC, efile, s)
+        call TLAB_ALLOCATE_ERR(C_FILE_LOC, s)
     end subroutine TLab_Allocate_SINGLE3
 
     subroutine TLab_Allocate_SINGLE4(C_FILE_LOC, a, dims, s)
@@ -372,9 +371,9 @@ contains
         integer(wi), intent(in) :: dims(4)
         integer id
         !#####################################################################
-        call TLAB_ALLOCATE_LOG(lfile, dims, s)
+        call TLAB_ALLOCATE_LOG(dims, s)
         allocate (a(dims(1), dims(2), dims(3), dims(4)), stat=ierr)
-        call TLAB_ALLOCATE_ERR(C_FILE_LOC, efile, s)
+        call TLAB_ALLOCATE_ERR(C_FILE_LOC, s)
     end subroutine TLab_Allocate_SINGLE4
 
     ! ### DOUBLE ALLOCATION ROUTINES
@@ -384,9 +383,9 @@ contains
         integer(wi), intent(in) :: dims(:)
         integer id
         !#####################################################################
-        call TLAB_ALLOCATE_LOG(lfile, dims, s)
+        call TLAB_ALLOCATE_LOG(dims, s)
         allocate (a(dims(1)), stat=ierr)
-        call TLAB_ALLOCATE_ERR(C_FILE_LOC, efile, s)
+        call TLAB_ALLOCATE_ERR(C_FILE_LOC, s)
     end subroutine TLab_Allocate_Real1
 
     subroutine TLab_Allocate_Real2(C_FILE_LOC, a, dims, s)
@@ -395,9 +394,9 @@ contains
         integer(wi), intent(in) :: dims(2)
         integer id
         !#####################################################################
-        call TLAB_ALLOCATE_LOG(lfile, dims, s)
+        call TLAB_ALLOCATE_LOG(dims, s)
         allocate (a(dims(1), dims(2)), stat=ierr)
-        call TLAB_ALLOCATE_ERR(C_FILE_LOC, efile, s)
+        call TLAB_ALLOCATE_ERR(C_FILE_LOC, s)
     end subroutine TLab_Allocate_Real2
 
     subroutine TLab_Allocate_Real3(C_FILE_LOC, a, dims, s)
@@ -406,9 +405,9 @@ contains
         integer(wi), intent(in) :: dims(3)
         integer id
         !#####################################################################
-        call TLAB_ALLOCATE_LOG(lfile, dims, s)
+        call TLAB_ALLOCATE_LOG(dims, s)
         allocate (a(dims(1), dims(2), dims(3)), stat=ierr)
-        call TLAB_ALLOCATE_ERR(C_FILE_LOC, efile, s)
+        call TLAB_ALLOCATE_ERR(C_FILE_LOC, s)
     end subroutine TLab_Allocate_Real3
 
     subroutine TLab_Allocate_Real4(C_FILE_LOC, a, dims, s)
@@ -417,9 +416,9 @@ contains
         integer(wi), intent(in) :: dims(4)
         integer id
         !#####################################################################
-        call TLAB_ALLOCATE_LOG(lfile, dims, s)
+        call TLAB_ALLOCATE_LOG(dims, s)
         allocate (a(dims(1), dims(2), dims(3), dims(4)), stat=ierr)
-        call TLAB_ALLOCATE_ERR(C_FILE_LOC, efile, s)
+        call TLAB_ALLOCATE_ERR(C_FILE_LOC, s)
     end subroutine TLab_Allocate_Real4
 
     ! # INTEGER ALLOCATION ROUTINES
@@ -429,9 +428,9 @@ contains
         integer(wi), intent(in) :: dims(:)
         integer id
         !#####################################################################
-        call TLAB_ALLOCATE_LOG(lfile, dims, s)
+        call TLAB_ALLOCATE_LOG(dims, s)
         allocate (a(dims(1)), stat=ierr)
-        call TLAB_ALLOCATE_ERR(C_FILE_LOC, efile, s)
+        call TLAB_ALLOCATE_ERR(C_FILE_LOC, s)
     end subroutine TLab_Allocate_INT1
 
     subroutine TLab_Allocate_INT2(C_FILE_LOC, a, dims, s)
@@ -441,9 +440,9 @@ contains
         integer id
         !#####################################################################
         !   if (any(dims <= 0)) return; better allocate to zero than not allocate; error in supermuc
-        call TLAB_ALLOCATE_LOG(lfile, dims, s)
+        call TLAB_ALLOCATE_LOG(dims, s)
         allocate (a(dims(1), dims(2)), stat=ierr)
-        call TLAB_ALLOCATE_ERR(C_FILE_LOC, efile, s)
+        call TLAB_ALLOCATE_ERR(C_FILE_LOC, s)
     end subroutine TLab_Allocate_INT2
 
     subroutine TLab_Allocate_INT3(C_FILE_LOC, a, dims, s)
@@ -452,9 +451,9 @@ contains
         integer(wi), intent(in) :: dims(3)
         integer id
         !#####################################################################
-        call TLAB_ALLOCATE_LOG(lfile, dims, s)
+        call TLAB_ALLOCATE_LOG(dims, s)
         allocate (a(dims(1), dims(2), dims(3)), stat=ierr)
-        call TLAB_ALLOCATE_ERR(C_FILE_LOC, efile, s)
+        call TLAB_ALLOCATE_ERR(C_FILE_LOC, s)
     end subroutine TLab_Allocate_INT3
 
     subroutine TLab_Allocate_INT4(C_FILE_LOC, a, dims, s)
@@ -463,9 +462,9 @@ contains
         integer(wi), intent(in) :: dims(4)
         integer id
         !#####################################################################
-        call TLAB_ALLOCATE_LOG(lfile, dims, s)
+        call TLAB_ALLOCATE_LOG(dims, s)
         allocate (a(dims(1), dims(2), dims(3), dims(4)), stat=ierr)
-        call TLAB_ALLOCATE_ERR(C_FILE_LOC, efile, s)
+        call TLAB_ALLOCATE_ERR(C_FILE_LOC, s)
     end subroutine TLab_Allocate_INT4
 
     ! # LONG INTEGER ALLOCATION ROUTINES
@@ -475,9 +474,9 @@ contains
         integer(wi), intent(in) :: dims(:)
         integer id
         !#####################################################################
-        call TLAB_ALLOCATE_LOG(lfile, dims, s)
+        call TLAB_ALLOCATE_LOG(dims, s)
         allocate (a(dims(1)), stat=ierr)
-        call TLAB_ALLOCATE_ERR(C_FILE_LOC, efile, s)
+        call TLAB_ALLOCATE_ERR(C_FILE_LOC, s)
     end subroutine TLab_Allocate_LONG_INT1
 
     subroutine TLab_Allocate_LONG_INT2(C_FILE_LOC, a, dims, s)
@@ -486,9 +485,9 @@ contains
         integer(wi), intent(in) :: dims(2)
         integer id
         !#####################################################################
-        call TLAB_ALLOCATE_LOG(lfile, dims, s)
+        call TLAB_ALLOCATE_LOG(dims, s)
         allocate (a(dims(1), dims(2)), stat=ierr)
-        call TLAB_ALLOCATE_ERR(C_FILE_LOC, efile, s)
+        call TLAB_ALLOCATE_ERR(C_FILE_LOC, s)
     end subroutine TLab_Allocate_LONG_INT2
 
     subroutine TLab_Allocate_LONG_INT3(C_FILE_LOC, a, dims, s)
@@ -497,9 +496,9 @@ contains
         integer(wi), intent(in) :: dims(3)
         integer id
         !#####################################################################
-        call TLAB_ALLOCATE_LOG(lfile, dims, s)
+        call TLAB_ALLOCATE_LOG(dims, s)
         allocate (a(dims(1), dims(2), dims(3)), stat=ierr)
-        call TLAB_ALLOCATE_ERR(C_FILE_LOC, efile, s)
+        call TLAB_ALLOCATE_ERR(C_FILE_LOC, s)
     end subroutine TLab_Allocate_LONG_INT3
 
     subroutine TLab_Allocate_LONG_INT4(C_FILE_LOC, a, dims, s)
@@ -508,25 +507,25 @@ contains
         integer(wi), intent(in) :: dims(4)
         integer id
         !#####################################################################
-        call TLAB_ALLOCATE_LOG(lfile, dims, s)
+        call TLAB_ALLOCATE_LOG(dims, s)
         allocate (a(dims(1), dims(2), dims(3), dims(4)), stat=ierr)
-        call TLAB_ALLOCATE_ERR(C_FILE_LOC, efile, s)
+        call TLAB_ALLOCATE_ERR(C_FILE_LOC, s)
     end subroutine TLab_Allocate_LONG_INT4
 
 #endif
 
     ! ###################################################################
     ! ###################################################################
-    subroutine Tlab_Allocate_Log_SHORT(log_file, dims, s)
+    subroutine Tlab_Allocate_Log_SHORT(dims, s)
         integer(wi), intent(IN) :: dims(:)
-        character(len=*), intent(IN) :: log_file, s
+        character(len=*), intent(IN) :: s
         ! integer(longi) :: dims_long(size(dims))
         integer id
         !#####################################################################
 
         if (any(dims < 0)) then
             ierr = DNS_ERROR_ALLOC
-            call TLAB_ALLOCATE_ERR('TLAB_ALLOCATE_LOG', efile, s)
+            call TLAB_ALLOCATE_ERR('TLAB_ALLOCATE_LOG', s)
         end if
 
         ! do id = 1, size(dims)
@@ -540,18 +539,18 @@ contains
         do id = 2, size(dims)
             write (str, *) dims(id); line = trim(adjustl(line))//' x '//trim(adjustl(str))
         end do
-        call TLab_Write_ASCII(log_file, line)
+        call TLab_Warning(line)
     end subroutine Tlab_Allocate_Log_SHORT
 
-    subroutine Tlab_Allocate_Log_LONG(log_file, dims, s)
+    subroutine Tlab_Allocate_Log_LONG(dims, s)
         integer(longi), intent(IN) :: dims(:)
-        character(len=*), intent(IN) :: log_file, s
+        character(len=*), intent(IN) :: s
         integer id
         !#####################################################################
 
         if (any(dims < 0)) then
             ierr = DNS_ERROR_ALLOC
-            call TLAB_ALLOCATE_ERR('TLAB_ALLOCATE_LOG', efile, s)
+            call TLAB_ALLOCATE_ERR('TLAB_ALLOCATE_LOG', s)
         end if
 
         if (any(dims == 0)) return      ! do not print out lines when allocation a zero-space array
@@ -560,16 +559,16 @@ contains
         do id = 2, size(dims)
             write (str, *) dims(id); line = trim(adjustl(line))//' x '//trim(adjustl(str))
         end do
-        call TLab_Write_ASCII(log_file, line)
+        call TLab_Warning(line)
     end subroutine Tlab_Allocate_Log_LONG
 
     ! ###################################################################
     ! ###################################################################
-    subroutine TLAB_ALLOCATE_ERR(C_FILE_LOC, log_file, s)
-        character(len=*) :: C_FILE_LOC, log_file, s
+    subroutine TLAB_ALLOCATE_ERR(C_FILE_LOC, s)
+        character(len=*) :: C_FILE_LOC, s
 
         if (ierr /= 0) then
-            call TLab_Write_ASCII(log_file, C_FILE_LOC//'. Error while allocating memory space for'//trim(adjustl(s))//'.')
+            call TLab_Error(C_FILE_LOC//'. Error while allocating memory space for'//trim(adjustl(s))//'.')
             call TLab_Stop(DNS_ERROR_ALLOC)
         end if
 

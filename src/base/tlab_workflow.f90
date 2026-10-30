@@ -27,7 +27,7 @@ module TLab_WorkFlow
 
     character(len=*), parameter, public :: ifile = 'tlab.ini'
     character(len=*), parameter, public :: lfile = 'tlab.log'
-    character(len=*), parameter, public :: efile = 'tlab.err'
+    character(len=*), parameter :: efile = 'tlab.err'
     character(len=*), parameter :: wfile = 'tlab.war'
 
 #ifdef USE_MPI

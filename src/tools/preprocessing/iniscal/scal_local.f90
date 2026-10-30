@@ -2,7 +2,7 @@
 
 module SCAL_LOCAL
     use TLab_Constants, only: wp, wi, pi_wp, big_wp, MAX_VARS
-    use TLab_Constants, only: wfile, efile, lfile, tag_scal
+    use TLab_Constants, only: efile, tag_scal
     use TLab_Memory, only: imax, jmax, kmax, inb_scal, inb_txc
     use TLab_Time, only: itime
     use TLab_Arrays, only: wrk1d

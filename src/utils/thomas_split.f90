@@ -4,7 +4,7 @@
 
 module Thomas_Split
     use TLab_Constants, only: wp, wi
-    use TLab_Constants, only: efile, lfile
+    use TLab_Constants, only: efile
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log
     use Thomas, only: thomas_base_dt
     use Thomas, only: Thomas_FactorLU_InPlace, Thomas3_SolveL, Thomas3_SolveU

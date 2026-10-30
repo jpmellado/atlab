@@ -1,6 +1,6 @@
 program IniRand
     use TLab_Constants, only: wp, wi, tag_flow, tag_scal
-    use TLab_Constants, only: ifile, lfile
+    use TLab_Constants, only: ifile
     use TLab_Time, only: itime, rtime
     use TLab_Memory, only: inb_flow, inb_scal
     use TLab_Arrays, only: q, s, txc

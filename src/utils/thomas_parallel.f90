@@ -4,7 +4,7 @@
 
 module Thomas_Parallel
     use TLab_Constants, only: wp, wi, small_wp, roundoff_wp
-    use TLab_Constants, only: efile, wfile, lfile, fmt_r
+    use TLab_Constants, only: efile, fmt_r
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Warning
 #ifdef USE_MPI
     use TLabMPI_Grid, only: mpi_axis_dt

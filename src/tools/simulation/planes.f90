@@ -2,7 +2,7 @@
 
 module Planes
     use TLab_Constants, only: wp, wi
-    use TLab_Constants, only: efile, lfile
+    use TLab_Constants, only: efile
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
     use TLab_Memory, only: imax, jmax, kmax
     use TLab_Memory, only: inb_flow_array, inb_scal_array, inb_txc
@@ -168,7 +168,6 @@ contains
     ! ###################################################################
     subroutine planes_initialize(self, inifile, subaxis)
         use TLab_Constants, only: wp, wi, big_wp
-        use TLab_Constants, only: efile, lfile, wfile
         use TLab_ScanFiles
         use TLab_Grid, only: subaxis_dt
         class(planes_dt), intent(out) :: self

@@ -2,7 +2,7 @@
 
 module Buffer
     use TLab_Constants, only: wp, wi, MAX_PARS
-    use TLab_Constants, only: efile, lfile
+    use TLab_Constants, only: efile
     use TLab_Constants, only: tag_flow, tag_scal, fmt_r
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log
     use TLab_Memory, only: inb_flow, inb_scal

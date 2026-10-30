@@ -2,7 +2,7 @@
 
 program VISUALS
     use TLab_Constants, only: wp, wi, small_wp, MAX_PARS, fmt_r
-    use TLab_Constants, only: ifile, lfile, efile, wfile, tag_flow, tag_scal
+    use TLab_Constants, only: ifile, efile, tag_flow, tag_scal
     use TLab_Time, only: itime, rtime
     use TLab_Memory, only: imax, jmax, kmax, inb_scal_array, inb_txc, inb_flow, inb_scal, isize_field
     use TLab_Arrays

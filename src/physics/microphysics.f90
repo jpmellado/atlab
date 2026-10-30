@@ -1,7 +1,7 @@
 #include "tlab_error.h"
 
 module Microphysics
-    use TLab_Constants, only: wp, wi, pi_wp, efile, MAX_VARS, MAX_PARS, wfile
+    use TLab_Constants, only: wp, wi, pi_wp, efile, MAX_VARS, MAX_PARS
     use NavierStokes, only: nse_eqns, DNS_EQNS_ANELASTIC
     use TLab_Memory, only: inb_scal_array, TLab_Allocate_Real
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Warning

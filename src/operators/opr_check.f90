@@ -1,5 +1,5 @@
 subroutine OPR_Check()
-    use TLab_Constants, only: lfile, wp, wi, fmt_r
+    use TLab_Constants, only: wp, wi, fmt_r
     use TLab_Memory, only: isize_field, isize_txc_field, inb_flow_array, inb_txc
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Log
     use TLab_Arrays

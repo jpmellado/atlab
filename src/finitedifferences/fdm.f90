@@ -2,7 +2,7 @@
 
 module FDM
     use TLab_Constants, only: wp, wi, roundoff_wp
-    use TLab_Constants, only: efile, wfile
+    use TLab_Constants, only: efile
     use TLab_Constants, only: BCS_DD, BCS_ND, BCS_DN, BCS_NN, BCS_MIN, BCS_MAX, BCS_NONE
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Warning
     use FDM_Base

@@ -2,7 +2,7 @@
 
 module Rotation
     use TLab_Constants, only: wp, wi, pi_wp, big_wp
-    use TLab_Constants, only: efile, lfile, MAX_VARS, MAX_PARS
+    use TLab_Constants, only: efile, MAX_VARS, MAX_PARS
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log
     implicit none
     private

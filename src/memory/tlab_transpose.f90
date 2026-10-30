@@ -37,7 +37,7 @@ contains
     ! ###################################################################
     ! ###################################################################
     subroutine TLab_Transpose_Initialize()
-        use TLab_Constants, only: lfile, fmt_r
+        use TLab_Constants, only: fmt_r
         use TLab_Memory, only: imax, jmax, kmax
         use TLab_Pointers, only: tmp1, tmp2
         use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Log

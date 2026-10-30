@@ -5,7 +5,7 @@
 !########################################################################
 subroutine TLab_Initialize_Parameters(inifile)
     use TLab_Constants, only: wp, wi
-    use TLab_Constants, only: lfile, efile, wfile
+    use TLab_Constants, only: efile
     use TLab_Constants, only: MajorVersion, MinorVersion
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Warning
     use TLab_WorkFlow, only: imode_verbosity

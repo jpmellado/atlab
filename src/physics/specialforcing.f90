@@ -2,7 +2,7 @@
 
 module SpecialForcing
     use TLab_Constants, only: wp, wi, pi_wp, tag_scal
-    use TLab_Constants, only: efile, lfile, MAX_VARS, MAX_PARS
+    use TLab_Constants, only: efile, MAX_VARS, MAX_PARS
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log
     use TLab_Memory, only: TLab_Allocate_Real
     use TLab_Grid, only: x, y, z

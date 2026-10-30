@@ -2,7 +2,7 @@
 
 module FLOW_LOCAL
     use TLab_Constants, only: wp, wi, pi_wp
-    use TLab_Constants, only: efile, lfile, wfile, tag_flow
+    use TLab_Constants, only: efile, tag_flow
     use TLab_Constants, only: BCS_DD, BCS_DN, BCS_ND, BCS_NN
     use TLab_Memory, only: imax, jmax, kmax, isize_field, inb_txc
     use TLab_Time, only: itime

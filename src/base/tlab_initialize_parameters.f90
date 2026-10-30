@@ -6,8 +6,8 @@
 subroutine TLab_Initialize_Parameters(inifile)
     use TLab_Constants, only: wp, wi
     use TLab_Constants, only: lfile, efile, wfile
-    use TLab_Constants, only:  MajorVersion, MinorVersion
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
+    use TLab_Constants, only: MajorVersion, MinorVersion
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Warning
     use TLab_WorkFlow, only: imode_verbosity
     use TLab_WorkFlow, only: flow_on, scal_on
     use TLab_ScanFiles
@@ -41,7 +41,7 @@ subroutine TLab_Initialize_Parameters(inifile)
     call ScanFile_Int(bakfile, inifile, 'Version', 'Minor', '0', idummy)
     if (MinorVersion /= idummy) then
         write (sRes, '(I5)') MinorVersion
-        call TLab_Write_ASCII(wfile, trim(adjustl(eStr))//'Minor version warning. Expected : '//sRes)
+        call TLab_Warning(trim(adjustl(eStr))//'Minor version warning. Expected : '//sRes)
     end if
 
     ! ###################################################################

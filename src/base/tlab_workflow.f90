@@ -2,7 +2,8 @@
 
 module TLab_WorkFlow
     use TLab_Constants, only: wp, dp, sp, wi
-    use TLab_Constants, only: lfile, efile, fmt_r
+    use TLab_Constants, only: fmt_r
+    use TLab_Constants, only: lfile, wfile, efile
 ! #ifdef USE_OPENMP
 !     use OMP_LIB
 ! #endif
@@ -14,8 +15,10 @@ module TLab_WorkFlow
 
     public :: TLab_Start
     public :: TLab_Stop
-    public :: TLab_Write_ASCII
     public :: TLab_Runtime
+
+    public :: TLab_Log, TLab_Warning, TLab_Error
+    public :: TLab_Write_ASCII
 #ifdef USE_MPI
     public :: TLabMPI_Panic
 #endif
@@ -179,6 +182,23 @@ contains
 
         return
     end function
+
+    ! ###################################################################
+    ! ###################################################################
+    subroutine TLab_Log(locLine)
+        character(len=*), intent(in) :: locLine
+        call TLab_Write_ASCII(lfile, locLine)
+    end subroutine
+
+    subroutine TLab_Warning(locLine)
+        character(len=*), intent(in) :: locLine
+        call TLab_Write_ASCII(wfile, locLine)
+    end subroutine
+
+    subroutine TLab_Error(locLine)
+        character(len=*), intent(in) :: locLine
+        call TLab_Write_ASCII(efile, locLine)
+    end subroutine
 
     ! ###################################################################
     ! ###################################################################

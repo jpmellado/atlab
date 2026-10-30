@@ -4,7 +4,7 @@ module Microphysics
     use TLab_Constants, only: wp, wi, pi_wp, efile, MAX_VARS, MAX_PARS, wfile
     use NavierStokes, only: nse_eqns, DNS_EQNS_ANELASTIC
     use TLab_Memory, only: inb_scal_array, TLab_Allocate_Real
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Warning
     use TLab_CacheBlock
     use Thermo_Base, only: imixture, MIXT_TYPE_AIRWATER
     use Thermo_Anelastic, only: dsmooth
@@ -344,7 +344,7 @@ contains
             else
                 write (tstr, "(I2)") inb_scal_ql
                 write (istr, "(I2)") is
-                call TLab_Write_ASCII(wfile, 'WARNING: Unexpectedly Scalar'//trim(istr)//' (other than q_l=Scalar'//trim(tstr)//') set to active for NON-EQUILIBRIUM EVAPORATION')
+                call TLab_Warning('Unexpectedly Scalar'//trim(istr)//' (other than q_l=Scalar'//trim(tstr)//') set to active for NON-EQUILIBRIUM EVAPORATION')
 
             end if
 
@@ -399,7 +399,7 @@ contains
             else
                 write (tstr, "(I2)") inb_scal_ql
                 write (istr, "(I2)") is
-                call TLab_Write_ASCII(wfile, 'WARNING: Unexpectedly Scalar'//trim(istr)//' (other than q_l=Scalar'//trim(tstr)//') set to active for NON-EQUILIBRIUM EVAPORATION')
+                call TLab_Warning('WARNING: Unexpectedly Scalar'//trim(istr)//' (other than q_l=Scalar'//trim(tstr)//') set to active for NON-EQUILIBRIUM EVAPORATION')
 
             end if
 
@@ -509,7 +509,7 @@ contains
             else
                 write (tstr, "(I2)") inb_scal_ql
                 write (istr, "(I2)") is
-                call TLab_Write_ASCII(wfile, 'WARNING: Unexpectedly Scalar'//trim(istr)//' (other than q_l=Scalar'//trim(tstr)//') set to active for NON-EQUILIBRIUM EVAPORATION')
+                call TLab_Warning('WARNING: Unexpectedly Scalar'//trim(istr)//' (other than q_l=Scalar'//trim(tstr)//') set to active for NON-EQUILIBRIUM EVAPORATION')
 
             end if
 
@@ -659,7 +659,7 @@ contains
             else
                 write (tstr, "(I2)") inb_scal_ql
                 write (istr, "(I2)") is
-                call TLab_Write_ASCII(wfile, 'WARNING: Unexpectedly Scalar'//trim(istr)//' (other than q_l=Scalar'//trim(tstr)//') set to active for NON-EQUILIBRIUM EVAPORATION')
+                call TLab_Warning('WARNING: Unexpectedly Scalar'//trim(istr)//' (other than q_l=Scalar'//trim(tstr)//') set to active for NON-EQUILIBRIUM EVAPORATION')
 
             end if
 

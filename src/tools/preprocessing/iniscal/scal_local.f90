@@ -7,7 +7,7 @@ module SCAL_LOCAL
     use TLab_Time, only: itime
     use TLab_Arrays, only: wrk1d
     use TLab_Pointers_3D, only: p_wrk2d, p_wrk3d
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Warning
     use IO_Fields
     use TLab_Grid, only: x, y, z, xSubgrid, ySubgrid
     use Tlab_Background, only: sbg
@@ -120,7 +120,7 @@ contains
         if (idummy /= inb_scal) then            ! Consistency check
             if (idummy == 1) then
                 norm_ini_s(2:) = norm_ini_s(1)
-                call TLab_Write_ASCII(wfile, trim(adjustl(eStr))//'Using NormalizeS(1) for all scalars.')
+                call TLab_Warning(trim(adjustl(eStr))//'Using NormalizeS(1) for all scalars.')
             else
                 call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'NormalizeS size does not match number of scalars.')
                 call TLab_Stop(DNS_ERROR_OPTION)

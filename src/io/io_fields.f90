@@ -14,7 +14,7 @@ module IO_Fields
     use TLab_Constants, only: wp, wi, sp, dp, sizeofint, sizeofreal
     use TLab_Constants, only: lfile, wfile, efile
     use TLab_Constants, only: MAX_PARS, MAX_VARS
-    use TLab_WorkFlow, only: TLab_Stop, TLab_Write_ASCII
+    use TLab_WorkFlow, only: TLab_Stop, TLab_Write_ASCII, TLab_Warning
     use TLab_Arrays, only: wrk3d
     use, intrinsic :: iso_c_binding, only: c_f_pointer, c_loc
 #ifdef USE_MPI
@@ -685,13 +685,13 @@ contains
 
             ! Check
             if (any([nx_total, ny_total, nz_total] /= [nx_loc, ny_loc, nz_loc])) then
-                call TLab_Write_ASCII(wfile, __FILE__//'. Grid size mismatch.')
+                call TLab_Warning(__FILE__//'. Grid size mismatch.')
                 ! call TLab_Write_ASCII(efile, __FILE__//'. Grid size mismatch.')
                 ! call TLab_Stop(DNS_ERROR_DIMGRID)
             end if
 
             if (nt /= nt_loc) then
-                call TLab_Write_ASCII(wfile, __FILE__//'. ItNumber mismatch. Filename value ignored.')
+                call TLab_Warning(__FILE__//'. ItNumber mismatch. Filename value ignored.')
                 ! nt = nt_loc
             end if
 

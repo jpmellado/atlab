@@ -5,7 +5,7 @@
 module Thomas_Parallel
     use TLab_Constants, only: wp, wi, small_wp, roundoff_wp
     use TLab_Constants, only: efile, wfile, lfile, fmt_r
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Warning
 #ifdef USE_MPI
     use TLabMPI_Grid, only: mpi_axis_dt
     use TLab_WorkFlow, only: runtime_mpi
@@ -93,7 +93,7 @@ contains
             if (self%block_id == 1) then
                 j = self%block_id
                 write (str, fmt_r) abs(self%y(1, j)/self%y(self%nmax - self%nmin + 1, j))
-                call TLab_Write_ASCII(wfile, 'Truncation error in splitting algorithm equal to '//trim(adjustl(str))//'.')
+                call TLab_Warning('Truncation error in splitting algorithm equal to '//trim(adjustl(str))//'.')
             end if
 
         case default

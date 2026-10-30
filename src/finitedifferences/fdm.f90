@@ -4,7 +4,7 @@ module FDM
     use TLab_Constants, only: wp, wi, roundoff_wp
     use TLab_Constants, only: efile, wfile
     use TLab_Constants, only: BCS_DD, BCS_ND, BCS_DN, BCS_NN, BCS_MIN, BCS_MAX, BCS_NONE
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Warning
     use FDM_Base
     use FDM_Derivative_1order
     use FDM_Derivative_2order
@@ -72,7 +72,7 @@ contains
         end if
 
         if (der1_type == FDM_COM6_JACOBIAN_PENTA) then     ! CFL_max depends on max[g(ig)%der1%mwn(:)]
-           call TLab_Write_ASCII(wfile, trim(adjustl(eStr))//'CompactJacobian6Penta requires adjusted CFL-number depending on alpha and beta values.')
+           call TLab_Warning(trim(adjustl(eStr))//'CompactJacobian6Penta requires adjusted CFL-number depending on alpha and beta values.')
         end if
 
         !########################################################################

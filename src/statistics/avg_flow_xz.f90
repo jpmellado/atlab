@@ -14,9 +14,6 @@
 
 subroutine AVG_FLOW_XZ(q, s, dudx, dvdx, dvdy, dvdz, dwdx, dwdy, dwdz, mean2d)
     use TLab_Constants, only: wp, wi, MAX_AVG_TEMPORAL
-#ifdef TRACE_ON
-    use TLab_Constants, only: tfile
-#endif
     use TLab_Time, only: itime, rtime
     use TLab_Memory, only: imax, jmax, kmax, inb_flow_array, inb_scal_array
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log, TLab_Error
@@ -399,10 +396,6 @@ subroutine AVG_FLOW_XZ(q, s, dudx, dvdx, dvdy, dvdz, dwdx, dwdy, dwdz, mean2d)
     ! ###################################################################
     ! Averages (do not overwrite dudx; it contains p for incompressible case)
     ! ###################################################################
-#ifdef TRACE_ON
-    call TLab_Write_ASCII(tfile, __FILE__//': Section 2')
-#endif
-
     ! Velocity
     call AVG_IK_V(imax, jmax, kmax, u, rU(1), wrk1d)
     call AVG_IK_V(imax, jmax, kmax, v, rV(1), wrk1d)

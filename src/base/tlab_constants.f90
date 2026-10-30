@@ -11,12 +11,6 @@ module TLab_Constants
     integer, parameter :: MAX_PROF = 10
     integer, parameter :: MAX_AVG_TEMPORAL = 235
 
-    character(len=*), parameter :: ifile = 'tlab.ini'
-    character(len=*), parameter :: lfile = 'tlab.log'
-    character(len=*), parameter :: efile = 'tlab.err'
-    character(len=*), parameter :: wfile = 'tlab.war'
-    character(len=*), parameter :: tfile = 'tlab.trc'
-
     character(len=*), parameter :: tag_flow = 'flow.'
     character(len=*), parameter :: tag_scal = 'scal.'
     character(len=*), parameter :: tag_part = 'part.'

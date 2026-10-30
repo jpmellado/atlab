@@ -1,10 +1,10 @@
 program IniRand
     use TLab_Constants, only: wp, wi, tag_flow, tag_scal
-    use TLab_Constants, only: ifile
+    use TLab_WorkFlow, only: ifile
+    use TLab_WorkFlow, only: TLab_Stop, TLab_Log, TLab_Start
     use TLab_Time, only: itime, rtime
     use TLab_Memory, only: inb_flow, inb_scal
     use TLab_Arrays, only: q, s, txc
-    use TLab_WorkFlow, only: TLab_Stop, TLab_Log, TLab_Start
     use TLab_Memory, only: TLab_Initialize_Memory
 #ifdef USE_MPI
     use TLabMPI_Grid, only: TLabMPI_Grid_Initialize

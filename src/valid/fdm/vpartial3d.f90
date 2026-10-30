@@ -1,7 +1,7 @@
 program VPARTIAL3D
     use TLab_Constants, only: wp, wi, pi_wp
-    use TLab_Constants, only: ifile
     use TLab_Time, only: itime
+    use TLab_WorkFlow, only: ifile
     use TLab_WorkFlow, only: TLab_Stop, TLab_Start
     use TLab_Memory, only: imax, jmax, kmax, inb_txc
     use TLab_Memory, only: TLab_Initialize_Memory

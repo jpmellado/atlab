@@ -3,7 +3,6 @@
 module TLab_WorkFlow
     use TLab_Constants, only: wp, dp, sp, wi
     use TLab_Constants, only: fmt_r
-    use TLab_Constants, only: lfile, wfile, efile
 ! #ifdef USE_OPENMP
 !     use OMP_LIB
 ! #endif
@@ -17,11 +16,19 @@ module TLab_WorkFlow
     public :: TLab_Stop
     public :: TLab_Runtime
 
-    public :: TLab_Log, TLab_Warning, TLab_Error
+    public :: TLab_Log              ! Wrapper to TLab_Write_ASCII using lfile
+    public :: TLab_Warning          ! Wrapper to TLab_Write_ASCII using wfile
+    public :: TLab_Error            ! Wrapper to TLab_Write_ASCII using efile
     public :: TLab_Write_ASCII
+
 #ifdef USE_MPI
     public :: TLabMPI_Panic
 #endif
+
+    character(len=*), parameter, public :: ifile = 'tlab.ini'
+    character(len=*), parameter, public :: lfile = 'tlab.log'
+    character(len=*), parameter, public :: efile = 'tlab.err'
+    character(len=*), parameter :: wfile = 'tlab.war'
 
 #ifdef USE_MPI
     type(MPI_Datatype), public :: TLAB_MPI_REAL_TYPE        ! MPI Type control

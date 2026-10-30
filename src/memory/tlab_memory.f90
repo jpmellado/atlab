@@ -2,7 +2,7 @@
 
 module TLab_Memory
     use TLab_Constants, only: sp, wp, wi, longi
-    use TLab_Constants, only: lfile, efile
+    use TLab_WorkFlow, only: lfile, efile
     use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Error
     implicit none
     private

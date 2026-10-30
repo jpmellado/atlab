@@ -2,11 +2,12 @@
 
 program TransFields
     use TLab_Constants, only: wp, wi, MAX_PARS
-    use TLab_Constants, only: ifile, tag_flow, tag_scal
+    use TLab_Constants, only: tag_flow, tag_scal
+    use TLab_WorkFlow, only: ifile
+    use TLab_WorkFlow, only: TLab_Stop, TLab_Log, TLab_Error, TLab_Start, flow_on, scal_on
     use TLab_Memory, only: imax, jmax, kmax, inb_txc, inb_flow, inb_scal
     use TLab_Time, only: itime, rtime
     use TLab_Arrays
-    use TLab_WorkFlow, only: TLab_Stop, TLab_Log, TLab_Error, TLab_Start, flow_on, scal_on
     use TLab_Memory, only: TLab_Initialize_Memory
 #ifdef USE_MPI
     use TLabMPI_Grid, only: yMpi

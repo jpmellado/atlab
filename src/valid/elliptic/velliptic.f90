@@ -1,7 +1,7 @@
 program VELLIPTIC
     use TLab_Constants, only: wp, wi, pi_wp
     use TLab_Constants, only: BCS_DD, BCS_DN, BCS_ND, BCS_NN, BCS_NONE, BCS_MIN, BCS_MAX, BCS_BOTH
-    use TLab_Constants, only: ifile
+    use TLab_WorkFlow, only: ifile
     use TLab_Time, only: itime
     use TLab_WorkFlow, only: TLab_Stop, TLab_Start
     use TLab_Memory, only: imax, jmax, kmax, inb_txc
@@ -11,7 +11,6 @@ program VELLIPTIC
     use mpi_f08
     use TLabMPI_Grid, only: mpiGrid
     use TLabMPI_Grid, only: TLabMPI_Grid_Initialize
-    ! use TLabMPI_Transpose_DerivedTypes, only: TLabMPI_Trp_Initialize
     use TLabMPI_Transpose_DerivedTypes, only: TLabMPI_Trp_Initialize
 #endif
     use FDM, only: FDM_Initialize

@@ -96,7 +96,7 @@ contains
     !########################################################################
     !########################################################################
     subroutine IO_Initialize(locInifile)
-        use TLab_Constants, only: ifile
+        use TLab_WorkFlow, only: ifile
         use TLab_ScanFiles
         character(len=*), optional, intent(in) :: locInifile
 

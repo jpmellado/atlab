@@ -14,6 +14,9 @@ program VISUALS
     use TLabMPI_Transpose_DerivedTypes, only: TLabMPI_Trp_Initialize
 #endif
     use IO_Fields
+#ifdef USE_NETCDF
+    use IO_Fields_NetCDF
+#endif
     use TLab_Grid
     use FDM, only: FDM_Initialize
     use NavierStokes!, only: NavierStokes_Initialize_Parameters
@@ -384,9 +387,9 @@ program VISUALS
                 do is = 1, inb_scal
                     if (infraredProps%active(is)) then
                         write (str, *) is; plot_file = 'Infrared'//trim(adjustl(str))
-                        txc(1:isize_field, 1) = 0.0_wp 
+                        txc(1:isize_field, 1) = 0.0_wp
                         call Radiation_AddInfrared_Z(infraredProps, imax, jmax, kmax, s, &
-                                                  txc(:, 1), txc(:, 2), txc(:, 3), txc(:, 4), txc(:, 5), txc(:, 6))
+                                                     txc(:, 1), txc(:, 2), txc(:, 3), txc(:, 4), txc(:, 5), txc(:, 6))
                         if (nse_eqns == DNS_EQNS_ANELASTIC) then
                             call Thermo_Anelastic_Weight_InPlace(imax, jmax, kmax, ribackground, txc(:, 1))
                         end if
@@ -409,9 +412,9 @@ program VISUALS
                 do is = 1, inb_scal
                     if (infraredProps%active(is)) then
                         write (str, *) is; plot_file = 'Sedimentation'//trim(adjustl(str))
-                        txc(1:isize_field, 1) = 0.0_wp 
+                        txc(1:isize_field, 1) = 0.0_wp
                         call Microphysics_AddSedimentation_Z(sedimentationProps, imax, jmax, kmax, is, s, &
-                                                          txc(:, 1), txc(:, 2), txc(:, 3))
+                                                             txc(:, 1), txc(:, 2), txc(:, 3))
                         if (nse_eqns == DNS_EQNS_ANELASTIC) then
                             call Thermo_Anelastic_Weight_InPlace(imax, jmax, kmax, ribackground, txc(:, 1))
                         end if
@@ -572,6 +575,12 @@ contains
                 read (sRes, *) opt_format
             end if
         end if
+
+#ifndef USE_NETCDF
+        if (opt_format=FORMAT_NETCDF) then
+            call TLab_Error(trim(adjustl(eStr))//'Missing netCDF library.')
+        end if
+#endif
 
         if (opt_format < 0) opt_format = FORMAT_SINGLE ! default is single precission, no header
 
@@ -784,6 +793,7 @@ contains
             end if
             call IO_Write_Subarray(io_subarrays(subarray_plan), locName, varname, field, sizes)
 
+#ifdef USE_NETCDF
         case (FORMAT_NETCDF)
             if (allocated(vars)) deallocate (vars)
             allocate (vars(nfield))
@@ -812,7 +822,7 @@ contains
                                  y%nodes(subdomain(3):subdomain(4)), &
                                  z%nodes(subdomain(5):subdomain(6)), &
                                  vars)
-
+#endif
         end select
 
         return

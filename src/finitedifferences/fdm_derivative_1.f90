@@ -450,12 +450,12 @@ contains
 
         ! ! For A_22, we need idl >= idr -1
         ! if (idl < idr - 1) then
-        !     call TLab_Write_ASCII(efile, __FILE__//'. LHS array is too small.')
+        !     call TLab_Error(__FILE__//'. LHS array is too small.')
         !     call TLab_Stop(DNS_ERROR_UNDEVELOP)
         ! end if
         ! ! For b_21, we need idr >= idl
         ! if (idr < idl) then
-        !     call TLab_Write_ASCII(efile, __FILE__//'. RHS array is too small.')
+        !     call TLab_Error(__FILE__//'. RHS array is too small.')
         !     call TLab_Stop(DNS_ERROR_UNDEVELOP)
         ! end if
 

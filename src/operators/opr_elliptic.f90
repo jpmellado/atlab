@@ -8,7 +8,7 @@ module OPR_Elliptic
     use TLab_Constants, only: efile
     use TLab_Memory, only: TLab_Allocate_Real
     use TLab_Memory, only: imax, jmax, kmax, isize_txc_field
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Error
     use TLab_Arrays, only: wrk1d, wrk2d, wrk3d
     use TLab_Grid, only: x, y, z
     use FDM, only: fdm_der1_Z, FDM_CreatePlan_Der2
@@ -124,7 +124,7 @@ contains
             call FDM_CreatePlan_Der2(z, fdm_der2, FDM_COM6_DIRECT, fdm_der1_Z)
 
         case default
-            call TLab_Write_ASCII(efile, __FILE__//'. Undeveloped SchemeElliptic.')
+            call TLab_Error(__FILE__//'. Undeveloped SchemeElliptic.')
             call TLab_Stop(DNS_ERROR_OPTION)
         end select
 

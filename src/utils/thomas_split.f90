@@ -5,7 +5,7 @@
 module Thomas_Split
     use TLab_Constants, only: wp, wi
     use TLab_Constants, only: efile
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log, TLab_Error
     use Thomas, only: thomas_base_dt
     use Thomas, only: Thomas_FactorLU_InPlace, Thomas3_SolveL, Thomas3_SolveU
     implicit none
@@ -133,7 +133,7 @@ contains
         ! Calculate normalized alpha coefficients
         delta = 1.0_wp + z(1, p) + z(1, p_plus_1)
         if (abs(delta) < small_wp) then
-            call TLab_Write_ASCII(efile, __FILE__//'. Singular matrix M.')
+            call TLab_Error(__FILE__//'. Singular matrix M.')
             call TLab_Stop(DNS_ERROR_THOMAS)
         end if
 

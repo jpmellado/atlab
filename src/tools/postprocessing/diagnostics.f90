@@ -3,7 +3,7 @@
 module Diagnostics
     use TLab_Constants, only: wp, wi, small_wp
     use TLab_Constants, only: efile
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Start
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Error
     use TLab_Pointers
     use TLab_Memory, only: imax, jmax, kmax
     use OPR_Partial
@@ -68,7 +68,7 @@ contains
 
         ! Check
         if (nfield /= ifield) then
-            call TLab_Write_ASCII(efile, __FILE__//'. Array space nfield incorrect.')
+            call TLab_Error(__FILE__//'. Array space nfield incorrect.')
             call TLab_Stop(DNS_ERROR_WRKSIZE)
         end if
 
@@ -139,7 +139,7 @@ contains
 
         ! Check
         if (nfield /= ifield) then
-            call TLab_Write_ASCII(efile, __FILE__//'. Array space nfield incorrect.')
+            call TLab_Error(__FILE__//'. Array space nfield incorrect.')
             call TLab_Stop(DNS_ERROR_WRKSIZE)
         end if
 
@@ -199,7 +199,7 @@ contains
 
         ! Check
         if (nfield /= ifield) then
-            call TLab_Write_ASCII(efile, __FILE__//'. Array space nfield incorrect.')
+            call TLab_Error(__FILE__//'. Array space nfield incorrect.')
             call TLab_Stop(DNS_ERROR_WRKSIZE)
         end if
 
@@ -240,7 +240,7 @@ contains
 
         ! Check
         if (nfield /= ifield) then
-            call TLab_Write_ASCII(efile, __FILE__//'. Array space nfield incorrect.')
+            call TLab_Error(__FILE__//'. Array space nfield incorrect.')
             call TLab_Stop(DNS_ERROR_WRKSIZE)
         end if
 
@@ -289,7 +289,7 @@ contains
 
         ! Check
         if (nfield /= ifield) then
-            call TLab_Write_ASCII(efile, __FILE__//'. Array space nfield incorrect.')
+            call TLab_Error(__FILE__//'. Array space nfield incorrect.')
             call TLab_Stop(DNS_ERROR_WRKSIZE)
         end if
 
@@ -408,7 +408,7 @@ contains
 
         ! Check
         if (nfield /= ifield) then
-            call TLab_Write_ASCII(efile, __FILE__//'. Array space nfield incorrect.')
+            call TLab_Error(__FILE__//'. Array space nfield incorrect.')
             call TLab_Stop(DNS_ERROR_WRKSIZE)
         end if
 
@@ -486,7 +486,7 @@ contains
 
         ! Check
         if (nfield /= ifield) then
-            call TLab_Write_ASCII(efile, __FILE__//'. Array space nfield incorrect.')
+            call TLab_Error(__FILE__//'. Array space nfield incorrect.')
             call TLab_Stop(DNS_ERROR_WRKSIZE)
         end if
 
@@ -539,7 +539,7 @@ contains
 
         ! Check
         if (nfield /= ifield) then
-            call TLab_Write_ASCII(efile, __FILE__//'. Array space nfield incorrect.')
+            call TLab_Error(__FILE__//'. Array space nfield incorrect.')
             call TLab_Stop(DNS_ERROR_WRKSIZE)
         end if
 
@@ -570,7 +570,7 @@ contains
 
         ! Check
         if (nfield /= ifield) then
-            call TLab_Write_ASCII(efile, __FILE__//'. Array space nfield incorrect.')
+            call TLab_Error(__FILE__//'. Array space nfield incorrect.')
             call TLab_Stop(DNS_ERROR_WRKSIZE)
         end if
 
@@ -604,7 +604,7 @@ contains
 
         ! Check
         if (nfield /= ifield) then
-            call TLab_Write_ASCII(efile, __FILE__//'. Array space nfield incorrect.')
+            call TLab_Error(__FILE__//'. Array space nfield incorrect.')
             call TLab_Stop(DNS_ERROR_WRKSIZE)
         end if
 
@@ -639,7 +639,7 @@ contains
 
         ! Check
         if (nfield /= ifield) then
-            call TLab_Write_ASCII(efile, __FILE__//'. Array space nfield incorrect.')
+            call TLab_Error(__FILE__//'. Array space nfield incorrect.')
             call TLab_Stop(DNS_ERROR_WRKSIZE)
         end if
 
@@ -662,7 +662,7 @@ contains
 
         ! Check
         if (nfield /= ifield) then
-            call TLab_Write_ASCII(efile, __FILE__//'. Array space nfield incorrect.')
+            call TLab_Error(__FILE__//'. Array space nfield incorrect.')
             call TLab_Stop(DNS_ERROR_WRKSIZE)
         end if
 

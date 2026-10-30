@@ -75,7 +75,7 @@ contains
     !########################################################################
     subroutine NSE_Burgers_Initialize(inifile)
         use TLab_Constants, only: efile
-        use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
+        use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Error
         use TLab_Memory, only: inb_scal
         use NavierStokes, only: nse_eqns, DNS_EQNS_ANELASTIC, DNS_EQNS_BOUSSINESQ
         use NavierStokes, only: visc, schmidt
@@ -125,7 +125,7 @@ contains
             allocate (burgers :: burgers1d_X(0:inb_scal))
             allocate (burgers :: burgers1d_Y(0:inb_scal))
             if (subsidenceProps%type == TYPE_SUB_CONSTANT) then
-                call TLab_Write_ASCII(efile, __FILE__//'. Subsidence in boussinesq not yet implemented.')
+                call TLab_Error(__FILE__//'. Subsidence in boussinesq not yet implemented.')
                 call TLab_Stop(DNS_ERROR_UNDEVELOP)
             else
                 allocate (burgers :: burgers1d_Z(0:inb_scal))

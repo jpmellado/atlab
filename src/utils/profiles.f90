@@ -3,7 +3,7 @@
 ! Definining functions f=f(x) to be used in bcs, ics, and reference background profiles
 module Profiles
     use TLab_Constants, only: wp, i4, pi_wp, efile, MAX_PARS
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Error
     implicit none
     private
 
@@ -102,7 +102,7 @@ contains
         else if (trim(adjustl(sRes)) == 'gaussiantanhsymmetric') then; var%type = PROFILE_GAUSSIAN_TANH_SYM
         else if (trim(adjustl(sRes)) == 'void') then; var%type = PROFILE_VOID
         else
-            call TLab_Write_ASCII(efile, __FILE__//'. Wrong '//trim(adjustl(tag))//' profile.')
+            call TLab_Error(__FILE__//'. Wrong '//trim(adjustl(tag))//' profile.')
             call TLab_Stop(DNS_ERROR_OPTION)
         end if
 
@@ -300,7 +300,7 @@ contains
             var%parameters(3) = -var%parameters(4)/derivative/thick_ratio
 
         case default
-            call TLab_Write_ASCII(efile, __FILE__//'. Undevelop derivative input for this case.')
+            call TLab_Error(__FILE__//'. Undevelop derivative input for this case.')
             call TLab_Stop(DNS_ERROR_UNDEVELOP)
 
         end select
@@ -331,7 +331,7 @@ contains
             var%parameters(4) = -var%parameters(3)*derivative*thick_ratio
 
         case default
-            call TLab_Write_ASCII(efile, __FILE__//'. Undevelop derivative input for this case.')
+            call TLab_Error(__FILE__//'. Undevelop derivative input for this case.')
             call TLab_Stop(DNS_ERROR_UNDEVELOP)
 
         end select

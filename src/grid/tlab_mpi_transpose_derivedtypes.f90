@@ -6,7 +6,7 @@ module TLabMPI_Transpose_DerivedTypes
     use mpi_f08
     use TLab_Constants, only: wp, dp, sp, wi, sizeofreal
     use TLab_Constants, only: efile
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log, runtime_mpi
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log, TLab_Error, runtime_mpi
     implicit none
     private
 
@@ -124,7 +124,7 @@ contains
             elseif (trim(adjustl(sRes)) == 'sendrecv') then; trp_mode_i = TLAB_MPI_TRP_SENDRECV
             elseif (trim(adjustl(sRes)) == 'alltoall') then; trp_mode_i = TLAB_MPI_TRP_ALLTOALL
             else
-                call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Wrong TransposeModeI option.')
+                call TLab_Error(trim(adjustl(eStr))//'Wrong TransposeModeI option.')
                 call TLab_Stop(DNS_ERROR_OPTION)
             end if
 
@@ -134,7 +134,7 @@ contains
             elseif (trim(adjustl(sRes)) == 'sendrecv') then; trp_mode_j = TLAB_MPI_TRP_SENDRECV
             elseif (trim(adjustl(sRes)) == 'alltoall') then; trp_mode_j = TLAB_MPI_TRP_ALLTOALL
             else
-                call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Wrong TransposeModeJ option.')
+                call TLab_Error(trim(adjustl(eStr))//'Wrong TransposeModeJ option.')
                 call TLab_Stop(DNS_ERROR_OPTION)
             end if
 
@@ -142,7 +142,7 @@ contains
             if (trim(adjustl(sRes)) == 'double') then; trp_datatype_i = MPI_REAL8
             elseif (trim(adjustl(sRes)) == 'single') then; trp_datatype_i = MPI_REAL4
             else
-                call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Wrong TransposeTypeI.')
+                call TLab_Error(trim(adjustl(eStr))//'Wrong TransposeTypeI.')
                 call TLab_Stop(DNS_ERROR_UNDEVELOP)
             end if
 
@@ -150,7 +150,7 @@ contains
             if (trim(adjustl(sRes)) == 'double') then; trp_datatype_j = MPI_REAL8
             elseif (trim(adjustl(sRes)) == 'single') then; trp_datatype_j = MPI_REAL4
             else
-                call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Wrong TransposeTypeJ.')
+                call TLab_Error(trim(adjustl(eStr))//'Wrong TransposeTypeJ.')
                 call TLab_Stop(DNS_ERROR_UNDEVELOP)
             end if
 
@@ -229,7 +229,7 @@ contains
             allocate (self%send%disp(xMpi%num_processors), self%recv%disp(xMpi%num_processors))
             self%size3d = npage*nmax
         else
-            call TLab_Write_ASCII(efile, __FILE__//'. Ratio npage/npro not an integer.')
+            call TLab_Error(__FILE__//'. Ratio npage/npro not an integer.')
             call TLab_Stop(DNS_ERROR_PARPARTITION)
         end if
 
@@ -270,7 +270,7 @@ contains
         if (ims_ss /= ims_rs) then
             write (str, *) ims_ss; write (line, *) ims_rs
             line = 'Send size '//trim(adjustl(str))//'differs from recv size '//trim(adjustl(line))
-            call TLab_Write_ASCII(efile, line)
+            call TLab_Error(line)
             call TLab_Stop(DNS_ERROR_MPITYPECHECK)
         end if
 
@@ -312,7 +312,7 @@ contains
             allocate (self%send%disp(yMpi%num_processors), self%recv%disp(yMpi%num_processors))
             self%size3d = npage*nmax
         else
-            call TLab_Write_ASCII(efile, __FILE__//'. Ratio npage/npro not an integer.')
+            call TLab_Error(__FILE__//'. Ratio npage/npro not an integer.')
             call TLab_Stop(DNS_ERROR_PARPARTITION)
         end if
 
@@ -353,7 +353,7 @@ contains
         if (ims_ss /= ims_rs) then
             write (str, *) ims_ss; write (line, *) ims_rs
             line = 'Send size '//trim(adjustl(str))//'differs from recv size '//trim(adjustl(line))
-            call TLab_Write_ASCII(efile, line)
+            call TLab_Error(line)
             call TLab_Stop(DNS_ERROR_MPITYPECHECK)
         end if
 

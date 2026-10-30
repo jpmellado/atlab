@@ -18,7 +18,7 @@ subroutine AVG_SCAL_XZ(is, q, s, s_local, dsdx, dsdy, dsdz, tmp1, tmp2, tmp3, me
     use TLab_Time, only: itime, rtime
     use TLab_Arrays, only: wrk1d
     use TLab_Pointers_3D, only: p_wrk3d, u, v, w
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log, TLab_Error
     use TLab_Grid, only: z
     use OPR_Partial
     use NavierStokes
@@ -265,7 +265,7 @@ subroutine AVG_SCAL_XZ(is, q, s, s_local, dsdx, dsdy, dsdz, tmp1, tmp2, tmp3, me
     ! -----------------------------------------------------------------------
     nv = ig(ng) + sg(ng) - 1
     if (MAX_AVG_TEMPORAL < nv) then
-        call TLab_Write_ASCII(efile, __FILE__//'. Not enough space in local arrays.')
+        call TLab_Error(__FILE__//'. Not enough space in local arrays.')
         call TLab_Stop(DNS_ERROR_AVGTMP)
     end if
     mean2d(:, 1:nv) = 0.0_wp

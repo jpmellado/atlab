@@ -68,7 +68,7 @@ contains
         call TLab_Log(line)
 
         if (num_processors == 0) then
-            call TLab_Write_ASCII(efile, __FILE__//'. Number of processors is zero.')
+            call TLab_Error(__FILE__//'. Number of processors is zero.')
             call TLab_Stop(DNS_ERROR_MINPROC)
         end if
 
@@ -119,7 +119,7 @@ contains
         if (error_code /= 0) then
             write (line, *) error_code
             line = 'Error code '//trim(adjustl(line))//'.'
-            call TLab_Write_ASCII(efile, line)
+            call TLab_Error(line)
         end if
 
         call GETARG(0, line)
@@ -252,8 +252,8 @@ contains
 
         !##############################
         call MPI_Error_String(mpi_error_code, error_string, error_len, error_local)
-        call TLab_Write_ASCII(efile, 'MPI-ERROR: Source file'//trim(adjustl(LOCATION)), .true.)
-        call TLab_Write_ASCII(efile, error_string, .true.)
+        call TLab_Error('MPI-ERROR: Source file'//trim(adjustl(LOCATION)), .true.)
+        call TLab_Error(error_string, .true.)
 
         call TLab_Stop(mpi_error_code)
         ! Not supposed to return from this subroutine

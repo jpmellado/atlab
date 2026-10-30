@@ -4,7 +4,7 @@
 module FDM_Derivative_MPISplit
     use TLab_Constants, only: wp, wi
     use TLab_Constants, only: efile
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Error
     use FDM_Derivative_Base, only: der_periodic
     use FDM_Derivative_Base, only: matmul_halo_thomas_ice, matmul_halo_thomas_combined_ice
     use FDM_Derivative_1order, only: der1_periodic
@@ -54,7 +54,7 @@ contains
 
         ! ###################################################################
         if (size(ref%lhs, 2) /= 3) then
-            call TLab_Write_ASCII(efile, __FILE__//'. Matrix splitting only for tridiagonal.')
+            call TLab_Error(__FILE__//'. Matrix splitting only for tridiagonal.')
             call TLab_Stop(DNS_ERROR_UNDEVELOP)
         end if
 
@@ -120,7 +120,7 @@ contains
             fdm_der2%type == FDM_COM6_JACOBIAN_HYPER) then
             self%matmul => MatMul_Halo_5_antisym_7_sym_ThomasL_3
         else
-            call TLab_Write_ASCII(efile, __FILE__//'. Burgers splitting only for tridiagonal.')
+            call TLab_Error(__FILE__//'. Burgers splitting only for tridiagonal.')
             call TLab_Stop(DNS_ERROR_UNDEVELOP)
         end if
 

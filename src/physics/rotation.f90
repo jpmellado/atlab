@@ -3,7 +3,7 @@
 module Rotation
     use TLab_Constants, only: wp, wi, pi_wp, big_wp
     use TLab_Constants, only: efile, MAX_VARS, MAX_PARS
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log, TLab_Error
     implicit none
     private
 
@@ -59,7 +59,7 @@ contains
         else if (trim(adjustl(sRes)) == 'ageostrophic') then; coriolisProps%type = TYPE_COR_AGEOSTROPHIC_Z
         else if (trim(adjustl(sRes)) == 'explicit') then; coriolisProps%type = TYPE_COR_EXPLICIT_3D
         else
-            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Error in entry Type.')
+            call TLab_Error(trim(adjustl(eStr))//'Error in entry Type.')
             call TLab_Stop(DNS_ERROR_OPTION)
         end if
 
@@ -82,7 +82,7 @@ contains
         if (rossby > 0.0_wp) then
             coriolisProps%vector(:) = coriolisProps%vector(:)/rossby ! adding the rossby number into the vector
         else
-            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Rossby number must be nonzero.')
+            call TLab_Error(trim(adjustl(eStr))//'Rossby number must be nonzero.')
             call TLab_Stop(DNS_ERROR_OPTION)
         end if
 
@@ -93,7 +93,7 @@ contains
             call LIST_REAL(sRes, idummy, coriolisProps%parameters)
 
             ! if (coriolisProps%active(3)) then       ! Consistency check
-            !     call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Ageostrophic formulation only for angular velocity along Oz.')
+            !     call TLab_Error(trim(adjustl(eStr))//'Ageostrophic formulation only for angular velocity along Oz.')
             !     call TLab_Stop(DNS_ERROR_OPTION)
             ! end if
 

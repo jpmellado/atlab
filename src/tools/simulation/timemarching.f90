@@ -6,7 +6,7 @@ module TimeMarching
     use TLab_Memory, only: imax, jmax, kmax, isize_field
     use TLab_Memory, only: inb_flow, inb_scal
     use TLab_Time, only: rtime
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log, TLab_Error
 #ifdef USE_MPI
     use mpi_f08
     use TLab_WorkFlow, only: ims_err
@@ -91,7 +91,7 @@ contains
             allocate (rk45_dt :: TMarchScheme)
             lstr = '1.2'; 
         case default
-            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Wrong Scheme option.')
+            call TLab_Error(trim(adjustl(eStr))//'Wrong Scheme option.')
             call TLab_Stop(DNS_ERROR_RKORDER)
         end select
 
@@ -107,7 +107,7 @@ contains
 
             call ScanFile_Char(bakfile, inifile, block, 'MaxCFL', 'void', sRes)
             if (trim(adjustl(sRes)) /= 'void') then
-                call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Cannot impose both time step and max CFL.')
+                call TLab_Error(trim(adjustl(eStr))//'Cannot impose both time step and max CFL.')
                 call TLab_Stop(DNS_ERROR_OPTION)
             end if
 
@@ -117,7 +117,7 @@ contains
         if (trim(adjustl(sRes)) == 'no') then; remove_divergence = .false.
         else if (trim(adjustl(sRes)) == 'yes') then; remove_divergence = .true.
         else
-            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Wrong RemoveDivergence option.')
+            call TLab_Error(trim(adjustl(eStr))//'Wrong RemoveDivergence option.')
             call TLab_Stop(DNS_ERROR_OPTION)
         end if
 

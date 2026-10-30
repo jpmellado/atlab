@@ -5,7 +5,7 @@
 module Thomas_Parallel
     use TLab_Constants, only: wp, wi, small_wp, roundoff_wp
     use TLab_Constants, only: efile, fmt_r
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Warning
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Warning, TLab_Error
 #ifdef USE_MPI
     use TLabMPI_Grid, only: mpi_axis_dt
     use TLab_WorkFlow, only: runtime_mpi
@@ -97,7 +97,7 @@ contains
             end if
 
         case default
-            call TLab_Write_ASCII(efile, __FILE__//'Only tridiagonal case implemented in splitting algorithm.')
+            call TLab_Error(__FILE__//'Only tridiagonal case implemented in splitting algorithm.')
             call TLab_Stop(DNS_ERROR_THOMAS)
 
         end select

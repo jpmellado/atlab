@@ -14,7 +14,7 @@ module IO_Fields
     use TLab_Constants, only: wp, wi, sp, dp, sizeofint, sizeofreal
     use TLab_Constants, only: efile
     use TLab_Constants, only: MAX_PARS, MAX_VARS
-    use TLab_WorkFlow, only: TLab_Stop, TLab_Write_ASCII, TLab_Warning, TLab_Log
+    use TLab_WorkFlow, only: TLab_Stop, TLab_Write_ASCII, TLab_Warning, TLab_Log, TLab_Error
     use TLab_Arrays, only: wrk3d
     use, intrinsic :: iso_c_binding, only: c_f_pointer, c_loc
 #ifdef USE_MPI
@@ -129,7 +129,7 @@ contains
         elseif (trim(adjustl(sRes)) == 'netcdf') then; io_fileformat = IO_NETCDF
         elseif (trim(adjustl(sRes)) == 'none') then; io_fileformat = IO_NOFILE
         else
-            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Wrong FileFormat.')
+            call TLab_Error(trim(adjustl(eStr))//'Wrong FileFormat.')
             call TLab_Stop(DNS_ERROR_UNDEVELOP)
         end if
 
@@ -137,7 +137,7 @@ contains
         if (trim(adjustl(sRes)) == 'double') then; io_datatype = IO_TYPE_DOUBLE
         elseif (trim(adjustl(sRes)) == 'single') then; io_datatype = IO_TYPE_SINGLE
         else
-            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Wrong FileDatatype.')
+            call TLab_Error(trim(adjustl(eStr))//'Wrong FileDatatype.')
             call TLab_Stop(DNS_ERROR_UNDEVELOP)
         end if
 
@@ -686,7 +686,7 @@ contains
             ! Check
             if (any([nx_total, ny_total, nz_total] /= [nx_loc, ny_loc, nz_loc])) then
                 call TLab_Warning(__FILE__//'. Grid size mismatch.')
-                ! call TLab_Write_ASCII(efile, __FILE__//'. Grid size mismatch.')
+                ! call TLab_Error(__FILE__//'. Grid size mismatch.')
                 ! call TLab_Stop(DNS_ERROR_DIMGRID)
             end if
 
@@ -702,7 +702,7 @@ contains
                 ! elseif (isize == 0) then
                 !     continue ! no params to read; header format is correct
             else
-                call TLab_Write_ASCII(efile, __FILE__//'. Header format incorrect.')
+                call TLab_Error(__FILE__//'. Header format incorrect.')
                 call TLab_Stop(DNS_ERROR_RECLEN)
             end if
 
@@ -897,7 +897,7 @@ contains
 
         ! ###################################################################
 #ifdef USE_MPI
-        call TLab_Write_ASCII(efile, __FILE__//'NETCDF IO not implemented in parallel mode.')
+        call TLab_Error(__FILE__//'NETCDF IO not implemented in parallel mode.')
         call TLab_Stop(DNS_ERROR_UNDEVELOP)
 #endif
 
@@ -941,7 +941,7 @@ contains
             integer, intent(in) :: status
 
             if (status /= nf90_noerr) then
-                call TLab_Write_ASCII(efile, 'NETCDF error signal '//trim(adjustl(NF90_STRERROR(status))))
+                call TLab_Error('NETCDF error signal '//trim(adjustl(NF90_STRERROR(status))))
                 call TLab_Stop(DNS_ERROR_UNDEVELOP)
             end if
 

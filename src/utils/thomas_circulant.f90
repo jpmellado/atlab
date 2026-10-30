@@ -74,7 +74,7 @@ contains
     subroutine ThomasCirculant_5_Initialize(L, U, z_mem)
         use TLab_Constants, only: small_wp
         use TLab_Constants, only: efile
-        use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
+        use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Error
         use Thomas, only: Thomas5_FactorLU_InPlace, Thomas5_SolveL, Thomas5_SolveU
         real(wp), intent(inout) :: L(:, :), U(:, :)
         real(wp), intent(inout) :: z_mem(2, size(L, 1))
@@ -118,7 +118,7 @@ contains
         m4 = d(nmax)*z2(1) + e(nmax)*z2(2) + a(2)*z2(nmax) + 1.0_wp
         ! Check if M is invertible (eq. 2.9)
         if ((m1*m4 - m2*m3) < small_wp) then
-            call TLab_Write_ASCII(efile, __FILE__//'. Singular matrix M.')
+            call TLab_Error(__FILE__//'. Singular matrix M.')
             call TLab_Stop(DNS_ERROR_THOMAS)
         end if
 

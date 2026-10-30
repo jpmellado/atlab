@@ -2,7 +2,7 @@
 
 program DNS
     use TLab_Constants, only: ifile, efile, tag_flow, tag_scal
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log, TLab_Start, TLab_Runtime
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log, TLab_Error, TLab_Start, TLab_Runtime
     use TLab_WorkFlow, only: scal_on, flow_on
     use TLab_Time, only: itime, rtime
     use TLab_Arrays
@@ -213,7 +213,7 @@ program DNS
         if (runtime > runtime_max) then
             write (str, *) runtime
             ! write to efile so that job is not resubmitted
-            call TLab_Write_ASCII(efile, 'Maximum walltime of '//trim(adjustl(str))//' seconds is reached.')
+            call TLab_Error('Maximum walltime of '//trim(adjustl(str))//' seconds is reached.')
             exit
         end if
     end do

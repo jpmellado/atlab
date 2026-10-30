@@ -3,7 +3,7 @@
 module Planes
     use TLab_Constants, only: wp, wi
     use TLab_Constants, only: efile
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Error
     use TLab_Memory, only: imax, jmax, kmax
     use TLab_Memory, only: inb_flow_array, inb_scal_array, inb_txc
     use TLab_Arrays, only: txc
@@ -209,7 +209,7 @@ contains
             elseif (trim(adjustl(sRes)) == 'default') then; self%type = TYPE_DEFAULT
             elseif (trim(adjustl(sRes)) == 'derivatives') then; self%type = TYPE_DERIVATIVES
             else
-                call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Wrong Type option.')
+                call TLab_Error(trim(adjustl(eStr))//'Wrong Type option.')
                 call TLab_Stop(DNS_ERROR_OPTION)
             end if
 
@@ -217,7 +217,7 @@ contains
 
         if (self%type == TYPE_DERIVATIVES) then
             if (3 + inb_scal_array > inb_txc) then
-                call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Not enough memory space to save derivative planes.')
+                call TLab_Error(trim(adjustl(eStr))//'Not enough memory space to save derivative planes.')
                 call TLab_Stop(DNS_ERROR_OPTION)
             end if
         end if
@@ -242,7 +242,7 @@ contains
         allocate (self%nodes, source=nodes(1:nodes_size))
 
         if (any(self%nodes(:) < 1) .or. any(self%nodes(:) - subaxis%offset > subaxis%size)) then
-            call TLab_Write_ASCII(efile, __FILE__//'. Plane nodes out of bounds '//trim(adjustl(subaxis%parent%name)))
+            call TLab_Error(__FILE__//'. Plane nodes out of bounds '//trim(adjustl(subaxis%parent%name)))
             call TLab_Stop(DNS_ERROR_OPTION)
         end if
 
@@ -252,7 +252,7 @@ contains
         end if
 
         if (self%size > subaxis%size) then
-            call TLab_Write_ASCII(efile, __FILE__//'. Array size is insufficient.')
+            call TLab_Error(__FILE__//'. Array size is insufficient.')
             call TLab_Stop(DNS_ERROR_UNDEVELOP)
         end if
 

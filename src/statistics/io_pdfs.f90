@@ -199,11 +199,11 @@ contains
 #ifdef USE_NETCDF
     subroutine NC_CHECK(status)
         use TLab_Constants, only: efile
-        use TLab_WorkFlow, only: TLab_Stop
+        use TLab_WorkFlow, only: TLab_Stop, TLab_Error
         integer, intent(in) :: status
 
         if (status /= nf90_noerr) then
-            call TLab_Write_ASCII(efile, __FILE__//'. NETCDF error signal '//trim(adjustl(NF90_STRERROR(status))))
+            call TLab_Error(__FILE__//'. NETCDF error signal '//trim(adjustl(NF90_STRERROR(status))))
             call TLab_Stop(DNS_ERROR_UNDEVELOP)
         end if
 

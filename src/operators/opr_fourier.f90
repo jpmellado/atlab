@@ -19,7 +19,7 @@ module OPR_Fourier
     use TLab_Arrays, only: wrk3d
     use TLab_Pointers_C, only: c_wrk3d
     use TLab_Transpose
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Error
     use TLab_Grid, only: x, y, z, xSubgrid, ySubgrid, zSubgrid
     use, intrinsic :: iso_c_binding
 #ifdef USE_MPI
@@ -91,12 +91,12 @@ contains
 
         ! #######################################################################
 #ifndef USE_FFTW
-        call TLab_Write_ASCII(efile, __FILE__//'. FFTW needed for elliptic solvers.')
+        call TLab_Error(__FILE__//'. FFTW needed for elliptic solvers.')
         call TLab_Stop(DNS_ERROR_UNDEVELOP)
 #endif
 
         if (mod(imax, 2) /= 0) then
-            call TLab_Write_ASCII(efile, __FILE__//'. Imax must be a multiple of 2 for the FFT operations.')
+            call TLab_Error(__FILE__//'. Imax must be a multiple of 2 for the FFT operations.')
             call TLab_Stop(DNS_ERROR_DIMGRID)
         end if
 
@@ -129,7 +129,7 @@ contains
         case ('fftw_patient')
             fftw_planner_flag = FFTW_PATIENT
         case default
-            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Wrong fftw planner flag.')
+            call TLab_Error(trim(adjustl(eStr))//'Wrong fftw planner flag.')
             call TLab_Stop(DNS_ERROR_OPTION)
         end select
 

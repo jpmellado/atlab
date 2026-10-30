@@ -8,7 +8,7 @@ module Gravity
     use TLab_Constants, only: wp, wi, small_wp, big_wp
     use TLab_Constants, only: efile, MAX_PROF, MAX_VARS, MAX_PARS
     use TLab_Memory, only: inb_scal, inb_scal_array, inb_flow, inb_flow_array
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log, TLab_Error
     implicit none
     private
 
@@ -69,7 +69,7 @@ contains
         else if (trim(adjustl(sRes)) == 'bilinear') then; gravityProps%type = TYPE_GRAV_BILINEAR
         else if (trim(adjustl(sRes)) == 'quadratic') then; gravityProps%type = TYPE_GRAV_QUADRATIC
         else
-            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Error in entry Type.')
+            call TLab_Error(trim(adjustl(eStr))//'Error in entry Type.')
             call TLab_Stop(DNS_ERROR_OPTION)
         end if
 
@@ -92,7 +92,7 @@ contains
         if (froude > 0.0_wp) then   ! adding the froude number into the vector g
             gravityProps%vector(:) = gravityProps%vector(:)/froude
         else
-            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Froude number must be nonzero.')
+            call TLab_Error(trim(adjustl(eStr))//'Froude number must be nonzero.')
             call TLab_Stop(DNS_ERROR_OPTION)
         end if
 

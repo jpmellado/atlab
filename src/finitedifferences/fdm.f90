@@ -4,7 +4,7 @@ module FDM
     use TLab_Constants, only: wp, wi, roundoff_wp
     use TLab_Constants, only: efile
     use TLab_Constants, only: BCS_DD, BCS_ND, BCS_DN, BCS_NN, BCS_MIN, BCS_MAX, BCS_NONE
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Warning
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Warning, TLab_Error
     use FDM_Base
     use FDM_Derivative_1order
     use FDM_Derivative_2order
@@ -55,7 +55,7 @@ contains
         elseif (trim(adjustl(sRes)) == 'compactdirect4') then; der1_type = FDM_COM4_DIRECT; 
         elseif (trim(adjustl(sRes)) == 'compactdirect6') then; der1_type = FDM_COM6_DIRECT; 
         else
-            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Wrong SchemeDerivative1 option.')
+            call TLab_Error(trim(adjustl(eStr))//'Wrong SchemeDerivative1 option.')
             call TLab_Stop(DNS_ERROR_OPTION)
         end if
 
@@ -67,7 +67,7 @@ contains
         elseif (trim(adjustl(sRes)) == 'compactdirect6') then; der2_type = FDM_COM6_DIRECT; 
         elseif (trim(adjustl(sRes)) == 'compactdirect6hyper') then; der2_type = FDM_COM6_DIRECT_HYPER; 
         else
-            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Wrong SchemeDerivative2 option.')
+            call TLab_Error(trim(adjustl(eStr))//'Wrong SchemeDerivative2 option.')
             call TLab_Stop(DNS_ERROR_OPTION)
         end if
 

@@ -7,7 +7,7 @@ subroutine TLab_Initialize_Parameters(inifile)
     use TLab_Constants, only: wp, wi
     use TLab_Constants, only: efile
     use TLab_Constants, only: MajorVersion, MinorVersion
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Warning
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Warning, TLab_Error
     use TLab_WorkFlow, only: imode_verbosity
     use TLab_WorkFlow, only: flow_on, scal_on
     use TLab_ScanFiles
@@ -35,7 +35,7 @@ subroutine TLab_Initialize_Parameters(inifile)
 
     call ScanFile_Int(bakfile, inifile, 'Version', 'Major', '0', idummy)
     if (MajorVersion /= idummy) then
-        call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Major version error.')
+        call TLab_Error(trim(adjustl(eStr))//'Major version error.')
         call TLab_Stop(DNS_ERROR_VERSION)
     end if
     call ScanFile_Int(bakfile, inifile, 'Version', 'Minor', '0', idummy)
@@ -60,7 +60,7 @@ subroutine TLab_Initialize_Parameters(inifile)
     if (trim(adjustl(sRes)) == 'yes') then; flow_on = .true.
     elseif (trim(adjustl(sRes)) == 'no') then; flow_on = .false.
     else
-        call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Entry CalculateFlow must be yes or no')
+        call TLab_Error(trim(adjustl(eStr))//'Entry CalculateFlow must be yes or no')
         call TLab_Stop(DNS_ERROR_CALCFLOW)
     end if
 
@@ -68,7 +68,7 @@ subroutine TLab_Initialize_Parameters(inifile)
     if (trim(adjustl(sRes)) == 'yes') then; scal_on = .true.
     elseif (trim(adjustl(sRes)) == 'no') then; scal_on = .false.
     else
-        call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Entry CalculateScalar must be yes or no')
+        call TLab_Error(trim(adjustl(eStr))//'Entry CalculateScalar must be yes or no')
         call TLab_Stop(DNS_ERROR_CALCSCALAR)
     end if
 

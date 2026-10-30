@@ -27,7 +27,7 @@
 module FDM_Integral_1
     use TLab_Constants, only: wp, wi, efile
     use TLab_Constants, only: BCS_DD, BCS_ND, BCS_DN, BCS_NN, BCS_MIN, BCS_MAX, BCS_BOTH
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Error
     use Thomas
     use MatMul
     use MatMul_Thomas
@@ -120,7 +120,7 @@ contains
 
         ! check sizes
         if (abs(idl - idr) > 1) then
-            call TLab_Write_ASCII(efile, __FILE__//'. lhs and rhs cannot differ by more than 2 diagonals.')
+            call TLab_Error(__FILE__//'. lhs and rhs cannot differ by more than 2 diagonals.')
             call TLab_Stop(DNS_ERROR_UNDEVELOP)
         end if
 

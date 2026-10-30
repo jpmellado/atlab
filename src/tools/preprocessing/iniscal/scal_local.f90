@@ -7,7 +7,7 @@ module SCAL_LOCAL
     use TLab_Time, only: itime
     use TLab_Arrays, only: wrk1d
     use TLab_Pointers_3D, only: p_wrk2d, p_wrk3d
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Warning
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Warning, TLab_Error
     use IO_Fields
     use TLab_Grid, only: x, y, z, xSubgrid, ySubgrid
     use Tlab_Background, only: sbg
@@ -86,7 +86,7 @@ contains
         else if (trim(adjustl(sRes)) == 'fluxdiscrete') then; flag_s = PERT_FLUX_DISCRETE
         else if (trim(adjustl(sRes)) == 'volumediscrete') then; flag_s = PERT_VOLUME_DISCRETE
         else
-            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Scalar forcing type unknown')
+            call TLab_Error(trim(adjustl(eStr))//'Scalar forcing type unknown')
             call TLab_Stop(DNS_ERROR_OPTION)
         end if
 
@@ -107,7 +107,7 @@ contains
         ! Sanity check
         do is = 1, inb_scal
             if (.not. any(IniSvalid == IniS(is)%type)) then
-                call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Undeveloped IniS type.')
+                call TLab_Error(trim(adjustl(eStr))//'Undeveloped IniS type.')
                 call TLab_Stop(DNS_ERROR_OPTION)
             end if
         end do
@@ -122,7 +122,7 @@ contains
                 norm_ini_s(2:) = norm_ini_s(1)
                 call TLab_Warning(trim(adjustl(eStr))//'Using NormalizeS(1) for all scalars.')
             else
-                call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'NormalizeS size does not match number of scalars.')
+                call TLab_Error(trim(adjustl(eStr))//'NormalizeS size does not match number of scalars.')
                 call TLab_Stop(DNS_ERROR_OPTION)
             end if
         end if

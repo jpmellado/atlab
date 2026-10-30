@@ -6,7 +6,7 @@ program TransFields
     use TLab_Memory, only: imax, jmax, kmax, inb_txc, inb_flow, inb_scal
     use TLab_Time, only: itime, rtime
     use TLab_Arrays
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log, TLab_Start, flow_on, scal_on
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log, TLab_Error, TLab_Start, flow_on, scal_on
     use TLab_Memory, only: TLab_Initialize_Memory
 #ifdef USE_MPI
     use TLabMPI_Grid, only: yMpi
@@ -170,7 +170,7 @@ contains
         call LIST_INTEGER(sRes, itime_size, itime_vec)
 
         if (itime_vec(1) < 0) then ! Check
-            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Missing Files input.')
+            call TLab_Error(trim(adjustl(eStr))//'Missing Files input.')
             call TLab_Stop(DNS_ERROR_INVALOPT)
         end if
 
@@ -180,7 +180,7 @@ contains
         iv = iv + 1; opt_name(iv) = 'Swap Y-Z coordinates' ! old to new file format
 
         if (iv > iopt_size_max) then ! Check
-            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Increase number of options.')
+            call TLab_Error(trim(adjustl(eStr))//'Increase number of options.')
             call TLab_Stop(DNS_ERROR_INVALOPT)
         end if
 
@@ -200,7 +200,7 @@ contains
         call LIST_INTEGER(sRes, iopt_size, opt_vec)
 
         if (opt_vec(1) < 0) then ! Check
-            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Missing input [ParamAverages] in tlab.ini.')
+            call TLab_Error(trim(adjustl(eStr))//'Missing input [ParamAverages] in tlab.ini.')
             call TLab_Stop(DNS_ERROR_INVALOPT)
         end if
 
@@ -251,11 +251,11 @@ contains
 
 #ifdef USE_MPI
         ! if (mod(kmax, yMpi%num_processors) /= 0) then
-        !     call TLab_Write_ASCII(efile, __FILE__//'. Cannot transpose in Z coordinate. Try only X domain decomposition.')
+        !     call TLab_Error(__FILE__//'. Cannot transpose in Z coordinate. Try only X domain decomposition.')
         !     call TLab_Stop(DNS_ERROR_INVALOPT)
         ! end if
         if (yMpi%num_processors > 1) then
-            call TLab_Write_ASCII(efile, __FILE__//'. Only X domain decomposition.')
+            call TLab_Error(__FILE__//'. Only X domain decomposition.')
             call TLab_Stop(DNS_ERROR_INVALOPT)
         end if
 #endif

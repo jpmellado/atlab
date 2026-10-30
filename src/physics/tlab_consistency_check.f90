@@ -17,7 +17,7 @@ subroutine TLab_Consistency_Check()
     use Rotation, only: rossby
     use Thermodynamics
     use Thermo_Base, only: gamma0
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Error
     implicit none
 
     ! -------------------------------------------------------------------
@@ -35,14 +35,14 @@ subroutine TLab_Consistency_Check()
     do ig = 1, 3
         if (grid_sizes_aux(ig) /= grid_sizes(ig)) then
             write (lstr, *) ig
-            call TLab_Write_ASCII(efile, __FILE__//'. Grid size mismatch along direction'//trim(adjustl(lstr))//'.')
+            call TLab_Error(__FILE__//'. Grid size mismatch along direction'//trim(adjustl(lstr))//'.')
             call TLab_Stop(DNS_ERROR_DIMGRID)
         end if
     end do
 
     ! ###################################################################
     if (max(inb_flow, inb_scal) > MAX_VARS) then
-        call TLab_Write_ASCII(efile, __FILE__//'. Error MAX_VARS should be larger than or equal to inb_flow and inb_scal')
+        call TLab_Error(__FILE__//'. Error MAX_VARS should be larger than or equal to inb_flow and inb_scal')
         call TLab_Stop(DNS_ERROR_TOTALVARS)
     end if
 
@@ -51,12 +51,12 @@ subroutine TLab_Consistency_Check()
 
     ! ###################################################################
     if (imode_thermo == THERMO_TYPE_COMPRESSIBLE .and. nse_eqns /= DNS_EQNS_COMPRESSIBLE) then
-        call TLab_Write_ASCII(efile, __FILE__//'. Incorrect combination of compressible thermodynamics and type of evolution equations.')
+        call TLab_Error(__FILE__//'. Incorrect combination of compressible thermodynamics and type of evolution equations.')
         call TLab_Stop(DNS_ERROR_OPTION)
     end if
 
     if (imode_thermo == THERMO_TYPE_ANELASTIC .and. nse_eqns /= DNS_EQNS_ANELASTIC) then
-        call TLab_Write_ASCII(efile, __FILE__//'. Incorrect combination of anelastic thermodynamics and type of evolution equations.')
+        call TLab_Error(__FILE__//'. Incorrect combination of anelastic thermodynamics and type of evolution equations.')
         call TLab_Stop(DNS_ERROR_OPTION)
     end if
 

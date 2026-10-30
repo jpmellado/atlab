@@ -7,7 +7,7 @@ module TLabMPI_Transpose_Elementary
     use mpi_f08
     use TLab_Constants, only: wp, dp, wi
     use TLab_Constants, only: efile
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log, TLab_Error
     use TLab_WorkFlow, only: TLAB_MPI_REAL_TYPE
     implicit none
     private
@@ -101,7 +101,7 @@ contains
             self%nlines = npage/axis%num_processors
             allocate (self%send%disp(axis%num_processors), self%recv%disp(axis%num_processors))
         else
-            call TLab_Write_ASCII(efile, __FILE__//'. Ratio npage/npro not an integer.')
+            call TLab_Error(__FILE__//'. Ratio npage/npro not an integer.')
             call TLab_Stop(DNS_ERROR_PARPARTITION)
         end if
 

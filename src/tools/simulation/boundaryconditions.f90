@@ -4,7 +4,7 @@ module BoundaryConditions
     use TLab_Constants, only: wp, wi
     use TLab_Constants, only: BCS_DD, BCS_DN, BCS_ND, BCS_NN, BCS_NONE, BCS_MIN, BCS_MAX, BCS_BOTH
     use TLab_Constants, only: efile
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log, TLab_Error
     use TLab_Memory, only: imax, jmax, kmax
     implicit none
     private
@@ -175,7 +175,7 @@ contains
         else if (trim(adjustl(sRes)) == 'freeslip') then; self%type = DNS_BCS_NEUMANN
             if (idir == inormal) self%type = DNS_BCS_DIRICHLET   ! normal components are always nopenetration
         else
-            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Wrong '//trim(adjustl(tag)))
+            call TLab_Error(trim(adjustl(eStr))//'Wrong '//trim(adjustl(tag)))
             call TLab_Stop(DNS_ERROR_IBC)
         end if
 
@@ -226,7 +226,7 @@ contains
         else if (trim(adjustl(sRes)) == 'dirichlet') then; self%type = DNS_BCS_DIRICHLET
         else if (trim(adjustl(sRes)) == 'neumann') then; self%type = DNS_BCS_Neumann
         else
-            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Wrong '//trim(adjustl(locScal))//trim(adjustl(tag)))
+            call TLab_Error(trim(adjustl(eStr))//'Wrong '//trim(adjustl(locScal))//trim(adjustl(tag)))
             call TLab_Stop(DNS_ERROR_IBC)
         end if
 
@@ -236,7 +236,7 @@ contains
         ! elseif (sRes == 'linear') then
         !     self%%SfcType = DNS_SFC_LINEAR
         ! else
-        !     call TLab_Write_ASCII(efile, __FILE__//'. BoundaryConditions.'//trim(adjustl(lstr))//'SfcType'//trim(adjustl(tag)))
+        !     call TLab_Error(__FILE__//'. BoundaryConditions.'//trim(adjustl(lstr))//'SfcType'//trim(adjustl(tag)))
         !     call TLab_Stop(DNS_ERROR_JBC)
         ! end if
 

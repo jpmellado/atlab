@@ -7,7 +7,7 @@ module FLOW_LOCAL
     use TLab_Memory, only: imax, jmax, kmax, isize_field, inb_txc
     use TLab_Time, only: itime
     use TLab_Pointers_3D, only: p_wrk1d, p_wrk2d
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Error
     use IO_Fields
     use TLab_Grid, only: x, y, z
     use Discrete, only: discrete_dt, Discrete_ReadBlock
@@ -84,7 +84,7 @@ contains
         else if (trim(adjustl(sRes)) == 'vorticitybroadband') then; flag_u = PERT_BROADBAND_VORTICITY
         else if (trim(adjustl(sRes)) == 'potentialbroadband') then; flag_u = PERT_BROADBAND_POTENTIAL
         else
-            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Velocity forcing type unknown')
+            call TLab_Error(trim(adjustl(eStr))//'Velocity forcing type unknown')
             call TLab_Stop(DNS_ERROR_OPTION)
         end if
 
@@ -94,7 +94,7 @@ contains
 
         call Profiles_ReadBlock(bakfile, inifile, block, 'IniK', IniK)
         if (.not. any(IniKvalid == IniK%type)) then
-            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Undeveloped IniK type.')
+            call TLab_Error(trim(adjustl(eStr))//'Undeveloped IniK type.')
             call TLab_Stop(DNS_ERROR_OPTION)
         end if
         IniK%delta = 1.0_wp
@@ -108,7 +108,7 @@ contains
         ! else if (trim(adjustl(sRes)) == 'planediscrete') then; flag_t = PERT_DISCRETE
         ! else if (trim(adjustl(sRes)) == 'planebroadband') then; flag_t = PERT_BROADBAND
         ! else
-        !     call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Temperature forcing type unknown')
+        !     call TLab_Error(trim(adjustl(eStr))//'Temperature forcing type unknown')
         !     call TLab_Stop(DNS_ERROR_OPTION)
         ! end if
 
@@ -123,7 +123,7 @@ contains
         else if (trim(adjustl(sRes)) == 'noslip') then
         else if (trim(adjustl(sRes)) == 'freeslip') then; ibc_pert = ibc_pert + 1
         else
-            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'VelocityKmin.')
+            call TLab_Error(trim(adjustl(eStr))//'VelocityKmin.')
             call TLab_Stop(DNS_ERROR_IBC)
         end if
         call ScanFile_Char(bakfile, inifile, block, 'VelocityKmax', 'freeslip', sRes)
@@ -131,7 +131,7 @@ contains
         else if (trim(adjustl(sRes)) == 'noslip') then
         else if (trim(adjustl(sRes)) == 'freeslip') then; ibc_pert = ibc_pert + 2
         else
-            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'VelocityKmax.')
+            call TLab_Error(trim(adjustl(eStr))//'VelocityKmax.')
             call TLab_Stop(DNS_ERROR_IBC)
         end if
 

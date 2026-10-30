@@ -3,7 +3,7 @@
 module TLab_Memory
     use TLab_Constants, only: sp, wp, wi, longi
     use TLab_Constants, only: lfile, efile
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Error
     implicit none
     private
     save
@@ -77,7 +77,7 @@ contains
         maxSize = maxSize*int(kmax, i8)
 
         if (maxSize > int(huge(imax), i8)) then
-            call TLab_Write_ASCII(efile, C_FILE_LOC//'. Integer model of 4 bytes is not big enough.')
+            call TLab_Error(C_FILE_LOC//'. Integer model of 4 bytes is not big enough.')
             call TLab_Stop(DNS_ERROR_UNDEVELOP)
         end if
 
@@ -97,7 +97,7 @@ contains
         ! ###################################################################
         ! loop counters over the whole domain are integer*4
         if (isize_txc_field > huge(imax)) then
-            call TLab_Write_ASCII(efile, C_FILE_LOC//'. Integer model of 4 bytes is not big enough.')
+            call TLab_Error(C_FILE_LOC//'. Integer model of 4 bytes is not big enough.')
             call TLab_Stop(DNS_ERROR_UNDEVELOP)
         end if
 
@@ -240,7 +240,7 @@ contains
         rank (4)
             allocate (a(dims(1), dims(2), dims(3), dims(4)), stat=ierr)
         rank default
-            call TLab_Write_ASCII(efile, C_FILE_LOC//'. Rank too large while allocating memory space for '//trim(adjustl(s))//'.')
+            call TLab_Error(C_FILE_LOC//'. Rank too large while allocating memory space for '//trim(adjustl(s))//'.')
             call TLab_Stop(DNS_ERROR_ALLOC)
         end select
         call TLAB_ALLOCATE_ERR(C_FILE_LOC, efile, s)

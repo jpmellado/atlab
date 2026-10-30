@@ -3,7 +3,7 @@
 module SpecialForcing
     use TLab_Constants, only: wp, wi, pi_wp, tag_scal
     use TLab_Constants, only: efile, MAX_VARS, MAX_PARS
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log, TLab_Error
     use TLab_Memory, only: TLab_Allocate_Real
     use TLab_Grid, only: x, y, z
     use Tlab_Background, only: qbg, sbg
@@ -87,7 +87,7 @@ contains
         elseif (trim(adjustl(sRes)) == 'wavemaker') then; forcingProps%type = TYPE_WAVEMAKER; 
         elseif (trim(adjustl(sRes)) == 'wavemakertanh') then; forcingProps%type = TYPE_WAVEMAKERTANH; 
         else
-            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Error in SpecialForcing.Type.')
+            call TLab_Error(trim(adjustl(eStr))//'Error in SpecialForcing.Type.')
             call TLab_Stop(DNS_ERROR_OPTION)
         end if
 
@@ -119,7 +119,7 @@ contains
                         idummy = 4
                         call LIST_REAL(sRes, idummy, dummy)
                         if (idummy /= 4) then
-                            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Error in '//trim(adjustl(block))//'.Wave.')
+                            call TLab_Error(trim(adjustl(eStr))//'Error in '//trim(adjustl(block))//'.Wave.')
                             call TLab_Stop(DNS_ERROR_OPTION)
                         end if
                         dummy(3) = dummy(3)*pi_wp/180._wp                   ! from degree to radians

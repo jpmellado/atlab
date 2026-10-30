@@ -3,7 +3,7 @@
 module TLab_Grid
     use TLab_Constants, only: wp, wi
     use TLab_Constants, only: efile
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Error
     implicit none
     private
 
@@ -118,7 +118,7 @@ contains
             else if (trim(adjustl(sRes)) == 'no') then
                 globalGrid%axes(ig)%uniform = .false.
             else
-                call TLab_Write_ASCII(efile, __FILE__//'. Error in Uniform '//globalGrid%axes(ig)%name(1:1)//' grid')
+                call TLab_Error(__FILE__//'. Error in Uniform '//globalGrid%axes(ig)%name(1:1)//' grid')
                 call TLab_Stop(DNS_ERROR_UNIFORMX)
             end if
 
@@ -128,13 +128,13 @@ contains
             else if (trim(adjustl(sRes)) == 'no') then
                 globalGrid%axes(ig)%periodic = .false.
             else
-                call TLab_Write_ASCII(efile, __FILE__//'. Error in Periodic '//globalGrid%axes(ig)%name(1:1)//' grid')
+                call TLab_Error(__FILE__//'. Error in Periodic '//globalGrid%axes(ig)%name(1:1)//' grid')
                 call TLab_Stop(DNS_ERROR_IBC)
             end if
 
             ! consistency check
             if (globalGrid%axes(ig)%periodic .and. (.not. globalGrid%axes(ig)%uniform)) then
-                call TLab_Write_ASCII(efile, __FILE__//'. Grid must be uniform in periodic direction.')
+                call TLab_Error(__FILE__//'. Grid must be uniform in periodic direction.')
                 call TLab_Stop(DNS_ERROR_OPTION)
             end if
 
@@ -190,7 +190,7 @@ contains
             if (any([x%size, y%size, z%size] /= sizes)) then
                 close (50)
                 write (line, 100) x%size, y%size, z%size
-                call TLab_Write_ASCII(efile, __FILE__//'. Dimensions ('//trim(line)//') unmatched.')
+                call TLab_Error(__FILE__//'. Dimensions ('//trim(line)//') unmatched.')
                 call TLab_Stop(DNS_ERROR_DIMGRID)
             end if
         end if

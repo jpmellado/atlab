@@ -5,7 +5,7 @@
 
 program INIGRID
     use TLab_Constants, only: wp, ifile, efile
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log, TLab_Start
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log, TLab_Error, TLab_Start
     use TLab_Arrays, only: wrk1d, wrk2d
     use TLab_Grid, only: gfile, axis_dt, TLab_Grid_Write
     use GRID_LOCAL
@@ -195,7 +195,7 @@ contains
         call ScanFile_Real(bakfile, inifile, block, 'fixed_scale', '-1.0', var%fixed_scale)
 
         if (periodic .and. var%mirrored) then
-            call TLab_Write_ASCII(efile, C_FILE_LOC//'. Periodicity with mirroring is not supported.')
+            call TLab_Error(C_FILE_LOC//'. Periodicity with mirroring is not supported.')
             call TLab_Stop(DNS_ERROR_GRID_SCALE)
         end if
 

@@ -2,7 +2,7 @@
 
 module LargeScaleForcing
     use TLab_Constants, only: wp, wi, efile, MAX_PROF, MAX_VARS, MAX_PARS
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Error
     use TLab_Grid, only: z
     implicit none
     private
@@ -57,7 +57,7 @@ contains
         if (trim(adjustl(sRes)) == 'none') then; subsidenceProps%type = TYPE_SUB_NONE
         else if (trim(adjustl(sRes)) == 'constantdivergence') then; subsidenceProps%type = TYPE_SUB_CONSTANT
         else
-            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Error in entry Type.')
+            call TLab_Error(trim(adjustl(eStr))//'Error in entry Type.')
             call TLab_Stop(DNS_ERROR_OPTION)
         end if
 

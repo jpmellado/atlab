@@ -4,7 +4,7 @@ module Buffer
     use TLab_Constants, only: wp, wi, MAX_PARS
     use TLab_Constants, only: efile
     use TLab_Constants, only: tag_flow, tag_scal, fmt_r
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log, TLab_Error
     use TLab_Memory, only: inb_flow, inb_scal
     implicit none
     private
@@ -78,7 +78,7 @@ contains
             ! else if (trim(adjustl(sRes)) == 'filter') then; bufferType = BUFFER_TYPE_FILTER
             ! else if (trim(adjustl(sRes)) == 'both') then; bufferType = BUFFER_TYPE_BOTH
         else
-            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Wrong Type option.')
+            call TLab_Error(trim(adjustl(eStr))//'Wrong Type option.')
             call TLab_Stop(DNS_ERROR_OPTION)
         end if
 
@@ -165,7 +165,7 @@ contains
 
             idummy = 2; call LIST_REAL(sRes, idummy, self%parameters)
             if (idummy /= 2) then
-                call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Wrong number of values in buffer parameters.')
+                call TLab_Error(trim(adjustl(eStr))//'Wrong number of values in buffer parameters.')
                 call TLab_Stop(DNS_ERROR_OPTION)
             end if
 

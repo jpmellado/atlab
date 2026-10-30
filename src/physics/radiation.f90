@@ -4,7 +4,7 @@ module Radiation
     use TLab_Constants, only: wp, wi
     use TLab_Constants, only: MAX_PARS, MAX_VARS
     use TLab_Constants, only: efile
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Error
     use TLab_Memory, only: TLab_Allocate_Real
     use FDM, only: fdm_Int0
     use NavierStokes, only: nse_eqns, DNS_EQNS_ANELASTIC
@@ -85,7 +85,7 @@ contains
         else if (trim(adjustl(sRes)) == 'gray') then; infraredProps%type = TYPE_IR_GRAY
         else if (trim(adjustl(sRes)) == 'band') then; infraredProps%type = TYPE_IR_BAND
         else
-            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Error in entry Type.')
+            call TLab_Error(trim(adjustl(eStr))//'Error in entry Type.')
             call TLab_Stop(DNS_ERROR_OPTION)
         end if
 
@@ -104,7 +104,7 @@ contains
             if (idummy == 1) then
                 ! epsilon = infraredProps%bcs_b(idummy)
             else if (idummy /= infraredProps%nbands) then
-                call TLab_Write_ASCII(efile, __FILE__//'. Error in '//trim(adjustl(block))//'.AbsorptionComponent.')
+                call TLab_Error(__FILE__//'. Error in '//trim(adjustl(block))//'.AbsorptionComponent.')
                 call TLab_Stop(DNS_ERROR_OPTION)
             end if
 
@@ -116,7 +116,7 @@ contains
                     idummy = nbands_max
                     call LIST_REAL(sRes, idummy, dummy)
                     if (idummy /= infraredProps%nbands) then
-                        call TLab_Write_ASCII(efile, __FILE__//'. Error in '//trim(adjustl(block))//'.AbsorptionComponent.')
+                        call TLab_Error(__FILE__//'. Error in '//trim(adjustl(block))//'.AbsorptionComponent.')
                         call TLab_Stop(DNS_ERROR_OPTION)
                     end if
                     infraredProps%kappa(ic, 1:idummy) = dummy(1:idummy)
@@ -136,7 +136,7 @@ contains
                     idummy = nbands_max
                     call LIST_REAL(sRes, idummy, dummy)
                     if (idummy /= infraredProps%nbands - 1) then                      ! The coefficients need to add to 1, that is why we only read nbands -1
-                        call TLab_Write_ASCII(efile, __FILE__//'. Error in '//trim(adjustl(block))//'.BetaCoefficient.')
+                        call TLab_Error(__FILE__//'. Error in '//trim(adjustl(block))//'.BetaCoefficient.')
                         call TLab_Stop(DNS_ERROR_OPTION)
                     end if
                     infraredProps%beta(ic, 1:idummy) = dummy(1:idummy)
@@ -157,7 +157,7 @@ contains
                 ! third radiatively active scalar is a homogeneous field, e.g., CO2
 
             case default
-                call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Infrared only derived for airwater mixture.')
+                call TLab_Error(trim(adjustl(eStr))//'Infrared only derived for airwater mixture.')
                 call TLab_Stop(DNS_ERROR_OPTION)
 
             end select

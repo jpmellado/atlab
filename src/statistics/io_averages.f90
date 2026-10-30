@@ -90,7 +90,7 @@ subroutine IO_WRITE_AVERAGES(fname, itime, rtime, nz, nv, ng, z, varnames, group
 #define L_AVGMAX 250
 
         if (L_AVGMAX < nv) then
-            call TLab_Write_ASCII(efile, 'IO_WRITE_AVERAGES. Not enough space in format definition.')
+            call TLab_Error('IO_WRITE_AVERAGES. Not enough space in format definition.')
             call TLab_Stop(DNS_ERROR_AVGTMP)
         end if
 
@@ -131,7 +131,7 @@ contains
 #ifdef USE_NETCDF
     subroutine NC_CHECK(status)
         use TLab_Constants, only: efile
-        use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
+        use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Error
         use NETCDF
 
         implicit none
@@ -139,7 +139,7 @@ contains
         integer, intent(IN) :: status
 
         if (status /= nf90_noerr) then
-            call TLab_Write_ASCII(efile, 'NETCDF error signal '//trim(adjustl(NF90_STRERROR(status))))
+            call TLab_Error('NETCDF error signal '//trim(adjustl(NF90_STRERROR(status))))
             call TLab_Stop(DNS_ERROR_UNDEVELOP)
         end if
 

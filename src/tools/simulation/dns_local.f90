@@ -26,7 +26,7 @@ contains
         use TLab_Constants, only: efile
         use TLab_ScanFiles
         use TLab_Memory, only: inb_txc
-        use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
+        use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Error
         ! use OPR_Filters, only: FilterDomain, PressureFilter, DNS_FILTER_NONE
 
         character*(*) inifile
@@ -65,7 +65,7 @@ contains
         ! if (nitera_filter == 0) FilterDomain(:)%type = DNS_FILTER_NONE
 
         if (nitera_first > nitera_last) then
-            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Not started because nitera_first > nitera_last.')
+            call TLab_Error(trim(adjustl(eStr))//'Not started because nitera_first > nitera_last.')
             call TLab_Stop(DNS_ERROR_OPTION)
         end if
 

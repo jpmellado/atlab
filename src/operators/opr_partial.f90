@@ -69,7 +69,7 @@ contains
     ! ###################################################################
     subroutine OPR_Partial_Initialize(inifile)
         use TLab_Constants, only: efile
-        use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
+        use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Error
         use TLab_ScanFiles
 #ifdef USE_MPI
         use TLab_Memory, only: imax, jmax, kmax
@@ -98,7 +98,7 @@ contains
         if (trim(adjustl(sRes)) == 'transpose') then; der_mode_i = TYPE_TRANSPOSE
         elseif (trim(adjustl(sRes)) == 'split') then; der_mode_i = TYPE_SPLIT
         else
-            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Wrong DerivativeModeI option.')
+            call TLab_Error(trim(adjustl(eStr))//'Wrong DerivativeModeI option.')
             call TLab_Stop(DNS_ERROR_OPTION)
         end if
 
@@ -106,7 +106,7 @@ contains
         if (trim(adjustl(sRes)) == 'transpose') then; der_mode_j = TYPE_TRANSPOSE
         elseif (trim(adjustl(sRes)) == 'split') then; der_mode_j = TYPE_SPLIT
         else
-            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Wrong DerivativeModeJ option.')
+            call TLab_Error(trim(adjustl(eStr))//'Wrong DerivativeModeJ option.')
             call TLab_Stop(DNS_ERROR_OPTION)
         end if
 #endif

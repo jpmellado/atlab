@@ -14,7 +14,7 @@
 module Thermodynamics
     use TLab_Constants, only: wi, wp
     use TLab_Constants, only: efile, fmt_r
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log, TLab_Error
     use Thermo_Base
     use Thermo_AirWater
     use Thermo_Anelastic
@@ -63,7 +63,7 @@ contains
         else if (trim(adjustl(sRes)) == 'anelastic') then; imode_thermo = THERMO_TYPE_ANELASTIC
         else if (trim(adjustl(sRes)) == 'compressible') then; imode_thermo = THERMO_TYPE_COMPRESSIBLE
         else
-            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Error in entry Type.')
+            call TLab_Error(trim(adjustl(eStr))//'Error in entry Type.')
             call TLab_Stop(DNS_ERROR_OPTION)
         end if
 
@@ -73,7 +73,7 @@ contains
         else if (trim(adjustl(sRes)) == 'airvapor') then; imixture = MIXT_TYPE_AIRVAPOR
         else if (trim(adjustl(sRes)) == 'airwater') then; imixture = MIXT_TYPE_AIRWATER
         else
-            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Error in entry Mixture.')
+            call TLab_Error(trim(adjustl(eStr))//'Error in entry Mixture.')
             call TLab_Stop(DNS_ERROR_OPTION)
         end if
 
@@ -81,7 +81,7 @@ contains
         if (trim(adjustl(sRes)) == 'yes') then; nondimensional = .true.
         else if (trim(adjustl(sRes)) == 'no') then; nondimensional = .false.
         else
-            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Error in entry Nondimensional.')
+            call TLab_Error(trim(adjustl(eStr))//'Error in entry Nondimensional.')
             call TLab_Stop(DNS_ERROR_OPTION)
         end if
 

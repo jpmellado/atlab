@@ -4,7 +4,7 @@ module Microphysics
     use TLab_Constants, only: wp, wi, pi_wp, efile, MAX_VARS, MAX_PARS
     use NavierStokes, only: nse_eqns, DNS_EQNS_ANELASTIC
     use TLab_Memory, only: inb_scal_array, TLab_Allocate_Real
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Warning
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Warning, TLab_Error
     use TLab_CacheBlock
     use Thermo_Base, only: imixture, MIXT_TYPE_AIRWATER
     use Thermo_Anelastic, only: dsmooth
@@ -94,7 +94,7 @@ contains
         elseif (trim(adjustl(sRes)) == 'qscalc-impl') then; evaporationProps%type = TYPE_EVA_QSCALC_IMPL
         elseif (trim(adjustl(sRes)) == 'qscalc-semiimpl') then; evaporationProps%type = TYPE_EVA_QSCALC_SEMIIMPL
         else
-            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Error in entry Type.'//trim(adjustl(sRes)))
+            call TLab_Error(trim(adjustl(eStr))//'Error in entry Type.'//trim(adjustl(sRes)))
             call TLab_Stop(DNS_ERROR_OPTION)
         end if
 
@@ -126,7 +126,7 @@ contains
             case (TYPE_EVA_EXPONENTIAL,TYPE_EVA_EXPONENTIAL_IMPL,TYPE_EVA_QSCONST,TYPE_EVA_QSCALC,TYPE_EVA_QSCALC_IMPL,TYPE_EVA_QSCALC_SEMIIMPL)
                 evaporationProps%active(inb_scal_ql) = .true.           ! Only ql scalars is affected
                 if (damkohler <= 0.0_wp) then
-                    call TLab_Write_ASCII(efile, __FILE__//'. Damkohler number must be nonzero if non-equilibrium evaporation is retained.')
+                    call TLab_Error(__FILE__//'. Damkohler number must be nonzero if non-equilibrium evaporation is retained.')
                     call TLab_Stop(DNS_ERROR_OPTION)
                 end if
                 dsmooth = evaporationProps%parameters(3)    ! Smooth factor for thermodynamic partial derivatives
@@ -134,7 +134,7 @@ contains
             end select
 
             if (inb_scal_array <= 3) then
-                call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'AirWater mixture needs at least 4 scalar arrays.')
+                call TLab_Error(trim(adjustl(eStr))//'AirWater mixture needs at least 4 scalar arrays.')
                 call TLab_Stop(DNS_ERROR_OPTION)
             end if
 
@@ -166,7 +166,7 @@ contains
         elseif (trim(adjustl(sRes)) == 'airwater') then; sedimentationProps%type = TYPE_SED_AIRWATER
         elseif (trim(adjustl(sRes)) == 'airwatersimplified') then; sedimentationProps%type = TYPE_SED_AIRWATERSIMPLIFIED
         else
-            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Error in entry Type.')
+            call TLab_Error(trim(adjustl(eStr))//'Error in entry Type.')
             call TLab_Stop(DNS_ERROR_OPTION)
         end if
 
@@ -198,7 +198,7 @@ contains
             if (settling > 0.0_wp) then
                 sedimentationProps%parameters = sedimentationProps%parameters*settling ! adding the settling number in the parameter definitions
             else
-                call TLab_Write_ASCII(efile, __FILE__//'. Settling number must be nonzero if sedimentation is retained.')
+                call TLab_Error(__FILE__//'. Settling number must be nonzero if sedimentation is retained.')
                 call TLab_Stop(DNS_ERROR_OPTION)
             end if
         end if

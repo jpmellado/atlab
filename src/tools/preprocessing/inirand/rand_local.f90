@@ -4,7 +4,7 @@ module RAND_LOCAL
     use TLab_Constants, only: wp, wi, big_wp
     use TLab_Constants, only: efile
     use TLab_Memory, only: imax, jmax, kmax, isize_field, isize_txc_field, inb_txc
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Error
 #ifdef USE_MPI
     use TLabMPI_Grid, only: mpiGrid
 #endif
@@ -78,7 +78,7 @@ contains
         else if (trim(adjustl(sRes)) == 'uniform') then; pdf%type = TYPE_DF_UNIFORM
         else if (trim(adjustl(sRes)) == 'gaussian') then; pdf%type = TYPE_DF_GAUSSIAN
         else
-            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Distribution type unknown.')
+            call TLab_Error(trim(adjustl(eStr))//'Distribution type unknown.')
             call TLab_Stop(DNS_ERROR_OPTION)
         end if
 
@@ -90,7 +90,7 @@ contains
             call LIST_REAL(sRes, idummy, rdummy)
             if (idummy == 6) then; ucov(1:6) = rdummy(1:6)
             else
-                call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Incorrect number of variances.')
+                call TLab_Error(trim(adjustl(eStr))//'Incorrect number of variances.')
                 call TLab_Stop(DNS_ERROR_OPTION)
             end if
         end if
@@ -196,7 +196,7 @@ contains
         ! ###################################################################
         if (y%size > 1) then
             if (Rxy /= 0.0_wp .or. Ryz /= 0.0_wp) then ! only 2D case developed
-                call TLab_Write_ASCII(efile, 'Terms Rxy and Ryz not developed yet.')
+                call TLab_Error('Terms Rxy and Ryz not developed yet.')
                 call TLab_Stop(DNS_ERROR_UNDEVELOP)
             end if
 

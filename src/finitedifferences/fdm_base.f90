@@ -9,7 +9,7 @@ module FDM_Base
     use TLab_Constants, only: wp, wi
     use TLab_Constants, only: BCS_NONE, BCS_MIN, BCS_MAX, BCS_BOTH
     use TLab_Constants, only: efile
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Error
     implicit none
     private
 
@@ -242,7 +242,7 @@ contains
                 nx_t = size(rhs_b, 1)
 
                 if (nx_t < idl + 1 .or. ndr_b < ndr + 2) then
-                    call TLab_Write_ASCII(efile, __FILE__//'. rhs_b array is too small.')
+                    call TLab_Error(__FILE__//'. rhs_b array is too small.')
                     call TLab_Stop(DNS_ERROR_UNDEVELOP)
                 end if
 
@@ -284,7 +284,7 @@ contains
                 nx_t = size(rhs_t, 1)
 
                 if (nx_t < idl + 1 .or. ndr_t < ndr + 2) then
-                    call TLab_Write_ASCII(efile, __FILE__//'. rhs_t array is too small.')
+                    call TLab_Error(__FILE__//'. rhs_t array is too small.')
                     call TLab_Stop(DNS_ERROR_UNDEVELOP)
                 end if
 

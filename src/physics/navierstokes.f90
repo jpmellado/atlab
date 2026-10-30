@@ -32,7 +32,7 @@ module NavierStokes
 contains
     subroutine NavierStokes_Initialize_Parameters(inifile)
         use TLab_Constants, only: efile
-        use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
+        use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Error
         use TLab_ScanFiles
         use TLab_Memory, only: inb_flow, inb_flow_array, inb_scal, inb_scal_array
         ! use Thermodynamics, only: mach
@@ -62,7 +62,7 @@ contains
         else if (trim(adjustl(sRes)) == 'anelastic') then; nse_eqns = DNS_EQNS_ANELASTIC
         else if (trim(adjustl(sRes)) == 'compressible') then; nse_eqns = DNS_EQNS_COMPRESSIBLE
         else
-            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Wrong entry Main.Equations option.')
+            call TLab_Error(trim(adjustl(eStr))//'Wrong entry Main.Equations option.')
             call TLab_Stop(DNS_ERROR_OPTION)
         end if
 
@@ -72,7 +72,7 @@ contains
         ! else if (trim(adjustl(sRes)) == 'skewsymmetric') then; nse_advection = EQNS_SKEWSYMMETRIC
         ! else if (trim(adjustl(sRes)) == 'convective') then; nse_advection = EQNS_CONVECTIVE
         ! else
-        !     call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Wrong TermAdvection option.')
+        !     call TLab_Error(trim(adjustl(eStr))//'Wrong TermAdvection option.')
         !     call TLab_Stop(DNS_ERROR_OPTION)
         ! end if
 
@@ -81,7 +81,7 @@ contains
         ! else if (trim(adjustl(sRes)) == 'divergence') then; nse_viscous = EQNS_DIVERGENCE
         else if (trim(adjustl(sRes)) == 'explicit') then; nse_viscous = EQNS_EXPLICIT
         else
-            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Wrong TermViscous option.')
+            call TLab_Error(trim(adjustl(eStr))//'Wrong TermViscous option.')
             call TLab_Stop(DNS_ERROR_OPTION)
         end if
 
@@ -90,7 +90,7 @@ contains
         ! else if (trim(adjustl(sRes)) == 'divergence') then; nse_diffusion = EQNS_DIVERGENCE
         else if (trim(adjustl(sRes)) == 'explicit') then; nse_diffusion = EQNS_EXPLICIT
         else
-            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Wrong TermDiffusion option.')
+            call TLab_Error(trim(adjustl(eStr))//'Wrong TermDiffusion option.')
             call TLab_Stop(DNS_ERROR_OPTION)
         end if
 
@@ -106,7 +106,7 @@ contains
         if (reynolds <= 0.0) then
             call ScanFile_Real(bakfile, inifile, block, 'Viscosity', '-1.0', dummy)
             if (dummy <= 0.0) then
-                call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Molecular transport coefficients need to be positive.')
+                call TLab_Error(trim(adjustl(eStr))//'Molecular transport coefficients need to be positive.')
                 call TLab_Stop(DNS_ERROR_OPTION)
             else
                 reynolds = 1.0_wp/dummy

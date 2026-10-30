@@ -41,7 +41,7 @@ module Thermo_Compressible
 
             ! else
             !     if (imixture == MIXT_TYPE_NONE) then
-            !         call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Single species formulation must be nondimensional.')
+            !         call TLab_Error(trim(adjustl(eStr))//'Single species formulation must be nondimensional.')
             !         call TLab_Stop(DNS_ERROR_OPTION)
             !     end if
 

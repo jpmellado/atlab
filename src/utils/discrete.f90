@@ -18,7 +18,7 @@ module Discrete
 
 contains
     subroutine Discrete_ReadBlock(bakfile, inifile, block, var)
-        use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop
+        use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Error
         use TLab_ScanFiles
         use Profiles, only: PROFILE_NONE, PROFILE_TANH_COS, PROFILE_GAUSSIAN, PROFILE_GAUSSIAN_SYM, PROFILE_GAUSSIAN_ANTISYM
 
@@ -54,7 +54,7 @@ contains
             idummy = MAX_MODES
             call LIST_INTEGER(sRes, idummy, var%modex)
             if (idummy /= var%size) then
-                call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Inconsistent ModeX.')
+                call TLab_Error(trim(adjustl(eStr))//'Inconsistent ModeX.')
                 call TLab_Stop(DNS_ERROR_INFDISCR)
             end if
         end if
@@ -66,7 +66,7 @@ contains
             idummy = MAX_MODES
             call LIST_INTEGER(sRes, idummy, var%modey)
             if (idummy /= var%size) then
-                call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Inconsistent Modey.')
+                call TLab_Error(trim(adjustl(eStr))//'Inconsistent Modey.')
                 call TLab_Stop(DNS_ERROR_INFDISCR)
             end if
         end if
@@ -78,7 +78,7 @@ contains
             idummy = MAX_MODES
             call LIST_REAL(sRes, idummy, var%phasex)
             if (idummy /= var%size) then
-                call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Inconsistent PhaseX.')
+                call TLab_Error(trim(adjustl(eStr))//'Inconsistent PhaseX.')
                 call TLab_Stop(DNS_ERROR_INFDISCR)
             end if
         end if
@@ -90,7 +90,7 @@ contains
             idummy = MAX_MODES
             call LIST_REAL(sRes, idummy, var%phasey)
             if (idummy /= var%size) then
-                call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Inconsistent PhaseY.')
+                call TLab_Error(trim(adjustl(eStr))//'Inconsistent PhaseY.')
                 call TLab_Stop(DNS_ERROR_INFDISCR)
             end if
         end if
@@ -102,7 +102,7 @@ contains
         elseif (trim(adjustl(sRes)) == 'gaussian') then; var%type = PROFILE_GAUSSIAN
         elseif (trim(adjustl(sRes)) == 'step') then; var%type = PROFILE_TANH_COS
         else
-            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Error in Type.')
+            call TLab_Error(trim(adjustl(eStr))//'Error in Type.')
             call TLab_Stop(DNS_ERROR_INFDISCR)
         end if
 

@@ -469,7 +469,7 @@ contains
         call LIST_INTEGER(sRes, itime_size, itime_vec)
 
         if (itime_vec(1) < 0) then ! Check
-            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Missing Files input.')
+            call TLab_Error(trim(adjustl(eStr))//'Missing Files input.')
             call TLab_Stop(DNS_ERROR_INVALOPT)
         end if
 
@@ -505,7 +505,7 @@ contains
         iv = iv + 1; opt_name(iv) = 'Atmospheric Thermodynamics'
         iv = iv + 1; opt_name(iv) = 'Evaporation'
         if (iv > iopt_size_max) then ! Check
-            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Increase number of options.')
+            call TLab_Error(trim(adjustl(eStr))//'Increase number of options.')
             call TLab_Stop(DNS_ERROR_INVALOPT)
         end if
 
@@ -528,7 +528,7 @@ contains
         call LIST_INTEGER(sRes, iopt_size, opt_vec)
 
         if (opt_vec(1) < 0) then ! Check
-            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'Missing ParamVisuals input.')
+            call TLab_Error(trim(adjustl(eStr))//'Missing ParamVisuals input.')
             call TLab_Stop(DNS_ERROR_INVALOPT)
         end if
 
@@ -744,7 +744,7 @@ contains
 
         else
 #ifdef USE_MPI
-            call TLab_Write_ASCII(efile, __FILE__//'. Invalid subdomain in parallel mode.')
+            call TLab_Error(__FILE__//'. Invalid subdomain in parallel mode.')
             call TLab_Stop(DNS_ERROR_INVALOPT)
 #else
             sizes(3) = nx*ny*nz             ! upper bound

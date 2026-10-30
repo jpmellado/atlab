@@ -5,7 +5,7 @@ module TLabMPI_Grid
     use TLab_Constants, only: wp, wi
     use TLab_Constants, only: efile
     use TLab_WorkFlow, only: num_processors, rank
-    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log
+    use TLab_WorkFlow, only: TLab_Write_ASCII, TLab_Stop, TLab_Log, TLab_Error
     implicit none
     private
 
@@ -68,7 +68,7 @@ contains
             line = trim(adjustl(line))//'x'//trim(adjustl(lstr))
             call TLab_Log(trim(adjustl(line)))
         else
-            call TLab_Write_ASCII(efile, __FILE__//'. Inconsistency in total number of PEs')
+            call TLab_Error(__FILE__//'. Inconsistency in total number of PEs')
             call TLab_Stop(DNS_ERROR_DIMGRID)
         end if
 

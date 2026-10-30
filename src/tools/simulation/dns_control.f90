@@ -4,7 +4,7 @@ module DNS_Control
     use TLab_Constants, only: MAX_VARS, wp, wi, sp, big_wp
     use TLab_Constants, only: efile, lfile
     use TLab_Memory, only: inb_flow, inb_scal
-    use TLab_WorkFlow, only: scal_on, flow_on, TLab_Stop, TLab_Log, TLab_Write_ASCII
+    use TLab_WorkFlow, only: scal_on, flow_on, TLab_Stop, TLab_Log, TLab_Error, TLab_Write_ASCII
     use TLab_Time
     use NavierStokes
     implicit none
@@ -70,7 +70,7 @@ contains
         if (trim(adjustl(sRes)) == 'none') then; dns_obs_log = OBS_TYPE_NONE
         else if (trim(adjustl(sRes)) == 'ekman') then; dns_obs_log = OBS_TYPE_EKMAN
         else
-            call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'. Incorrect type ObsLog.')
+            call TLab_Error(trim(adjustl(eStr))//'. Incorrect type ObsLog.')
             call TLab_Stop(DNS_ERROR_OPTION)
         end if
 
@@ -127,7 +127,7 @@ contains
             if (trim(adjustl(sRes)) /= 'void') then
                 call LIST_REAL(sRes, inb_scal_local1, dummy)
                 if (inb_scal_local1 /= inb_scal) then ! Consistency check
-                    call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'MinScalar size does not match inb_scal.')
+                    call TLab_Error(trim(adjustl(eStr))//'MinScalar size does not match inb_scal.')
                     call TLab_Stop(DNS_ERROR_OPTION)
                 else
                     bound_s(1:inb_scal)%min = dummy(1:inb_scal)
@@ -141,7 +141,7 @@ contains
             if (trim(adjustl(sRes)) /= 'void') then
                 call LIST_REAL(sRes, inb_scal_local1, dummy)
                 if (inb_scal_local1 /= inb_scal) then ! Consistency check
-                    call TLab_Write_ASCII(efile, trim(adjustl(eStr))//'MaxScalar size does not match inb_scal.')
+                    call TLab_Error(trim(adjustl(eStr))//'MaxScalar size does not match inb_scal.')
                     call TLab_Stop(DNS_ERROR_OPTION)
                 else
                     bound_s(1:inb_scal)%max = dummy(1:inb_scal)
@@ -234,14 +234,14 @@ contains
 !             ! Check density
 !             call MINMAX(imax, jmax, kmax, q(:, 5), r_min_loc, r_max_loc)
 !             if (r_min_loc < bound_r%min .or. r_max_loc > bound_r%max) then
-!                 call TLab_Write_ASCII(efile, 'DNS_CONTROL. Density out of bounds.')
+!                 call TLab_Error('DNS_CONTROL. Density out of bounds.')
 !                 logs_data(1) = DNS_ERROR_NEGDENS
 !             end if
 
 !             ! Check pressure
 !             call MINMAX(imax, jmax, kmax, q(:, 6), p_min_loc, p_max_loc)
 !             if (p_min_loc < bound_p%min .or. p_max_loc > bound_p%max) then
-!                 call TLab_Write_ASCII(efile, 'DNS_CONTROL. Pressure out of bounds.')
+!                 call TLab_Error('DNS_CONTROL. Pressure out of bounds.')
 !                 logs_data(1) = DNS_ERROR_NEGPRESS
 !             end if
 
@@ -265,7 +265,7 @@ contains
             call MINMAX(imax, jmax, kmax, tmp1, d_min_loc, d_max_loc)
 
             if (max(abs(d_min_loc), abs(d_min_loc)) > bound_d%max) then
-                call TLab_Write_ASCII(efile, __FILE__//'. Dilatation out of bounds.')
+                call TLab_Error(__FILE__//'. Dilatation out of bounds.')
                 logs_data(1) = DNS_ERROR_DILATATION
 
                 ! Locating the points where the maximum dilatation occurs
@@ -371,7 +371,7 @@ contains
 
     !     select case (env_status)
     !     case (-1)
-    !         call TLab_Write_ASCII(efile, "DNS_START. The environment variable  is too long and cannot be handled in the foreseen array.")
+    !         call TLab_Error("DNS_START. The environment variable  is too long and cannot be handled in the foreseen array.")
     !         call TLab_Stop(DNS_ERROR_OPTION)
     !     case (0)
     !         if (.not. logger_path(path_len:path_len) == '/') then

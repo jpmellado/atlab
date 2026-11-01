@@ -19,7 +19,6 @@ program DNS
     use FDM, only: FDM_Initialize
     use NavierStokes, only: NavierStokes_Initialize_Parameters
     use Thermodynamics, only: Thermo_Initialize
-    use NavierStokes, only: visc
     use Gravity, only: Gravity_Initialize
     use SpecialForcing, only: SpecialForcing_Initialize
     use Rotation, only: Rotation_Initialize
@@ -98,8 +97,6 @@ program DNS
     ! ###################################################################
     itime = nitera_first
 
-    visc_stop = visc        ! Value read in ifile
-
     if (scal_on) then
         write (fname, *) nitera_first; fname = trim(adjustl(tag_scal))//trim(adjustl(fname))
         call IO_Read_Fields(fname, imax, jmax, kmax, itime, inb_scal, 0, s, params(1:1))
@@ -108,31 +105,13 @@ program DNS
     write (fname, *) nitera_first; fname = trim(adjustl(tag_flow))//trim(adjustl(fname))
     call IO_Read_Fields(fname, imax, jmax, kmax, itime, inb_flow, 0, q, params(1:2))
     rtime = params(1)
-    visc = params(2)        ! Value read in restart file
 
     call TLab_Diagnostic(imax, jmax, kmax, s)           ! Initialize diagnostic thermodynamic quantities
-
-    ! ###################################################################
-    ! Initialize change in viscosity
-    ! ###################################################################
-    flag_viscosity = .false.
-    if (visc /= visc_stop) then
-        write (str, *) visc
-        call TLab_Log('Changing original viscosity '//trim(adjustl(str))//' to new value.')
-        if (visc_time > 0.0_wp) then
-            visc_rate = (visc_stop - visc)/visc_time
-            visc_time = rtime + visc_time               ! Stop when this time is reached
-            flag_viscosity = .true.
-        else
-            visc = visc_stop
-        end if
-    end if
 
     ! ###################################################################
     ! Initialize data for boundary conditions
     ! ###################################################################
     call BCS_Initialize(ifile)
-
     call Buffer_Initialize(ifile)
 
     ! ###################################################################
@@ -160,14 +139,6 @@ program DNS
         call TMarch_Advance_Step()              ! Advance a time interval dtime
         itime = itime + 1
         rtime = rtime + dtime
-
-        if (flag_viscosity) then                ! Change viscosity if necessary
-            visc = visc + visc_rate*dtime
-            if (rtime > visc_time) then
-                visc = visc_stop                ! Fix new value without any roundoff
-                flag_viscosity = .false.
-            end if
-        end if
 
         if (use_variable_timestep) call TMarch_Compute_Step()
 

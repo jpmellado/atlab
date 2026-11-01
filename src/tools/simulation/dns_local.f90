@@ -14,10 +14,6 @@ module DNS_Local
 
     real(wp) :: runtime_max     ! Maximum runtime of the simulation in seconds
 
-    ! Variable viscosity
-    logical :: flag_viscosity
-    real(wp) :: visc_stop, visc_time, visc_rate
-
 contains
     ! ###################################################################
     ! ###################################################################
@@ -67,15 +63,6 @@ contains
             call TLab_Error(trim(adjustl(eStr))//'Not started because nitera_first > nitera_last.')
             call TLab_Stop(DNS_ERROR_OPTION)
         end if
-
-        ! ###################################################################
-        ! Viscosity Control
-        ! ###################################################################
-        call TLab_Write_ASCII(bakfile, '#')
-        call TLab_Write_ASCII(bakfile, '#[ViscChange]')
-        call TLab_Write_ASCII(bakfile, '#Time=<time>')
-
-        call ScanFile_Real(bakfile, inifile, 'ViscChange', 'Time', '0.0', visc_time)
 
         ! ###################################################################
         ! Final initialization and consistency check

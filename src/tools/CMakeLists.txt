@@ -43,9 +43,9 @@ FILE(GLOB sourcefiles "postprocessing/transgrid*.f90")
 add_executable(transgrid.x ${sourcefiles})
 target_link_libraries(transgrid.x ${LEVEL1_LIBS} ${LIBS})
 
-FILE(GLOB sourcefiles "postprocessing/transfield*.f90")
-add_executable(transfield.x ${sourcefiles})
-target_link_libraries(transfield.x physics  finitedifferences thermodynamics ${LEVEL1_LIBS} ${LIBS})
+FILE(GLOB sourcefiles "postprocessing/transfields*.f90")
+add_executable(transfields.x ${sourcefiles})
+target_link_libraries(transfields.x physics  finitedifferences thermodynamics ${LEVEL1_LIBS} ${LIBS})
 
 # # Particles
 # FILE(GLOB sourcefiles "initialize/part/*.f90")

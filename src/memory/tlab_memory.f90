@@ -2,7 +2,7 @@
 
 module TLab_Memory
     use TLab_Constants, only: sp, wp, wi, longi
-    use TLab_WorkFlow, only: TLab_Stop, TLab_Warning, TLab_Error
+    use TLab_WorkFlow, only: TLab_Stop, TLab_Log, TLab_Error
     implicit none
     private
     save
@@ -539,7 +539,7 @@ contains
         do id = 2, size(dims)
             write (str, *) dims(id); line = trim(adjustl(line))//' x '//trim(adjustl(str))
         end do
-        call TLab_Warning(line)
+        call TLab_Log(line)
     end subroutine Tlab_Allocate_Log_SHORT
 
     subroutine Tlab_Allocate_Log_LONG(dims, s)
@@ -559,7 +559,7 @@ contains
         do id = 2, size(dims)
             write (str, *) dims(id); line = trim(adjustl(line))//' x '//trim(adjustl(str))
         end do
-        call TLab_Warning(line)
+        call TLab_Log(line)
     end subroutine Tlab_Allocate_Log_LONG
 
     ! ###################################################################

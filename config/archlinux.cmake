@@ -12,6 +12,7 @@ set(CMAKE_Fortran_COMPILER gfortran)
 if (BUILD_TYPE STREQUAL "PARALLEL" )    # compiler for parallel build
     set(PARALLEL MPI_ONLY)
     add_definitions(-DUSE_MPI)
+    # set(USER_Fortran_FLAGS_DEBUG "-pg ${USER_Fortran_FLAGS_DEBUG}")
     # set(CMAKE_BUILD_TYPE DEBUG)
     
 else()                                  # compiler for serial build

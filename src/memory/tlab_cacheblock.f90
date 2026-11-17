@@ -8,10 +8,10 @@ module TLab_CacheBlock
     public :: tlab_cache_spread_add_z
     public :: tlab_cache_spread_subtract_z
 
-    public :: tlab_cache_reduce_y
-    public :: tlab_cache_spread_y
-    public :: tlab_cache_spread_add_y
-    public :: tlab_cache_spread_subtract_y
+    ! public :: tlab_cache_reduce_y
+    ! public :: tlab_cache_spread_y
+    ! public :: tlab_cache_spread_add_y
+    ! public :: tlab_cache_spread_subtract_y
 
     integer, parameter, public :: CacheBlockSizeX = 1024
     integer, parameter, public :: CacheBlockSizeY = 512

@@ -346,7 +346,7 @@ contains
 
         ! -------------------------------------------------------------------
         integer(wi) nlines
-        integer(wi) ib, i, k
+        integer(wi) ib, k
 #ifdef USE_MPI
         integer np, np1, np2
 #endif
@@ -357,46 +357,46 @@ contains
         end if
 
         ib = 1
-        do i = 1, nx
-            do k = 1, nz, groupSizeY
-                nlines = min(groupSizeY, nz - k + 1)
+        do k = 1, nz
+            nlines = nx
 
-                ! memory arrangement; reduce
-                call tlab_cache_reduce_y(s, nx, ny, nz, i, k, nlines, tmp1(ib))
+            ! memory arrangement; reduce
+            ! call tlab_cache_reduce_y(s, ..., tmp1(ib))
+            tmp1(ib:ib + nlines*ny - 1) = s(ib:ib + nlines*ny - 1)
 
 #ifdef USE_MPI
-                if (yMpi%num_processors > 1) then
-                    np1 = size(fdm_der1_Y_split%rhs, 2)/2
-                    np2 = size(fdm_der2_Y_split%rhs, 2)/2
-                    np = max(np1, np2)
-                    call TLabMPI_Halos_Y(tmp1(ib:ib + nlines*ny - 1), nlines, np, halo_m, halo_p)
+            if (yMpi%num_processors > 1) then
+                np1 = size(fdm_der1_Y_split%rhs, 2)/2
+                np2 = size(fdm_der2_Y_split%rhs, 2)/2
+                np = max(np1, np2)
+                call TLabMPI_Halos_Y(tmp1(ib:ib + nlines*ny - 1), nlines, np, halo_m, halo_p)
 
-                    call fdm_der1_Y_split%compute(nlines, tmp1(ib), halo_m(nlines*(np - np1) + 1:), halo_p, tmp2)
-                    call fdm_der2_Y_split%compute(nlines, tmp1(ib), halo_m(nlines*(np - np2) + 1:), halo_p, wrk3d)
-                    ! call fdm_burgersY_split%compute(nlines, tmp1(1, ib), halo_m, halo_p, tmp2, wrk3d)
-                else
+                call fdm_der1_Y_split%compute(nlines, tmp1(ib), halo_m(nlines*(np - np1) + 1:), halo_p, tmp2)
+                call fdm_der2_Y_split%compute(nlines, tmp1(ib), halo_m(nlines*(np - np2) + 1:), halo_p, wrk3d)
+                ! call fdm_burgersY_split%compute(nlines, tmp1(1, ib), halo_m, halo_p, tmp2, wrk3d)
+            else
 #endif
-                    call fdm_der1_Y%compute(nlines, tmp1(ib), tmp2)
-                    call fdm_der2_Y%compute(nlines, tmp1(ib), wrk3d, tmp2)
-                    ! call fdm_burgersY%compute(nlines, tmp1(1, ib), tmp2, wrk3d)
+                call fdm_der1_Y%compute(nlines, tmp1(ib), tmp2)
+                call fdm_der2_Y%compute(nlines, tmp1(ib), wrk3d, tmp2)
+                ! call fdm_burgersY%compute(nlines, tmp1(1, ib), tmp2, wrk3d)
 #ifdef USE_MPI
-                end if
+            end if
 #endif
 
-                if (present(rhou_in)) then      ! transposed velocity (times density) is passed as argument
-                    call burgers1d_Y(is)%compute(nlines, ny, der1=tmp2, der2=wrk3d, rhou=rhou_in(ib))
-                else
-                    burgers1d_Y(is)%offset = (i - 1)*nz + k - 1
-                    call burgers1d_Y(is)%compute_setrhou(nlines, ny, der1=tmp2, der2=wrk3d, rhou=tmp1(ib))
-                    burgers1d_Y(is)%offset = 0
-                end if
+            if (present(rhou_in)) then      ! transposed velocity (times density) is passed as argument
+                call burgers1d_Y(is)%compute(nlines, ny, der1=tmp2, der2=wrk3d, rhou=rhou_in(ib))
+            else
+                burgers1d_Y(is)%offset = (ib - 1)/ny
+                call burgers1d_Y(is)%compute_setrhou(nlines, ny, der1=tmp2, der2=wrk3d, rhou=tmp1(ib))
+                burgers1d_Y(is)%offset = 0
+            end if
 
-                ! memory arrangement; spread_add
-                call tlab_cache_spread_add_y(wrk3d, nx, ny, nz, i, k, nlines, rhs)
+            ! memory arrangement; spread_add
+            ! call tlab_cache_spread_add_y(wrk3d, nx, ny, nz, i, k, nlines, rhs)
+            rhs(ib:ib + nlines*ny - 1) = rhs(ib:ib + nlines*ny - 1) + wrk3d(1:nlines*ny)
 
-                ib = ib + nlines*ny
+            ib = ib + nlines*ny
 
-            end do
         end do
 
         return

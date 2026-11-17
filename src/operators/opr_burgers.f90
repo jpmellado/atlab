@@ -352,18 +352,27 @@ contains
             if (yMpi%num_processors > 1 .and. der_mode_j == TYPE_TRANSPOSE) then
                 nlines = tmpi_trp_Y%nlines
                 offset = nlines*yMpi%rank
+
+                allocate (rho(nlines))
+                do j = 1, nlines
+                    ip = mod(offset + j - 1, kmax) + 1
+                    rho(j) = rbackground(ip)
+                end do
+
             else
 #endif
                 nlines = imax*kmax
                 offset = 0
+
+                allocate (rho(nlines))
+                do j = 1, nlines
+                    ip = (j - 1)/imax + 1
+                    rho(j) = rbackground(ip)
+                end do
+
 #ifdef USE_MPI
             end if
 #endif
-            allocate (rho(nlines))
-            do j = 1, nlines
-                ip = mod(offset + j - 1, kmax) + 1
-                rho(j) = rbackground(ip)
-            end do
 
             ! -----------------------------------------------------------------------
             ! Density correction term in the burgers operator along Z

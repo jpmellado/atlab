@@ -356,7 +356,7 @@ contains
 
         ! -------------------------------------------------------------------
         integer(wi) nlines
-        integer(wi) ib, i, k
+        integer(wi) ib, k
 #ifdef USE_MPI
         integer np, np1, np2
 #endif
@@ -369,69 +369,72 @@ contains
         end if
 
         ib = 1
-        do i = 1, nx
-            do k = 1, nz, groupSizeY
-                nlines = min(groupSizeY, nz - k + 1)
+        do k = 1, nz
+            nlines = nx
 
-                ! memory arrangement; reduce
-                call tlab_cache_reduce_y(u, nx, ny, nz, i, k, nlines, sCache(1, 1))
+            ! memory arrangement; reduce
+            ! call tlab_cache_reduce_y(u, ..., sCache(1, 1))
+            sCache(1:nlines*ny, 1) = u(ib:ib + nlines*ny - 1)
 
 #ifdef USE_MPI
-                if (yMpi%num_processors > 1) then
-                    np1 = size(fdm_der1_Y_split%rhs, 2)/2
-                    np2 = size(fdm_der2_Y_split%rhs, 2)/2
-                    np = max(np1, np2)
-                    call TLabMPI_Halos_Y(sCache(1:nlines*ny, 1), nlines, np, halo_m, halo_p)
+            if (yMpi%num_processors > 1) then
+                np1 = size(fdm_der1_Y_split%rhs, 2)/2
+                np2 = size(fdm_der2_Y_split%rhs, 2)/2
+                np = max(np1, np2)
+                call TLabMPI_Halos_Y(sCache(1:nlines*ny, 1), nlines, np, halo_m, halo_p)
 
-                    select case (type)
-                    case (OPR_P2)
-                        if (.not. y%uniform) call fdm_der1_Y_split%compute(nlines, sCache(1, 1), halo_m(nlines*(np - np1) + 1:), halo_p, sCache(1, 2))
-                        call fdm_der2_Y_split%compute(nlines, sCache(1, 1), halo_m(nlines*(np - np2) + 1:), halo_p, wrk3d)
+                select case (type)
+                case (OPR_P2)
+                    if (.not. y%uniform) call fdm_der1_Y_split%compute(nlines, sCache(1, 1), halo_m(nlines*(np - np1) + 1:), halo_p, sCache(1, 2))
+                    call fdm_der2_Y_split%compute(nlines, sCache(1, 1), halo_m(nlines*(np - np2) + 1:), halo_p, wrk3d)
 
-                    case (OPR_P2_P1)
-                        call fdm_der1_Y_split%compute(nlines, sCache(1, 1), halo_m(nlines*(np - np1) + 1:), halo_p, sCache(1, 2))
-                        call fdm_der2_Y_split%compute(nlines, sCache(1, 1), halo_m(nlines*(np - np2) + 1:), halo_p, wrk3d)
+                case (OPR_P2_P1)
+                    call fdm_der1_Y_split%compute(nlines, sCache(1, 1), halo_m(nlines*(np - np1) + 1:), halo_p, sCache(1, 2))
+                    call fdm_der2_Y_split%compute(nlines, sCache(1, 1), halo_m(nlines*(np - np2) + 1:), halo_p, wrk3d)
 
-                    case (OPR_P1, OPR_P1_ADD, OPR_P1_SUBTRACT)
-                        call fdm_der1_Y_split%compute(nlines, sCache(1, 1), halo_m(nlines*(np - np1) + 1:), halo_p, wrk3d)
-                    end select
-                else
+                case (OPR_P1, OPR_P1_ADD, OPR_P1_SUBTRACT)
+                    call fdm_der1_Y_split%compute(nlines, sCache(1, 1), halo_m(nlines*(np - np1) + 1:), halo_p, wrk3d)
+                end select
+            else
 #endif
                 select case (type)
-                    case (OPR_P2)
-                        if (.not. y%uniform) call fdm_der1_Y%compute(nlines, sCache(1, 1), sCache(1, 2))
-                        call fdm_der2_Y%compute(nlines, sCache(1, 1), wrk3d, sCache(1, 2))
+                case (OPR_P2)
+                    if (.not. y%uniform) call fdm_der1_Y%compute(nlines, sCache(1, 1), sCache(1, 2))
+                    call fdm_der2_Y%compute(nlines, sCache(1, 1), wrk3d, sCache(1, 2))
 
-                    case (OPR_P2_P1)
-                        call fdm_der1_Y%compute(nlines, sCache(1, 1), sCache(1, 2))
-                        call fdm_der2_Y%compute(nlines, sCache(1, 1), wrk3d, sCache(1, 2))
+                case (OPR_P2_P1)
+                    call fdm_der1_Y%compute(nlines, sCache(1, 1), sCache(1, 2))
+                    call fdm_der2_Y%compute(nlines, sCache(1, 1), wrk3d, sCache(1, 2))
 
-                    case (OPR_P1, OPR_P1_ADD, OPR_P1_SUBTRACT)
-                        call fdm_der1_Y%compute(nlines, sCache(1, 1), wrk3d)
-
-                    end select
-#ifdef USE_MPI
-                end if
-#endif
-
-                ! memory arrangement; spread_add
-                select case (type)
-                case (OPR_P1_ADD)
-                    call tlab_cache_spread_add_y(wrk3d, nx, ny, nz, i, k, nlines, result)
-
-                case (OPR_P1_SUBTRACT)
-                    call tlab_cache_spread_subtract_y(wrk3d, nx, ny, nz, i, k, nlines, result)
-
-                case default
-                    call tlab_cache_spread_y(wrk3d, nx, ny, nz, i, k, nlines, result)
+                case (OPR_P1, OPR_P1_ADD, OPR_P1_SUBTRACT)
+                    call fdm_der1_Y%compute(nlines, sCache(1, 1), wrk3d)
 
                 end select
+#ifdef USE_MPI
+            end if
+#endif
 
-                if (type == OPR_P2_P1) call tlab_cache_spread_y(sCache(1, 2), nx, ny, nz, i, k, nlines, aux)
+            ! memory arrangement; spread_add
+            select case (type)
+            case (OPR_P1_ADD)
+                ! call tlab_cache_spread_add_y(wrk3d, nx, ny, nz, i, k, nlines, result)
+                result(ib:ib + nlines*ny - 1) = result(ib:ib + nlines*ny - 1) + wrk3d(1:nlines*ny)
 
-                ib = ib + nlines*ny
+            case (OPR_P1_SUBTRACT)
+                ! call tlab_cache_spread_subtract_y(wrk3d, nx, ny, nz, i, k, nlines, result)
+                result(ib:ib + nlines*ny - 1) = result(ib:ib + nlines*ny - 1) - wrk3d(1:nlines*ny)
 
-            end do
+            case default
+                ! call tlab_cache_spread_y(wrk3d, nx, ny, nz, i, k, nlines, result)
+                result(ib:ib + nlines*ny - 1) = wrk3d(1:nlines*ny)
+
+            end select
+
+            ! if (type == OPR_P2_P1) call tlab_cache_spread_y(sCache(1, 2), nx, ny, nz, i, k, nlines, aux)
+            if (type == OPR_P2_P1) aux(ib:ib + nlines*ny - 1) = sCache(1:nlines*ny, 2)
+
+            ib = ib + nlines*ny
+
         end do
 
         return

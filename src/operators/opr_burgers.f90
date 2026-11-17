@@ -100,7 +100,7 @@ contains
         real(wp), intent(in) :: der1(nlines, nsize)
         real(wp), intent(in) :: der2(nlines, nsize)
         real(wp), intent(in) :: rhou(nlines, nsize)
-        real(wp), intent(out) :: result(nlines, nsize)
+        real(wp), intent(inout) :: result(nlines, nsize)
 
         result(:, :) = result(:, :) + der2(:, :)*self%diffusivity - rhou(:, :)*der1(:, :)
 
@@ -148,7 +148,7 @@ contains
         real(wp), intent(in) :: der1(nlines, nsize)
         real(wp), intent(in) :: der2(nlines, nsize)
         real(wp), intent(inout) :: rhou(nlines, nsize)
-        real(wp), intent(out) :: result(nlines, nsize)
+        real(wp), intent(inout) :: result(nlines, nsize)
 
         call burgers_add(self, nlines, nsize, der1, der2, rhou, result)
 
@@ -181,7 +181,7 @@ contains
         real(wp), intent(in) :: der1(nlines, nsize)
         real(wp), intent(in) :: der2(nlines, nsize)
         real(wp), intent(inout) :: rhou(nlines, nsize)
-        real(wp), intent(out) :: result(nlines, nsize)
+        real(wp), intent(inout) :: result(nlines, nsize)
 
         integer n
 
@@ -218,7 +218,7 @@ contains
         real(wp), intent(in) :: der1(nlines, nsize)
         real(wp), intent(in) :: der2(nlines, nsize)
         real(wp), intent(inout) :: rhou(nlines, nsize)
-        real(wp), intent(out) :: result(nlines, nsize)
+        real(wp), intent(inout) :: result(nlines, nsize)
 
         integer n
 
@@ -257,7 +257,7 @@ contains
         real(wp), intent(in) :: der1(nlines, nsize)
         real(wp), intent(in) :: der2(nlines, nsize)
         real(wp), intent(inout) :: rhou(nlines, nsize)
-        real(wp), intent(out) :: result(nlines, nsize)
+        real(wp), intent(inout) :: result(nlines, nsize)
 
         integer n
 
@@ -295,7 +295,7 @@ contains
         real(wp), intent(in) :: der1(nlines, nsize)
         real(wp), intent(in) :: der2(nlines, nsize)
         real(wp), intent(inout) :: rhou(nlines, nsize)
-        real(wp), intent(out) :: result(nlines, nsize)
+        real(wp), intent(inout) :: result(nlines, nsize)
 
         integer n
 

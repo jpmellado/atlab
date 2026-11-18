@@ -28,7 +28,7 @@ program TransFields
 
     integer(wi), parameter :: iopt_size_max = 30    ! options to be processed
     integer(wi) iopt_size, iv
-    integer(wi) opt_vec(iopt_size_max)
+    integer(wi) opt_vec(iopt_size_max)              ! vector with option values
     character(len=64) opt_name(iopt_size_max)
 
     character*32 fname
@@ -36,7 +36,7 @@ program TransFields
 
     integer is, iq
     logical iread_flow, iread_scal
-    real(wp) params(MAX_PARS)
+    real(wp) params(MAX_PARS), a, b
 
     integer opt_main
 
@@ -118,6 +118,22 @@ program TransFields
                 call SwapYZ(s(:, is))
             end do
 
+        case ('Linear transformation')
+            a = -1.0_wp ! for the time being, just changing sign; to be fully implemented
+            b = 0
+            
+            if (flow_on) then
+                do iq = 1, inb_flow
+                    q(:, iq) = q(:, iq)*a + b
+                end do
+            end if
+
+            if (scal_on) then
+                do is = 1, inb_scal
+                    s(:, is) = s(:, is)*a + b
+                end do
+            end if
+
         end select
 
         if (flow_on) then
@@ -179,6 +195,7 @@ contains
         iv = 0
         iv = iv + 1; opt_name(iv) = 'Convert double to single precision'
         iv = iv + 1; opt_name(iv) = 'Swap Y-Z coordinates' ! old to new file format
+        iv = iv + 1; opt_name(iv) = 'Linear transformation'
 
         if (iv > iopt_size_max) then ! Check
             call TLab_Error(trim(adjustl(eStr))//'Increase number of options.')
@@ -219,6 +236,8 @@ contains
         case ('Convert double to single precision')
             iread_flow = flow_on; iread_scal = scal_on
         case ('Swap Y-Z coordinates')
+            iread_flow = flow_on; iread_scal = scal_on
+        case ('Linear transformation')
             iread_flow = flow_on; iread_scal = scal_on
         end select
 

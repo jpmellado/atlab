@@ -10,7 +10,7 @@ module TLab_Sources
     use Gravity, only: gravityProps, Gravity_AddSource
     use Rotation, only: coriolisProps, Rotation_AddCoriolis, Rotation_AddCoriolis_PerVolume
     use Microphysics, only: sedimentationProps, Microphysics_AddSedimentation_Z
-    use Microphysics!, only: evaporationProps, Microphysics_Evaporation, Microphysics_Evaporation_Impl
+    use Microphysics, only: evaporationProps, Microphysics_AddEvaporation, Microphysics_Evaporation_Impl
     use Radiation, only: infraredProps, Radiation_AddInfrared_Z
     use SpecialForcing
     ! use LargeScaleForcing
@@ -95,8 +95,7 @@ contains
             end if
 
             if (evaporationProps%active(is)) then
-                call Microphysics_Evaporation(evaporationProps, imax, jmax, kmax, is, s, tmp1, tmp2)
-                hs(:, is) = hs(:, is) + tmp1(:)
+                call Microphysics_AddEvaporation(evaporationProps, imax, jmax, kmax, is, s, hs(:, is))
             end if
 
             ! -----------------------------------------------------------------------
@@ -116,10 +115,10 @@ contains
 
     ! #######################################################################
     ! #######################################################################
-    subroutine TLab_Sources_Scal_Implicit(time_step, s, tmp1, tmp2, tmp3, tmp4)
+    subroutine TLab_Sources_Scal_Implicit(time_step, s, tmp1, tmp2)
         real(wp), intent(in) :: time_step
         real(wp), intent(inout) :: s(:, :)
-        real(wp), intent(inout) :: tmp1(isize_field), tmp2(isize_field), tmp3(isize_field), tmp4(isize_field)
+        real(wp), intent(inout) :: tmp1(isize_field), tmp2(isize_field)
 
         ! -----------------------------------------------------------------------
         integer is
@@ -128,7 +127,7 @@ contains
         do is = 1, inb_scal
 
             if (evaporationProps%active(is)) then
-                call Microphysics_Evaporation_Impl(evaporationProps, imax, jmax, kmax, is, s, time_step, tmp1, tmp2, tmp3, tmp4)
+                call Microphysics_Evaporation_Impl(evaporationProps, imax, jmax, kmax, is, s, time_step, tmp1, tmp2)
             end if
 
         end do

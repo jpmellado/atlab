@@ -59,7 +59,6 @@ contains
 !########################################################################
     subroutine Microphysics_Initialize(inifile)
         use TLab_ScanFiles
-        use TLab_Memory, only: imax, jmax, kmax
         character(len=*), intent(in) :: inifile
 
         ! -------------------------------------------------------------------
@@ -295,7 +294,7 @@ contains
 
 !########################################################################
 !########################################################################
-    subroutine Microphysics_AddEvaporation(locProps, nx, ny, nz, is, s, rhs, tmp1)
+    subroutine Microphysics_AddEvaporation(locProps, nx, ny, nz, is, s, rhs)
         use Thermo_AirWater, only: inb_scal_T, rd_ov_rv
         use Thermo_Base, only: THERMO_PSAT, NPSAT
         use Thermo_Anelastic, only: pbackground, rbackground, Thermo_Anelastic_Weight_OutPlace
@@ -303,7 +302,6 @@ contains
         integer(wi), intent(in) :: nx, ny, nz, is
         real(wp), intent(in) :: s(nx*ny*nz, inb_scal_array)
         real(wp), intent(inout) :: rhs(nx*ny*nz)
-        real(wp), intent(inout) :: tmp1(nx*ny*nz)
 
         integer(wi) :: k, ipsat
         integer(wi) :: ib, nlines
@@ -318,8 +316,8 @@ contains
 #define ql(i) sCache(i,1)
 #define qt(i) sCache(i,2)
 #define qs(i) sCache(i,3)
-#define rhoql(i) tmp1(i)
-#define source_cb(i) tmp1(i)
+#define rhoql(i) sCache(i,4)
+#define source_cb(i) sCache(i,4)
         select case (locProps%type)
         case (TYPE_EVA_EXPONENTIAL)
             if (is == inb_scal_ql) then
@@ -424,13 +422,12 @@ contains
 
 !########################################################################
 !########################################################################
-    subroutine Microphysics_Evaporation_Impl(locProps, nx, ny, nz, is, s, dtrkm, tmp1, tmp2, tmp3, tmp4)
+    subroutine Microphysics_Evaporation_Impl(locProps, nx, ny, nz, is, s, dtrkm, tmp1, tmp2)
         use Thermo_AirWater, only: inb_scal_T, rd_ov_rv, Cd, Cdv, Cvl, Lv0
         use Thermo_Base, only: THERMO_PSAT, NPSAT
         use Thermo_Anelastic, only: pbackground, rbackground, ribackground, epbackground
         use Thermo_Anelastic, only: Thermo_Anelastic_Weight_OutPlace, Thermo_Anelastic_Weight_InPlace
         use Thermo_Anelastic, only: NEWTONRAPHSON_ERROR
-        use TLab_Arrays, only: wrk2d
 #ifdef USE_MPI
         use mpi_f08
         use TLab_WorkFlow, only: ims_err
@@ -441,19 +438,18 @@ contains
         integer(wi), intent(in) :: nx, ny, nz, is
         real(wp), intent(in) :: dtrkm
         real(wp), intent(inout) :: s(nx*ny*nz, inb_scal_array)
-        real(wp), intent(inout), dimension(nx*ny*nz) :: tmp1, tmp2, tmp3, tmp4
+        real(wp), intent(inout), dimension(nx*ny*nz) :: tmp1, tmp2
 
         integer(wi) :: k, ipsat, it
         integer(wi) :: ib, nlines
 
-        real(wp) :: mod_exponent, diff, eps
+        real(wp) :: mod_exponent, eps, diff
 
         character(len=512) :: istr, tstr
 
         mod_exponent = locProps%auxiliar(1)
 
         eps = locProps%auxiliar(2)
-        !eps=1.e-12_wp
 
         select case (locProps%type)
         case (TYPE_EVA_EXPONENTIAL_IMPL)

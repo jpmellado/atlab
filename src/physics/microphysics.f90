@@ -16,7 +16,7 @@ module Microphysics
 
     public :: Microphysics_Initialize
     public :: Microphysics_AddSedimentation_Z
-    public :: Microphysics_Evaporation
+    public :: Microphysics_AddEvaporation
     public :: Microphysics_Evaporation_Impl
 
     ! -------------------------------------------------------------------
@@ -295,14 +295,14 @@ contains
 
 !########################################################################
 !########################################################################
-    subroutine Microphysics_Evaporation(locProps, nx, ny, nz, is, s, source, tmp1)
+    subroutine Microphysics_AddEvaporation(locProps, nx, ny, nz, is, s, rhs, tmp1)
         use Thermo_AirWater, only: inb_scal_T, rd_ov_rv
         use Thermo_Base, only: THERMO_PSAT, NPSAT
         use Thermo_Anelastic, only: pbackground, rbackground, Thermo_Anelastic_Weight_OutPlace
         type(microphysics_dt), intent(in) :: locProps
         integer(wi), intent(in) :: nx, ny, nz, is
         real(wp), intent(in) :: s(nx*ny*nz, inb_scal_array)
-        real(wp), intent(out) :: source(nx*ny*nz)
+        real(wp), intent(inout) :: rhs(nx*ny*nz)
         real(wp), intent(inout) :: tmp1(nx*ny*nz)
 
         integer(wi) :: k, ipsat
@@ -311,8 +311,6 @@ contains
         real(wp) :: dummy, mod_exponent
 
         character(len=512) :: istr, tstr
-
-        source = 0.0_wp
 
         mod_exponent = locProps%auxiliar(1)
         dummy = 1.0_wp + mod_exponent
@@ -340,7 +338,7 @@ contains
                     end if
                     source_cb(1:nlines*nz) = damkohler*locProps%parameters(1)*rhoql(1:nlines*nz)
 
-                    call tlab_cache_spread_z(source_cb(1), nlines, nx*ny, nz, source(ib))
+                    call tlab_cache_spread_add_z(source_cb(1), nlines, nx*ny, nz, rhs(ib))
                 end do
 
             else
@@ -404,7 +402,7 @@ contains
                     else
                         source_cb(1:nlines*nz) = damkohler*locProps%parameters(1) * ((1.0_wp - (1.0_wp-qt(1:nlines*nz))/(1.0_wp-ql(1:nlines*nz)))/qs(1:nlines*nz) - 1.0_wp) * rhoql(1:nlines*nz)
                     end if
-                    call tlab_cache_spread_z(source_cb(1), nlines, nx*ny, nz, source(ib))
+                    call tlab_cache_spread_add_z(source_cb(1), nlines, nx*ny, nz, rhs(ib))
                 end do
 
             else
@@ -422,7 +420,7 @@ contains
 #undef rhoql
 #undef source_cb
 
-    end subroutine Microphysics_Evaporation
+    end subroutine Microphysics_AddEvaporation
 
 !########################################################################
 !########################################################################

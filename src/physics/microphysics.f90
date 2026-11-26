@@ -49,8 +49,6 @@ module Microphysics
     real(wp) :: damkohler                        ! reaction
     ! real(wp) :: stokes                           ! particle inertial effects
 
-    real(wp), allocatable, target :: tmp_eva(:,:)  ! 3D temporary arrays for evaporation routine
-
     ! -----------------------------------------------------------------------
     ! Cache blocking information; tuned to levante in a subdomain 48x32x768
     ! integer, parameter :: groupSizeX = 1024, groupSizeY = 512, groupSizeZ = 32
@@ -69,7 +67,6 @@ contains
         character(len=128) eStr
         character(len=512) sRes
         integer(wi) idummy
-        integer(wi) :: inb_tmp_eva = 0
 
         !########################################################################
         bakfile = trim(adjustl(inifile))//'.bak'
@@ -137,15 +134,6 @@ contains
                 call TLab_Error(trim(adjustl(eStr))//'AirWater mixture needs at least 4 scalar arrays.')
                 call TLab_Stop(DNS_ERROR_OPTION)
             end if
-
-            ! Local allocation
-            select case (evaporationProps%type)
-
-            case (TYPE_EVA_QSCALC_IMPL,TYPE_EVA_QSCALC_SEMIIMPL)
-                inb_tmp_eva = 2 ! Additional memory space
-                call TLab_Allocate_Real(__FILE__, tmp_eva, [imax*jmax*kmax, inb_tmp_eva], 'tmp-eva')
-
-            end select
 
         end if
 
@@ -296,12 +284,18 @@ contains
 
         end do
 
+#undef h
+#undef qt
+#undef ql
+#undef T
+#undef rhoql
+
         return
     end subroutine Microphysics_AddSedimentation_Z
 
 !########################################################################
 !########################################################################
-    subroutine Microphysics_Evaporation(locProps, nx, ny, nz, is, s, source, qsat)
+    subroutine Microphysics_Evaporation(locProps, nx, ny, nz, is, s, source, tmp1)
         use Thermo_AirWater, only: inb_scal_T, rd_ov_rv
         use Thermo_Base, only: THERMO_PSAT, NPSAT
         use Thermo_Anelastic, only: pbackground, rbackground, Thermo_Anelastic_Weight_OutPlace
@@ -309,13 +303,10 @@ contains
         integer(wi), intent(in) :: nx, ny, nz, is
         real(wp), intent(in) :: s(nx*ny*nz, inb_scal_array)
         real(wp), intent(out) :: source(nx*ny*nz)
-        real(wp), intent(inout) :: qsat(nx*ny*nz)
-
-        target s, source
+        real(wp), intent(inout) :: tmp1(nx*ny*nz)
 
         integer(wi) :: k, ipsat
-
-        !real(wp) :: qsat(nx*ny, nz)
+        integer(wi) :: ib, nlines
 
         real(wp) :: dummy, mod_exponent
 
@@ -324,19 +315,33 @@ contains
         source = 0.0_wp
 
         mod_exponent = locProps%auxiliar(1)
+        dummy = 1.0_wp + mod_exponent
 
+#define ql(i) sCache(i,1)
+#define qt(i) sCache(i,2)
+#define qs(i) sCache(i,3)
+#define rhoql(i) tmp1(i)
+#define source_cb(i) tmp1(i)
         select case (locProps%type)
         case (TYPE_EVA_EXPONENTIAL)
             if (is == inb_scal_ql) then
-                ! -------------------------------------------------------------------
-                ! Calculate condensation rate as Da * q_l
-                ! -------------------------------------------------------------------
-                if (nse_eqns == DNS_EQNS_ANELASTIC) then
-                    call Thermo_Anelastic_Weight_OutPlace(nx, ny, nz, rbackground, s(:, inb_scal_ql), source)
-                else
-                    source = s(:, inb_scal_ql)
-                end if
-                source = damkohler*locProps%parameters(1)*source
+                do ib = 1, nx*ny, groupSizeZ
+                    nlines = min(groupSizeZ, nx*ny - ib + 1)
+                    ! memory arrangement
+                    call tlab_cache_reduce_z(s(ib, inb_scal_ql), nlines, nx*ny, nz, ql(1))
+
+                    ! -------------------------------------------------------------------
+                    ! Calculate condensation rate as Da * q_l
+                    ! -------------------------------------------------------------------
+                    if (nse_eqns == DNS_EQNS_ANELASTIC) then
+                        call Thermo_Anelastic_Weight_OutPlace(nlines, 1, nz, rbackground, ql(1), rhoql(1))
+                    else
+                        rhoql(1:nlines*nz) = ql(1:nlines*nz)
+                    end if
+                    source_cb(1:nlines*nz) = damkohler*locProps%parameters(1)*rhoql(1:nlines*nz)
+
+                    call tlab_cache_spread_z(source_cb(1), nlines, nx*ny, nz, source(ib))
+                end do
 
             else
                 write (tstr, "(I2)") inb_scal_ql
@@ -347,50 +352,60 @@ contains
 
         case (TYPE_EVA_QSCONST, TYPE_EVA_QSCALC)
             if (is == inb_scal_ql) then
+                do ib = 1, nx*ny, groupSizeZ
+                    nlines = min(groupSizeZ, nx*ny - ib + 1)
+                    ! memory arrangement
+                    call tlab_cache_reduce_z(s(ib, inb_scal_ql), nlines, nx*ny, nz, ql(1))
+                    call tlab_cache_reduce_z(s(ib, inb_scal_qt), nlines, nx*ny, nz, qt(1))
 
-                select case (locProps%type)
-                case (TYPE_EVA_QSCONST)
-                    ! -------------------------------------------------------------------
-                    ! Use a constant saturation specific humidity q_sat
-                    ! -------------------------------------------------------------------
-                    qsat = locProps%parameters(2)
+                    select case (locProps%type)
+                    case (TYPE_EVA_QSCONST)
+                        ! -------------------------------------------------------------------
+                        ! Use a constant saturation specific humidity q_sat
+                        ! -------------------------------------------------------------------
+                        qs(1:nlines*nz) = locProps%parameters(2)
 
-                case (TYPE_EVA_QSCALC)
-                    ! -------------------------------------------------------------------
-                    ! Calculate saturation specific humidity q_sat(T,p)
-                    ! -------------------------------------------------------------------
+                    case (TYPE_EVA_QSCALC)
+                        ! -------------------------------------------------------------------
+                        ! Calculate saturation specific humidity q_sat(T,p)
+                        ! -------------------------------------------------------------------
 #define P_LOC pbackground
-#define T_LOC s(:,inb_scal_T)
-#define psat qsat
-#define qstmp qsat
-                    psat(:) = THERMO_PSAT(NPSAT)
-                    do ipsat = NPSAT - 1, 1, -1
-                        psat(:) = psat(:)*T_LOC + THERMO_PSAT(ipsat)
-                    end do
-                    do k = 1, nz
-                        qstmp(1+(k-1)*nx*ny:k*nx*ny) = rd_ov_rv/(P_LOC(k)/psat(1+(k-1)*nx*ny:k*nx*ny) - 1.0_wp)
-                    end do
-                    qsat(:) = qstmp(:)/(1.0_wp + qstmp(:))
+#define T_LOC(i) sCache(i,4)
+#define ps qs
+#define qstmp qs
+                        ! memory arrangement
+                        call tlab_cache_reduce_z(s(ib, inb_scal_T),  nlines, nx*ny, nz, T_LOC(1))
+
+                        ps(1:nlines*nz) = THERMO_PSAT(NPSAT)
+                        do ipsat = NPSAT - 1, 1, -1
+                            ps(1:nlines*nz) = ps(1:nlines*nz)*T_LOC(1:nlines*nz) + THERMO_PSAT(ipsat)
+                        end do
+                        do k = 1, nz
+                            qstmp(1+(k-1)*nlines:k*nlines) = rd_ov_rv/(P_LOC(k)/ps(1+(k-1)*nlines:k*nlines) - 1.0_wp)
+                        end do
+                        qs(1:nlines*nz) = qstmp(1:nlines*nz)/(1.0_wp + qstmp(1:nlines*nz))
 #undef P_LOC
 #undef T_LOC
-#undef psat
+#undef ps
 #undef qstmp
-                end select
 
-                ! -------------------------------------------------------------------
-                ! Calculate condensation rate as Da * ( [ 1 - (1-q_t)/(1-q_l) ]/q_s - 1 ) * q_l^(1+alpha)
-                ! -------------------------------------------------------------------
-                if (nse_eqns == DNS_EQNS_ANELASTIC) then
-                    call Thermo_Anelastic_Weight_OutPlace(nx, ny, nz, rbackground, s(:, inb_scal_ql), source)
-                else
-                    source = s(:, inb_scal_ql)
-                end if
-                if (mod_exponent /= 0.0_wp) then ! to avoid the calculation of a power, if not necessary
-                    dummy = 1.0_wp + mod_exponent
-                    source = damkohler*locProps%parameters(1) * (( 1.0_wp - (1.0_wp-s(:,inb_scal_qt))/(1.0_wp-s(:,inb_scal_ql)) )/qsat - 1.0_wp) * sign(1.0_wp,source)*(abs(source))**dummy 
-                else
-                    source = damkohler*locProps%parameters(1) * (( 1.0_wp - (1.0_wp-s(:,inb_scal_qt))/(1.0_wp-s(:,inb_scal_ql)) )/qsat - 1.0_wp) * source
-                end if
+                    end select
+
+                    ! -------------------------------------------------------------------
+                    ! Calculate condensation rate as Da * ( [ 1 - (1-q_t)/(1-q_l) ]/q_s - 1 ) * q_l^(1+alpha)
+                    ! -------------------------------------------------------------------
+                    if (nse_eqns == DNS_EQNS_ANELASTIC) then
+                        call Thermo_Anelastic_Weight_OutPlace(nlines, 1, nz, rbackground, ql(1), rhoql(1))
+                    else
+                        rhoql(1:nlines*nz) = ql(1:nlines*nz)
+                    end if
+                    if (mod_exponent /= 0.0_wp) then ! to avoid the calculation of a power, if not necessary
+                        source_cb(1:nlines*nz) = damkohler*locProps%parameters(1) * ((1.0_wp - (1.0_wp-qt(1:nlines*nz))/(1.0_wp-ql(1:nlines*nz)))/qs(1:nlines*nz) - 1.0_wp) * sign(1.0_wp,rhoql(1:nlines*nz))*(abs(rhoql(1:nlines*nz)))**dummy 
+                    else
+                        source_cb(1:nlines*nz) = damkohler*locProps%parameters(1) * ((1.0_wp - (1.0_wp-qt(1:nlines*nz))/(1.0_wp-ql(1:nlines*nz)))/qs(1:nlines*nz) - 1.0_wp) * rhoql(1:nlines*nz)
+                    end if
+                    call tlab_cache_spread_z(source_cb(1), nlines, nx*ny, nz, source(ib))
+                end do
 
             else
                 write (tstr, "(I2)") inb_scal_ql
@@ -401,11 +416,17 @@ contains
 
         end select
 
+#undef qs
+#undef qt
+#undef ql
+#undef rhoql
+#undef source_cb
+
     end subroutine Microphysics_Evaporation
 
 !########################################################################
 !########################################################################
-    subroutine Microphysics_Evaporation_Impl(locProps, nx, ny, nz, is, s, dtrkm, tmp1, tmp2, s_EXPL, rhoql) !tmp3, tmp4)
+    subroutine Microphysics_Evaporation_Impl(locProps, nx, ny, nz, is, s, dtrkm, tmp1, tmp2, tmp3, tmp4)
         use Thermo_AirWater, only: inb_scal_T, rd_ov_rv, Cd, Cdv, Cvl, Lv0
         use Thermo_Base, only: THERMO_PSAT, NPSAT
         use Thermo_Anelastic, only: pbackground, rbackground, ribackground, epbackground
@@ -422,10 +443,10 @@ contains
         integer(wi), intent(in) :: nx, ny, nz, is
         real(wp), intent(in) :: dtrkm
         real(wp), intent(inout) :: s(nx*ny*nz, inb_scal_array)
-        !real(wp), intent(inout), dimension(nx*ny,nz) :: tmp1, tmp2, tmp3, tmp4
-        real(wp), intent(inout), dimension(nx*ny*nz) :: tmp1, tmp2, s_EXPL, rhoql
+        real(wp), intent(inout), dimension(nx*ny*nz) :: tmp1, tmp2, tmp3, tmp4
 
-        integer(wi) :: k, ipsat, it !, ij
+        integer(wi) :: k, ipsat, it
+        integer(wi) :: ib, nlines
 
         real(wp) :: mod_exponent, diff, eps
 
@@ -439,39 +460,56 @@ contains
         select case (locProps%type)
         case (TYPE_EVA_EXPONENTIAL_IMPL)
             if (is == inb_scal_ql) then
-                s_EXPL(:) = s(:,inb_scal_ql)
-                it = 0
-                diff = 1.0_wp
-                do while (diff > eps .and. it <= 10)
-                    ! -------------------------------------------------------------------
-                    ! Calculate condensation rate as Da * q_l
-                    ! -------------------------------------------------------------------
-                    ! --- Derivative df(q_l)/dq_l for NRmethod ---
-                    tmp1 = 1.0_wp - dtrkm*damkohler*locProps%parameters(1)
+#define qt(i) sCache(i,2)
+#define ql(i) sCache(i,3)
+#define ql_expl(i) qCache(i,1)
+                NEWTONRAPHSON_ERROR = 0.0_wp
+                do ib = 1, nx*ny, groupSizeZ
+                    nlines = min(groupSizeZ, nx*ny - ib + 1)
+                    ! memory arrangement
+                    call tlab_cache_reduce_z(s(ib, inb_scal_ql), nlines, nx*ny, nz, ql(1))
+                    call tlab_cache_reduce_z(s(ib, inb_scal_qt), nlines, nx*ny, nz, qt(1))
+                    !call tlab_cache_reduce_z(s(ib, inb_scal_ql), nlines, nx*ny, nz, ql_expl(1))
+                    ql_expl(1:nlines*nz) = ql(1:nlines*nz)
 
-                    ! --- Source term delta f(q_l) for NRmethod ---
-                    tmp2 = s(:,inb_scal_ql) - s_EXPL - dtrkm*damkohler*locProps%parameters(1)*s(:,inb_scal_ql)
+                    it = 0
+                    diff = 1.0_wp
+                    do while (diff > eps .and. it <= 10)
+                    !do while (it<=10)
 
-                    ! -------------------------------------------------------------------
-                    ! Newton-Raphson iteration
-                    ! -------------------------------------------------------------------
-                    s(:,inb_scal_ql) = s(:,inb_scal_ql) - tmp2/tmp1
-                    s(:,inb_scal_ql) = min(max(s(:,inb_scal_ql), 0.0_wp), s(:,inb_scal_qt))
+                        ! -------------------------------------------------------------------
+                        ! Calculate condensation rate as Da * q_l
+                        ! -------------------------------------------------------------------
+                        ! --- Derivative df(q_l)/dq_l for NRmethod ---
+                        tmp1(1:nlines*nz) = 1.0_wp - dtrkm*damkohler*locProps%parameters(1)
 
-#ifdef _DEBUG
-                    diff = maxval(abs(tmp2/tmp1/s(:, inb_scal_ql)), mask=merge(.True.,.False., abs(tmp1*s(:,inb_scal_ql)) > 0.0_wp))
-#else
-                    diff = maxval(abs(tmp2/tmp1/s(:, inb_scal_ql)))
-#endif
+                        ! --- Source term delta f(q_l) for NRmethod ---
+                        tmp2(1:nlines*nz) = ql(1:nlines*nz) - ql_expl(1:nlines*nz) - dtrkm*damkohler*locProps%parameters(1)*ql(1:nlines*nz)
+
+                        ! -------------------------------------------------------------------
+                        ! Newton-Raphson iteration
+                        ! -------------------------------------------------------------------
+                        ql(1:nlines*nz) = ql(1:nlines*nz) - tmp2(1:nlines*nz)/tmp1(1:nlines*nz)
+                        ql(1:nlines*nz) = min(max(ql(1:nlines*nz), 0.0_wp), qt(1:nlines*nz))
+
+                        diff = maxval(abs(tmp2(1:nlines*nz)/tmp1(1:nlines*nz)/ql(1:nlines*nz)), mask=merge(.True.,.False.,abs(tmp1(1:nlines*nz)*ql(1:nlines*nz)) > 0.0_wp))
 
 #ifdef USE_MPI
-                    call MPI_ALLREDUCE(diff, diff_glob, 1, MPI_REAL8, MPI_MAX, MPI_COMM_WORLD, ims_err)
-                    diff = diff_glob
+                        call MPI_ALLREDUCE(diff, diff_glob, 1, MPI_REAL8, MPI_MAX, MPI_COMM_WORLD, ims_err)
+                        diff = diff_glob
 #endif
 
-                    it = it + 1
+                        it = it + 1
+                    end do
+
+                    NEWTONRAPHSON_ERROR = max(NEWTONRAPHSON_ERROR,diff)
+
+                    call tlab_cache_spread_z(ql(1), nlines, nx*ny, nz, s(ib,inb_scal_ql))
+
                 end do
-                NEWTONRAPHSON_ERROR = diff
+#undef qt
+#undef ql
+#undef ql_expl
 
             else
                 write (tstr, "(I2)") inb_scal_ql
@@ -481,144 +519,170 @@ contains
             end if
 
         case (TYPE_EVA_QSCALC_IMPL, TYPE_EVA_QSCALC_SEMIIMPL)
-#define dTdql(i) wrk2d(i,1)
-#define qsat(i) tmp_eva(i,1)
-#define diqsdql(i) tmp_eva(i,2)
-
             if (is == inb_scal_ql) then
+                NEWTONRAPHSON_ERROR = 0.0_wp
+#define h(i) sCache(i,1)
+#define qt(i) sCache(i,2)
+#define ql(i) sCache(i,3)
+#define T_LOC(i) sCache(i,4)
+#define ql_expl(i) qCache(i,1)
+#define qs(i) qCache(i,2)
+#define diqsdql(i) qCache(i,3)
+                do ib = 1, nx*ny, groupSizeZ
+                    nlines = min(groupSizeZ, nx*ny - ib + 1)
+                    ! memory arrangement
+                    call tlab_cache_reduce_z(s(ib, inb_scal_qt), nlines, nx*ny, nz, qt(1))
+                    call tlab_cache_reduce_z(s(ib, inb_scal_ql), nlines, nx*ny, nz, ql(1))
+                    !call tlab_cache_reduce_z(s(ib, inb_scal_ql), nlines, nx*ny, nz, ql_expl(1))
+                    ql_expl(1:nlines*nz) = ql(1:nlines*nz)
 
-                if (locProps%type == TYPE_EVA_QSCALC_SEMIIMPL) then
-                    ! -------------------------------------------------------------------
-                    ! Update Temperature
-                    ! -------------------------------------------------------------------
-                    call TLab_Diagnostic(nx, ny, nz, s)
+                    if (locProps%type == TYPE_EVA_QSCALC_SEMIIMPL) then
+                        call tlab_cache_reduce_z(s(ib, inb_scal_e),  nlines, nx*ny, nz, h(1))
+                        call tlab_cache_reduce_z(s(ib, inb_scal_T),  nlines, nx*ny, nz, T_LOC(1))
 
-                    ! -------------------------------------------------------------------
-                    ! Update saturation specific humidity q_sat(T,p)
-                    ! -------------------------------------------------------------------
-#define P_LOC pbackground
-#define T_LOC s(:,inb_scal_T)
-#define psat qsat
-#define qstmp qsat
-                    psat(:) = THERMO_PSAT(NPSAT)
-                    do ipsat = NPSAT - 1, 1, -1
-                        psat(:) = psat(:)*T_LOC + THERMO_PSAT(ipsat)
-                    end do
-                    do k = 1, nz
-                        qstmp(1+(k-1)*nx*ny:k*nx*ny) = rd_ov_rv/(P_LOC(k)/psat(1+(k-1)*nx*ny:k*nx*ny) - 1.0_wp)
-                    end do
-                    qsat(:) = qstmp(:)/(1.0_wp + qstmp(:))
-#undef P_LOC
-#undef T_LOC
-#undef psat
-#undef qstmp
-                end if
-
-                diqsdql(:) = 0.0_wp
-                s_EXPL(:) = s(:,inb_scal_ql)
-                it = 0
-                diff = 1.0_wp
-                do while (diff > eps .and. it <= 10)
-                !do while (it<=10)
-                    if (locProps%type == TYPE_EVA_QSCALC_IMPL) then
                         ! -------------------------------------------------------------------
                         ! Update Temperature
                         ! -------------------------------------------------------------------
-                        call TLab_Diagnostic(nx, ny, nz, s)
+                        call TLab_Diagnostic(nlines, 1, nz, sCache(1:nlines*nz,:))
 
                         ! -------------------------------------------------------------------
                         ! Update saturation specific humidity q_sat(T,p)
                         ! -------------------------------------------------------------------
 #define P_LOC pbackground
-#define T_LOC s(:,inb_scal_T)
-#define psat qsat
-#define qstmp qsat
-
-#define E_LOC epbackground
-#define dpsdT diqsdql
-                        psat(:) = THERMO_PSAT(NPSAT)
-                        dpsdT(:) = 0.0_wp
+#define ps qs
+#define qstmp qs
+                        ps(1:nlines*nz) = THERMO_PSAT(NPSAT)
                         do ipsat = NPSAT - 1, 1, -1
-                            psat(:) = psat(:)*T_LOC + THERMO_PSAT(ipsat)
-                            dpsdT(:) = dpsdT(:)*T_LOC + THERMO_PSAT(ipsat + 1)*ipsat
+                            ps(1:nlines*nz) = ps(1:nlines*nz)*T_LOC(1:nlines*nz) + THERMO_PSAT(ipsat)
                         end do
                         do k = 1, nz
-                            dTdql(1:nx*ny) = ( Lv0*(Cd+Cdv*s(1+(k-1)*nx*ny:k*nx*ny,inb_scal_qt)) - Cvl*(s(1+(k-1)*nx*ny:k*nx*ny,inb_scal_e)-E_LOC(k)) )/(( Cd + Cdv*s(1+(k-1)*nx*ny:k*nx*ny,inb_scal_qt) + Cvl*s(1+(k-1)*nx*ny:k*nx*ny,inb_scal_ql) )**2)
-                            diqsdql(1+(k-1)*nx*ny:k*nx*ny)= -P_LOC(k)/(psat(1+(k-1)*nx*ny:k*nx*ny)**2)/rd_ov_rv * dpsdT(1+(k-1)*nx*ny:k*nx*ny) * dTdql(1:nx*ny)
-                            qstmp(1+(k-1)*nx*ny:k*nx*ny) = rd_ov_rv/(P_LOC(k)/psat(1+(k-1)*nx*ny:k*nx*ny) - 1.0_wp)
+                            qstmp(1+(k-1)*nlines:k*nlines) = rd_ov_rv/(P_LOC(k)/ps(1+(k-1)*nlines:k*nlines) - 1.0_wp)
                         end do
-                        qsat(:) = qstmp(:)/(1.0_wp + qstmp(:))
+                        qs(1:nlines*nz) = qstmp(1:nlines*nz)/(1.0_wp + qstmp(1:nlines*nz))
+
 #undef P_LOC
-#undef T_LOC
-#undef psat
+#undef ps
 #undef qstmp
 
+                    end if
+
+                    diqsdql(1:nlines*nz) = 0.0_wp
+                    it = 0
+                    diff = 1.0_wp
+                    do while (diff > eps .and. it <= 10)
+                    !do while (it<=10)
+                        if (locProps%type == TYPE_EVA_QSCALC_IMPL) then
+                            ! additional memory arrangement
+                            call tlab_cache_reduce_z(s(ib, inb_scal_T), nlines, nx*ny, nz, T_LOC(1))
+                            call tlab_cache_reduce_z(s(ib, inb_scal_e), nlines, nx*ny, nz, h(1))
+
+                            ! -------------------------------------------------------------------
+                            ! Update Temperature
+                            ! -------------------------------------------------------------------
+                            call TLab_Diagnostic(nlines, 1, nz, sCache(1:nlines*nz,:))
+
+                            ! -------------------------------------------------------------------
+                            ! Update saturation specific humidity q_sat(T,p)
+                            ! -------------------------------------------------------------------
+#define P_LOC pbackground
+#define ps qs
+#define qstmp qs
+#define E_LOC epbackground
+#define dpsdT diqsdql
+#define dTdql(i) tmp1(i)
+                            ps(1:nlines*nz) = THERMO_PSAT(NPSAT)
+                            dpsdT(1:nlines*nz) = 0.0_wp
+                            do ipsat = NPSAT - 1, 1, -1
+                                ps(1:nlines*nz) = ps(1:nlines*nz)*T_LOC(1:nlines*nz) + THERMO_PSAT(ipsat)
+                                dpsdT(1:nlines*nz) = dpsdT(1:nlines*nz)*T_LOC(1:nlines*nz) + THERMO_PSAT(ipsat + 1)*ipsat
+                            end do
+                            do k = 1, nz
+                                dTdql(1:nlines) = ( Lv0*(Cd+Cdv*qt(1+(k-1)*nlines:k*nlines)) - Cvl*(h(1+(k-1)*nlines:k*nlines)-E_LOC(k)) )/(( Cd + Cdv*qt(1+(k-1)*nlines:k*nlines) + Cvl*ql(1+(k-1)*nlines:k*nlines) )**2)
+                                diqsdql(1+(k-1)*nlines:k*nlines)= -P_LOC(k)/(ps(1+(k-1)*nlines:k*nlines)**2)/rd_ov_rv * dpsdT(1+(k-1)*nlines:k*nlines) * dTdql(1:nlines)
+                                qstmp(1+(k-1)*nlines:k*nlines) = rd_ov_rv/(P_LOC(k)/ps(1+(k-1)*nlines:k*nlines) - 1.0_wp)
+                            end do
+                            qs(1:nlines*nz) = qstmp(1:nlines*nz)/(1.0_wp + qstmp(1:nlines*nz))
+#undef P_LOC
+#undef ps
+#undef qstmp
 #undef E_LOC
 #undef dpsdT
-                    end if
+#undef dTdql
 
-                    ! -------------------------------------------------------------------
-                    ! Calculate condensation rate as Da * ( [ 1 - (1-q_t)/(1-q_l) ]/q_s - 1 ) * q_l^(1+alpha)
-                    ! -------------------------------------------------------------------
-                    if (nse_eqns == DNS_EQNS_ANELASTIC) then
-                        call Thermo_Anelastic_Weight_OutPlace(nx, ny, nz, rbackground, s(:,inb_scal_ql), rhoql)
-                    else
-                        rhoql = s(:,inb_scal_ql)
-                    end if
+                        end if
 
-                    rhoql = max(rhoql, 0.0_wp)
+#undef T_LOC
+#undef h
+! renew memory arrangement
+#define rhoql(i) sCache(i,4)
 
-                    ! --- Derivative df(q_l)/dq_l for NRmethod ---
-                    ! ( rescaled by q_l^alpha to avoid division by zero )
-                    tmp1 = ((1.0_wp - (1.0_wp - s(:, inb_scal_qt))/(1.0_wp - s(:, inb_scal_ql)))/qsat(:) - 1.0_wp)*(1.0_wp + mod_exponent)
-                    if (nse_eqns == DNS_EQNS_ANELASTIC) then
-                        call Thermo_Anelastic_Weight_InPlace(nx, ny, nz, rbackground, tmp1)
-                    end if
-                    tmp1 = tmp1  + ( -(1.0_wp-s(:,inb_scal_qt))/(1.0_wp-s(:,inb_scal_ql))**2/qsat(:) + ( 1.0_wp - (1.0_wp-s(:,inb_scal_qt))/(1.0_wp-s(:,inb_scal_ql)))*diqsdql(:) ) * rhoql
-                    tmp1 = tmp1*damkohler*locProps%parameters(1)
-                    if (nse_eqns == DNS_EQNS_ANELASTIC) then
-                        call Thermo_Anelastic_Weight_InPlace(nx, ny, nz, ribackground, tmp1)
-                    end if
-                    if (mod_exponent /= 0.0_wp) then ! to avoid the calculation of a power, if not necessary
-                        !tmp1 = sign(1.0_wp,rhoql)*(abs(rhoql))**(-mod_exponent) - dtrkm*tmp1
-                        tmp1 = rhoql**(-mod_exponent) - dtrkm*tmp1
-                    else
-                        tmp1 = 1.0_wp - dtrkm*tmp1
-                    end if
+                        ! -------------------------------------------------------------------
+                        ! Calculate condensation rate as Da * ( [ 1 - (1-q_t)/(1-q_l) ]/q_s - 1 ) * q_l^(1+alpha)
+                        ! -------------------------------------------------------------------
+                        if (nse_eqns == DNS_EQNS_ANELASTIC) then
+                            call Thermo_Anelastic_Weight_OutPlace(nlines, 1, nz, rbackground, ql(1), rhoql(1))
+                        else
+                            rhoql(1:nlines*nz) = ql(1:nlines*nz)
+                        end if
 
-                    ! --- Source term delta f(q_l) for NRmethod ---
-                    ! ( rescaled by q_l^alpha to avoid division by zero )
-                    tmp2 = damkohler*locProps%parameters(1)*((1.0_wp - (1.0_wp - s(:, inb_scal_qt))/(1.0_wp - s(:, inb_scal_ql)))/qsat(:) - 1.0_wp)*rhoql
-                    if (nse_eqns == DNS_EQNS_ANELASTIC) then
-                        call Thermo_Anelastic_Weight_InPlace(nx, ny, nz, ribackground, tmp2)
-                    end if
-                    if (mod_exponent /= 0.0_wp) then ! to avoid the calculation of a power, if not necessary
-                        !tmp2 = sign(1.0_wp,rhoql)*(abs(rhoql))**(-mod_exponent) * (s(:,inb_scal_ql) - s_EXPL) - dtrkm*tmp2
-                        tmp2 = rhoql**(-mod_exponent) * (s(:,inb_scal_ql) - s_EXPL) - dtrkm*tmp2
-                    else
-                        tmp2 = s(:,inb_scal_ql) - s_EXPL - dtrkm*tmp2
-                    end if
+                        rhoql(1:nlines*nz) = max(rhoql(1:nlines*nz), 0.0_wp)
 
-                    ! -------------------------------------------------------------------
-                    ! Newton-Raphson iteration
-                    ! -------------------------------------------------------------------
-                    s(:,inb_scal_ql) = s(:,inb_scal_ql) - tmp2/tmp1
-                    s(:,inb_scal_ql) = min(max(s(:,inb_scal_ql), 0.0_wp), s(:,inb_scal_qt))
+                        ! --- Derivative df(q_l)/dq_l for NRmethod ---
+                        ! ( rescaled by q_l^alpha to avoid division by zero )
+                        tmp1(1:nlines*nz) = ((1.0_wp - (1.0_wp - qt(1:nlines*nz))/(1.0_wp - ql(1:nlines*nz)))/qs(1:nlines*nz) - 1.0_wp)*(1.0_wp + mod_exponent)
+                        if (nse_eqns == DNS_EQNS_ANELASTIC) then
+                            call Thermo_Anelastic_Weight_InPlace(nlines, 1, nz, rbackground, tmp1(1))
+                        end if
+                        tmp1(1:nlines*nz) = tmp1(1:nlines*nz) + ( -(1.0_wp-qt(1:nlines*nz))/(1.0_wp-ql(1:nlines*nz))**2/qs(1:nlines*nz) + ( 1.0_wp - (1.0_wp-qt(1:nlines*nz))/(1.0_wp-ql(1:nlines*nz)))*diqsdql(1:nlines*nz) ) * rhoql(1:nlines*nz)
+                        tmp1(1:nlines*nz) = tmp1(1:nlines*nz)*damkohler*locProps%parameters(1)
+                        if (nse_eqns == DNS_EQNS_ANELASTIC) then
+                            call Thermo_Anelastic_Weight_InPlace(nlines, 1, nz, ribackground, tmp1(1))
+                        end if
+                        if (mod_exponent /= 0.0_wp) then ! to avoid the calculation of a power, if not necessary
+                            tmp1(1:nlines*nz) = rhoql(1:nlines*nz)**(-mod_exponent) - dtrkm*tmp1(1:nlines*nz)
+                        else
+                            tmp1(1:nlines*nz) = 1.0_wp - dtrkm*tmp1(1:nlines*nz)
+                        end if
 
-#ifdef _DEBUG
-                    diff = maxval(abs(tmp2/tmp1/s(:, inb_scal_ql)), mask=merge(.True.,.False., abs(tmp1*s(:,inb_scal_ql)) > 0.0_wp))
-#else
-                    diff = maxval(abs(tmp2/tmp1/s(:, inb_scal_ql)))
-#endif
+                        ! --- Source term delta f(q_l) for NRmethod ---
+                        ! ( rescaled by q_l^alpha to avoid division by zero )
+                        tmp2(1:nlines*nz) = damkohler*locProps%parameters(1)*((1.0_wp - (1.0_wp - qt(1:nlines*nz))/(1.0_wp - ql(1:nlines*nz)))/qs(1:nlines*nz) - 1.0_wp)*rhoql(1:nlines*nz)
+                        if (nse_eqns == DNS_EQNS_ANELASTIC) then
+                            call Thermo_Anelastic_Weight_InPlace(nlines, 1, nz, ribackground, tmp2(1))
+                        end if
+                        if (mod_exponent /= 0.0_wp) then ! to avoid the calculation of a power, if not necessary
+                            tmp2(1:nlines*nz) = rhoql(1:nlines*nz)**(-mod_exponent) * (ql(1:nlines*nz) - ql_expl(1:nlines*nz)) - dtrkm*tmp2(1:nlines*nz)
+                        else
+                            tmp2(1:nlines*nz) = ql(1:nlines*nz) - ql_expl(1:nlines*nz) - dtrkm*tmp2(1:nlines*nz)
+                        end if
+
+                        ! -------------------------------------------------------------------
+                        ! Newton-Raphson iteration
+                        ! -------------------------------------------------------------------
+                        ql(1:nlines*nz) = ql(1:nlines*nz) - tmp2(1:nlines*nz)/tmp1(1:nlines*nz)
+                        ql(1:nlines*nz) = min(max(ql(1:nlines*nz), 0.0_wp), qt(1:nlines*nz))
+
+                        diff = maxval(abs(tmp2(1:nlines*nz)/tmp1(1:nlines*nz)/ql(1:nlines*nz)), mask=merge(.True.,.False.,abs(tmp1(1:nlines*nz)*ql(1:nlines*nz)) > 0.0_wp))
 
 #ifdef USE_MPI
-                    call MPI_ALLREDUCE(diff, diff_glob, 1, MPI_REAL8, MPI_MAX, MPI_COMM_WORLD, ims_err)
-                    diff = diff_glob
+                        call MPI_ALLREDUCE(diff, diff_glob, 1, MPI_REAL8, MPI_MAX, MPI_COMM_WORLD, ims_err)
+                        diff = diff_glob
 #endif
 
-                    it = it + 1
+                        it = it + 1
+                    end do
+
+                    NEWTONRAPHSON_ERROR = max(NEWTONRAPHSON_ERROR,diff)
+
+                    call tlab_cache_spread_z(ql(1), nlines, nx*ny, nz, s(ib,inb_scal_ql))
+
                 end do
-                NEWTONRAPHSON_ERROR = diff
+#undef qt
+#undef ql
+#undef rhoql
+#undef ql_expl
+#undef qs
+#undef diqsdql
 
             else
                 write (tstr, "(I2)") inb_scal_ql
@@ -626,10 +690,6 @@ contains
                 call TLab_Warning('WARNING: Unexpectedly Scalar'//trim(istr)//' (other than q_l=Scalar'//trim(tstr)//') set to active for NON-EQUILIBRIUM EVAPORATION')
 
             end if
-
-#undef dTdql
-#undef qsat
-#undef diqsdql
 
         end select
 
